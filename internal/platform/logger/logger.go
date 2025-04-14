@@ -129,3 +129,16 @@ func FromContext(ctx context.Context) *slog.Logger {
 	}
 	return slog.Default()
 }
+
+// LogWithContext logs a message using the logger from the context.
+// It retrieves the logger using FromContext and logs the message with the specified
+// level and arguments.
+//
+// Parameters:
+//   - ctx: The context that may contain a logger
+//   - level: The severity level of the log message
+//   - msg: The message to log
+//   - args: Optional structured logging attributes as key-value pairs
+func LogWithContext(ctx context.Context, level slog.Level, msg string, args ...any) {
+	FromContext(ctx).Log(ctx, level, msg, args...)
+}

@@ -6,10 +6,18 @@
 
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
-* **1. Configuration Management Implementation:**
-    * Implement configuration loading (env vars primary, potentially config files for local dev via Viper/koanf) adhering to `ARCHITECTURE_GUIDELINES.md` Section 6.
-    * Create a strongly-typed configuration structure containing all application settings.
-    * Implement validation logic to ensure all required configuration values are present and valid.
+* **1. CI/CD Setup:**
+    * Set up GitHub Actions for continuous integration.
+    * Configure workflows for:
+      * Building and testing the code on every push and PR.
+      * Linting code with golangci-lint.
+      * Running security scanning.
+      * Automating deployment to DigitalOcean on main branch merges.
+    * Implement pre-commit hooks (using pre-commit framework) to ensure code quality:
+      * gofmt/goimports for consistent formatting.
+      * golangci-lint for catching issues early.
+      * Commit message validation for conventional commits.
+      * Potentially run fast tests pre-commit.
 
 * **2. Logging Framework Setup:**
     * Set up basic structured logging framework (e.g., `log/slog`, `zerolog`, `zap`).
@@ -96,20 +104,12 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Set up basic alerting via DO App Platform monitoring or external service for critical error logs.
     * Define a basic health check endpoint (`/healthz`).
 
-* **15. CI/CD Setup:**
-    * Set up GitHub Actions for continuous integration.
-    * Configure workflows for:
-      * Building and testing the code on every push and PR.
-      * Linting code with golangci-lint.
-      * Running security scanning.
-      * Automating deployment to DigitalOcean on main branch merges.
-    * Implement pre-commit hooks (using pre-commit framework) to ensure code quality:
-      * gofmt/goimports for consistent formatting.
-      * golangci-lint for catching issues early.
-      * Commit message validation for conventional commits.
-      * Potentially run fast tests pre-commit.
-
 ## Completed Items
 
 * **Project Setup & Configuration (Completed):**
     * ✅ Initialize Go module (`scry-api`) and standard project structure (e.g., `/cmd/server`, `/internal/domain`, `/internal/service`, `/internal/store`, `/internal/api`, `/internal/generation`, `/internal/task`, `/internal/config`, `/internal/platform/postgres`).
+
+* **Configuration Management Implementation (Completed):**
+    * ✅ Implement configuration loading (env vars primary, config files for local dev via Viper) adhering to `ARCHITECTURE_GUIDELINES.md` Section 6.
+    * ✅ Create a strongly-typed configuration structure containing all application settings.
+    * ✅ Implement validation logic to ensure all required configuration values are present and valid.

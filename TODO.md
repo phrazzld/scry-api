@@ -1,7 +1,7 @@
 # TODO
 
 ## Core Principles Issues
-- [ ] **Ignore or Delete Transient Plan Files:**
+- [x] **Ignore or Delete Transient Plan Files:**
   - **Action:** Update the `.gitignore` file to include the pattern `*-PLAN.md` OR manually delete the existing `*-PLAN.md` files (e.g., `configure-slog-handler-options-PLAN.md`, `create-initial-logger-go-file-PLAN.md`, etc.) from the repository to reduce clutter. Ensure `PLAN.md`, `TODO.md`, `CODE_REVIEW.md` are also appropriately handled (ignored or removed if transient).
   - **Depends On:** None
   - **AC Ref:** Core Principles Issue 1 (Transient Plan Files Management)

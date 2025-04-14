@@ -1,2 +1,26 @@
 repos:
-  # Hooks will be added in the next task
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-yaml
+  - id: check-added-large-files
+- repo: https://github.com/golangci/golangci-lint
+  rev: v1.59.1  # Use latest stable version compatible with your Go version
+  hooks:
+  - id: golangci-lint
+    args: ["--fix"] # Attempt to autofix issues
+- repo: https://github.com/segmentio/golines
+  rev: v0.12.2
+  hooks:
+  - id: golines
+    args: ["-w", "--max-len=120", "--base-formatter=goimports"] # Format + Imports + Line Length
+- repo: local
+  hooks:
+  - id: go-mod-tidy
+    name: go mod tidy
+    entry: go mod tidy
+    language: system
+    types: [go]
+    pass_filenames: false

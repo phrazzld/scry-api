@@ -49,9 +49,18 @@ func Load() (*Config, error) {
 	v.SetConfigType("yaml")   // specifies the format of the config file
 	v.AddConfigPath(".")      // look for config in the working directory
 
-	// Attempt to read the config file but ignore errors if it doesn't exist
-	// This makes the config file optional - environment variables or defaults can be used
-	_ = v.ReadInConfig()
+	// Attempt to read the config file
+	// Only ignore "file not found" errors, as the config file is optional
+	// Log other errors as warnings since they might indicate permission issues or malformed YAML
+	if err := v.ReadInConfig(); err != nil {
+		// Check if the error is a ConfigFileNotFoundError, which we can safely ignore
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			// This is not a "file not found" error, so it might be important
+			// In a production app, we'd log this as a warning
+			fmt.Printf("Warning: error reading config file: %v\n", err)
+		}
+		// Continue loading from other sources regardless of error type
+	}
 
 	// --- Configure environment variables ---
 	// Environment variables take precedence over config file values
@@ -71,7 +80,7 @@ func Load() (*Config, error) {
 		{"server.port", "SCRY_SERVER_PORT"},
 		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},
 	}
-	
+
 	for _, env := range bindEnvs {
 		err := v.BindEnv(env.key, env.envVar)
 		if err != nil {

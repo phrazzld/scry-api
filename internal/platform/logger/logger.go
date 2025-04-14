@@ -123,7 +123,11 @@ func WithRequestID(ctx context.Context, requestID string) context.Context {
 //
 // Returns:
 //   - *slog.Logger: The logger from the context or the default logger if none is found
+//     or if ctx is nil
 func FromContext(ctx context.Context) *slog.Logger {
+	if ctx == nil {
+		return slog.Default()
+	}
 	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok {
 		return logger
 	}

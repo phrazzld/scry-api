@@ -131,7 +131,7 @@
   - **Depends On:** Implement `FromContext` Helper Function
   - **AC Ref:** Implement contextual logging helpers
 
-- [ ] **Add Tests for Contextual Logging Helpers:**
+- [x] **Add Tests for Contextual Logging Helpers:**
   - **Action:** Create test cases in `logger_test.go` to verify the functionality of `WithRequestID`, `FromContext`, and `LogWithContext`. Test scenarios with and without a logger present in the context.
   - **Depends On:** Implement `LogWithContext` Helper Function
   - **AC Ref:** Implement contextual logging helpers

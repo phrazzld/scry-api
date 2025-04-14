@@ -3,6 +3,7 @@ package logger_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -124,8 +125,40 @@ func setupLogCapture(t *testing.T) (ts *testSetup, cleanup func()) {
 // parseLogEntry parses a JSON log entry from a string
 func parseLogEntry(logLine string) (map[string]interface{}, error) {
 	var entry map[string]interface{}
+	// Handle potentially empty lines from buffer splitting
+	if strings.TrimSpace(logLine) == "" {
+		return nil, io.EOF
+	}
 	err := json.Unmarshal([]byte(logLine), &entry)
 	return entry, err
+}
+
+// setupTestLogger redirects the default slog output to a buffer and returns
+// the buffer and a cleanup function to restore the original logger.
+func setupTestLogger(t *testing.T, level slog.Level) (*testLogBuffer, func()) {
+	t.Helper()
+
+	// Create a synchronized buffer to capture log output
+	logBuf := &testLogBuffer{}
+
+	// Save the original default logger to restore later
+	originalLogger := slog.Default()
+
+	// Create a new logger with a JSON handler writing to our buffer
+	handler := slog.NewJSONHandler(logBuf, &slog.HandlerOptions{
+		Level: level,
+	})
+	testLogger := slog.New(handler)
+
+	// Set this as the default for the test
+	slog.SetDefault(testLogger)
+
+	// Return the buffer and a cleanup function
+	cleanup := func() {
+		slog.SetDefault(originalLogger)
+	}
+
+	return logBuf, cleanup
 }
 
 // TestSetup is a basic test that ensures the Setup function works without errors
@@ -487,4 +520,380 @@ func TestValidLogLevelParsing(t *testing.T) {
 			// mapping between the input strings and slog level constants
 		})
 	}
+}
+
+// --- Tests for Contextual Logging Helpers ---
+
+// TestWithRequestID verifies that WithRequestID adds a request ID to the logger
+// within the returned context.
+func TestWithRequestID(t *testing.T) {
+	// Arrange: Setup logger and capture buffer
+	logBuf, cleanup := setupTestLogger(t, slog.LevelDebug)
+	defer cleanup()
+
+	baseCtx := context.Background()
+	testRequestID := "req-12345"
+
+	// Act: Create a context with the request ID
+	ctxWithID := logger.WithRequestID(baseCtx, testRequestID)
+
+	// Assert: Context should not be the same as the base context
+	if baseCtx == ctxWithID {
+		t.Error("WithRequestID should return a new context, not the same context")
+	}
+
+	// Act: Log using the logger from the new context
+	loggerFromCtx := logger.FromContext(ctxWithID)
+	loggerFromCtx.Info("message with request id")
+
+	// Assert: Check the log output for the request ID
+	output := logBuf.String()
+	if output == "" {
+		t.Fatal("Expected log output, but got none")
+	}
+
+	// Parse the log entry
+	entry, err := parseLogEntry(output)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	// Verify the request ID is in the log entry
+	actualRequestID, hasRequestID := entry["request_id"]
+	if !hasRequestID {
+		t.Error("Request ID not found in log entry")
+	} else if actualRequestID != testRequestID {
+		t.Errorf("Expected request ID to be %q, got %q", testRequestID, actualRequestID)
+	}
+
+	// Assert: Log using the base context's logger (should not have request ID)
+	logBuf.Reset()
+	loggerFromBaseCtx := logger.FromContext(baseCtx) // Should be the default logger
+	loggerFromBaseCtx.Info("message without request id")
+
+	outputBase := logBuf.String()
+	if outputBase == "" {
+		t.Fatal("Expected log output from base context, but got none")
+	}
+
+	// Parse the log entry
+	entryBase, err := parseLogEntry(outputBase)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry from base context: %v", err)
+	}
+
+	// Verify the base context's logger doesn't include the request ID
+	_, hasRequestID = entryBase["request_id"]
+	if hasRequestID {
+		t.Error("Request ID should not be present in logs from base context")
+	}
+}
+
+// TestFromContext verifies that FromContext retrieves the correct logger:
+// - The specific logger if one exists in the context.
+// - The default logger if no logger is found in the context.
+// - The default logger if the context is nil.
+func TestFromContext(t *testing.T) {
+	// Arrange: Setup logger and capture buffer
+	logBuf, cleanup := setupTestLogger(t, slog.LevelDebug)
+	defer cleanup()
+
+	baseCtx := context.Background()
+	testRequestID := "req-abcde"
+
+	// --- Scenario 1: Context WITH logger ---
+	t.Run("ContextWithLogger", func(t *testing.T) {
+		logBuf.Reset()
+		ctxWithID := logger.WithRequestID(baseCtx, testRequestID)
+
+		// Act: Get logger from context
+		retrievedLogger := logger.FromContext(ctxWithID)
+
+		// Verify it's not nil
+		if retrievedLogger == nil {
+			t.Fatal("Retrieved logger is nil")
+		}
+
+		// Use the logger
+		retrievedLogger.Info("logging via retrieved logger")
+
+		// Assert: Logger should include the request ID
+		output := logBuf.String()
+		if output == "" {
+			t.Fatal("Expected log output, but got none")
+		}
+
+		entry, err := parseLogEntry(output)
+		if err != nil {
+			t.Fatalf("Failed to parse log entry: %v", err)
+		}
+
+		// Verify the request ID is in the log entry
+		actualRequestID, hasRequestID := entry["request_id"]
+		if !hasRequestID {
+			t.Error("Request ID not found in log entry")
+		} else if actualRequestID != testRequestID {
+			t.Errorf("Expected request ID to be %q, got %q", testRequestID, actualRequestID)
+		}
+	})
+
+	// --- Scenario 2: Context WITHOUT logger ---
+	t.Run("ContextWithoutLogger", func(t *testing.T) {
+		logBuf.Reset()
+
+		// Act: Get logger from empty context
+		retrievedLogger := logger.FromContext(baseCtx)
+
+		// Use the logger
+		retrievedLogger.Info("logging via default logger")
+
+		// Assert: Should use default logger (no request ID)
+		output := logBuf.String()
+		if output == "" {
+			t.Fatal("Expected log output, but got none")
+		}
+
+		entry, err := parseLogEntry(output)
+		if err != nil {
+			t.Fatalf("Failed to parse log entry: %v", err)
+		}
+
+		// Verify there's no request ID
+		_, hasRequestID := entry["request_id"]
+		if hasRequestID {
+			t.Error("Request ID should not be present when retrieved from context without logger")
+		}
+
+		// Verify the message was logged correctly
+		msg, hasMsg := entry["msg"]
+		if !hasMsg {
+			t.Error("Log message not found in entry")
+		} else if msg != "logging via default logger" {
+			t.Errorf("Expected message to be %q, got %q", "logging via default logger", msg)
+		}
+	})
+
+	// --- Scenario 3: Nil Context ---
+	t.Run("NilContext", func(t *testing.T) {
+		logBuf.Reset()
+
+		// Act: Get logger from nil context (should not panic)
+		var nilCtx context.Context
+		retrievedLogger := logger.FromContext(nilCtx)
+
+		// Verify it's not nil (should be default logger)
+		if retrievedLogger == nil {
+			t.Fatal("Retrieved logger from nil context is nil")
+		}
+
+		// Use the logger
+		retrievedLogger.Info("logging via logger from nil context")
+
+		// Assert: Should use default logger
+		output := logBuf.String()
+		if output == "" {
+			t.Fatal("Expected log output, but got none")
+		}
+
+		entry, err := parseLogEntry(output)
+		if err != nil {
+			t.Fatalf("Failed to parse log entry: %v", err)
+		}
+
+		// Verify there's no request ID
+		_, hasRequestID := entry["request_id"]
+		if hasRequestID {
+			t.Error("Request ID should not be present when retrieved from nil context")
+		}
+
+		// Verify the message was logged correctly
+		msg, hasMsg := entry["msg"]
+		if !hasMsg {
+			t.Error("Log message not found in entry")
+		} else if msg != "logging via logger from nil context" {
+			t.Errorf("Expected message to be %q, got %q", "logging via logger from nil context", msg)
+		}
+	})
+}
+
+// TestLogWithContext verifies that LogWithContext uses the appropriate logger
+// based on the context provided and logs messages at the specified level.
+func TestLogWithContext(t *testing.T) {
+	// Arrange: Setup logger and capture buffer
+	logBuf, cleanup := setupTestLogger(t, slog.LevelDebug)
+	defer cleanup()
+
+	baseCtx := context.Background()
+	testRequestID := "req-log-ctx-987"
+	testAttrKey := "user_id"
+	testAttrValue := 123
+
+	// --- Scenario 1: Context WITH logger ---
+	t.Run("ContextWithLogger", func(t *testing.T) {
+		logBuf.Reset()
+		ctxWithID := logger.WithRequestID(baseCtx, testRequestID)
+
+		// Act: Log through the LogWithContext function
+		logger.LogWithContext(ctxWithID, slog.LevelWarn, "warning message with context", testAttrKey, testAttrValue)
+
+		// Assert: Verify the log output
+		output := logBuf.String()
+		if output == "" {
+			t.Fatal("Expected log output, but got none")
+		}
+
+		entry, err := parseLogEntry(output)
+		if err != nil {
+			t.Fatalf("Failed to parse log entry: %v", err)
+		}
+
+		// Verify log level
+		level, hasLevel := entry["level"]
+		if !hasLevel {
+			t.Error("Log level not found in entry")
+		} else if level != "WARN" {
+			t.Errorf("Expected level to be %q, got %q", "WARN", level)
+		}
+
+		// Verify message
+		msg, hasMsg := entry["msg"]
+		if !hasMsg {
+			t.Error("Log message not found in entry")
+		} else if msg != "warning message with context" {
+			t.Errorf("Expected message to be %q, got %q", "warning message with context", msg)
+		}
+
+		// Verify request ID from context
+		actualRequestID, hasRequestID := entry["request_id"]
+		if !hasRequestID {
+			t.Error("Request ID not found in entry")
+		} else if actualRequestID != testRequestID {
+			t.Errorf("Expected request ID to be %q, got %q", testRequestID, actualRequestID)
+		}
+
+		// Verify custom attribute
+		attrValue, hasAttr := entry[testAttrKey]
+		if !hasAttr {
+			t.Errorf("Custom attribute %q not found in entry", testAttrKey)
+		} else {
+			// JSON numbers are parsed as float64
+			floatVal, ok := attrValue.(float64)
+			if !ok {
+				t.Errorf("Expected attribute value to be float64, got %T", attrValue)
+			} else if int(floatVal) != testAttrValue {
+				t.Errorf("Expected attribute value to be %d, got %f", testAttrValue, floatVal)
+			}
+		}
+	})
+
+	// --- Scenario 2: Context WITHOUT logger ---
+	t.Run("ContextWithoutLogger", func(t *testing.T) {
+		logBuf.Reset()
+
+		// Act: Log through LogWithContext with empty context
+		logger.LogWithContext(baseCtx, slog.LevelInfo, "info message without context", testAttrKey, testAttrValue)
+
+		// Assert: Verify the log output
+		output := logBuf.String()
+		if output == "" {
+			t.Fatal("Expected log output, but got none")
+		}
+
+		entry, err := parseLogEntry(output)
+		if err != nil {
+			t.Fatalf("Failed to parse log entry: %v", err)
+		}
+
+		// Verify log level
+		level, hasLevel := entry["level"]
+		if !hasLevel {
+			t.Error("Log level not found in entry")
+		} else if level != "INFO" {
+			t.Errorf("Expected level to be %q, got %q", "INFO", level)
+		}
+
+		// Verify message
+		msg, hasMsg := entry["msg"]
+		if !hasMsg {
+			t.Error("Log message not found in entry")
+		} else if msg != "info message without context" {
+			t.Errorf("Expected message to be %q, got %q", "info message without context", msg)
+		}
+
+		// Verify no request ID
+		_, hasRequestID := entry["request_id"]
+		if hasRequestID {
+			t.Error("Request ID should not be present with empty context")
+		}
+
+		// Verify custom attribute
+		attrValue, hasAttr := entry[testAttrKey]
+		if !hasAttr {
+			t.Errorf("Custom attribute %q not found in entry", testAttrKey)
+		} else {
+			// JSON numbers are parsed as float64
+			floatVal, ok := attrValue.(float64)
+			if !ok {
+				t.Errorf("Expected attribute value to be float64, got %T", attrValue)
+			} else if int(floatVal) != testAttrValue {
+				t.Errorf("Expected attribute value to be %d, got %f", testAttrValue, floatVal)
+			}
+		}
+	})
+
+	// --- Scenario 3: Nil Context ---
+	t.Run("NilContext", func(t *testing.T) {
+		logBuf.Reset()
+
+		// Act: Log through LogWithContext with nil context (should not panic)
+		var nilCtx context.Context
+		logger.LogWithContext(nilCtx, slog.LevelError, "error message with nil context", testAttrKey, testAttrValue)
+
+		// Assert: Verify the log output
+		output := logBuf.String()
+		if output == "" {
+			t.Fatal("Expected log output, but got none")
+		}
+
+		entry, err := parseLogEntry(output)
+		if err != nil {
+			t.Fatalf("Failed to parse log entry: %v", err)
+		}
+
+		// Verify log level
+		level, hasLevel := entry["level"]
+		if !hasLevel {
+			t.Error("Log level not found in entry")
+		} else if level != "ERROR" {
+			t.Errorf("Expected level to be %q, got %q", "ERROR", level)
+		}
+
+		// Verify message
+		msg, hasMsg := entry["msg"]
+		if !hasMsg {
+			t.Error("Log message not found in entry")
+		} else if msg != "error message with nil context" {
+			t.Errorf("Expected message to be %q, got %q", "error message with nil context", msg)
+		}
+
+		// Verify no request ID
+		_, hasRequestID := entry["request_id"]
+		if hasRequestID {
+			t.Error("Request ID should not be present with nil context")
+		}
+
+		// Verify custom attribute
+		attrValue, hasAttr := entry[testAttrKey]
+		if !hasAttr {
+			t.Errorf("Custom attribute %q not found in entry", testAttrKey)
+		} else {
+			// JSON numbers are parsed as float64
+			floatVal, ok := attrValue.(float64)
+			if !ok {
+				t.Errorf("Expected attribute value to be float64, got %T", attrValue)
+			} else if int(floatVal) != testAttrValue {
+				t.Errorf("Expected attribute value to be %d, got %f", testAttrValue, floatVal)
+			}
+		}
+	})
 }

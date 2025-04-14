@@ -1,6 +1,54 @@
 # TODO
 
-## Dependencies
+## Database Infrastructure Provisioning (Completed)
+- [x] **Set up DigitalOcean Managed PostgreSQL instance:** Create and configure the database
+  - **Action:** Use Terraform to provision a DigitalOcean Managed PostgreSQL instance with appropriate sizing for the application's expected load. Configure with an appropriate name (e.g., `scry-db-prd` for production, `scry-db-dev` for development).
+  - **Depends On:** None
+  - **AC Ref:** Database Infrastructure 1.1
+
+- [x] **Configure PostgreSQL instance settings:** Optimize performance settings
+  - **Action:** Configure appropriate resource allocation (CPU, RAM), connection limits, and PostgreSQL settings (work_mem, shared_buffers) through Terraform configuration. Document the chosen configuration in the Terraform files.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
+  - **AC Ref:** Database Infrastructure 1.2
+
+- [x] **Enable pgvector extension:** Configure vector support for potential future use
+  - **Action:** Enable the `pgvector` extension on the PostgreSQL instance using Terraform's PostgreSQL provider. Verify extension activation through tests.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
+  - **AC Ref:** Database Infrastructure 1.3
+
+- [x] **Configure database access and credentials:** Secure the database
+  - **Action:** Create appropriate database user accounts with Terraform configuration. Set up appropriate permissions following the principle of least privilege. Document credential management approach.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
+  - **AC Ref:** Database Infrastructure 1.4
+
+- [x] **Set up database backup schedule:** Ensure data durability
+  - **Action:** Configure automated backups via Terraform with appropriate frequency and retention periods. Document the backup configuration in the Terraform files.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
+  - **AC Ref:** Database Infrastructure 1.5
+
+- [x] **Configure database monitoring:** Track performance and resource usage
+  - **Action:** Set up monitoring for key database metrics (CPU usage, memory usage, disk space) using Terraform. Configure appropriate alerts for critical thresholds.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
+  - **AC Ref:** Database Infrastructure 1.6
+
+- [x] **Document database connection parameters:** Create reference for application configuration
+  - **Action:** Document the database connection parameters and how to retrieve them from Terraform outputs. Include examples for local development and production deployment.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance, Configure database access and credentials
+  - **AC Ref:** Database Infrastructure 1.7
+
+- [x] **Set up local development database configuration:** Support development workflow
+  - **Action:** Create Docker Compose setup for local development database that mirrors the production configuration. Document in `LOCAL_DEVELOPMENT.md`.
+  - **Depends On:** Document database connection parameters
+  - **AC Ref:** Database Infrastructure 1.8
+
+- [x] **Test database migrations on provisioned instance:** Verify migration framework
+  - **Action:** Create a script to run migrations against the provisioned database and add tests to verify the process. Document the process in `README.md`.
+  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance, Configure database access and credentials
+  - **AC Ref:** Database Infrastructure 1.9
+
+## Previously Completed Tasks
+
+### Dependencies
 - [x] **Add pressly/goose dependency:** Add goose migration framework to the project
   - **Action:** Run `go get github.com/pressly/goose/v3` to add the goose library to `go.mod`.
   - **Depends On:** None
@@ -16,7 +64,7 @@
   - **Depends On:** Add pressly/goose dependency, Add PostgreSQL driver
   - **AC Ref:** Section 2.1.2
 
-## Migration Directory Structure
+### Migration Directory Structure
 - [x] **Create migrations directory:** Create directory for SQL migration files
   - **Action:** Create the directory `internal/platform/postgres/migrations` for storing SQL migration files.
   - **Depends On:** None
@@ -27,7 +75,7 @@
   - **Depends On:** Create migrations directory
   - **AC Ref:** Section 2.2.2
 
-## Migration Command Handling
+### Migration Command Handling
 - [x] **Define migration command-line flags:** Add command flags to main.go
   - **Action:** Use the standard `flag` package in `cmd/server/main.go` to define `-migrate` (string) and `-name` (string) flags for controlling migration operations. Parse flags early in `main`.
   - **Depends On:** None
@@ -53,7 +101,7 @@
   - **Depends On:** Implement database connection logic
   - **AC Ref:** Section 2.3.2, 5.1
 
-## Logging Integration
+### Logging Integration
 - [x] **Define slogGooseLogger struct and methods:** Create custom logger adapter for goose
   - **Action:** Create the `slogGooseLogger` struct and implement the `Printf(format string, v ...interface{})` and `Fatalf(format string, v ...interface{})` methods to adapt `goose`'s logging output to the application's `slog` logger. Ensure `Fatalf` logs an error but does *not* call `os.Exit(1)` directly (let main.go handle exits).
   - **Depends On:** None
@@ -64,7 +112,7 @@
   - **Depends On:** Define runMigrations function signature, Define slogGooseLogger struct and methods
   - **AC Ref:** Section 2.4.2, 3.1
 
-## Migration Command Implementation
+### Migration Command Implementation
 - [x] **Implement up command logic:** Add support for applying migrations
   - **Action:** Add a case for "up" in the `switch command` block within `runMigrations`. Call `goose.Up(db, migrationsDir)` and return its result.
   - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
@@ -95,7 +143,7 @@
   - **Depends On:** Define runMigrations function signature
   - **AC Ref:** Section 2.5, 3.1
 
-## Testing
+### Testing
 - [x] **Implement unit tests for migration flag parsing:** Test flag parsing logic
   - **Action:** Write unit tests for `main.go` to verify that the `-migrate` and `-name` flags are correctly parsed under various scenarios (present, absent, combined).
   - **Depends On:** Define migration command-line flags
@@ -116,7 +164,7 @@
   - **Depends On:** Implement up, down, status and version command logic
   - **AC Ref:** Section 2.6, 4.3
 
-## Documentation
+### Documentation
 - [x] **Update README.md with migration command usage:** Document command-line interface
   - **Action:** Add a new section to `README.md` explaining how to use the `-migrate` flag with the available commands (`up`, `down`, `status`, `create`, `version`) and the `-name` flag. Include practical examples.
   - **Depends On:** Implement all migration command logic tasks
@@ -139,3 +187,7 @@
 - [x] **Issue/Assumption:** No explicit Acceptance Criteria in PLAN.md
   - **Context:** The PLAN.md document does not contain explicitly labeled Acceptance Criteria.
   - **Assumption:** The section numbers provided in the AC Ref fields above refer to the corresponding sections in PLAN.md that define the requirements for each task.
+
+- [ ] **Issue/Assumption:** Database provisioning process
+  - **Context:** The "Provision Database Infrastructure" task in BACKLOG.md.
+  - **Assumption:** This task involves manual setup of DigitalOcean resources, which may incur costs. Documentation of the process in code is essential, but actual provisioning should be confirmed with stakeholders before execution.

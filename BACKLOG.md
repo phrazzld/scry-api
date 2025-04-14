@@ -34,12 +34,13 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Add essential indexes (esp. on `user_card_stats` for `next_review_at`).
     * ✅ Implement rollback migrations.
 
-* **Provision Database Infrastructure:**
-    * Provision DigitalOcean Managed PostgreSQL instance.
-    * Configure PostgreSQL settings for optimal performance.
-    * Enable `pgvector` extension on the DO Managed Postgres instance.
-    * Set up backup and monitoring.
-    * Document connection and access procedures.
+* **Provision Database Infrastructure (Completed):**
+    * ✅ Provision DigitalOcean Managed PostgreSQL instance using Infrastructure as Code (Terraform).
+    * ✅ Configure PostgreSQL settings for optimal performance.
+    * ✅ Enable `pgvector` extension on the DO Managed Postgres instance.
+    * ✅ Set up backup and monitoring.
+    * ✅ Document connection and access procedures.
+    * ✅ Create local development database setup with Docker.
 
 * **Core Domain Logic Implementation (SRS):**
     * Define `srs.Service` interface within the core domain/application layer.

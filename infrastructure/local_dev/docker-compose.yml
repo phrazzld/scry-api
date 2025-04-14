@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: scry
+      POSTGRES_USER: scryapiuser
+      POSTGRES_PASSWORD: local_development_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "work_mem=16MB", "-c", "max_connections=50"]
+
+volumes:
+  postgres_data:

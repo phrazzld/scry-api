@@ -1,0 +1,12 @@
+do_token = "your-digitalocean-api-token"
+cluster_name = "scry-db-prd"
+database_name = "scry"
+region = "nyc1"
+node_size = "db-s-1vcpu-1gb"
+node_count = 1
+authorized_ips = [
+  "203.0.113.0/24"  # Example IP range - replace with actual allowed IPs
+]
+alert_emails = [
+  "admin@example.com"  # Replace with actual alert contact emails
+]

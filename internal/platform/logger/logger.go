@@ -49,8 +49,8 @@ type loggerKey struct{}
 //
 // Returns:
 //   - *slog.Logger: The configured structured logger instance
-//   - error: Always returns nil in current implementation, but included for
-//     future extensibility (e.g., if file output is added with potential errors)
+//   - error: Always returns nil in current implementation, but included in the signature
+//     for future extensions (e.g., adding file logging which might fail)
 //
 // Default Behavior:
 //   - JSON output is directed to stdout

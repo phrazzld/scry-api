@@ -12,7 +12,7 @@
   - **AC Ref:** Core Principles Issue 2 (Unnecessary Directive)
 
 ## Architecture & Design Issues
-- [ ] **Align Log Level Validation and Implementation:**
+- [x] **Align Log Level Validation and Implementation:**
   - **Action:** Review and update the log level validation logic in `internal/config/config.go:37` (validator tag `oneof=...`), the example in `config.yaml.example`, and any related documentation (e.g., Godoc in `logger.go`) to ensure they consistently reflect the supported log levels (debug, info, warn, error) and do not include "fatal".
   - **Depends On:** None
   - **AC Ref:** Architecture & Design Issue 1 (Log Level Validation vs. Implementation)

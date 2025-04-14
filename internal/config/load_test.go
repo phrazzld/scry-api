@@ -27,9 +27,18 @@ func setupEnv(t *testing.T, envVars map[string]string) func() {
 		// Restore original environment
 		for name, value := range originalValues {
 			if value == "" {
-				os.Unsetenv(name)
+				err := os.Unsetenv(name)
+				if err != nil {
+					// In a real application, we might want to log this
+					// For tests, we'll ignore these errors as they're unlikely
+					// and won't affect test results
+					t.Logf("Warning: Failed to unset env var %s: %v", name, err)
+				}
 			} else {
-				os.Setenv(name, value)
+				err := os.Setenv(name, value)
+				if err != nil {
+					t.Logf("Warning: Failed to restore env var %s: %v", name, err)
+				}
 			}
 		}
 	}

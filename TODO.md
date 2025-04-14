@@ -33,7 +33,7 @@
   - **Depends On:** Simplify Logger Test Setup
   - **AC Ref:** Testing Strategy Issue 2 (Limited Assertions in Log Level Tests)
 
-- [ ] **Remove Unnecessary `nolint:unused` Directives in Test Code:**
+- [x] **Remove Unnecessary `nolint:unused` Directives in Test Code:**
   - **Action:** Remove the `// nolint:unused` comments from the `stderrReader` and `stdoutReader` fields in the `testSetup` struct definition in `internal/platform/logger/logger_test.go` (lines 55-56) as they are intended for future use or potentially used indirectly. If any fields are truly unused after refactoring, remove them.
   - **Depends On:** Simplify Logger Test Setup
   - **AC Ref:** Testing Strategy Issue 3 (Unused Directives in Test Code)

@@ -3,8 +3,7 @@ package logger
 
 import (
 	"log/slog"
-	// os will be used in subsequent tasks
-	_ "os"
+	"os"
 	"strings"
 
 	"github.com/phrazzld/scry-api/internal/config"
@@ -28,11 +27,20 @@ func Setup(cfg config.ServerConfig) (*slog.Logger, error) {
 		level = slog.LevelWarn
 	case "error":
 		level = slog.LevelError
-		// The default case will be implemented in the next task
+	default:
+		// If the log level is invalid, use info level as default and log a warning
+		level = slog.LevelInfo
+
+		// Create a temporary logger to output the warning
+		// This will use the default handler (text output to stderr)
+		tmpLogger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+		tmpLogger.Warn("invalid log level configured, using default level",
+			"configured_level", cfg.LogLevel,
+			"default_level", "info")
 	}
 
-	// Level will be used in subsequent tasks, but we're declaring it here
-	// to ensure the parsing logic is in place
+	// Level will be used in subsequent tasks, but we're ensuring it's used
+	// to avoid compiler errors
 	_ = level
 
 	// The rest of the function will be implemented in subsequent tasks

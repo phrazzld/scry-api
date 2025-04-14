@@ -41,7 +41,7 @@
   - **AC Ref:** PLAN.md Step 3.2.2, 3.2.3, 3.2.4
 
 ### Integration in Main Application
-- [ ] **Update `main.go` to use configuration:** 
+- [x] **Update `main.go` to use configuration:** 
   - **Action:** Update `cmd/server/main.go` to import the `internal/config` package. Call `config.Load()` early in the `main` function. Handle errors by logging and terminating if loading fails. Add a simple log message showing loaded values and a placeholder comment for future dependency injection.
   - **Depends On:** Implement configuration loading logic
   - **AC Ref:** PLAN.md Step 3.3.1, 3.3.2, 3.3.3

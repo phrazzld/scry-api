@@ -1,0 +1,68 @@
+// Package testutils provides common utilities for testing across the application.
+// It centralizes repeated test setup and teardown logic to avoid duplication
+// and standardize testing practices.
+package testutils
+
+import (
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// SetupEnv sets up environment variables for testing and returns a cleanup function.
+// It captures the original environment variable values, sets new values for the test,
+// and returns a function that will restore the original values when called.
+//
+// Parameters:
+//   - t: The testing.T instance for the current test
+//   - envVars: A map of environment variable names to the values they should be set to
+//
+// Returns:
+//   - A cleanup function that should be deferred to restore the original environment
+//     variables after the test completes.
+//
+// Example usage:
+//
+//	func TestSomething(t *testing.T) {
+//	    cleanup := testutils.SetupEnv(t, map[string]string{
+//	        "SOME_ENV_VAR": "test-value",
+//	    })
+//	    defer cleanup()
+//
+//	    // Test code that depends on environment variables
+//	}
+func SetupEnv(t *testing.T, envVars map[string]string) func() {
+	// Save current environment values
+	originalValues := make(map[string]string)
+	for name := range envVars {
+		originalValues[name] = os.Getenv(name)
+	}
+
+	// Set new environment variables
+	for name, value := range envVars {
+		err := os.Setenv(name, value)
+		require.NoError(t, err, "Failed to set environment variable %s", name)
+	}
+
+	// Return cleanup function
+	return func() {
+		// Restore original environment
+		for name, value := range originalValues {
+			if value == "" {
+				err := os.Unsetenv(name)
+				if err != nil {
+					// In a real application, we might want to log this
+					// For tests, we'll ignore these errors as they're unlikely
+					// and won't affect test results
+					t.Logf("Warning: Failed to unset env var %s: %v", name, err)
+				}
+			} else {
+				err := os.Setenv(name, value)
+				if err != nil {
+					t.Logf("Warning: Failed to restore env var %s: %v", name, err)
+				}
+			}
+		}
+	}
+}

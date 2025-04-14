@@ -39,7 +39,7 @@
   - **AC Ref:** Testing Strategy Issue 3 (Unused Directives in Test Code)
 
 ## Code Quality Issues
-- [ ] **Replace HTML Entities in Test Code Comments:**
+- [x] **Replace HTML Entities in Test Code Comments:**
   - **Action:** Search for and replace all instances of the HTML entity `&gt;` with the literal `>` character within comments in the `internal/platform/logger/logger_test.go` file.
   - **Depends On:** None
   - **AC Ref:** Code Quality Issue 1 (HTML Entity in Code Comments)

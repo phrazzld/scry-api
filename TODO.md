@@ -47,7 +47,7 @@
   - **AC Ref:** PLAN.md Step 3.3.1, 3.3.2, 3.3.3
 
 ### Supporting Files
-- [ ] **Create example configuration files:** 
+- [x] **Create example configuration files:** 
   - **Action:** Create two files:
     1. `.env.example` containing documented variables with the "SCRY_" prefix
     2. `config.yaml.example` with the same variables in YAML format

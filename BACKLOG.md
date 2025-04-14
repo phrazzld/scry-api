@@ -42,9 +42,11 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Document connection and access procedures.
     * ✅ Create local development database setup with Docker.
 
-* **Core Domain Logic Implementation (SRS):**
-    * Define `srs.Service` interface within the core domain/application layer.
-    * Implement basic SRS algorithm logic (SM-2 variant) within the `srs` service. *Action Required: Define precise MVP parameters (initial intervals, ease factors, lapse handling) in a separate design doc before implementation.* Adhere to pure function principles where possible (`CODING_STANDARDS.md` Section 4).
+* **Core Domain Logic Implementation (SRS) (Completed):**
+    * ✅ Define `srs.Service` interface within the core domain/application layer.
+    * ✅ Implement basic SRS algorithm logic (SM-2 variant) within the `srs` service.
+    * ✅ Define precise MVP parameters (initial intervals, ease factors, lapse handling) in a separate design doc.
+    * ✅ Adhere to pure function principles as specified in `CODING_STANDARDS.md` Section 4.
 
 * **Authentication Implementation:**
     * Implement `store.UserStore` interface and PostgreSQL implementation (`internal/platform/postgres`) for user CRUD, including secure password hashing (`bcrypt`).

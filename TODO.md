@@ -1,5 +1,31 @@
 # TODO
 
+## Core Domain Logic Implementation (SRS)
+- [x] **Define SRS service interface:** Create the core interface for the SRS service
+  - **Action:** Create a new package `internal/domain/srs` and define a `Service` interface that abstracts the SRS algorithm operations. Include methods for calculating next review times, updating card statistics based on review outcomes, and handling special cases like postponements.
+  - **Depends On:** None
+  - **AC Ref:** SRS Implementation 1.1
+
+- [x] **Implement SRS algorithm core logic:** Create pure functions for SRS calculations
+  - **Action:** Implement the core SM-2 variant algorithm logic as pure functions that take input parameters and return calculated results without side effects. Functions should handle interval calculations, ease factor adjustments, and next review time determination based on the defined algorithm parameters.
+  - **Depends On:** Define SRS service interface
+  - **AC Ref:** SRS Implementation 1.2
+
+- [x] **Define SRS algorithm parameters:** Document MVP algorithm parameters
+  - **Action:** Create a design document (`docs/design/srs_algorithm.md`) that defines and justifies the specific algorithm parameters for the MVP, including initial intervals, ease factor ranges, adjustment values for different outcomes, and lapse handling approach. Include examples of the algorithm's behavior for different review sequences.
+  - **Depends On:** Implement SRS algorithm core logic
+  - **AC Ref:** SRS Implementation 1.3
+
+- [x] **Implement SRS service concrete implementation:** Create the default service
+  - **Action:** Implement a concrete service that fulfills the `srs.Service` interface. This implementation should use the pure algorithm functions and adhere to the defined parameters. Include proper validation, error handling, and edge case management.
+  - **Depends On:** Define SRS algorithm parameters
+  - **AC Ref:** SRS Implementation 1.4
+
+- [x] **Write comprehensive tests for SRS service:** Verify algorithm correctness
+  - **Action:** Create unit tests for the SRS service that verify the algorithm's correctness for various scenarios, including new cards, cards with different review histories, edge cases, and special situations. Tests should confirm that the implementation matches the defined parameters in the design document.
+  - **Depends On:** Implement SRS service concrete implementation
+  - **AC Ref:** SRS Implementation 1.5
+
 ## Database Infrastructure Provisioning (Completed)
 - [x] **Set up DigitalOcean Managed PostgreSQL instance:** Create and configure the database
   - **Action:** Use Terraform to provision a DigitalOcean Managed PostgreSQL instance with appropriate sizing for the application's expected load. Configure with an appropriate name (e.g., `scry-db-prd` for production, `scry-db-dev` for development).

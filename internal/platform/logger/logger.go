@@ -48,10 +48,13 @@ func Setup(cfg config.ServerConfig) (*slog.Logger, error) {
 	// Create a JSON handler that writes to stdout with the configured options
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 
-	// handler will be used in the next task, but we're declaring it here
-	// to ensure the JSON handler creation is in place
-	_ = handler
+	// Create the main logger with the configured JSON handler
+	logger := slog.New(handler)
 
-	// The rest of the function will be implemented in subsequent tasks
+	// Set this logger as the default for the application
+	// This allows using the slog package functions directly (slog.Info, slog.Error, etc.)
+	slog.SetDefault(logger)
+
+	// The function will return the logger in the next task
 	return nil, nil
 }

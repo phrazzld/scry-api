@@ -27,7 +27,7 @@
   - **Depends On:** Implement Log Level Parsing Logic
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Configure Slog Handler Options:**
+- [x] **Configure Slog Handler Options:**
   - **Action:** Create an `slog.HandlerOptions` struct within `Setup`, setting the `Level` field based on the parsed level. Keep `AddSource` commented out for now.
   - **Depends On:** Implement Default Log Level Handling
   - **AC Ref:** Set up basic structured logging framework

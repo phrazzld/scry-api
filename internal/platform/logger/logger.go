@@ -39,9 +39,15 @@ func Setup(cfg config.ServerConfig) (*slog.Logger, error) {
 			"default_level", "info")
 	}
 
-	// Level will be used in subsequent tasks, but we're ensuring it's used
-	// to avoid compiler errors
-	_ = level
+	// Configure the handler options with the parsed level
+	opts := &slog.HandlerOptions{
+		Level: level,
+		// AddSource: true, // Commented out to avoid performance overhead
+	}
+
+	// opts will be used in the next task, but we're declaring it here
+	// to ensure the handler options configuration is in place
+	_ = opts
 
 	// The rest of the function will be implemented in subsequent tasks
 	return nil, nil

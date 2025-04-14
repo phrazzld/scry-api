@@ -19,11 +19,11 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Add unit tests for migration functionality.
     * ✅ Document migration usage in README.md and dedicated migration guide.
 
-* **Define Core Domain Models:**
-    * Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`).
-    * Implement strong typing following type standards (`CODING_STANDARDS.md` Section 2).
-    * Ensure models include necessary validation methods.
-    * Document the domain model relationships and purpose.
+* **Define Core Domain Models (Completed):**
+    * ✅ Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`).
+    * ✅ Implement strong typing following type standards (`CODING_STANDARDS.md` Section 2).
+    * ✅ Ensure models include necessary validation methods.
+    * ✅ Document the domain model relationships and purpose.
 
 * **Create Initial Database Schema Migrations:**
     * Create initial database schema migration scripts.

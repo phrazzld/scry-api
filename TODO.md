@@ -53,7 +53,7 @@
   - **Depends On:** Create Initial Logger Go File
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Integrate Logger Setup into `initializeApp`:**
+- [x] **Integrate Logger Setup into `initializeApp`:**
   - **Action:** In `initializeApp`, after `config.Load()` succeeds, call `logger.Setup(cfg.Server)`. Handle any potential error returned from `logger.Setup` by returning a wrapped error.
   - **Depends On:** Finalize Logger Setup Function, Import Logger and Slog in `main.go`
   - **AC Ref:** Configure logging system using application configuration

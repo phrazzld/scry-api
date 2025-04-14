@@ -17,7 +17,7 @@
   - **Depends On:** None
   - **AC Ref:** Architecture & Design Issue 1 (Log Level Validation vs. Implementation)
 
-- [ ] **Clarify Initial Logging Behavior:**
+- [x] **Clarify Initial Logging Behavior:**
   - **Action:** Add comments in `cmd/server/main.go` near lines 18 and 24-26 explaining *why* the initial log messages use the default `slog` handler (plain text) before the custom JSON handler is configured during `initializeApp`.
   - **Depends On:** None
   - **AC Ref:** Architecture & Design Issue 2 (Initial Logging Before Setup)

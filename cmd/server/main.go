@@ -17,20 +17,25 @@ import (
 // establishing database connections, injecting dependencies, and starting the
 // HTTP server.
 func main() {
-	// Note: This log message will use the default logger since our custom logger
-	// isn't set up yet. It will appear as plain text, not JSON.
+	// IMPORTANT: Log messages here use Go's default slog handler (plain text)
+	// rather than our custom JSON handler. This is intentional - we can't set up
+	// the custom JSON logger until we've loaded configuration, but we still want
+	// to log the application startup. This creates a consistent initialization
+	// sequence where even initialization errors can be logged.
 	slog.Info("Scry API Server starting...")
 
 	// Call the core initialization logic
 	cfg, err := initializeApp()
 	if err != nil {
-		// Use structured logging for the error
+		// Still using the default logger here if initializeApp failed
+		// (which may include logger setup failure)
 		slog.Error("Failed to initialize application",
 			"error", err)
 		os.Exit(1)
 	}
 
-	// Log successful initialization
+	// At this point, the JSON structured logger has been configured by initializeApp()
+	// All log messages from here on will use the structured JSON format
 	slog.Info("Scry API Server initialized successfully",
 		"port", cfg.Server.Port)
 
@@ -48,6 +53,7 @@ func initializeApp() (*config.Config, error) {
 	}
 
 	// Set up structured logging using the configured log level
+	// After this point, all slog calls will use the JSON structured logger
 	_, err = logger.Setup(cfg.Server)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up logger: %w", err)
@@ -76,5 +82,3 @@ func initializeApp() (*config.Config, error) {
 
 	return cfg, nil
 }
-
-// Another test comment

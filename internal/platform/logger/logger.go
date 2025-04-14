@@ -45,9 +45,12 @@ func Setup(cfg config.ServerConfig) (*slog.Logger, error) {
 		// AddSource: true, // Commented out to avoid performance overhead
 	}
 
-	// opts will be used in the next task, but we're declaring it here
-	// to ensure the handler options configuration is in place
-	_ = opts
+	// Create a JSON handler that writes to stdout with the configured options
+	handler := slog.NewJSONHandler(os.Stdout, opts)
+
+	// handler will be used in the next task, but we're declaring it here
+	// to ensure the JSON handler creation is in place
+	_ = handler
 
 	// The rest of the function will be implemented in subsequent tasks
 	return nil, nil

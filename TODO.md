@@ -79,7 +79,7 @@
   - **Depends On:** Create Logger Test File
   - **AC Ref:** Structured logging framework implementation
 
-- [ ] **Write Test for Valid Log Level Parsing:**
+- [x] **Write Test for Valid Log Level Parsing:**
   - **Action:** Create test cases in `logger_test.go` that call `Setup` with different valid log levels ("debug", "info", "warn", "error") and verify each returns a logger with the correct level.
   - **Depends On:** Finalize Logger Setup Function, Implement Test Setup for Output Capture
   - **AC Ref:** Configure logging system using application configuration

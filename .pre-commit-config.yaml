@@ -6,15 +6,11 @@ repos:
   - id: end-of-file-fixer
   - id: check-yaml
   - id: check-added-large-files
-- repo: local
+- repo: https://github.com/golangci/golangci-lint
+  rev: v2.1.1 # Same version as CI
   hooks:
-  - id: golangci-lint-custom
-    name: golangci-lint v2
-    description: Run golangci-lint v2
-    entry: golangci-lint run
-    language: system
-    types: [go]
-    pass_filenames: false
+    - id: golangci-lint
+      args: [--verbose]
 - repo: https://github.com/segmentio/golines
   rev: v0.12.2
   hooks:

@@ -7,9 +7,6 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 
-* **Pre-commit Hook Enhancement:**
-    * Have pre-commit hook warn (but not fail) when files are too long.
-    * General quality of life improvements to pre-commit config
 
 * **Database Setup & Migrations:**
     * Provision DigitalOcean Managed PostgreSQL instance.
@@ -92,6 +89,13 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Define a basic health check endpoint (`/healthz`).
 
 ## Completed Items
+
+* **Pre-commit Hook Enhancement (Completed):**
+    * ✅ Added pre-commit hook to warn (but not fail) when files are too long.
+    * ✅ Implemented binary file detection and UTF-16 encoding support.
+    * ✅ Added standard hooks for common validation tasks.
+    * ✅ Organized and improved documentation in pre-commit config.
+    * ✅ Enhanced README with comprehensive pre-commit hooks documentation.
 
 * **Logging Framework Setup (Completed):**
     * ✅ Set up basic structured logging framework using `log/slog`.

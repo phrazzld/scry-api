@@ -34,7 +34,7 @@
 
 ## Testing
 
-- [ ] **Test Custom Hook Functionality:** Verify the file length warning works correctly.
+- [x] **Test Custom Hook Functionality:** Verify the file length warning works correctly.
   - **Action:** Create temporary test files: one short text file (<500 lines), one long text file (>500 lines), one binary file. Run `pre-commit run warn-long-files --files <test-files>`. Verify the long file generates a warning to stderr, the short file and binary file do not, and the hook exits with code 0 in all cases.
   - **Depends On:** Implement Custom File Length Warning Hook
   - **AC Ref:** Implicit from PLAN.md Section 3

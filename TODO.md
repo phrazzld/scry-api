@@ -69,7 +69,7 @@
   - **Depends On:** Create Config struct in `config.go`, Implement configuration loading logic
   - **AC Ref:** PLAN.md Step 3.5.2
 
-- [ ] **Update `README.md` with configuration details:** 
+- [x] **Update `README.md` with configuration details:** 
   - **Action:** Update `README.md` with:
     1. Required environment variables (referencing `.env.example`)
     2. Optional config file usage and location

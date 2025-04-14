@@ -21,21 +21,53 @@ Scry API is a Go backend service that manages spaced repetition flashcards. It g
    go mod download
    ```
 
-3. Configure environment variables (create a `.env` file in the project root):
+3. Configure the application using one of these methods:
+
+#### Method 1: Environment Variables (Recommended for Production)
+Create a `.env` file in the project root with the following variables:
    ```
-   # Server
-   PORT=8080
-   LOG_LEVEL=info
+   # Server configuration
+   SCRY_SERVER_PORT=8080
+   SCRY_SERVER_LOG_LEVEL=info
    
-   # Database
-   DATABASE_URL=postgres://username:password@localhost:5432/scry
+   # Database configuration
+   SCRY_DATABASE_URL=postgres://username:password@localhost:5432/scry
    
-   # Authentication
-   JWT_SECRET=your-secret-key
+   # Authentication configuration (minimum 32 characters)
+   SCRY_AUTH_JWT_SECRET=your-secure-jwt-secret-min-32-characters
    
-   # LLM Integration
-   GEMINI_API_KEY=your-gemini-api-key
+   # LLM integration
+   SCRY_LLM_GEMINI_API_KEY=your-gemini-api-key
    ```
+
+   See [.env.example](.env.example) for a template with detailed comments.
+
+#### Method 2: Configuration File (Alternative for Development)
+Create a `config.yaml` file in the project root:
+   ```yaml
+   # Server settings
+   server:
+     port: 8080
+     log_level: info
+   
+   # Database settings
+   database:
+     url: postgres://username:password@localhost:5432/scry
+   
+   # Authentication settings
+   auth:
+     jwt_secret: your-secure-jwt-secret-min-32-characters
+   
+   # LLM settings
+   llm:
+     gemini_api_key: your-gemini-api-key
+   ```
+
+   See [config.yaml.example](config.yaml.example) for a template with detailed comments.
+
+> **Note:** Environment variables take precedence over values in config.yaml. Environment variables must have the `SCRY_` prefix and use underscores to represent nesting (e.g., `SCRY_SERVER_PORT` for `server.port`).
+   
+> **Security note:** Both `.env` and any custom config files containing secrets should never be committed to version control. They are already added to `.gitignore`.
 
 ### Building the Project
 ```bash
@@ -54,12 +86,20 @@ go test ./internal/domain
 ```
 
 ## Usage / Running the Application
-Start the API server:
-```bash
-go run ./cmd/server/main.go
-```
+1. Ensure your configuration is set up (either via `.env` file or `config.yaml` as described above)
 
-The server will be available at `http://localhost:8080` (or the port specified in your environment variables).
+2. Start the API server:
+   ```bash
+   go run ./cmd/server/main.go
+   ```
+
+3. The server will be available at `http://localhost:8080` (or the port specified in your configuration)
+
+The server will automatically:
+- Load configuration from environment variables and/or config file
+- Validate all required settings are present
+- Use default values for non-critical settings when not specified
+- Log the configured port and other key settings at startup
 
 ## Key Scripts / Commands
 - Format code: `go fmt ./...`
@@ -74,10 +114,16 @@ The project follows a clean architecture approach with clear separation of conce
 - `/internal/service`: Application services and use cases
 - `/internal/store`: Data storage interfaces
 - `/internal/api`: HTTP handlers and routing
-- `/internal/config`: Configuration management
+- `/internal/config`: Configuration management with support for environment variables and YAML files
 - `/internal/generation`: LLM integration for card generation
 - `/internal/task`: Background processing and job management
 - `/internal/platform/postgres`: Database implementation
+
+The configuration system (`/internal/config`) uses Viper for flexible configuration loading and validation:
+- Strongly-typed configuration via Go structs
+- Support for both environment variables and YAML files
+- Validation using go-playground/validator
+- Sensible defaults with clear precedence rules
 
 For more details on the architectural principles, see the [Architecture Guidelines](docs/philosophy/ARCHITECTURE_GUIDELINES.md).
 

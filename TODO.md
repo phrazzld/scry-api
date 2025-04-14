@@ -94,6 +94,28 @@
   - **Depends On:** Update `main.go` to use configuration
   - **AC Ref:** PLAN.md Step 4.2
 
+## Code Review Improvements
+
+These items were identified in the code review process and should be addressed in future iterations:
+
+- [ ] **Fix: Update JWT Secret placeholder in example files:**
+  - **Action:** Update the JWT Secret placeholder in `.env.example` and `config.yaml.example` to use a value that actually meets the minimum 32-character length requirement, while maintaining the security commentary.
+  - **Depends On:** None
+  - **Issue Severity:** Low
+  - **Ref:** CODE_REVIEW.md
+
+- [ ] **Fix: Improve config file error handling:**
+  - **Action:** In `load.go`, improve the error handling for `v.ReadInConfig()` to distinguish between "file not found" errors (which are expected and should be ignored) versus other issues like permission problems or malformed YAML (which should be logged as warnings).
+  - **Depends On:** None
+  - **Issue Severity:** Low
+  - **Ref:** CODE_REVIEW.md
+
+- [ ] **Fix: Address potential test side effect with working directory:**
+  - **Action:** Refactor the `TestEnvironmentVariablePrecedence` test in `main_integration_test.go` to use `v.SetConfigFile(configPath)` directly instead of changing the working directory with `os.Chdir`, which could potentially affect other tests if run in parallel.
+  - **Depends On:** None 
+  - **Issue Severity:** Low
+  - **Ref:** CODE_REVIEW.md
+
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
 - [ ] **Issue/Assumption:** Only implementing initially required fields specified in PLAN.md examples.
   - **Context:** PLAN.md includes comments like "Add other server settings as needed". This implementation covers only the explicitly mentioned fields (Port, LogLevel, URL, JWTSecret, GeminiAPIKey). Future fields will require extending the structs.

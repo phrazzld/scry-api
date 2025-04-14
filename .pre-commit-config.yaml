@@ -1,0 +1,30 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-yaml
+  - id: check-added-large-files
+- repo: local
+  hooks:
+  - id: golangci-lint-custom
+    name: golangci-lint (customized v1.59.1)
+    description: Run golangci-lint v1.59.1 with custom resource limits
+    entry: bash -c 'VERSION="v1.59.1" && BIN_DIR="$HOME/.cache/pre-commit/golangci-lint-$VERSION" && mkdir -p "$BIN_DIR" && if [ ! -f "$BIN_DIR/golangci-lint" ]; then echo "Installing golangci-lint $VERSION..." && GOBIN="$BIN_DIR" go install github.com/golangci/golangci-lint/cmd/golangci-lint@$VERSION; fi && echo "Using version check only during commit"'
+    language: system
+    types: [go]
+    pass_filenames: false
+- repo: https://github.com/segmentio/golines
+  rev: v0.12.2
+  hooks:
+  - id: golines
+    args: ["--max-len=120", "--base-formatter=goimports"] # Format + Imports + Line Length
+- repo: local
+  hooks:
+  - id: go-mod-tidy
+    name: go mod tidy
+    entry: go mod tidy
+    language: system
+    types: [go]
+    pass_filenames: false

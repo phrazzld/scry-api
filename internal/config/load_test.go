@@ -1,45 +1,18 @@
 package config
 
 import (
-	"os"
 	"testing"
 
+	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// setupEnv sets up environment variables for testing
-func setupEnv(t *testing.T, envVars map[string]string) func() {
-	// Save current environment values
-	originalValues := make(map[string]string)
-	for name := range envVars {
-		originalValues[name] = os.Getenv(name)
-	}
-
-	// Set new environment variables
-	for name, value := range envVars {
-		err := os.Setenv(name, value)
-		require.NoError(t, err, "Failed to set environment variable %s", name)
-	}
-
-	// Return cleanup function
-	return func() {
-		// Restore original environment
-		for name, value := range originalValues {
-			if value == "" {
-				os.Unsetenv(name)
-			} else {
-				os.Setenv(name, value)
-			}
-		}
-	}
-}
 
 // TestLoadDefaults verifies that the Load function sets the expected default values
 // for port and log level when no environment variables are set.
 func TestLoadDefaults(t *testing.T) {
 	// Setup environment with required fields but not the ones with defaults
-	cleanup := setupEnv(t, map[string]string{
+	cleanup := testutils.SetupEnv(t, map[string]string{
 		// Set required fields
 		"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
 		"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
@@ -63,7 +36,7 @@ func TestLoadDefaults(t *testing.T) {
 // TestLoadFromEnv verifies that the Load function correctly reads values from environment variables.
 func TestLoadFromEnv(t *testing.T) {
 	// Setup environment
-	cleanup := setupEnv(t, map[string]string{
+	cleanup := testutils.SetupEnv(t, map[string]string{
 		"SCRY_SERVER_PORT":        "9090",
 		"SCRY_SERVER_LOG_LEVEL":   "debug",
 		"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
@@ -80,8 +53,18 @@ func TestLoadFromEnv(t *testing.T) {
 	require.NotNil(t, cfg, "Load() should return a non-nil config")
 	assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
 	assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
-	assert.Equal(t, "postgresql://user:pass@localhost:5432/testdb", cfg.Database.URL, "Database URL should be loaded from environment variables")
-	assert.Equal(t, "thisisasecretkeythatis32charslong!!", cfg.Auth.JWTSecret, "JWT secret should be loaded from environment variables")
+	assert.Equal(
+		t,
+		"postgresql://user:pass@localhost:5432/testdb",
+		cfg.Database.URL,
+		"Database URL should be loaded from environment variables",
+	)
+	assert.Equal(
+		t,
+		"thisisasecretkeythatis32charslong!!",
+		cfg.Auth.JWTSecret,
+		"JWT secret should be loaded from environment variables",
+	)
 	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
 }
 
@@ -145,7 +128,7 @@ func TestLoadValidationErrors(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup environment
-			cleanup := setupEnv(t, tc.envVars)
+			cleanup := testutils.SetupEnv(t, tc.envVars)
 			defer cleanup()
 
 			// Load configuration
@@ -155,7 +138,12 @@ func TestLoadValidationErrors(t *testing.T) {
 			if tc.expectError {
 				assert.Error(t, err, "Load() should return an error with invalid configuration")
 				if err != nil {
-					assert.Contains(t, err.Error(), tc.errorSubstring, "Error message should contain expected substring")
+					assert.Contains(
+						t,
+						err.Error(),
+						tc.errorSubstring,
+						"Error message should contain expected substring",
+					)
 				}
 				assert.Nil(t, cfg, "Config should be nil when an error occurs")
 			} else {

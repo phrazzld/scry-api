@@ -1,11 +1,14 @@
 # Scry API
 
+[![CI Checks](https://github.com/phrazzld/scry-api/actions/workflows/ci.yml/badge.svg)](https://github.com/phrazzld/scry-api/actions/workflows/ci.yml)
+[![Security Checks](https://github.com/phrazzld/scry-api/actions/workflows/security.yml/badge.svg)](https://github.com/phrazzld/scry-api/actions/workflows/security.yml)
+
 Scry API is a Go backend service that manages spaced repetition flashcards. It generates flashcards from user-provided memos using LLM integration (Gemini), and employs a modified SM-2 spaced repetition algorithm to schedule reviews based on user performance.
 
 ## Getting Started / Setup
 
 ### Prerequisites
-- Go 1.21+ 
+- Go 1.22+
 - PostgreSQL with `pgvector` extension (for production, or via Docker for development)
 - Gemini API key for LLM integration
 
@@ -29,13 +32,13 @@ Create a `.env` file in the project root with the following variables:
    # Server configuration
    SCRY_SERVER_PORT=8080
    SCRY_SERVER_LOG_LEVEL=info
-   
+
    # Database configuration
    SCRY_DATABASE_URL=postgres://username:password@localhost:5432/scry
-   
+
    # Authentication configuration (minimum 32 characters)
    SCRY_AUTH_JWT_SECRET=your-secure-jwt-secret-min-32-characters
-   
+
    # LLM integration
    SCRY_LLM_GEMINI_API_KEY=your-gemini-api-key
    ```
@@ -49,15 +52,15 @@ Create a `config.yaml` file in the project root:
    server:
      port: 8080
      log_level: info
-   
+
    # Database settings
    database:
      url: postgres://username:password@localhost:5432/scry
-   
+
    # Authentication settings
    auth:
      jwt_secret: your-secure-jwt-secret-min-32-characters
-   
+
    # LLM settings
    llm:
      gemini_api_key: your-gemini-api-key
@@ -66,8 +69,23 @@ Create a `config.yaml` file in the project root:
    See [config.yaml.example](config.yaml.example) for a template with detailed comments.
 
 > **Note:** Environment variables take precedence over values in config.yaml. Environment variables must have the `SCRY_` prefix and use underscores to represent nesting (e.g., `SCRY_SERVER_PORT` for `server.port`).
-   
+
 > **Security note:** Both `.env` and any custom config files containing secrets should never be committed to version control. They are already added to `.gitignore`.
+
+### Development Setup
+
+#### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality. To set up pre-commit hooks:
+
+1. Install pre-commit: `brew install pre-commit` or `pip install pre-commit`
+2. In the repository root, run: `pre-commit install`
+3. Pre-commit hooks will now run automatically on each commit
+
+To manually run all hooks on all files:
+```bash
+pre-commit run --all-files
+```
 
 ### Building the Project
 ```bash

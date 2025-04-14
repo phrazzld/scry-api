@@ -1,3 +1,6 @@
+// Package main implements the entry point for the Scry API server
+// which handles users' spaced repetition flashcards and provides
+// LLM integration for card generation.
 package main
 
 import (
@@ -48,3 +51,5 @@ func initializeApp() (*config.Config, error) {
 
 	return cfg, nil
 }
+
+// Another test comment

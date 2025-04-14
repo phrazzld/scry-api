@@ -1,219 +1,75 @@
 # TODO
 
-## Core Domain Logic Implementation (SRS)
-- [x] **Define SRS service interface:** Create the core interface for the SRS service
-  - **Action:** Create a new package `internal/domain/srs` and define a `Service` interface that abstracts the SRS algorithm operations. Include methods for calculating next review times, updating card statistics based on review outcomes, and handling special cases like postponements.
+## Design Principles (CORE_PRINCIPLES.md)
+- [x] **Refactor UserCardStats Mutability:** Remove mutable methods from `UserCardStats` and rely solely on `srs.Service`.
+  - **Action:** Delete the `UpdateReview` and `PostponeReview` methods from `internal/domain/user_card_stats.go`. Refactor any code that currently calls these methods to use the corresponding methods in `internal/domain/srs/service.go` instead, ensuring immutability is maintained. Update relevant tests.
   - **Depends On:** None
-  - **AC Ref:** SRS Implementation 1.1
+  - **AC Ref:** Design Principles Issue 1
 
-- [x] **Implement SRS algorithm core logic:** Create pure functions for SRS calculations
-  - **Action:** Implement the core SM-2 variant algorithm logic as pure functions that take input parameters and return calculated results without side effects. Functions should handle interval calculations, ease factor adjustments, and next review time determination based on the defined algorithm parameters.
-  - **Depends On:** Define SRS service interface
-  - **AC Ref:** SRS Implementation 1.2
-
-- [x] **Define SRS algorithm parameters:** Document MVP algorithm parameters
-  - **Action:** Create a design document (`docs/design/srs_algorithm.md`) that defines and justifies the specific algorithm parameters for the MVP, including initial intervals, ease factor ranges, adjustment values for different outcomes, and lapse handling approach. Include examples of the algorithm's behavior for different review sequences.
-  - **Depends On:** Implement SRS algorithm core logic
-  - **AC Ref:** SRS Implementation 1.3
-
-- [x] **Implement SRS service concrete implementation:** Create the default service
-  - **Action:** Implement a concrete service that fulfills the `srs.Service` interface. This implementation should use the pure algorithm functions and adhere to the defined parameters. Include proper validation, error handling, and edge case management.
-  - **Depends On:** Define SRS algorithm parameters
-  - **AC Ref:** SRS Implementation 1.4
-
-- [x] **Write comprehensive tests for SRS service:** Verify algorithm correctness
-  - **Action:** Create unit tests for the SRS service that verify the algorithm's correctness for various scenarios, including new cards, cards with different review histories, edge cases, and special situations. Tests should confirm that the implementation matches the defined parameters in the design document.
-  - **Depends On:** Implement SRS service concrete implementation
-  - **AC Ref:** SRS Implementation 1.5
-
-## Database Infrastructure Provisioning (Completed)
-- [x] **Set up DigitalOcean Managed PostgreSQL instance:** Create and configure the database
-  - **Action:** Use Terraform to provision a DigitalOcean Managed PostgreSQL instance with appropriate sizing for the application's expected load. Configure with an appropriate name (e.g., `scry-db-prd` for production, `scry-db-dev` for development).
+- [ ] **Correct Ease Factor DB Constraint:** Align the database check constraint for `ease_factor` with the defined algorithm minimum.
+  - **Action:** Modify the SQL `CHECK` constraint in `internal/platform/postgres/migrations/20250415000004_create_user_card_stats_table.sql` from `CHECK (ease_factor > 1.0 AND ease_factor <= 2.5)` to `CHECK (ease_factor >= 1.3 AND ease_factor <= 2.5)`. Ensure the corresponding down migration (if applicable) is correct or add a new migration if necessary.
   - **Depends On:** None
-  - **AC Ref:** Database Infrastructure 1.1
+  - **AC Ref:** Design Principles Issue 2
 
-- [x] **Configure PostgreSQL instance settings:** Optimize performance settings
-  - **Action:** Configure appropriate resource allocation (CPU, RAM), connection limits, and PostgreSQL settings (work_mem, shared_buffers) through Terraform configuration. Document the chosen configuration in the Terraform files.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
-  - **AC Ref:** Database Infrastructure 1.2
-
-- [x] **Enable pgvector extension:** Configure vector support for potential future use
-  - **Action:** Enable the `pgvector` extension on the PostgreSQL instance using Terraform's PostgreSQL provider. Verify extension activation through tests.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
-  - **AC Ref:** Database Infrastructure 1.3
-
-- [x] **Configure database access and credentials:** Secure the database
-  - **Action:** Create appropriate database user accounts with Terraform configuration. Set up appropriate permissions following the principle of least privilege. Document credential management approach.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
-  - **AC Ref:** Database Infrastructure 1.4
-
-- [x] **Set up database backup schedule:** Ensure data durability
-  - **Action:** Configure automated backups via Terraform with appropriate frequency and retention periods. Document the backup configuration in the Terraform files.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
-  - **AC Ref:** Database Infrastructure 1.5
-
-- [x] **Configure database monitoring:** Track performance and resource usage
-  - **Action:** Set up monitoring for key database metrics (CPU usage, memory usage, disk space) using Terraform. Configure appropriate alerts for critical thresholds.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance
-  - **AC Ref:** Database Infrastructure 1.6
-
-- [x] **Document database connection parameters:** Create reference for application configuration
-  - **Action:** Document the database connection parameters and how to retrieve them from Terraform outputs. Include examples for local development and production deployment.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance, Configure database access and credentials
-  - **AC Ref:** Database Infrastructure 1.7
-
-- [x] **Set up local development database configuration:** Support development workflow
-  - **Action:** Create Docker Compose setup for local development database that mirrors the production configuration. Document in `LOCAL_DEVELOPMENT.md`.
-  - **Depends On:** Document database connection parameters
-  - **AC Ref:** Database Infrastructure 1.8
-
-- [x] **Test database migrations on provisioned instance:** Verify migration framework
-  - **Action:** Create a script to run migrations against the provisioned database and add tests to verify the process. Document the process in `README.md`.
-  - **Depends On:** Set up DigitalOcean Managed PostgreSQL instance, Configure database access and credentials
-  - **AC Ref:** Database Infrastructure 1.9
-
-## Previously Completed Tasks
-
-### Dependencies
-- [x] **Add pressly/goose dependency:** Add goose migration framework to the project
-  - **Action:** Run `go get github.com/pressly/goose/v3` to add the goose library to `go.mod`.
+- [ ] **Remove Redundant Local Dev Test Helpers:** Eliminate helper functions in `local_postgres_test.go` that duplicate existing configuration files.
+  - **Action:** Delete the `generateDockerComposeYml` and `generateInitScript` functions from `infrastructure/local_dev/local_postgres_test.go`. Update the tests (e.g., `TestLocalPostgresSetup`) to assume the `docker-compose.yml` and `init-scripts/01-init.sql` files exist in their expected locations relative to the test file.
   - **Depends On:** None
-  - **AC Ref:** Section 2.1.1
+  - **AC Ref:** Design Principles Issue 3
 
-- [x] **Add PostgreSQL driver:** Add pgx PostgreSQL driver to the project
-  - **Action:** Run `go get github.com/jackc/pgx/v5/stdlib` to add the PostgreSQL driver compatible with `database/sql` to `go.mod`.
+## Architectural Patterns (ARCHITECTURE_GUIDELINES.md)
+- [ ] **Refactor slogGooseLogger Fatalf:** Prevent `slogGooseLogger.Fatalf` from exiting the application directly.
+  - **Action:** Remove the `os.Exit(1)` call from the `Fatalf` method in `cmd/server/main.go`'s `slogGooseLogger`. Modify the `runMigrations` function to return the error encountered during `goose` operations. Update the `main` function's migration handling block to check for errors returned by `runMigrations` and call `os.Exit(1)` there if an error occurred.
   - **Depends On:** None
-  - **AC Ref:** Section 2.1.2
+  - **AC Ref:** Architectural Patterns Issue 1
 
-- [x] **Tidy go.mod file:** Ensure go.mod is consistent
-  - **Action:** Run `go mod tidy` to ensure `go.mod` and `go.sum` are consistent after adding dependencies.
-  - **Depends On:** Add pressly/goose dependency, Add PostgreSQL driver
-  - **AC Ref:** Section 2.1.2
-
-### Migration Directory Structure
-- [x] **Create migrations directory:** Create directory for SQL migration files
-  - **Action:** Create the directory `internal/platform/postgres/migrations` for storing SQL migration files.
+- [ ] **Add Explicit DB Password Management in Terraform:** Introduce a Terraform variable for the database user password.
+  - **Action:** Define a new `variable "database_password"` in `infrastructure/terraform/variables.tf` (mark as sensitive). Update the `digitalocean_database_user` resource in `infrastructure/terraform/main.tf` to use this variable for the password instead of relying on auto-generation. Update `terraform.tfvars.example` and any relevant documentation.
   - **Depends On:** None
-  - **AC Ref:** Section 2.2.1
+  - **AC Ref:** Architectural Patterns Issue 2
 
-- [x] **Add .keep file:** Ensure empty migrations directory is tracked in Git
-  - **Action:** Add an empty `.keep` file to `internal/platform/postgres/migrations` to ensure the directory is tracked by Git even when empty.
-  - **Depends On:** Create migrations directory
-  - **AC Ref:** Section 2.2.2
-
-### Migration Command Handling
-- [x] **Define migration command-line flags:** Add command flags to main.go
-  - **Action:** Use the standard `flag` package in `cmd/server/main.go` to define `-migrate` (string) and `-name` (string) flags for controlling migration operations. Parse flags early in `main`.
+## Code Quality (CODING_STANDARDS.md)
+- [ ] **Enhance DB Connection Error Handling:** Add specific error type checks for database connection attempts.
+  - **Action:** In `cmd/server/main.go` within the `runMigrations` function's `db.PingContext` error handling block (lines ~220-248), add specific checks using `errors.Is` or type assertions for common connection errors (e.g., `context.DeadlineExceeded`, `pgconn.PgError` for authentication failures, network errors) to provide more informative error messages.
   - **Depends On:** None
-  - **AC Ref:** Section 2.3.1, 3.1
+  - **AC Ref:** Code Quality Issue 1
 
-- [x] **Add conditional migration execution logic:** Modify main.go to handle migration commands
-  - **Action:** Modify `cmd/server/main.go` after flag parsing to check if the `-migrate` flag was provided. If it was, call the `runMigrations` function and exit the application based on the result. If not, proceed with normal server startup.
-  - **Depends On:** Define migration command-line flags, Define runMigrations function signature
-  - **AC Ref:** Section 2.3.1, 3.1
-
-- [x] **Define runMigrations function signature:** Define function to encapsulate migration logic
-  - **Action:** Define the function `runMigrations(cfg *config.Config, command string, args ...string) error` in `cmd/server/main.go`. This function will encapsulate all migration logic.
+- [ ] **Add TODO for Robust Email Validation:** Mark the basic email validation for future improvement.
+  - **Action:** Add a `// TODO:` comment above the `validateEmailFormat` function in `internal/domain/user.go` indicating that the current implementation is basic and should be replaced with a more robust validation library in a future task.
   - **Depends On:** None
-  - **AC Ref:** Section 2.3.2, 3.1
+  - **AC Ref:** Code Quality Issue 2
 
-- [x] **Implement database connection logic:** Connect to database in runMigrations
-  - **Action:** Inside `runMigrations`, use the provided `cfg *config.Config` to get the `cfg.Database.URL`. Open a `database/sql` connection using `sql.Open("pgx", cfg.Database.URL)`. Ensure the connection is closed using `defer db.Close()`. Ping the database to verify connectivity.
-  - **Depends On:** Define runMigrations function signature, Add PostgreSQL driver
-  - **AC Ref:** Section 2.3.2, 3.1
-
-- [x] **Implement error handling for DB connection:** Add robust error handling
-  - **Action:** Add robust error handling for `sql.Open` and `db.Ping` within `runMigrations`. Return descriptive errors using `fmt.Errorf` with `%w` for wrapping.
-  - **Depends On:** Implement database connection logic
-  - **AC Ref:** Section 2.3.2, 5.1
-
-### Logging Integration
-- [x] **Define slogGooseLogger struct and methods:** Create custom logger adapter for goose
-  - **Action:** Create the `slogGooseLogger` struct and implement the `Printf(format string, v ...interface{})` and `Fatalf(format string, v ...interface{})` methods to adapt `goose`'s logging output to the application's `slog` logger. Ensure `Fatalf` logs an error but does *not* call `os.Exit(1)` directly (let main.go handle exits).
+## Test Quality (TESTING_STRATEGY.md)
+- [ ] **Use Relative Paths in Migration Syntax Test:** Refactor `TestMigrationsValidSyntax` to avoid absolute paths.
+  - **Action:** Modify the path construction logic in `cmd/server/migrations_test.go` (lines ~79-83) for `TestMigrationsValidSyntax`. Instead of constructing an absolute path based on `os.Getwd()`, use a relative path from the test file's location or determine the project root reliably. Consider using `filepath.Abs` on the relative path if an absolute path is still required by `goose.CollectMigrations`.
   - **Depends On:** None
-  - **AC Ref:** Section 2.4.1, 3.1
+  - **AC Ref:** Test Quality Issue 1
 
-- [x] **Set goose logger in runMigrations:** Configure goose to use the custom logger
-  - **Action:** Instantiate `slogGooseLogger` and call `goose.SetLogger(&slogGooseLogger{})` at the beginning of the `runMigrations` function.
-  - **Depends On:** Define runMigrations function signature, Define slogGooseLogger struct and methods
-  - **AC Ref:** Section 2.4.2, 3.1
+- [ ] **Use filepath.Join in Local Postgres Test:** Refactor `TestLocalPostgresSetup` to use `filepath.Join`.
+  - **Action:** Modify the path construction logic in `infrastructure/local_dev/local_postgres_test.go` (line ~23). Replace the hardcoded relative path concatenation for finding `docker-compose.yml` with `filepath.Join(".", "docker-compose.yml")` or similar to correctly refer to the file relative to the working directory.
+  - **Depends On:** None
+  - **AC Ref:** Test Quality Issue 2
 
-### Migration Command Implementation
-- [x] **Implement up command logic:** Add support for applying migrations
-  - **Action:** Add a case for "up" in the `switch command` block within `runMigrations`. Call `goose.Up(db, migrationsDir)` and return its result.
-  - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
-  - **AC Ref:** Section 2.5, 3.1
+- [ ] **Enhance Terraform Test Validation:** Improve Terraform tests to verify database connectivity.
+  - **Action:** Modify the `TestTerraformDatabaseInfrastructure` test in `infrastructure/terraform/test/terraform_test.go`. After `terraform.InitAndApply`, use the `connection_string` output to establish a database connection, perform a `Ping()` to verify connectivity, and optionally attempt to run a simple query or apply migrations.
+  - **Depends On:** Add Explicit DB Password Management in Terraform
+  - **AC Ref:** Test Quality Issue 3
 
-- [x] **Implement down command logic:** Add support for rolling back migrations
-  - **Action:** Add a case for "down" in the `switch command` block within `runMigrations`. Call `goose.Down(db, migrationsDir)` and return its result.
-  - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
-  - **AC Ref:** Section 2.5, 3.1
+## Documentation Practices (DOCUMENTATION_APPROACH.md)
+- [ ] **Add Godoc Comments to SRS Algorithm Functions:** Document core SRS calculation functions.
+  - **Action:** Add comprehensive Godoc comments to the functions `calculateNewEaseFactor`, `calculateNewInterval`, `calculateNextReviewDate`, and `calculateNextStats` in `internal/domain/srs/algorithm.go`. Explain the purpose, parameters, return values, and any relevant algorithmic details for each function.
+  - **Depends On:** None
+  - **AC Ref:** Documentation Practices Issue 1
 
-- [x] **Implement status command logic:** Add support for checking migration status
-  - **Action:** Add a case for "status" in the `switch command` block within `runMigrations`. Call `goose.Status(db, migrationsDir)` and return its result.
-  - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
-  - **AC Ref:** Section 2.5, 3.1
-
-- [x] **Implement create command logic:** Add support for creating new migrations
-  - **Action:** Add a case for "create" in the `switch command` block within `runMigrations`. Check if a migration name was provided via the `-name` flag (passed in `args`). If not, return an error. Call `goose.Create(db, migrationsDir, args[0], "sql")` and return its result.
-  - **Depends On:** Implement database connection logic, Set goose logger in runMigrations, Define migration command-line flags
-  - **AC Ref:** Section 2.5, 3.1, 3.2
-
-- [x] **Implement version command logic:** Add support for checking migration version
-  - **Action:** Add a case for "version" in the `switch command` block within `runMigrations`. Call `goose.Version(db, migrationsDir)` and return its result.
-  - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
-  - **AC Ref:** Section 2.5, 3.1
-
-- [x] **Implement default case for unknown commands:** Handle invalid migration commands
-  - **Action:** Add a `default` case to the `switch command` block in `runMigrations` that returns a formatted error indicating an unknown command was provided.
-  - **Depends On:** Define runMigrations function signature
-  - **AC Ref:** Section 2.5, 3.1
-
-### Testing
-- [x] **Implement unit tests for migration flag parsing:** Test flag parsing logic
-  - **Action:** Write unit tests for `main.go` to verify that the `-migrate` and `-name` flags are correctly parsed under various scenarios (present, absent, combined).
-  - **Depends On:** Define migration command-line flags
-  - **AC Ref:** Section 2.6
-
-- [x] **Implement unit tests for runMigrations command dispatch:** Test command routing logic
-  - **Action:** Write unit tests for the `runMigrations` function, focusing on the `switch` statement logic. Mock the `goose` calls to verify that the correct `goose` function is called for each command string ("up", "down", "status", "create", "version", default). Verify argument handling for "create".
-  - **Depends On:** Implement all migration command logic tasks
-  - **AC Ref:** Section 2.6, 4.3
-
-- [x] **Implement integration test for create command:** Test migration file creation
-  - **Action:** Write an integration test that executes the application binary with `-migrate=create -name=test_migration`. Verify that the corresponding SQL file is created in the migrations directory with the correct naming convention and basic structure. Clean up the created file afterwards.
-  - **Depends On:** Implement create command logic, Create migrations directory
-  - **AC Ref:** Section 2.6, 3.2, 4.3
-
-- [x] **Implement integration tests for migration execution:** Test up/down migration flow
-  - **Action:** Write integration tests using a temporary PostgreSQL database (via testcontainers-go). Create a dummy migration file. Run the application with `-migrate=up`, check status/version, run `-migrate=down`, check status/version again to verify the core migration flow.
-  - **Depends On:** Implement up, down, status and version command logic
-  - **AC Ref:** Section 2.6, 4.3
-
-### Documentation
-- [x] **Update README.md with migration command usage:** Document command-line interface
-  - **Action:** Add a new section to `README.md` explaining how to use the `-migrate` flag with the available commands (`up`, `down`, `status`, `create`, `version`) and the `-name` flag. Include practical examples.
-  - **Depends On:** Implement all migration command logic tasks
-  - **AC Ref:** Section 2.7.1, 4.5
-
-- [x] **Document migration file format and naming conventions:** Explain migration file structure
-  - **Action:** Add details to the `README.md` explaining the expected SQL migration file format (`-- +goose Up`, `-- +goose Down` sections) and the timestamp-based naming convention generated by the `create` command.
-  - **Depends On:** Implement create command logic
-  - **AC Ref:** Section 2.7.2, 4.5
+- [ ] **Document SRS Lapse Handling Multiplier:** Clarify the 'Good' outcome multiplier after a lapse in SRS design docs.
+  - **Action:** Update the `docs/design/srs_algorithm.md` document. Add a specific point under "Lapse Handling" or within the interval calculation description explaining the use of the `1.5` multiplier for the "Good" outcome immediately following an "Again" outcome (lapse). Include the rationale for this specific value.
+  - **Depends On:** Refactor UserCardStats Mutability
+  - **AC Ref:** Documentation Practices Issue 2
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
-- [x] **Issue/Assumption:** Exit handling in slogGooseLogger.Fatalf
-  - **Context:** PLAN.md Section 2.4.1 shows `slogGooseLogger.Fatalf` calling `os.Exit(1)`, but `main.go` already handles exits.
+- [ ] **Issue/Assumption:** Acceptance Criteria References
+  - **Context:** The `PLAN.md` (Code Review) does not have explicit AC IDs.
+  - **Assumption:** The `AC Ref` fields in this `TODO.md` refer to the specific numbered issues within each section of the `PLAN.md` (Code Review) document (e.g., "Design Principles Issue 1", "Test Quality Issue 3").
+
+- [ ] **Issue/Assumption:** Exit handling in slogGooseLogger.Fatalf
+  - **Context:** PLAN.md Section Architectural Patterns 1 shows `slogGooseLogger.Fatalf` calling `os.Exit(1)`, but `main.go` already handles exits.
   - **Assumption:** The `slogGooseLogger.Fatalf` implementation should only log the error using `slog.Error` and not call `os.Exit(1)`. The `runMigrations` function will return errors to `main` which handles program exit consistently.
-
-- [x] **Issue/Assumption:** Database for integration tests
-  - **Context:** PLAN.md Section 2.6 (Add Tests), Section 4.3 (Testability).
-  - **Assumption:** Integration tests requiring a database will use `testcontainers-go` to manage a temporary PostgreSQL instance, aligning with the project's testing strategy principles.
-
-- [x] **Issue/Assumption:** No explicit Acceptance Criteria in PLAN.md
-  - **Context:** The PLAN.md document does not contain explicitly labeled Acceptance Criteria.
-  - **Assumption:** The section numbers provided in the AC Ref fields above refer to the corresponding sections in PLAN.md that define the requirements for each task.
-
-- [ ] **Issue/Assumption:** Database provisioning process
-  - **Context:** The "Provision Database Infrastructure" task in BACKLOG.md.
-  - **Assumption:** This task involves manual setup of DigitalOcean resources, which may incur costs. Documentation of the process in code is essential, but actual provisioning should be confirmed with stakeholders before execution.

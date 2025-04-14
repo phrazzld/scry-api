@@ -55,7 +55,7 @@
   - **Depends On:** Create Config struct in `config.go`
   - **AC Ref:** PLAN.md Step 3.4.1, 3.4.3
 
-- [ ] **Update `.gitignore` to exclude `.env`:** 
+- [x] **Update `.gitignore` to exclude `.env`:** 
   - **Action:** Add `.env` to the project's `.gitignore` file to prevent accidental commits of local environment settings.
   - **Depends On:** None
   - **AC Ref:** PLAN.md Step 3.4.2

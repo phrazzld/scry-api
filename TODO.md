@@ -17,7 +17,7 @@
   - **Depends On:** Analyze Current Configuration
   - **AC Ref:** Implicit from PLAN.md Section 2.3
 
-- [ ] **Add Standard Pre-commit Hooks:** Enhance configuration with additional useful standard hooks.
+- [x] **Add Standard Pre-commit Hooks:** Enhance configuration with additional useful standard hooks.
   - **Action:** Add the following hooks from the `pre-commit/pre-commit-hooks` repository (using a recent stable `rev`, e.g., v4.6.0): `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-json`, `check-added-large-files`, `check-merge-conflict`.
   - **Depends On:** Update Existing Pre-commit Hooks
   - **AC Ref:** Implicit from PLAN.md Section 2.4

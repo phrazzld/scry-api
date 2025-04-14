@@ -5,10 +5,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
-
-	// "os" will be used in next task
+	"os"
 
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
@@ -19,13 +17,22 @@ import (
 // establishing database connections, injecting dependencies, and starting the
 // HTTP server.
 func main() {
-	fmt.Println("Scry API Server Starting...")
+	// Note: This log message will use the default logger since our custom logger
+	// isn't set up yet. It will appear as plain text, not JSON.
+	slog.Info("Scry API Server starting...")
 
 	// Call the core initialization logic
-	_, err := initializeApp()
+	cfg, err := initializeApp()
 	if err != nil {
-		log.Fatalf("Failed to initialize application: %v", err)
+		// Use structured logging for the error
+		slog.Error("Failed to initialize application",
+			"error", err)
+		os.Exit(1)
 	}
+
+	// Log successful initialization
+	slog.Info("Scry API Server initialized successfully",
+		"port", cfg.Server.Port)
 
 	// Server would start here after initialization
 	// This would be added in a future task

@@ -63,7 +63,7 @@
   - **Depends On:** Integrate Logger Setup into `initializeApp`
   - **AC Ref:** Implement appropriate log levels
 
-- [ ] **Replace Startup/Error Logging with Slog in `main`:**
+- [x] **Replace Startup/Error Logging with Slog in `main`:**
   - **Action:** In the `main` function, replace the initial `fmt.Println` with `slog.Info`. Replace `log.Fatalf` with `slog.Error` followed by `os.Exit(1)` for initialization errors. Add an `slog.Info` message upon successful initialization.
   - **Depends On:** Integrate Logger Setup into `initializeApp`
   - **AC Ref:** Implement appropriate log levels

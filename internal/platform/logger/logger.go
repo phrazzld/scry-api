@@ -13,6 +13,7 @@
 package logger
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"strings"
@@ -97,4 +98,19 @@ func Setup(cfg config.ServerConfig) (*slog.Logger, error) {
 
 	// Return the configured logger and nil error to indicate success
 	return logger, nil
+}
+
+// WithRequestID adds a request ID to the logger in the context.
+// It creates a new logger with the request ID added as a structured field
+// and returns a new context containing this enhanced logger.
+//
+// Parameters:
+//   - ctx: The parent context
+//   - requestID: A unique identifier for the request
+//
+// Returns:
+//   - context.Context: A new context containing the logger with request ID
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	logger := slog.Default().With(slog.String("request_id", requestID))
+	return context.WithValue(ctx, loggerKey{}, logger)
 }

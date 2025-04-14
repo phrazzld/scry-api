@@ -116,7 +116,7 @@
   - **Depends On:** Finalize Logger Setup Function
   - **AC Ref:** Implement contextual logging helpers
 
-- [ ] **Implement `WithRequestID` Helper Function:**
+- [x] **Implement `WithRequestID` Helper Function:**
   - **Action:** Implement the `WithRequestID` function as shown in the plan, which takes a context and request ID, creates a logger with the ID field, and returns a new context containing this logger.
   - **Depends On:** Define `loggerKey` Type
   - **AC Ref:** Implement contextual logging helpers

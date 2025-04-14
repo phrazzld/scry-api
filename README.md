@@ -72,6 +72,21 @@ Create a `config.yaml` file in the project root:
    
 > **Security note:** Both `.env` and any custom config files containing secrets should never be committed to version control. They are already added to `.gitignore`.
 
+### Development Setup
+
+#### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality. To set up pre-commit hooks:
+
+1. Install pre-commit: `brew install pre-commit` or `pip install pre-commit`
+2. In the repository root, run: `pre-commit install`
+3. Pre-commit hooks will now run automatically on each commit
+
+To manually run all hooks on all files:
+```bash
+pre-commit run --all-files
+```
+
 ### Building the Project
 ```bash
 go build ./cmd/server

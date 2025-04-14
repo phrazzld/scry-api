@@ -23,7 +23,7 @@
   - **AC Ref:** Architecture & Design Issue 2 (Initial Logging Before Setup)
 
 ## Testing Strategy Issues
-- [ ] **Simplify Logger Test Setup:**
+- [x] **Simplify Logger Test Setup:**
   - **Action:** Refactor the test setup in `internal/platform/logger/logger_test.go`. Prioritize using the `setupTestLogger` approach (direct buffer injection) over `setupLogCapture` (OS pipe redirection). Minimize or eliminate the use of the global `testFixture` variable and OS stream redirection (`os.Pipe`, `os.Stdout = ...`) to improve test isolation and simplicity.
   - **Depends On:** None
   - **AC Ref:** Testing Strategy Issue 1 (Test Setup Complexity)

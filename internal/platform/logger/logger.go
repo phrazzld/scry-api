@@ -55,6 +55,6 @@ func Setup(cfg config.ServerConfig) (*slog.Logger, error) {
 	// This allows using the slog package functions directly (slog.Info, slog.Error, etc.)
 	slog.SetDefault(logger)
 
-	// The function will return the logger in the next task
-	return nil, nil
+	// Return the configured logger and nil error to indicate success
+	return logger, nil
 }

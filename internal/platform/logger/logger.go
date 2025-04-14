@@ -24,7 +24,7 @@ import (
 // loggerKey is an unexported type used as a key for storing and retrieving
 // logger instances from a context.Context. Using a custom type for context
 // keys prevents key collisions with other packages.
-type loggerKey struct{} // nolint:unused // Will be used in upcoming contextual logging implementation
+type loggerKey struct{}
 
 // Setup initializes and configures the application's logging system based on
 // the provided configuration. It creates a structured JSON logger with the

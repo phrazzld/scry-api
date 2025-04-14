@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 
@@ -146,6 +147,117 @@ func TestSetup(t *testing.T) {
 	_, err := logger.Setup(cfg)
 	if err != nil {
 		t.Fatalf("Setup failed: %v", err)
+	}
+}
+
+// TestInvalidLogLevelParsing tests that when an invalid log level is provided,
+// the Setup function defaults to info level and logs a warning message to stderr.
+func TestInvalidLogLevelParsing(t *testing.T) {
+	// Save original stderr and redirect to capture warning messages
+	origStderr := os.Stderr
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create stderr pipe: %v", err)
+	}
+	os.Stderr = stderrW
+
+	// Save original stdout too
+	origStdout := os.Stdout
+	stdoutR, stdoutW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create stdout pipe: %v", err)
+	}
+	os.Stdout = stdoutW
+
+	// Create a server config with an invalid log level
+	cfg := config.ServerConfig{
+		LogLevel: "invalid_level", // This is not one of the valid levels
+		Port:     8080,            // Port is required by validation, not used in test
+	}
+
+	// Call Setup with the invalid log level
+	logger, err := logger.Setup(cfg)
+
+	// Restore stdout and stderr before assertions
+	os.Stderr = origStderr
+	os.Stdout = origStdout
+
+	// Close write end of pipes
+	if err := stderrW.Close(); err != nil {
+		t.Logf("Failed to close stderr writer: %v", err)
+	}
+	if err := stdoutW.Close(); err != nil {
+		t.Logf("Failed to close stdout writer: %v", err)
+	}
+
+	// Read captured stderr output
+	stderrBuf := new(bytes.Buffer)
+	if _, err := io.Copy(stderrBuf, stderrR); err != nil {
+		t.Logf("Failed to read from stderr pipe: %v", err)
+	}
+	stderrOutput := stderrBuf.String()
+
+	// Read captured stdout output (not used in this test but needed to drain pipe)
+	if _, err := io.Copy(io.Discard, stdoutR); err != nil {
+		t.Logf("Failed to drain stdout pipe: %v", err)
+	}
+
+	// Check that no error was returned
+	if err != nil {
+		t.Fatalf("Setup returned an error for invalid log level: %v", err)
+	}
+
+	// Check that the logger was created
+	if logger == nil {
+		t.Fatal("Setup returned a nil logger for invalid log level")
+	}
+
+	// Check that a warning message was logged to stderr
+	if !strings.Contains(stderrOutput, "invalid log level configured") {
+		t.Errorf("Expected warning message about invalid log level, got: %s", stderrOutput)
+	}
+
+	// Check that the configured_level field was included in the warning
+	if !strings.Contains(stderrOutput, "invalid_level") {
+		t.Errorf("Expected warning to include the invalid level name, got: %s", stderrOutput)
+	}
+
+	// Check that the default_level field was included in the warning
+	if !strings.Contains(stderrOutput, "info") {
+		t.Errorf("Expected warning to include the default level, got: %s", stderrOutput)
+	}
+
+	// Now test the logger works with the expected default info level
+	// Create a buffer for capturing log output
+	logBuf := new(bytes.Buffer)
+
+	// Create a custom handler that writes to our buffer
+	customHandler := slog.NewJSONHandler(logBuf, nil)
+	customLogger := slog.New(customHandler)
+
+	// Log test messages at different levels
+	customLogger.Debug("debug test message")
+	customLogger.Info("info test message")
+	customLogger.Warn("warn test message")
+	customLogger.Error("error test message")
+
+	// Get the log output
+	logOutput := logBuf.String()
+
+	// At info level, debug messages should be filtered out
+	if strings.Contains(logOutput, "debug test message") {
+		t.Error("Logger with default info level should not output debug messages")
+	}
+
+	// But info level and above should be included
+	if !strings.Contains(logOutput, "info test message") {
+		t.Error("Logger with default info level should output info messages")
+	}
+	if !strings.Contains(logOutput, "warn test message") {
+		t.Error("Logger with default info level should output warn messages")
+	}
+	if !strings.Contains(logOutput, "error test message") {
+		t.Error("Logger with default info level should output error messages")
 	}
 }
 

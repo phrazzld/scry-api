@@ -84,7 +84,7 @@
   - **Depends On:** Finalize Logger Setup Function, Implement Test Setup for Output Capture
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Write Test for Invalid Log Level Parsing:**
+- [x] **Write Test for Invalid Log Level Parsing:**
   - **Action:** Create a test case that calls `Setup` with an invalid `LogLevel`. Verify the returned logger's level defaults to `slog.LevelInfo` and that a warning message is logged to the captured output.
   - **Depends On:** Finalize Logger Setup Function, Implement Test Setup for Output Capture
   - **AC Ref:** Configure logging system using application configuration

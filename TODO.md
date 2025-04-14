@@ -7,7 +7,7 @@
   - **Depends On:** None
   - **AC Ref:** Implicit from PLAN.md Section 2.1
 
-- [ ] **Implement Custom File Length Warning Hook:** Add a warning hook for long files that doesn't block commits.
+- [x] **Implement Custom File Length Warning Hook:** Add a warning hook for long files that doesn't block commits.
   - **Action:** Add the `local` hook definition for `warn-long-files` to `.pre-commit-config.yaml` using the provided Python script. Configure `MAX_LINES=500`, `types: [text]`, `pass_filenames: true`, `verbose: true`. Ensure the script always exits with code 0.
   - **Depends On:** Analyze Current Configuration
   - **AC Ref:** Implicit from PLAN.md Section 2.2, 3.0

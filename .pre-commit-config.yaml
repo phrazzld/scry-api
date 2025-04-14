@@ -24,3 +24,11 @@ repos:
     language: system
     types: [go]
     pass_filenames: false
+  - id: warn-long-files
+    name: Warn on excessively long files
+    description: Checks file length and warns (but doesn't fail) if a file exceeds the limit
+    language: system
+    entry: .pre-commit-hooks/warn_long_files.py
+    types: [text]
+    pass_filenames: true
+    verbose: true

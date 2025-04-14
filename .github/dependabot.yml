@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Maintain dependencies for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/" # Location of go.mod file
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/" # Location of workflows
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(actions)"
+    labels:
+      - "github_actions"
+      - "dependencies"

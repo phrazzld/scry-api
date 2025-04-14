@@ -51,8 +51,6 @@ dist/
 architect_output/
 
 # Planning and task tracking files
-PLAN.md
-TODO.md
-CODE_REVIEW.md
 CONSULT-REQUEST.md
 CONSULTANT-PLAN.md
+*-PLAN.md

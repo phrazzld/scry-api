@@ -5,9 +5,11 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/platform/logger"
 )
 
 // main is the entry point for the scry-api server.
@@ -15,13 +17,27 @@ import (
 // establishing database connections, injecting dependencies, and starting the
 // HTTP server.
 func main() {
-	fmt.Println("Scry API Server Starting...")
+	// IMPORTANT: Log messages here use Go's default slog handler (plain text)
+	// rather than our custom JSON handler. This is intentional - we can't set up
+	// the custom JSON logger until we've loaded configuration, but we still want
+	// to log the application startup. This creates a consistent initialization
+	// sequence where even initialization errors can be logged.
+	slog.Info("Scry API Server starting...")
 
 	// Call the core initialization logic
-	_, err := initializeApp()
+	cfg, err := initializeApp()
 	if err != nil {
-		log.Fatalf("Failed to initialize application: %v", err)
+		// Still using the default logger here if initializeApp failed
+		// (which may include logger setup failure)
+		slog.Error("Failed to initialize application",
+			"error", err)
+		os.Exit(1)
 	}
+
+	// At this point, the JSON structured logger has been configured by initializeApp()
+	// All log messages from here on will use the structured JSON format
+	slog.Info("Scry API Server initialized successfully",
+		"port", cfg.Server.Port)
 
 	// Server would start here after initialization
 	// This would be added in a future task
@@ -36,13 +52,28 @@ func initializeApp() (*config.Config, error) {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Log configuration details
-	fmt.Printf("Server configuration: Port=%d, LogLevel=%s\n",
-		cfg.Server.Port, cfg.Server.LogLevel)
+	// Set up structured logging using the configured log level
+	// After this point, all slog calls will use the JSON structured logger
+	_, err = logger.Setup(cfg.Server)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up logger: %w", err)
+	}
+
+	// Log configuration details using structured logging
+	slog.Info("Server configuration loaded",
+		"port", cfg.Server.Port,
+		"log_level", cfg.Server.LogLevel)
+
+	// Log additional configuration details at debug level if available
+	if cfg.Database.URL != "" {
+		slog.Debug("Database configuration", "url_present", true)
+	}
+	if cfg.Auth.JWTSecret != "" {
+		slog.Debug("Auth configuration", "jwt_secret_present", true)
+	}
 
 	// Future initialization steps would happen here
-	// (logging, database, services, etc.)
-	// - Setting up a proper logger using the configured log level
+	// (database, services, etc.)
 	// - Establishing database connection using Database.URL
 	// - Configuring authentication with Auth.JWTSecret
 	// - Initializing LLM client with LLM.GeminiAPIKey
@@ -51,5 +82,3 @@ func initializeApp() (*config.Config, error) {
 
 	return cfg, nil
 }
-
-// Another test comment

@@ -136,6 +136,7 @@ The project follows a clean architecture approach with clear separation of conce
 - `/internal/generation`: LLM integration for card generation
 - `/internal/task`: Background processing and job management
 - `/internal/platform/postgres`: Database implementation
+- `/internal/platform/logger`: Structured logging using Go's standard library `log/slog` with JSON output format
 
 The configuration system (`/internal/config`) uses Viper for flexible configuration loading and validation:
 - Strongly-typed configuration via Go structs

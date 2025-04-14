@@ -8,7 +8,8 @@
 server:
   # Port the HTTP server will listen on (default: 8080)
   port: 8080
-  # Log level (options: debug, info, warn, error, fatal)
+  # Log level (options: debug, info, warn, error)
+  # Default is "info" if not specified or if an invalid level is provided.
   log_level: info
 
 # Database settings

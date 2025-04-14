@@ -33,9 +33,9 @@ type ServerConfig struct {
 	Port int `mapstructure:"port" validate:"required,gt=0,lt=65536"`
 
 	// LogLevel controls the verbosity of application logging.
-	// Accepts "debug", "info", "warn", "error", or "fatal" in order
-	// of increasing severity. Default is "info" if not specified.
-	LogLevel string `mapstructure:"log_level" validate:"required,oneof=debug info warn error fatal"`
+	// Accepts "debug", "info", "warn", "error" in order
+	// of increasing severity. Default is "info" if not specified or invalid.
+	LogLevel string `mapstructure:"log_level" validate:"required,oneof=debug info warn error"`
 	// Add other server settings as needed (e.g., timeouts, middleware configs)
 }
 

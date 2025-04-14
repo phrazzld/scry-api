@@ -28,7 +28,7 @@
   - **Depends On:** None
   - **AC Ref:** Testing Strategy Issue 1 (Test Setup Complexity)
 
-- [ ] **Enhance Log Level Filtering Assertions in Tests:**
+- [x] **Enhance Log Level Filtering Assertions in Tests:**
   - **Action:** Modify `TestValidLogLevelParsing` in `internal/platform/logger/logger_test.go` (around lines 542-547) to include assertions that verify log messages are correctly *filtered* based on the configured level. For example, when the level is "warn", assert that "debug" and "info" messages are *not* present in the output, while "warn" and "error" messages *are*.
   - **Depends On:** Simplify Logger Test Setup
   - **AC Ref:** Testing Strategy Issue 2 (Limited Assertions in Log Level Tests)

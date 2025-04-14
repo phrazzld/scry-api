@@ -1,34 +1,14 @@
-# golangci-lint v2.x configuration
+# Minimal golangci-lint v2 configuration
 version: "2"
-run:
-  go: '1.23'
-  timeout: 5m
-  # Limit concurrency to reduce memory usage
-  concurrency: 2
-# Correct settings for v2 configuration
-config:
-  settings:
-    gocyclo:
-      min-complexity: 15
-    goconst:
-      min-len: 2
-      min-occurrences: 2
 linters:
   enable:
-    # Core linters with lower resource requirements
     - errcheck
     - govet
     - ineffassign
     - unused
-    - staticcheck # Combined linter that includes gosimple in v2
-    # Keep copyloopvar as replacement for exportloopref
+    - staticcheck
     - copyloopvar
-
-# Formatters configuration (new in v2)
 formatters:
   enable:
     - gofmt
     - goimports
-issues:
-  max-issues-per-linter: 0 # Show all issues
-  max-same-issues: 0

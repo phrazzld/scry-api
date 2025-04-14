@@ -6,8 +6,9 @@ package main
 import (
 	"fmt"
 	"log"
-	"log/slog" // Will be used directly in subsequent tasks
-	"os"       // Will be used directly in subsequent tasks
+	"log/slog"
+
+	// "os" will be used in next task
 
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
@@ -18,10 +19,6 @@ import (
 // establishing database connections, injecting dependencies, and starting the
 // HTTP server.
 func main() {
-	// Suppress unused import warnings - will be used directly in subsequent tasks
-	_ = slog.LevelInfo
-	_ = os.Stdout
-
 	fmt.Println("Scry API Server Starting...")
 
 	// Call the core initialization logic
@@ -49,9 +46,18 @@ func initializeApp() (*config.Config, error) {
 		return nil, fmt.Errorf("failed to set up logger: %w", err)
 	}
 
-	// Log configuration details (will be replaced with structured logging in next task)
-	fmt.Printf("Server configuration: Port=%d, LogLevel=%s\n",
-		cfg.Server.Port, cfg.Server.LogLevel)
+	// Log configuration details using structured logging
+	slog.Info("Server configuration loaded",
+		"port", cfg.Server.Port,
+		"log_level", cfg.Server.LogLevel)
+
+	// Log additional configuration details at debug level if available
+	if cfg.Database.URL != "" {
+		slog.Debug("Database configuration", "url_present", true)
+	}
+	if cfg.Auth.JWTSecret != "" {
+		slog.Debug("Auth configuration", "jwt_secret_present", true)
+	}
 
 	// Future initialization steps would happen here
 	// (database, services, etc.)

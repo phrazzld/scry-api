@@ -58,7 +58,7 @@
   - **Depends On:** Finalize Logger Setup Function, Import Logger and Slog in `main.go`
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Replace `fmt.Printf` with Structured Logging in `initializeApp`:**
+- [x] **Replace `fmt.Printf` with Structured Logging in `initializeApp`:**
   - **Action:** Replace the `fmt.Printf` call logging configuration details in `initializeApp` with `slog.Info` and `slog.Debug` calls, logging relevant config fields as structured attributes.
   - **Depends On:** Integrate Logger Setup into `initializeApp`
   - **AC Ref:** Implement appropriate log levels

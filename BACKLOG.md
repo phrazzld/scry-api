@@ -6,14 +6,10 @@
 
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
-* **Logging Framework Setup:**
-    * **Status:** In Progress
-    * Set up basic structured logging framework (e.g., `log/slog`, `zerolog`, `zap`).
-    * Configure the logging system using the application configuration.
-    * Implement appropriate log levels and contextual logging helpers.
 
 * **Pre-commit Hook Enhancement:**
     * Have pre-commit hook warn (but not fail) when files are too long.
+    * General quality of life improvements to pre-commit config
 
 * **Database Setup & Migrations:**
     * Provision DigitalOcean Managed PostgreSQL instance.
@@ -96,6 +92,11 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Define a basic health check endpoint (`/healthz`).
 
 ## Completed Items
+
+* **Logging Framework Setup (Completed):**
+    * ✅ Set up basic structured logging framework using `log/slog`.
+    * ✅ Configure the logging system using the application configuration.
+    * ✅ Implement appropriate log levels and contextual logging helpers.
 
 * **Project Setup & Configuration (Completed):**
     * ✅ Initialize Go module (`scry-api`) and standard project structure (e.g., `/cmd/server`, `/internal/domain`, `/internal/service`, `/internal/store`, `/internal/api`, `/internal/generation`, `/internal/task`, `/internal/config`, `/internal/platform/postgres`).

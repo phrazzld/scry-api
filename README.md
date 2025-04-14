@@ -76,16 +76,68 @@ Create a `config.yaml` file in the project root:
 
 #### Pre-commit Hooks
 
-This project uses pre-commit hooks to ensure code quality. To set up pre-commit hooks:
+This project uses pre-commit hooks to ensure code quality and consistency across the codebase. Pre-commit hooks run automatically when you commit changes, catching issues early in the development cycle.
 
-1. Install pre-commit: `brew install pre-commit` or `pip install pre-commit`
-2. In the repository root, run: `pre-commit install`
+##### Installation
+
+1. Install pre-commit:
+   ```bash
+   # macOS
+   brew install pre-commit
+
+   # Python/pip (any platform)
+   pip install pre-commit
+   ```
+
+2. Set up the hooks in your local repository:
+   ```bash
+   pre-commit install
+   ```
+
 3. Pre-commit hooks will now run automatically on each commit
 
-To manually run all hooks on all files:
+##### Available Hooks
+
+The project uses the following pre-commit hooks:
+
+**Formatting Hooks**
+- `trailing-whitespace`: Removes trailing whitespace at the end of lines
+- `end-of-file-fixer`: Ensures files end with a newline
+- `golines`: Formats Go code, fixes imports, and wraps long lines (max 120 chars)
+
+**Validation Hooks**
+- `check-yaml`: Validates YAML syntax
+- `check-json`: Validates JSON syntax
+- `check-merge-conflict`: Prevents committing files with merge conflict markers
+- `check-added-large-files`: Prevents committing large files (>500KB)
+
+**Linting Hooks**
+- `golangci-lint`: Runs comprehensive Go linters with the same configuration as CI
+
+**Custom Hooks**
+- `go-mod-tidy`: Ensures go.mod is always tidy
+- `warn-long-files`: Warns (but doesn't block commits) when files exceed 500 lines, encouraging modular code design
+
+##### Usage
+
+To manually run all hooks on all files (useful before pushing changes):
 ```bash
 pre-commit run --all-files
 ```
+
+To run a specific hook:
+```bash
+pre-commit run <hook-id> --all-files
+```
+
+For example:
+```bash
+pre-commit run golangci-lint --all-files
+```
+
+##### Configuration
+
+The pre-commit configuration is in `.pre-commit-config.yaml` at the root of the repository. See this file for detailed hook documentation and configuration options.
 
 ### Building the Project
 ```bash

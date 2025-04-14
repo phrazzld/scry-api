@@ -111,7 +111,7 @@
   - **AC Ref:** Structured logging framework implementation
 
 ## Contextual Logging Helpers (Future Extension)
-- [ ] **Define `loggerKey` Type:**
+- [x] **Define `loggerKey` Type:**
   - **Action:** Define an unexported type `loggerKey struct{}` in `logger.go` to be used as a safe key for storing/retrieving the logger from `context.Context`.
   - **Depends On:** Finalize Logger Setup Function
   - **AC Ref:** Implement contextual logging helpers

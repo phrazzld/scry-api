@@ -20,6 +20,11 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 )
 
+// loggerKey is an unexported type used as a key for storing and retrieving
+// logger instances from a context.Context. Using a custom type for context
+// keys prevents key collisions with other packages.
+type loggerKey struct{} // nolint:unused // Will be used in upcoming contextual logging implementation
+
 // Setup initializes and configures the application's logging system based on
 // the provided configuration. It creates a structured JSON logger with the
 // appropriate log level and sets it as the default logger for the application.

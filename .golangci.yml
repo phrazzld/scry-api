@@ -1,27 +1,14 @@
-run:
-  timeout: 5m
-  # Limit concurrency to reduce memory usage
-  concurrency: 2
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  goconst:
-    min-len: 2
-    min-occurrences: 2
+# Minimal golangci-lint v2 configuration
+version: "2"
 linters:
   enable:
-    # Core linters with lower resource requirements
     - errcheck
-    - gosimple
     - govet
-    - gofmt
-    - goimports
     - ineffassign
     - unused
-    # Keep copyloopvar as replacement for exportloopref
+    - staticcheck
     - copyloopvar
-  disable-all: true # Ensure only explicitly enabled linters run
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0 # Show all issues
-  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports

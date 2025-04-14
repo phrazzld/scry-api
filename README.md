@@ -8,7 +8,7 @@ Scry API is a Go backend service that manages spaced repetition flashcards. It g
 ## Getting Started / Setup
 
 ### Prerequisites
-- Go 1.22+
+- Go 1.23+
 - PostgreSQL with `pgvector` extension (for production, or via Docker for development)
 - Gemini API key for LLM integration
 

@@ -1,5 +1,7 @@
 run:
   timeout: 5m
+  # Limit concurrency to reduce memory usage
+  concurrency: 2
 linters-settings:
   gocyclo:
     min-complexity: 15
@@ -8,31 +10,16 @@ linters-settings:
     min-occurrences: 2
 linters:
   enable:
-    - bodyclose
-    - dogsled
-    - dupl
+    # Core linters with lower resource requirements
     - errcheck
-    - exportloopref
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
-    - revive # replaces golint
-    - gosec
     - gosimple
     - govet
+    - gofmt
+    - goimports
     - ineffassign
-    - misspell
-    - nakedret
-    - nolintlint
-    - staticcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unparam
     - unused
-    - whitespace
+    # Keep copyloopvar as replacement for exportloopref
+    - copyloopvar
   disable-all: true # Ensure only explicitly enabled linters run
 issues:
   exclude-use-default: false

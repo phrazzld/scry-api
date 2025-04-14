@@ -86,8 +86,18 @@ func TestSuccessfulInitialization(t *testing.T) {
 	// Verify config values were loaded correctly
 	assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
 	assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
-	assert.Equal(t, "postgresql://user:pass@localhost:5432/testdb", cfg.Database.URL, "Database URL should be loaded from environment variables")
-	assert.Equal(t, "thisisasecretkeythatis32charslong!!", cfg.Auth.JWTSecret, "JWT secret should be loaded from environment variables")
+	assert.Equal(
+		t,
+		"postgresql://user:pass@localhost:5432/testdb",
+		cfg.Database.URL,
+		"Database URL should be loaded from environment variables",
+	)
+	assert.Equal(
+		t,
+		"thisisasecretkeythatis32charslong!!",
+		cfg.Auth.JWTSecret,
+		"JWT secret should be loaded from environment variables",
+	)
 	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
 }
 

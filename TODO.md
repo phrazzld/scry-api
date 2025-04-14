@@ -27,7 +27,7 @@
   - **Depends On:** Implement Custom File Length Warning Hook, Add Standard Pre-commit Hooks
   - **AC Ref:** Implicit from PLAN.md Section 2.5
 
-- [ ] **Update README Documentation:** Inform developers about pre-commit features and usage.
+- [x] **Update README Documentation:** Inform developers about pre-commit features and usage.
   - **Action:** Add or update a "Pre-commit Hooks" section in the `README.md` file listing key hooks (including the new warning hook), their purposes, and installation instructions (`pre-commit install`).
   - **Depends On:** Organize and Document Configuration File
   - **AC Ref:** Implicit from PLAN.md Section 2.6

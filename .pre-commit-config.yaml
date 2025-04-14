@@ -54,7 +54,7 @@ repos:
       - id: warn-long-files
         name: Warn on excessively long files
         description: Checks file length and warns (but doesn't fail) if a file exceeds the limit
-        language: system
+        language: python
         entry: .pre-commit-hooks/warn_long_files.py
         types: [text]  # Run on all text files
         pass_filenames: true  # Pass each file to the script

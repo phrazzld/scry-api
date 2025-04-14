@@ -17,6 +17,17 @@ func IsIntegrationTestEnvironment() bool {
 	return os.Getenv("DATABASE_URL") != ""
 }
 
+// GetTestDatabaseURL returns the database URL for integration tests.
+// If DATABASE_URL environment variable is set, it's used directly.
+// If not, it returns an error via the testing.T's Fatalf method.
+func GetTestDatabaseURL(t *testing.T) string {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Fatal("DATABASE_URL environment variable is required for this test")
+	}
+	return dbURL
+}
+
 // SetupEnv sets up environment variables for testing and returns a cleanup function.
 // It captures the original environment variable values, sets new values for the test,
 // and returns a function that will restore the original values when called.

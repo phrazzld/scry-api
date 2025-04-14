@@ -22,6 +22,7 @@ import (
 
 // Constant for the migrations directory path
 // Used in the migration command implementation
+// This is a relative path from the project root
 const migrationsDir = "internal/platform/postgres/migrations"
 
 // main is the entry point for the scry-api server.

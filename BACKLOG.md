@@ -25,14 +25,14 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Ensure models include necessary validation methods.
     * ✅ Document the domain model relationships and purpose.
 
-* **Create Initial Database Schema Migrations:**
-    * Create initial database schema migration scripts.
-    * Define `users` table structure with appropriate fields and constraints.
-    * Define `memos` table including `status` field ('pending', 'processing', 'completed', 'completed_with_errors', 'failed').
-    * Define `cards` table with `content` JSONB structure.
-    * Define `user_card_stats` table with appropriate fields.
-    * Add essential indexes (esp. on `user_card_stats` for `next_review_at`).
-    * Implement rollback migrations.
+* **Create Initial Database Schema Migrations (Completed):**
+    * ✅ Create initial database schema migration scripts.
+    * ✅ Define `users` table structure with appropriate fields and constraints.
+    * ✅ Define `memos` table including `status` field ('pending', 'processing', 'completed', 'completed_with_errors', 'failed').
+    * ✅ Define `cards` table with `content` JSONB structure.
+    * ✅ Define `user_card_stats` table with appropriate fields.
+    * ✅ Add essential indexes (esp. on `user_card_stats` for `next_review_at`).
+    * ✅ Implement rollback migrations.
 
 * **Provision Database Infrastructure:**
     * Provision DigitalOcean Managed PostgreSQL instance.

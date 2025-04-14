@@ -122,9 +122,6 @@ func setupLogCapture(t *testing.T) (ts *testSetup, cleanup func()) {
 }
 
 // parseLogEntry parses a JSON log entry from a string
-// Will be used in future tests for parsing and validating log output
-//
-//nolint:unused // Will be used in future tests
 func parseLogEntry(logLine string) (map[string]interface{}, error) {
 	var entry map[string]interface{}
 	err := json.Unmarshal([]byte(logLine), &entry)
@@ -258,6 +255,146 @@ func TestInvalidLogLevelParsing(t *testing.T) {
 	}
 	if !strings.Contains(logOutput, "error test message") {
 		t.Error("Logger with default info level should output error messages")
+	}
+}
+
+// TestJSONOutputFormat verifies that the logger produces correctly formatted JSON output
+// and that structured logging attributes are properly included in the JSON.
+func TestJSONOutputFormat(t *testing.T) {
+	// Redirect stdout to capture JSON output
+	origStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create stdout pipe: %v", err)
+	}
+	os.Stdout = w
+
+	// Create and configure the logger
+	cfg := config.ServerConfig{
+		LogLevel: "debug", // Use debug to capture all messages
+		Port:     8080,
+	}
+
+	// Set up the logger
+	logger, err := logger.Setup(cfg)
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
+	// Log different types of messages with structured attributes
+	logger.Info("simple message")
+	logger.Info("message with attributes",
+		"string_attr", "value",
+		"int_attr", 42,
+		"bool_attr", true,
+		"float_attr", 3.14)
+
+	// Log a message with a nested attribute using slog.Group
+	logger.Info("message with group",
+		slog.Group("user",
+			"id", "12345",
+			"name", "Test User",
+			"role", "admin"))
+
+	// Close write end of pipe to flush contents
+	if err := w.Close(); err != nil {
+		t.Logf("Failed to close writer: %v", err)
+	}
+
+	// Restore stdout
+	os.Stdout = origStdout
+
+	// Read the captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("Failed to read from pipe: %v", err)
+	}
+	output := buf.String()
+
+	// Split the output into lines (one JSON object per line)
+	logLines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Ensure we have the expected number of log entries
+	expectedLines := 3 // We logged 3 messages
+	if len(logLines) != expectedLines {
+		t.Errorf("Expected %d log lines, got %d", expectedLines, len(logLines))
+	}
+
+	// Test 1: Simple message - verify basic JSON structure
+	if len(logLines) > 0 {
+		entry, err := parseLogEntry(logLines[0])
+		if err != nil {
+			t.Errorf("Failed to parse JSON log entry: %v", err)
+		} else {
+			// Check required fields
+			requiredFields := []string{"time", "level", "msg"}
+			for _, field := range requiredFields {
+				if _, ok := entry[field]; !ok {
+					t.Errorf("Log entry missing required field: %s", field)
+				}
+			}
+
+			// Verify field values
+			if msg, ok := entry["msg"]; !ok || msg != "simple message" {
+				t.Errorf("Expected msg to be 'simple message', got: %v", msg)
+			}
+			if level, ok := entry["level"]; !ok || level != "INFO" {
+				t.Errorf("Expected level to be 'INFO', got: %v", level)
+			}
+		}
+	}
+
+	// Test 2: Message with attributes - verify attributes are included
+	if len(logLines) > 1 {
+		entry, err := parseLogEntry(logLines[1])
+		if err != nil {
+			t.Errorf("Failed to parse JSON log entry: %v", err)
+		} else {
+			// Check for attributes
+			expectedAttrs := map[string]interface{}{
+				"string_attr": "value",
+				"int_attr":    float64(42), // JSON numbers are parsed as float64
+				"bool_attr":   true,
+				"float_attr":  float64(3.14), // JSON numbers are parsed as float64
+			}
+
+			for key, expected := range expectedAttrs {
+				if actual, ok := entry[key]; !ok {
+					t.Errorf("Log entry missing attribute: %s", key)
+				} else if actual != expected {
+					t.Errorf("Expected attribute %s to be %v, got: %v", key, expected, actual)
+				}
+			}
+		}
+	}
+
+	// Test 3: Message with group - verify nested structure
+	if len(logLines) > 2 {
+		entry, err := parseLogEntry(logLines[2])
+		if err != nil {
+			t.Errorf("Failed to parse JSON log entry: %v", err)
+		} else {
+			// Check for user group
+			user, ok := entry["user"].(map[string]interface{})
+			if !ok {
+				t.Errorf("Log entry missing 'user' group or not an object")
+			} else {
+				// Check user fields
+				expectedUserFields := map[string]interface{}{
+					"id":   "12345",
+					"name": "Test User",
+					"role": "admin",
+				}
+
+				for key, expected := range expectedUserFields {
+					if actual, ok := user[key]; !ok {
+						t.Errorf("User group missing field: %s", key)
+					} else if actual != expected {
+						t.Errorf("Expected user.%s to be %v, got: %v", key, expected, actual)
+					}
+				}
+			}
+		}
 	}
 }
 

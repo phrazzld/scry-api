@@ -89,7 +89,7 @@
   - **Depends On:** Finalize Logger Setup Function, Implement Test Setup for Output Capture
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Verify JSON Output Format in Tests:**
+- [x] **Verify JSON Output Format in Tests:**
   - **Action:** Add tests to verify that log output is correctly formatted as JSON, ensuring the structured logging is working properly.
   - **Depends On:** Write Test for Valid Log Level Parsing
   - **AC Ref:** Set up basic structured logging framework

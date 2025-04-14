@@ -30,7 +30,7 @@
   - **Depends On:** Add Viper and Validator dependencies, Create Config struct in `config.go`
   - **AC Ref:** PLAN.md Step 3.2.1
 
-- [ ] **Implement configuration loading logic:** 
+- [x] **Implement configuration loading logic:** 
   - **Action:** Within `Load()`, implement the following in sequence:
     1. Set default values for non-critical parameters (e.g., port, log level)
     2. Configure Viper to look for config files (e.g., `config.yaml`) in the working directory

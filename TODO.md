@@ -17,7 +17,7 @@
   - **Depends On:** Create Initial Logger Go File
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Implement Log Level Parsing Logic:**
+- [x] **Implement Log Level Parsing Logic:**
   - **Action:** Implement the `switch` statement within `Setup` to parse `cfg.LogLevel` (case-insensitive) and map it to the corresponding `slog.Level` constant (Debug, Info, Warn, Error).
   - **Depends On:** Implement Logger Setup Function Signature
   - **AC Ref:** Configure logging system using application configuration

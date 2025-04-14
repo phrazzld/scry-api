@@ -50,7 +50,7 @@
   - **Depends On:** None
   - **AC Ref:** Documentation Issue 1 (Minor Godoc Clarity in Setup Function)
 
-- [ ] **Fix Formatting Inconsistency in `BACKLOG.md`:**
+- [x] **Fix Formatting Inconsistency in `BACKLOG.md`:**
   - **Action:** Review `BACKLOG.md` around line 13 (the "have pre-commit hook warn..." item) and adjust its formatting (e.g., indentation, bullet style) to be consistent with other top-level backlog items, or integrate it into a more relevant section if appropriate.
   - **Depends On:** None
   - **AC Ref:** Documentation Issue 2 (Backlog Formatting Inconsistency)

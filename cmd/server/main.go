@@ -53,3 +53,4 @@ func initializeApp() (*config.Config, error) {
 }
 
 // Test comment
+// Another test comment

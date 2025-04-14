@@ -5,6 +5,7 @@
 *.so
 *.dylib
 bin/
+server
 
 # Test binary, built with `go test -c`
 *.test
@@ -47,3 +48,7 @@ dist/
 
 # Architecture planning outputs
 architect_output/
+
+# Planning and task tracking files
+PLAN.md
+TODO.md

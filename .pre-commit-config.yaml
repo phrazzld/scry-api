@@ -10,12 +10,12 @@ repos:
   rev: v1.59.1  # Use latest stable version compatible with your Go version
   hooks:
   - id: golangci-lint
-    args: ["--fix"] # Attempt to autofix issues
+    args: ["run", "--fix"] # Attempt to autofix issues
 - repo: https://github.com/segmentio/golines
   rev: v0.12.2
   hooks:
   - id: golines
-    args: ["-w", "--max-len=120", "--base-formatter=goimports"] # Format + Imports + Line Length
+    args: ["--max-len=120", "--base-formatter=goimports"] # Format + Imports + Line Length
 - repo: local
   hooks:
   - id: go-mod-tidy

@@ -26,29 +26,7 @@ jobs:
         with:
           version: v1.59 # Match pre-commit hook version
           args: --verbose
-
-  format:
-    name: Format Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-      - name: Check formatting with goimports
-        run: |
-          # Using goimports directly for checking
-          go install golang.org/x/tools/cmd/goimports@latest
-          DIFF=$(goimports -l .)
-          if [ -n "$DIFF" ]; then
-            echo "Code is not formatted correctly. Please run 'goimports -w .' or use the pre-commit hook."
-            echo "$DIFF"
-            exit 1
-          fi
-          echo "Code formatting is correct."
+        # Note: This includes gofmt and goimports checks, making a separate format job unnecessary
 
   test:
     name: Test

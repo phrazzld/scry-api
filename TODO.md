@@ -79,7 +79,7 @@
   - **AC Ref:** PLAN.md Step 3.5.1
 
 ### Testing
-- [ ] **Write unit tests for `Load()` function:** 
+- [x] **Write unit tests for `Load()` function:** 
   - **Action:** Create `internal/config/load_test.go` with test cases covering:
     1. Loading with environment variables set
     2. Loading with a config file

@@ -9,9 +9,9 @@ repos:
 - repo: local
   hooks:
   - id: golangci-lint-custom
-    name: golangci-lint (customized v1.59.1)
-    description: Run golangci-lint v1.59.1 with custom resource limits
-    entry: bash -c 'VERSION="v1.59.1" && BIN_DIR="$HOME/.cache/pre-commit/golangci-lint-$VERSION" && mkdir -p "$BIN_DIR" && if [ ! -f "$BIN_DIR/golangci-lint" ]; then echo "Installing golangci-lint $VERSION..." && GOBIN="$BIN_DIR" go install github.com/golangci/golangci-lint/cmd/golangci-lint@$VERSION; fi && echo "Using version check only during commit"'
+    name: golangci-lint v2
+    description: Run golangci-lint v2
+    entry: golangci-lint run
     language: system
     types: [go]
     pass_filenames: false

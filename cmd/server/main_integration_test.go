@@ -97,7 +97,7 @@ func loadConfigWithFile(configPath string) (*config.Config, error) {
 	v.SetConfigType("yaml")
 	if configPath != "" {
 		v.SetConfigFile(configPath)
-		
+
 		// Attempt to read the config file
 		if err := v.ReadInConfig(); err != nil {
 			// Only log non-file-not-found errors (though this shouldn't happen with an explicit file)
@@ -176,7 +176,7 @@ llm:
 `
 	tempDir, cleanupFile := createTempConfigFile(t, configYaml)
 	defer cleanupFile()
-	
+
 	configPath := tempDir + "/config.yaml"
 
 	// Setup environment variables with different values

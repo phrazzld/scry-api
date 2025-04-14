@@ -65,64 +65,64 @@
   - **AC Ref:** Section 2.4.2, 3.1
 
 ## Migration Command Implementation
-- [ ] **Implement up command logic:** Add support for applying migrations
+- [x] **Implement up command logic:** Add support for applying migrations
   - **Action:** Add a case for "up" in the `switch command` block within `runMigrations`. Call `goose.Up(db, migrationsDir)` and return its result.
   - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
   - **AC Ref:** Section 2.5, 3.1
 
-- [ ] **Implement down command logic:** Add support for rolling back migrations
+- [x] **Implement down command logic:** Add support for rolling back migrations
   - **Action:** Add a case for "down" in the `switch command` block within `runMigrations`. Call `goose.Down(db, migrationsDir)` and return its result.
   - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
   - **AC Ref:** Section 2.5, 3.1
 
-- [ ] **Implement status command logic:** Add support for checking migration status
+- [x] **Implement status command logic:** Add support for checking migration status
   - **Action:** Add a case for "status" in the `switch command` block within `runMigrations`. Call `goose.Status(db, migrationsDir)` and return its result.
   - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
   - **AC Ref:** Section 2.5, 3.1
 
-- [ ] **Implement create command logic:** Add support for creating new migrations
+- [x] **Implement create command logic:** Add support for creating new migrations
   - **Action:** Add a case for "create" in the `switch command` block within `runMigrations`. Check if a migration name was provided via the `-name` flag (passed in `args`). If not, return an error. Call `goose.Create(db, migrationsDir, args[0], "sql")` and return its result.
   - **Depends On:** Implement database connection logic, Set goose logger in runMigrations, Define migration command-line flags
   - **AC Ref:** Section 2.5, 3.1, 3.2
 
-- [ ] **Implement version command logic:** Add support for checking migration version
+- [x] **Implement version command logic:** Add support for checking migration version
   - **Action:** Add a case for "version" in the `switch command` block within `runMigrations`. Call `goose.Version(db, migrationsDir)` and return its result.
   - **Depends On:** Implement database connection logic, Set goose logger in runMigrations
   - **AC Ref:** Section 2.5, 3.1
 
-- [ ] **Implement default case for unknown commands:** Handle invalid migration commands
+- [x] **Implement default case for unknown commands:** Handle invalid migration commands
   - **Action:** Add a `default` case to the `switch command` block in `runMigrations` that returns a formatted error indicating an unknown command was provided.
   - **Depends On:** Define runMigrations function signature
   - **AC Ref:** Section 2.5, 3.1
 
 ## Testing
-- [ ] **Implement unit tests for migration flag parsing:** Test flag parsing logic
+- [x] **Implement unit tests for migration flag parsing:** Test flag parsing logic
   - **Action:** Write unit tests for `main.go` to verify that the `-migrate` and `-name` flags are correctly parsed under various scenarios (present, absent, combined).
   - **Depends On:** Define migration command-line flags
   - **AC Ref:** Section 2.6
 
-- [ ] **Implement unit tests for runMigrations command dispatch:** Test command routing logic
+- [x] **Implement unit tests for runMigrations command dispatch:** Test command routing logic
   - **Action:** Write unit tests for the `runMigrations` function, focusing on the `switch` statement logic. Mock the `goose` calls to verify that the correct `goose` function is called for each command string ("up", "down", "status", "create", "version", default). Verify argument handling for "create".
   - **Depends On:** Implement all migration command logic tasks
   - **AC Ref:** Section 2.6, 4.3
 
-- [ ] **Implement integration test for create command:** Test migration file creation
+- [x] **Implement integration test for create command:** Test migration file creation
   - **Action:** Write an integration test that executes the application binary with `-migrate=create -name=test_migration`. Verify that the corresponding SQL file is created in the migrations directory with the correct naming convention and basic structure. Clean up the created file afterwards.
   - **Depends On:** Implement create command logic, Create migrations directory
   - **AC Ref:** Section 2.6, 3.2, 4.3
 
-- [ ] **Implement integration tests for migration execution:** Test up/down migration flow
+- [x] **Implement integration tests for migration execution:** Test up/down migration flow
   - **Action:** Write integration tests using a temporary PostgreSQL database (via testcontainers-go). Create a dummy migration file. Run the application with `-migrate=up`, check status/version, run `-migrate=down`, check status/version again to verify the core migration flow.
   - **Depends On:** Implement up, down, status and version command logic
   - **AC Ref:** Section 2.6, 4.3
 
 ## Documentation
-- [ ] **Update README.md with migration command usage:** Document command-line interface
+- [x] **Update README.md with migration command usage:** Document command-line interface
   - **Action:** Add a new section to `README.md` explaining how to use the `-migrate` flag with the available commands (`up`, `down`, `status`, `create`, `version`) and the `-name` flag. Include practical examples.
   - **Depends On:** Implement all migration command logic tasks
   - **AC Ref:** Section 2.7.1, 4.5
 
-- [ ] **Document migration file format and naming conventions:** Explain migration file structure
+- [x] **Document migration file format and naming conventions:** Explain migration file structure
   - **Action:** Add details to the `README.md` explaining the expected SQL migration file format (`-- +goose Up`, `-- +goose Down` sections) and the timestamp-based naming convention generated by the `create` command.
   - **Depends On:** Implement create command logic
   - **AC Ref:** Section 2.7.2, 4.5
@@ -132,10 +132,10 @@
   - **Context:** PLAN.md Section 2.4.1 shows `slogGooseLogger.Fatalf` calling `os.Exit(1)`, but `main.go` already handles exits.
   - **Assumption:** The `slogGooseLogger.Fatalf` implementation should only log the error using `slog.Error` and not call `os.Exit(1)`. The `runMigrations` function will return errors to `main` which handles program exit consistently.
 
-- [ ] **Issue/Assumption:** Database for integration tests
+- [x] **Issue/Assumption:** Database for integration tests
   - **Context:** PLAN.md Section 2.6 (Add Tests), Section 4.3 (Testability).
   - **Assumption:** Integration tests requiring a database will use `testcontainers-go` to manage a temporary PostgreSQL instance, aligning with the project's testing strategy principles.
 
-- [ ] **Issue/Assumption:** No explicit Acceptance Criteria in PLAN.md
+- [x] **Issue/Assumption:** No explicit Acceptance Criteria in PLAN.md
   - **Context:** The PLAN.md document does not contain explicitly labeled Acceptance Criteria.
   - **Assumption:** The section numbers provided in the AC Ref fields above refer to the corresponding sections in PLAN.md that define the requirements for each task.

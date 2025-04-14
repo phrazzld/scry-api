@@ -89,7 +89,7 @@
   - **Depends On:** Implement configuration loading logic
   - **AC Ref:** PLAN.md Step 4.1
 
-- [ ] **Create basic integration test:** 
+- [x] **Create basic integration test:** 
   - **Action:** Create a basic integration test that initializes the application with configuration to verify proper loading and injection of the configuration. This may be in `cmd/server/main_test.go` or similar location.
   - **Depends On:** Update `main.go` to use configuration
   - **AC Ref:** PLAN.md Step 4.2

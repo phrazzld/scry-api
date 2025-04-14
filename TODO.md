@@ -25,7 +25,7 @@
   - **AC Ref:** PLAN.md Step 3.1.3, 3.1.4
 
 ### Implement Configuration Loading
-- [ ] **Create `load.go` with `Load()` function:** 
+- [x] **Create `load.go` with `Load()` function:** 
   - **Action:** Create `internal/config/load.go` with a `Load() (*Config, error)` function. Import necessary packages (`fmt`, `strings`, `github.com/go-playground/validator/v10`, `github.com/spf13/viper`). Initialize a new Viper instance.
   - **Depends On:** Add Viper and Validator dependencies, Create Config struct in `config.go`
   - **AC Ref:** PLAN.md Step 3.2.1

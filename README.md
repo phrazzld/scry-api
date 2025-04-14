@@ -1,5 +1,8 @@
 # Scry API
 
+[![CI Checks](https://github.com/phrazzld/scry-api/actions/workflows/ci.yml/badge.svg)](https://github.com/phrazzld/scry-api/actions/workflows/ci.yml)
+[![Security Checks](https://github.com/phrazzld/scry-api/actions/workflows/security.yml/badge.svg)](https://github.com/phrazzld/scry-api/actions/workflows/security.yml)
+
 Scry API is a Go backend service that manages spaced repetition flashcards. It generates flashcards from user-provided memos using LLM integration (Gemini), and employs a modified SM-2 spaced repetition algorithm to schedule reviews based on user performance.
 
 ## Getting Started / Setup

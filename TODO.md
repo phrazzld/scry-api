@@ -14,7 +14,7 @@
   - **Depends On:** None
   - **AC Ref:** PLAN.md Step 3.1.1, 3.1.2, 3.1.3
 
-- [ ] **Define nested configuration structs:** 
+- [x] **Define nested configuration structs:** 
   - **Action:** In `config.go`, implement the following structs with appropriate validation rules:
     1. `ServerConfig` with fields for `Port` (int) and `LogLevel` (string)
     2. `DatabaseConfig` with field for `URL` (string)

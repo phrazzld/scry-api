@@ -10,6 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// IsIntegrationTestEnvironment returns true if the environment is configured
+// for running integration tests with a database connection.
+// Integration tests should check this and skip if not in an integration test environment.
+func IsIntegrationTestEnvironment() bool {
+	return os.Getenv("DATABASE_URL") != ""
+}
+
 // SetupEnv sets up environment variables for testing and returns a cleanup function.
 // It captures the original environment variable values, sets new values for the test,
 // and returns a function that will restore the original values when called.

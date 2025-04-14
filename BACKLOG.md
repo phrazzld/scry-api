@@ -8,12 +8,38 @@ This backlog outlines the major work items required to build the Minimum Viable 
 
 
 
-* **Database Setup & Migrations:**
+* **Set Up Database Migration Framework (Completed):**
+    * ✅ Research and select a suitable database migration tool for the project (chosen: `pressly/goose`).
+    * ✅ Set up the migration framework in the codebase.
+    * ✅ Create migration directory structure.
+    * ✅ Configure the migration tool to work with PostgreSQL.
+    * ✅ Implement connection and migration execution logic.
+    * ✅ Add proper logging and error handling.
+    * ✅ Implement all migration commands (up, down, status, create, version).
+    * ✅ Add unit tests for migration functionality.
+    * ✅ Document migration usage in README.md and dedicated migration guide.
+
+* **Define Core Domain Models:**
+    * Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`).
+    * Implement strong typing following type standards (`CODING_STANDARDS.md` Section 2).
+    * Ensure models include necessary validation methods.
+    * Document the domain model relationships and purpose.
+
+* **Create Initial Database Schema Migrations:**
+    * Create initial database schema migration scripts.
+    * Define `users` table structure with appropriate fields and constraints.
+    * Define `memos` table including `status` field ('pending', 'processing', 'completed', 'completed_with_errors', 'failed').
+    * Define `cards` table with `content` JSONB structure.
+    * Define `user_card_stats` table with appropriate fields.
+    * Add essential indexes (esp. on `user_card_stats` for `next_review_at`).
+    * Implement rollback migrations.
+
+* **Provision Database Infrastructure:**
     * Provision DigitalOcean Managed PostgreSQL instance.
+    * Configure PostgreSQL settings for optimal performance.
     * Enable `pgvector` extension on the DO Managed Postgres instance.
-    * Set up database migration tooling (e.g., `golang-migrate`).
-    * Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`) adhering to type standards (`CODING_STANDARDS.md` Section 2).
-    * Create initial database schema migration script defining `users`, `memos` (including `status` field: 'pending', 'processing', 'completed', 'completed_with_errors', 'failed'), `cards` (with `content` JSONB structure), `user_card_stats` tables, columns, constraints, and essential indexes (esp. on `user_card_stats` for `next_review_at`).
+    * Set up backup and monitoring.
+    * Document connection and access procedures.
 
 * **Core Domain Logic Implementation (SRS):**
     * Define `srs.Service` interface within the core domain/application layer.

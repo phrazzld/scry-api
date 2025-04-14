@@ -121,7 +121,7 @@
   - **Depends On:** Define `loggerKey` Type
   - **AC Ref:** Implement contextual logging helpers
 
-- [ ] **Implement `FromContext` Helper Function:**
+- [x] **Implement `FromContext` Helper Function:**
   - **Action:** Implement the `FromContext` function as shown in the plan, which retrieves a logger from the context using `loggerKey` or returns the default logger if none is found.
   - **Depends On:** Define `loggerKey` Type
   - **AC Ref:** Implement contextual logging helpers

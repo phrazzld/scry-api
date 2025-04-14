@@ -114,3 +114,18 @@ func WithRequestID(ctx context.Context, requestID string) context.Context {
 	logger := slog.Default().With(slog.String("request_id", requestID))
 	return context.WithValue(ctx, loggerKey{}, logger)
 }
+
+// FromContext retrieves a logger from the context, or returns the default logger
+// if no logger is found in the context.
+//
+// Parameters:
+//   - ctx: The context that may contain a logger
+//
+// Returns:
+//   - *slog.Logger: The logger from the context or the default logger if none is found
+func FromContext(ctx context.Context) *slog.Logger {
+	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok {
+		return logger
+	}
+	return slog.Default()
+}

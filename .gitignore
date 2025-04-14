@@ -44,3 +44,6 @@ logs/
 # Build outputs
 build/
 dist/
+
+# Architecture planning outputs
+architect_output/

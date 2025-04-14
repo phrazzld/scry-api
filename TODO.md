@@ -39,7 +39,7 @@
   - **Depends On:** Implement Custom File Length Warning Hook
   - **AC Ref:** Implicit from PLAN.md Section 3
 
-- [ ] **Test Edge Cases:** Ensure the hook handles various special cases properly.
+- [~] **Test Edge Cases:** Ensure the hook handles various special cases properly.
   - **Action:** Test with a very large text file (e.g., 10MB) to verify performance, and with files using unusual encodings (UTF-16) to verify encoding handling.
   - **Depends On:** Test Custom Hook Functionality
   - **AC Ref:** Implicit from PLAN.md Section 3 (Edge Cases)

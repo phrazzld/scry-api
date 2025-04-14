@@ -100,7 +100,7 @@
   - **Depends On:** Finalize Logger Setup Function
   - **AC Ref:** Configure logging system using application configuration
 
-- [ ] **Update `README.md` Architecture Overview:**
+- [x] **Update `README.md` Architecture Overview:**
   - **Action:** Add a sentence or bullet point to the Architecture Overview section in `README.md` mentioning the use of the standard library's `log/slog` for structured logging via the `internal/platform/logger` package.
   - **Depends On:** Finalize Logger Setup Function
   - **AC Ref:** Structured logging framework implementation

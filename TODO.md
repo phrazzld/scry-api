@@ -98,7 +98,7 @@
 
 These items were identified in the code review process and should be addressed in future iterations:
 
-- [ ] **Fix: Update JWT Secret placeholder in example files:**
+- [x] **Fix: Update JWT Secret placeholder in example files:**
   - **Action:** Update the JWT Secret placeholder in `.env.example` and `config.yaml.example` to use a value that actually meets the minimum 32-character length requirement, while maintaining the security commentary.
   - **Depends On:** None
   - **Issue Severity:** Low

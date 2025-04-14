@@ -21,7 +21,7 @@ database:
 auth:
   # JWT secret for token signing/verification
   # IMPORTANT: In production, use a secure random string of at least 32 characters
-  jwt_secret: your-secure-jwt-secret-min-32-characters
+  jwt_secret: replace-this-with-32-plus-random-chars!
 
 # LLM settings
 llm:

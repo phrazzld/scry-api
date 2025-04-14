@@ -5,7 +5,8 @@
 *.so
 *.dylib
 bin/
-server
+# Ignore the server binary, not the directory
+/server
 
 # Test binary, built with `go test -c`
 *.test

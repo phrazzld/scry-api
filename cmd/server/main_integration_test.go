@@ -1,9 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
+	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,10 +44,10 @@ func setupEnv(t *testing.T, envVars map[string]string) func() {
 func createTempConfigFile(t *testing.T, content string) (string, func()) {
 	tempDir := t.TempDir()
 	configPath := tempDir + "/config.yaml"
-	
+
 	err := os.WriteFile(configPath, []byte(content), 0644)
 	require.NoError(t, err, "Failed to create temporary config file")
-	
+
 	// Return the directory path and a cleanup function
 	return tempDir, func() {
 		// t.TempDir() handles cleanup automatically
@@ -68,13 +73,91 @@ func TestSuccessfulInitialization(t *testing.T) {
 	// Verify initialization succeeded
 	require.NoError(t, err, "Application initialization should succeed with valid config")
 	require.NotNil(t, cfg, "Configuration should not be nil")
-	
+
 	// Verify config values were loaded correctly
 	assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
 	assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
 	assert.Equal(t, "postgresql://user:pass@localhost:5432/testdb", cfg.Database.URL, "Database URL should be loaded from environment variables")
 	assert.Equal(t, "thisisasecretkeythatis32charslong!!", cfg.Auth.JWTSecret, "JWT secret should be loaded from environment variables")
 	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
+}
+
+// loadConfigWithFile wraps config.Load with the ability to specify a config file path
+// This avoids the need to change the working directory in tests
+func loadConfigWithFile(configPath string) (*config.Config, error) {
+	// This function is nearly identical to config.Load but allows specifying a config file
+	// It is exported for testing purposes only
+	v := viper.New()
+
+	// Set default values
+	v.SetDefault("server.port", 8080)
+	v.SetDefault("server.log_level", "info")
+
+	// Set the specific config file rather than looking in the working directory
+	v.SetConfigType("yaml")
+	if configPath != "" {
+		v.SetConfigFile(configPath)
+		
+		// Attempt to read the config file
+		if err := v.ReadInConfig(); err != nil {
+			// Only log non-file-not-found errors (though this shouldn't happen with an explicit file)
+			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+				fmt.Printf("Warning: error reading config file: %v\n", err)
+			}
+		}
+	}
+
+	// Configure environment variables
+	v.SetEnvPrefix("SCRY")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+
+	// Explicitly bind critical environment variables
+	bindEnvs := []struct {
+		key    string
+		envVar string
+	}{
+		{"database.url", "SCRY_DATABASE_URL"},
+		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET"},
+		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
+		{"server.port", "SCRY_SERVER_PORT"},
+		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},
+	}
+
+	for _, env := range bindEnvs {
+		err := v.BindEnv(env.key, env.envVar)
+		if err != nil {
+			return nil, fmt.Errorf("error binding environment variable %s: %w", env.envVar, err)
+		}
+	}
+
+	// Unmarshal and validate
+	var cfg config.Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal configuration: %w", err)
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(&cfg); err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// initializeAppWithConfigFile is a version of initializeApp that uses the specific config file
+func initializeAppWithConfigFile(configPath string) (*config.Config, error) {
+	// Load configuration with the specific file
+	cfg, err := loadConfigWithFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Log configuration details
+	fmt.Printf("Server configuration: Port=%d, LogLevel=%s\n",
+		cfg.Server.Port, cfg.Server.LogLevel)
+
+	return cfg, nil
 }
 
 // TestEnvironmentVariablePrecedence verifies that environment variables take precedence over config file values
@@ -94,13 +177,8 @@ llm:
 	tempDir, cleanupFile := createTempConfigFile(t, configYaml)
 	defer cleanupFile()
 	
-	// Change working directory to where the config file is
-	originalDir, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current working directory")
-	err = os.Chdir(tempDir)
-	require.NoError(t, err, "Failed to change working directory")
-	defer func() { os.Chdir(originalDir) }() // Restore original directory
-	
+	configPath := tempDir + "/config.yaml"
+
 	// Setup environment variables with different values
 	// The environment variables should take precedence over the config file
 	envCleanup := setupEnv(t, map[string]string{
@@ -112,13 +190,13 @@ llm:
 	})
 	defer envCleanup()
 
-	// Initialize the application
-	cfg, err := initializeApp()
+	// Initialize the application with the specific config file
+	cfg, err := initializeAppWithConfigFile(configPath)
 
 	// Verify initialization succeeded
 	require.NoError(t, err, "Application initialization should succeed")
 	require.NotNil(t, cfg, "Configuration should not be nil")
-	
+
 	// Verify environment variable took precedence
 	assert.Equal(t, 9090, cfg.Server.Port, "Server port should come from environment variable (precedence)")
 	// Verify config file value was used when env var not set
@@ -175,15 +253,15 @@ func TestInvalidConfiguration(t *testing.T) {
 			errorText: "validation failed",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cleanup := setupEnv(t, tc.envVars)
 			defer cleanup()
-			
+
 			// Initialize the application
 			cfg, err := initializeApp()
-			
+
 			// Verify initialization failed as expected
 			assert.Error(t, err, "Application initialization should fail with invalid config")
 			assert.Nil(t, cfg, "Configuration should be nil on error")

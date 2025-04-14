@@ -8,9 +8,9 @@
 // Configuration Sources:
 //
 // The configuration is loaded from multiple sources with the following precedence:
-//   1. Environment variables with the "SCRY_" prefix (highest priority)
-//   2. Configuration file (config.yaml in the working directory, if present)
-//   3. Default values (for non-critical settings, lowest priority)
+//  1. Environment variables with the "SCRY_" prefix (highest priority)
+//  2. Configuration file (config.yaml in the working directory, if present)
+//  3. Default values (for non-critical settings, lowest priority)
 //
 // Key Features:
 //
@@ -38,10 +38,10 @@
 // Extending Configuration:
 //
 // To add new configuration options:
-//   1. Add fields to the appropriate struct in config.go
-//   2. Add validation tags as needed
-//   3. Update documentation
-//   4. If needed, set defaults in the Load() function
+//  1. Add fields to the appropriate struct in config.go
+//  2. Add validation tags as needed
+//  3. Update documentation
+//  4. If needed, set defaults in the Load() function
 //
 // All configuration is accessed through the Config struct, which is injected
 // into components that need configuration values.

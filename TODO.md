@@ -110,7 +110,7 @@ These items were identified in the code review process and should be addressed i
   - **Issue Severity:** Low
   - **Ref:** CODE_REVIEW.md
 
-- [ ] **Fix: Address potential test side effect with working directory:**
+- [x] **Fix: Address potential test side effect with working directory:**
   - **Action:** Refactor the `TestEnvironmentVariablePrecedence` test in `main_integration_test.go` to use `v.SetConfigFile(configPath)` directly instead of changing the working directory with `os.Chdir`, which could potentially affect other tests if run in parallel.
   - **Depends On:** None 
   - **Issue Severity:** Low

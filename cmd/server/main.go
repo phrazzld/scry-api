@@ -34,9 +34,9 @@ func initializeApp() (*config.Config, error) {
 	}
 
 	// Log configuration details
-	fmt.Printf("Server configuration: Port=%d, LogLevel=%s\n", 
+	fmt.Printf("Server configuration: Port=%d, LogLevel=%s\n",
 		cfg.Server.Port, cfg.Server.LogLevel)
-	
+
 	// Future initialization steps would happen here
 	// (logging, database, services, etc.)
 	// - Setting up a proper logger using the configured log level

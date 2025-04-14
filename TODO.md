@@ -48,7 +48,7 @@
   - **AC Ref:** Set up basic structured logging framework
 
 ## Integration into `main.go`
-- [ ] **Import Logger and Slog in `main.go`:**
+- [x] **Import Logger and Slog in `main.go`:**
   - **Action:** Add imports for `log/slog`, `os`, and the new `internal/platform/logger` package in `cmd/server/main.go`. Remove the standard `log` import if no longer used.
   - **Depends On:** Create Initial Logger Go File
   - **AC Ref:** Configure logging system using application configuration

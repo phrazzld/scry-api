@@ -6,8 +6,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog" // Will be used in subsequent tasks
+	"os"       // Will be used in subsequent tasks
 
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/platform/logger" // Will be used in subsequent tasks
 )
 
 // main is the entry point for the scry-api server.
@@ -15,6 +18,11 @@ import (
 // establishing database connections, injecting dependencies, and starting the
 // HTTP server.
 func main() {
+	// Suppress unused import warnings - these will be used in subsequent tasks
+	_ = slog.LevelInfo
+	_ = os.Stdout
+	_ = logger.Setup
+
 	fmt.Println("Scry API Server Starting...")
 
 	// Call the core initialization logic

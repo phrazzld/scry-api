@@ -51,3 +51,5 @@ func initializeApp() (*config.Config, error) {
 
 	return cfg, nil
 }
+
+// Test comment

@@ -12,7 +12,7 @@
   - **Depends On:** Analyze Current Configuration
   - **AC Ref:** Implicit from PLAN.md Section 2.2, 3.0
 
-- [ ] **Update Existing Pre-commit Hooks:** Keep hooks up-to-date with latest versions.
+- [x] **Update Existing Pre-commit Hooks:** Keep hooks up-to-date with latest versions.
   - **Action:** Run `pre-commit autoupdate` in the repository root. Review the changes made to `.pre-commit-config.yaml` for compatibility and correctness.
   - **Depends On:** Analyze Current Configuration
   - **AC Ref:** Implicit from PLAN.md Section 2.3

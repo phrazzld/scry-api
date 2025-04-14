@@ -5,6 +5,8 @@
 *.so
 *.dylib
 bin/
+# Ignore the server binary, not the directory
+/server
 
 # Test binary, built with `go test -c`
 *.test
@@ -20,7 +22,7 @@ go.work
 
 # Environment variables
 .env
-.env.*
+!.env.example
 *.env
 
 # IDE specific files
@@ -47,3 +49,8 @@ dist/
 
 # Architecture planning outputs
 architect_output/
+
+# Planning and task tracking files
+PLAN.md
+TODO.md
+CODE_REVIEW.md

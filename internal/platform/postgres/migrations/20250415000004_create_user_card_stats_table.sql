@@ -32,7 +32,7 @@ CREATE TABLE user_card_stats (
         CHECK (interval >= 0),
 
     CONSTRAINT check_ease_factor_range
-        CHECK (ease_factor > 1.0 AND ease_factor <= 2.5)
+        CHECK (ease_factor >= 1.3 AND ease_factor <= 2.5)
 );
 
 -- Create indexes

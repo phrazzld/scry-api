@@ -6,7 +6,7 @@
   - **Depends On:** None
   - **AC Ref:** Design Principles Issue 1
 
-- [ ] **Correct Ease Factor DB Constraint:** Align the database check constraint for `ease_factor` with the defined algorithm minimum.
+- [x] **Correct Ease Factor DB Constraint:** Align the database check constraint for `ease_factor` with the defined algorithm minimum.
   - **Action:** Modify the SQL `CHECK` constraint in `internal/platform/postgres/migrations/20250415000004_create_user_card_stats_table.sql` from `CHECK (ease_factor > 1.0 AND ease_factor <= 2.5)` to `CHECK (ease_factor >= 1.3 AND ease_factor <= 2.5)`. Ensure the corresponding down migration (if applicable) is correct or add a new migration if necessary.
   - **Depends On:** None
   - **AC Ref:** Design Principles Issue 2

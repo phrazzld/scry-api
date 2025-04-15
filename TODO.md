@@ -60,7 +60,7 @@
   - **Depends On:** None
   - **AC Ref:** Documentation Practices Issue 1
 
-- [ ] **Document SRS Lapse Handling Multiplier:** Clarify the 'Good' outcome multiplier after a lapse in SRS design docs.
+- [x] **Document SRS Lapse Handling Multiplier:** Clarify the 'Good' outcome multiplier after a lapse in SRS design docs.
   - **Action:** Update the `docs/design/srs_algorithm.md` document. Add a specific point under "Lapse Handling" or within the interval calculation description explaining the use of the `1.5` multiplier for the "Good" outcome immediately following an "Again" outcome (lapse). Include the rationale for this specific value.
   - **Depends On:** Refactor UserCardStats Mutability
   - **AC Ref:** Documentation Practices Issue 2

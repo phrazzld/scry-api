@@ -47,8 +47,10 @@ Modifiers applied to the interval calculation:
 |---------|----------|-------------|
 | Again   | 0.0      | Reset interval completely |
 | Hard    | 1.2      | Small increase for difficult cards |
-| Good    | 1.0      | Use ease factor directly |
+| Good    | 1.0      | Use ease factor directly (see special case below) |
 | Easy    | 1.3      | Additional multiplier beyond ease factor |
+
+**Special Case - Good After Lapse:** When a card receives a "Good" outcome immediately after an "Again" outcome (i.e., consecutiveCorrect = 0 and interval > 0), a special modifier of 1.5 is applied instead of using the ease factor. This helps the card recover more quickly than starting from the beginning, but still provides a conservative increase to ensure the memory is reinforced.
 
 ### First Review Intervals
 
@@ -118,6 +120,8 @@ Starting with a card with:
 - Consecutive correct: 2
 - Next review: 2 days later
 
+**Note:** If the interval had not been reset to 0 in the "Again" outcome (which triggers the first review interval behavior), the next "Good" outcome would have applied the special 1.5 multiplier instead. For example, if the interval had remained at 15 days, the next "Good" outcome would result in a new interval of 22.5 days (15 days * 1.5 special multiplier).
+
 ### Example 3: Hard Cards
 
 Starting with a card with:
@@ -155,6 +159,8 @@ Starting with a card with:
    - Standard SM-2 reduces intervals to 1 day upon failure
    - Our modification resets to 0 days (10 minutes)
    - Rationale: Provides more immediate reinforcement for failed material
+   - For "Good" outcomes immediately after a lapse, we apply a special 1.5 multiplier to the interval
+   - Rationale: This provides a balanced recovery path - faster than starting from scratch (which would apply the first review interval of 1 day), but not as aggressive as using the full ease factor. This approach acknowledges that the user is now correctly recalling the card, but needs a more moderate interval increase to solidify the memory
 
 4. **Maximum Ease Factor**
    - Standard SM-2 allows unlimited ease factor growth

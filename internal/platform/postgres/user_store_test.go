@@ -462,14 +462,198 @@ func TestPostgresUserStore_GetByEmail(t *testing.T) {
 
 // TestPostgresUserStore_Update tests the Update method
 func TestPostgresUserStore_Update(t *testing.T) {
-	t.Skip("Implementing method is a future task")
+	// Set up the test database
+	db := setupTestDB(t)
+	defer teardownTestDB(t, db)
 
-	// Test Cases (to be implemented):
-	// 1. Successfully update existing user
-	// 2. Attempt to update non-existent user (should return ErrUserNotFound)
-	// 3. Attempt to update email to one that already exists (should return ErrEmailExists)
-	// 4. Update with password change (should rehash password)
-	// 5. Update without password change (should keep existing hash)
+	// Create a new user store
+	userStore := postgres.NewPostgresUserStore(db)
+
+	// Test Case 1: Successfully update existing user with a new email but same password
+	t.Run("Update email only", func(t *testing.T) {
+		// Insert a test user directly into the database
+		oldEmail := fmt.Sprintf("update-test-email-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(t, db, oldEmail)
+
+		// Fetch the user to get current hashed password and timestamps
+		originalUser := getUserByID(t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+		oldHash := originalUser.HashedPassword
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Create an updated user (change email but not password)
+		newEmail := fmt.Sprintf("updated-email-%s@example.com", uuid.New().String()[:8])
+		updatedUser := &domain.User{
+			ID:        userId,
+			Email:     newEmail,
+			Password:  "", // No password update
+			CreatedAt: originalUser.CreatedAt,
+			UpdatedAt: originalUser.UpdatedAt, // Will be updated by the method
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, updatedUser)
+
+		// Verify the result
+		require.NoError(t, err, "Update should succeed for existing user")
+
+		// Verify the user was updated in the database
+		updatedDbUser := getUserByID(t, db, userId)
+		require.NotNil(t, updatedDbUser, "User should still exist after update")
+		assert.Equal(t, userId, updatedDbUser.ID, "User ID should not change")
+		assert.Equal(t, newEmail, updatedDbUser.Email, "Email should be updated")
+		assert.Equal(t, oldHash, updatedDbUser.HashedPassword, "Password hash should remain unchanged")
+		assert.True(t, updatedDbUser.UpdatedAt.After(originalUser.UpdatedAt), "UpdatedAt should be updated")
+		assert.Equal(t, originalUser.CreatedAt, updatedDbUser.CreatedAt, "CreatedAt should not change")
+	})
+
+	// Test Case 2: Successfully update existing user with a new password but same email
+	t.Run("Update password only", func(t *testing.T) {
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("update-test-pwd-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(t, db, email)
+
+		// Fetch the user to get current hashed password and timestamps
+		originalUser := getUserByID(t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+		oldHash := originalUser.HashedPassword
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Create an updated user (change password but not email)
+		newPassword := "NewPassword123!"
+		updatedUser := &domain.User{
+			ID:        userId,
+			Email:     email,       // Same email
+			Password:  newPassword, // New password
+			CreatedAt: originalUser.CreatedAt,
+			UpdatedAt: originalUser.UpdatedAt, // Will be updated by the method
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, updatedUser)
+
+		// Verify the result
+		require.NoError(t, err, "Update should succeed for existing user")
+
+		// Verify the user was updated in the database
+		updatedDbUser := getUserByID(t, db, userId)
+		require.NotNil(t, updatedDbUser, "User should still exist after update")
+		assert.Equal(t, userId, updatedDbUser.ID, "User ID should not change")
+		assert.Equal(t, email, updatedDbUser.Email, "Email should remain unchanged")
+		assert.NotEqual(t, oldHash, updatedDbUser.HashedPassword, "Password hash should be updated")
+		assert.True(t, updatedDbUser.UpdatedAt.After(originalUser.UpdatedAt), "UpdatedAt should be updated")
+		assert.Equal(t, originalUser.CreatedAt, updatedDbUser.CreatedAt, "CreatedAt should not change")
+		assert.Empty(t, updatedUser.Password, "Plaintext password should be cleared")
+	})
+
+	// Test Case 3: Attempt to update non-existent user
+	t.Run("Non-existent user", func(t *testing.T) {
+		// Generate a random UUID that doesn't exist in the database
+		nonExistentID := uuid.New()
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Create a user update with the non-existent ID
+		user := &domain.User{
+			ID:        nonExistentID,
+			Email:     "nonexistent@example.com",
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, user)
+
+		// Verify the result
+		assert.Error(t, err, "Update should return error for non-existent user")
+		assert.ErrorIs(t, err, store.ErrUserNotFound, "Error should be ErrUserNotFound")
+	})
+
+	// Test Case 4: Attempt to update email to one that already exists
+	t.Run("Duplicate email", func(t *testing.T) {
+		// Insert two test users
+		existingEmail := fmt.Sprintf("existing-email-%s@example.com", uuid.New().String()[:8])
+		existingID := insertTestUser(t, db, existingEmail)
+
+		updateEmail := fmt.Sprintf("update-email-%s@example.com", uuid.New().String()[:8])
+		updateID := insertTestUser(t, db, updateEmail)
+
+		// Get original user data
+		originalUser := getUserByID(t, db, updateID)
+		require.NotNil(t, originalUser, "User should exist before update")
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Create an updated user (change email to one that already exists)
+		updatedUser := &domain.User{
+			ID:        updateID,
+			Email:     existingEmail, // Email of the other user - should cause conflict
+			CreatedAt: originalUser.CreatedAt,
+			UpdatedAt: originalUser.UpdatedAt,
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, updatedUser)
+
+		// Verify the result
+		assert.Error(t, err, "Update should return error for duplicate email")
+		assert.ErrorIs(t, err, store.ErrEmailExists, "Error should be ErrEmailExists")
+
+		// Verify the user was not updated
+		updatedDbUser := getUserByID(t, db, updateID)
+		require.NotNil(t, updatedDbUser, "User should still exist")
+		assert.Equal(t, updateEmail, updatedDbUser.Email, "Email should not be changed")
+
+		// Verify the other user was not affected
+		otherUser := getUserByID(t, db, existingID)
+		require.NotNil(t, otherUser, "Other user should still exist")
+		assert.Equal(t, existingEmail, otherUser.Email, "Other user's email should not change")
+	})
+
+	// Test Case 5: Update with invalid data
+	t.Run("Invalid data", func(t *testing.T) {
+		// Insert a test user
+		email := fmt.Sprintf("valid-email-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(t, db, email)
+
+		// Get original user data
+		originalUser := getUserByID(t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Create an updated user with invalid email
+		updatedUser := &domain.User{
+			ID:        userId,
+			Email:     "invalid-email", // Invalid email format
+			CreatedAt: originalUser.CreatedAt,
+			UpdatedAt: originalUser.UpdatedAt,
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, updatedUser)
+
+		// Verify the result
+		assert.Error(t, err, "Update should return error for invalid data")
+		assert.Equal(t, domain.ErrInvalidEmail, err, "Error should be ErrInvalidEmail")
+
+		// Verify the user was not updated
+		updatedDbUser := getUserByID(t, db, userId)
+		require.NotNil(t, updatedDbUser, "User should still exist")
+		assert.Equal(t, email, updatedDbUser.Email, "Email should not be changed")
+	})
 }
 
 // TestPostgresUserStore_Delete tests the Delete method

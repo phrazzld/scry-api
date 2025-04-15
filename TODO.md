@@ -44,7 +44,7 @@
   - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
   - **AC Ref:** PLAN.md Section 2.2
 
-- [ ] **Implement PostgresUserStore Update Method:**
+- [x] **Implement PostgresUserStore Update Method:**
   - **Action:** Implement the `Update(ctx context.Context, user *domain.User) error` method on `PostgresUserStore`. Include calling `user.Validate()`, checking if the password needs rehashing (using `bcrypt`) and updating it if necessary, executing the SQL UPDATE statement using parameterized queries, handling potential unique constraint violations for email (returning `store.ErrEmailExists`), and handling "not found" cases (returning `store.ErrUserNotFound`). Log errors appropriately.
   - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
   - **AC Ref:** PLAN.md Sections 2.3, 3, 4.2
@@ -75,7 +75,7 @@
   - **Depends On:** Implement PostgresUserStore GetByEmail Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5
 
-- [ ] **Write Integration Tests for Update Method:**
+- [x] **Write Integration Tests for Update Method:**
   - **Action:** Implement integration tests in `user_store_test.go` covering the `Update` method. Test cases should include successful update (with and without password change), attempting to update a non-existent user (expecting `store.ErrUserNotFound`), attempting to update email to an existing one (expecting `store.ErrEmailExists`), and validation failures. Verify data integrity and password rehashing.
   - **Depends On:** Implement PostgresUserStore Update Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5

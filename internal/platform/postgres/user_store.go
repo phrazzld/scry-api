@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -208,8 +209,127 @@ func (s *PostgresUserStore) GetByEmail(ctx context.Context, email string) (*doma
 }
 
 // Update implements store.UserStore.Update
+// It modifies an existing user's details in the database.
+// Returns store.ErrUserNotFound if the user does not exist.
+// Returns store.ErrEmailExists if updating to an email that already exists.
+// Returns validation errors from the domain User if data is invalid.
 func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error {
-	// Placeholder implementation - will be fully implemented in a separate task
+	// Get the logger from context or use default
+	log := logger.FromContext(ctx)
+
+	log.Debug("updating user", slog.String("user_id", user.ID.String()))
+
+	// First, validate the user data
+	if err := user.Validate(); err != nil {
+		log.Warn("user validation failed during update",
+			slog.String("error", err.Error()),
+			slog.String("user_id", user.ID.String()))
+		return err
+	}
+
+	// Update the timestamp
+	user.UpdatedAt = time.Now().UTC()
+
+	// Determine password hash to store
+	var hashedPasswordToStore string
+
+	if user.Password != "" {
+		// Hash the new password if provided
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Error("failed to hash password",
+				slog.String("error", err.Error()),
+				slog.String("user_id", user.ID.String()))
+			return err
+		}
+		hashedPasswordToStore = string(hashedPassword)
+		user.Password = "" // Clear plaintext password for security
+	} else {
+		// Fetch the existing password hash if not updating the password
+		err := s.db.QueryRowContext(ctx, `
+			SELECT hashed_password FROM users WHERE id = $1
+		`, user.ID).Scan(&hashedPasswordToStore)
+
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				log.Debug("user not found", slog.String("user_id", user.ID.String()))
+				return store.ErrUserNotFound
+			}
+			log.Error("failed to fetch existing user",
+				slog.String("error", err.Error()),
+				slog.String("user_id", user.ID.String()))
+			return err
+		}
+	}
+
+	// Start a transaction for the update
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Error("failed to begin transaction",
+			slog.String("error", err.Error()),
+			slog.String("user_id", user.ID.String()))
+		return err
+	}
+	// Defer a rollback in case anything fails
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Error("failed to rollback transaction",
+					slog.String("rollback_error", rbErr.Error()),
+					slog.String("original_error", err.Error()),
+					slog.String("user_id", user.ID.String()))
+			}
+		}
+	}()
+
+	// Execute the update statement
+	result, err := tx.ExecContext(ctx, `
+		UPDATE users
+		SET email = $1, hashed_password = $2, updated_at = $3
+		WHERE id = $4
+	`, user.Email, hashedPasswordToStore, user.UpdatedAt, user.ID)
+
+	if err != nil {
+		// Check for unique constraint violation (duplicate email)
+		if isUniqueViolation(err) {
+			log.Warn("email already exists",
+				slog.String("email", user.Email),
+				slog.String("user_id", user.ID.String()))
+			return store.ErrEmailExists
+		}
+		// Log other errors
+		log.Error("failed to update user",
+			slog.String("error", err.Error()),
+			slog.String("user_id", user.ID.String()))
+		return err
+	}
+
+	// Check if a row was actually updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get rows affected",
+			slog.String("error", err.Error()),
+			slog.String("user_id", user.ID.String()))
+		return err
+	}
+
+	// If no rows were affected, the user didn't exist
+	if rowsAffected == 0 {
+		log.Debug("user not found for update", slog.String("user_id", user.ID.String()))
+		return store.ErrUserNotFound
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		log.Error("failed to commit transaction",
+			slog.String("error", err.Error()),
+			slog.String("user_id", user.ID.String()))
+		return err
+	}
+
+	log.Info("user updated successfully",
+		slog.String("user_id", user.ID.String()),
+		slog.String("email", user.Email))
 	return nil
 }
 

@@ -56,7 +56,7 @@
 
 ## Testing Improvements
 
-- [ ] **Refactor setupTestDB to use project migrations:** Eliminate schema duplication
+- [x] **Refactor setupTestDB to use project migrations:** Eliminate schema duplication
   - **Action:** Modify the `setupTestDB` function in `internal/platform/postgres/user_store_test.go` to use the project's migrations instead of direct `CREATE TABLE` SQL, ensuring tests run against the canonical schema definition
   - **Depends On:** None
   - **AC Ref:** Testing Improvements.1

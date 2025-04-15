@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,73 +21,76 @@ import (
 
 const testTimeout = 5 * time.Second
 
-// setupTestDB opens a database connection and ensures a clean test environment
-// by dropping and recreating the users table.
+// testDB is a package-level variable that holds a shared database connection
+// for all tests in this package.
+var testDB *sql.DB
+
+// TestMain sets up the database and runs all tests once, rather than for each test.
+// This improves performance by running migrations only once for all tests.
+func TestMain(m *testing.M) {
+	// Skip if not in integration test environment
+	if !testutils.IsIntegrationTestEnvironment() {
+		os.Exit(0)
+	}
+
+	// Connect to database once for all tests
+	dbURL := testutils.MustGetTestDatabaseURL()
+	var err error
+	testDB, err = sql.Open("pgx", dbURL)
+	if err != nil {
+		fmt.Printf("Failed to open database connection: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Set connection parameters
+	testDB.SetMaxOpenConns(5)
+	testDB.SetMaxIdleConns(5)
+	testDB.SetConnMaxLifetime(5 * time.Minute)
+
+	// Verify connection with ping
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := testDB.PingContext(ctx); err != nil {
+		fmt.Printf("Failed to ping database: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Setup database schema using migrations
+	if err := testutils.SetupTestDatabaseSchema(testDB); err != nil {
+		fmt.Printf("Failed to setup test database schema: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Run all tests
+	exitCode := m.Run()
+
+	// Clean up
+	if err := testDB.Close(); err != nil {
+		fmt.Printf("Warning: Failed to close database connection: %v\n", err)
+	}
+
+	os.Exit(exitCode)
+}
+
+// setupTestDB ensures test isolation by clearing all data
+// and returns the shared database connection.
 func setupTestDB(t *testing.T) *sql.DB {
 	if !testutils.IsIntegrationTestEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
-	// Get database URL from environment
-	dbURL := testutils.GetTestDatabaseURL(t)
+	// Reset test data
+	err := testutils.ResetTestData(testDB)
+	require.NoError(t, err, "Failed to reset test data")
 
-	// Connect to the database
-	db, err := sql.Open("pgx", dbURL)
-	require.NoError(t, err, "Failed to open database connection")
-
-	// Set connection pool parameters
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
-	// Create a context with timeout for DB operations
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	// Ping the database to ensure connection is alive
-	err = db.PingContext(ctx)
-	require.NoError(t, err, "Failed to ping database")
-
-	// Recreate the test table to ensure a clean state
-	// Drop the table if it exists
-	_, err = db.ExecContext(ctx, "DROP TABLE IF EXISTS users")
-	require.NoError(t, err, "Failed to drop users table")
-
-	// Create the table with the same schema as in migrations
-	createTableSQL := `
-	CREATE TABLE users (
-		id UUID PRIMARY KEY,
-		email VARCHAR(255) UNIQUE NOT NULL,
-		hashed_password TEXT NOT NULL,
-		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-	);
-
-	CREATE INDEX idx_users_email ON users(email);
-	`
-	_, err = db.ExecContext(ctx, createTableSQL)
-	require.NoError(t, err, "Failed to create users table")
-
-	return db
+	return testDB
 }
 
-// teardownTestDB closes the database connection and performs any needed cleanup
+// teardownTestDB doesn't need to do anything since connection
+// cleanup happens in TestMain and data cleanup happens in setupTestDB
 func teardownTestDB(t *testing.T, db *sql.DB) {
-	if db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-		defer cancel()
-
-		// Clean up the test data by dropping the table
-		_, err := db.ExecContext(ctx, "DROP TABLE IF EXISTS users")
-		if err != nil {
-			t.Logf("Warning: Failed to drop users table during cleanup: %v", err)
-		}
-
-		err = db.Close()
-		if err != nil {
-			t.Logf("Warning: Failed to close database connection: %v", err)
-		}
-	}
+	// No action needed, connection closing is handled in TestMain
+	// and data cleanup is handled in the next test's setupTestDB
 }
 
 // createTestUser is a helper function to create a valid test user

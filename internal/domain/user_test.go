@@ -9,7 +9,7 @@ import (
 func TestNewUser(t *testing.T) {
 	// Test valid user creation
 	validEmail := "test@example.com"
-	validPassword := "hashedpassword123"
+	validPassword := "Password123!"
 
 	user, err := NewUser(validEmail, validPassword)
 
@@ -25,8 +25,8 @@ func TestNewUser(t *testing.T) {
 		t.Errorf("Expected email %s, got %s", validEmail, user.Email)
 	}
 
-	if user.HashedPassword != validPassword {
-		t.Errorf("Expected hashed password %s, got %s", validPassword, user.HashedPassword)
+	if user.Password != validPassword {
+		t.Errorf("Expected password %s, got %s", validPassword, user.Password)
 	}
 
 	if user.CreatedAt.IsZero() {
@@ -50,8 +50,20 @@ func TestNewUser(t *testing.T) {
 
 	// Test invalid password
 	_, err = NewUser(validEmail, "")
-	if err != ErrEmptyHashedPassword {
-		t.Errorf("Expected error %v, got %v", ErrEmptyHashedPassword, err)
+	if err != ErrEmptyPassword {
+		t.Errorf("Expected error %v, got %v", ErrEmptyPassword, err)
+	}
+
+	// Test password too short
+	_, err = NewUser(validEmail, "Pass1!")
+	if err != ErrPasswordTooShort {
+		t.Errorf("Expected error %v, got %v", ErrPasswordTooShort, err)
+	}
+
+	// Test password complexity
+	_, err = NewUser(validEmail, "password123")
+	if err != ErrPasswordNotComplex {
+		t.Errorf("Expected error %v, got %v", ErrPasswordNotComplex, err)
 	}
 }
 
@@ -87,11 +99,20 @@ func TestUserValidate(t *testing.T) {
 		t.Errorf("Expected error %v, got %v", ErrInvalidEmail, err)
 	}
 
-	// Test invalid password
+	// Test both password fields empty
 	invalidUser = validUser
 	invalidUser.HashedPassword = ""
-	if err := invalidUser.Validate(); err != ErrEmptyHashedPassword {
-		t.Errorf("Expected error %v, got %v", ErrEmptyHashedPassword, err)
+	if err := invalidUser.Validate(); err != ErrEmptyPassword {
+		t.Errorf("Expected error %v, got %v", ErrEmptyPassword, err)
+	}
+
+	// When Password is provided, check that password validation is done
+	// and HashedPassword validation is skipped
+	invalidUser = validUser
+	invalidUser.Password = "abc"    // Too short
+	invalidUser.HashedPassword = "" // Would normally cause ErrEmptyHashedPassword
+	if err := invalidUser.Validate(); err != ErrPasswordTooShort {
+		t.Errorf("Expected error %v, got %v", ErrPasswordTooShort, err)
 	}
 }
 
@@ -122,5 +143,115 @@ func TestValidateEmailFormat(t *testing.T) {
 		if validateEmailFormat(email) {
 			t.Errorf("Expected email %s to be invalid", email)
 		}
+	}
+}
+
+func TestUserValidate_PasswordComplexity(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+		wantErr  error
+	}{
+		{
+			name:     "valid password with all requirements",
+			password: "Password123!",
+			wantErr:  nil,
+		},
+		{
+			name:     "password too short",
+			password: "Pass1!",
+			wantErr:  ErrPasswordTooShort,
+		},
+		{
+			name:     "password missing uppercase",
+			password: "password123!",
+			wantErr:  ErrPasswordNotComplex,
+		},
+		{
+			name:     "password missing lowercase",
+			password: "PASSWORD123!",
+			wantErr:  ErrPasswordNotComplex,
+		},
+		{
+			name:     "password missing number",
+			password: "Password!",
+			wantErr:  ErrPasswordNotComplex,
+		},
+		{
+			name:     "password missing special character",
+			password: "Password123",
+			wantErr:  ErrPasswordNotComplex,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			user := &User{
+				ID:             uuid.New(),
+				Email:          "test@example.com",
+				Password:       tt.password,
+				HashedPassword: "some-hashed-password", // Not validated when Password is present
+			}
+
+			err := user.Validate()
+
+			if tt.wantErr != nil {
+				if err != tt.wantErr {
+					t.Errorf("Expected error %v, got %v", tt.wantErr, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidatePasswordComplexity(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+		want     bool
+	}{
+		{
+			name:     "valid password with all requirements",
+			password: "Password123!",
+			want:     true,
+		},
+		{
+			name:     "password missing uppercase",
+			password: "password123!",
+			want:     false,
+		},
+		{
+			name:     "password missing lowercase",
+			password: "PASSWORD123!",
+			want:     false,
+		},
+		{
+			name:     "password missing number",
+			password: "Password!",
+			want:     false,
+		},
+		{
+			name:     "password missing special character",
+			password: "Password123",
+			want:     false,
+		},
+		{
+			name:     "password with different special characters",
+			password: "Password123@#$%^&*()-_=+[]{}|;:,.<>?/~`",
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := validatePasswordComplexity(tt.password)
+			if got != tt.want {
+				t.Errorf("validatePasswordComplexity() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -23,7 +23,7 @@
   - **AC Ref:** PLAN.md Section 2
 
 ## 3. Implement Data Validation
-- [ ] **Implement Domain-Level Password Validation:**
+- [x] **Implement Domain-Level Password Validation:**
   - **Action:** Enhance the `Validate()` method on the `domain.User` struct (`internal/domain/user.go`) to include checks for password complexity requirements.
   - **Depends On:** None
   - **AC Ref:** PLAN.md Section 4.1

@@ -9,10 +9,13 @@ import (
 
 // Common validation errors
 var (
-	ErrEmptyUserID         = errors.New("user ID cannot be empty")
-	ErrInvalidEmail        = errors.New("invalid email format")
-	ErrEmptyEmail          = errors.New("email cannot be empty")
-	ErrPasswordTooShort    = errors.New("password must be at least 8 characters long")
+	ErrEmptyUserID        = errors.New("user ID cannot be empty")
+	ErrInvalidEmail       = errors.New("invalid email format")
+	ErrEmptyEmail         = errors.New("email cannot be empty")
+	ErrPasswordTooShort   = errors.New("password must be at least 8 characters long")
+	ErrPasswordNotComplex = errors.New(
+		"password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+	)
 	ErrEmptyPassword       = errors.New("password cannot be empty")
 	ErrEmptyHashedPassword = errors.New("hashed password cannot be empty")
 )
@@ -22,21 +25,25 @@ var (
 type User struct {
 	ID             uuid.UUID `json:"id"`
 	Email          string    `json:"email"`
+	Password       string    `json:"-"` // Plaintext password, used temporarily during registration/updates
 	HashedPassword string    `json:"-"` // Never expose password hash in JSON
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// NewUser creates a new User with the given email and hashed password.
+// NewUser creates a new User with the given email and password.
 // It generates a new UUID for the user ID and sets the creation/update timestamps.
 // Returns an error if validation fails.
-func NewUser(email, hashedPassword string) (*User, error) {
+//
+// NOTE: This function only sets up the user structure with the plaintext password.
+// The caller is responsible for hashing the password before storing the user.
+func NewUser(email, password string) (*User, error) {
 	user := &User{
-		ID:             uuid.New(),
-		Email:          email,
-		HashedPassword: hashedPassword,
-		CreatedAt:      time.Now().UTC(),
-		UpdatedAt:      time.Now().UTC(),
+		ID:        uuid.New(),
+		Email:     email,
+		Password:  password, // Plaintext password - must be hashed before storage
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	if err := user.Validate(); err != nil {
@@ -63,8 +70,24 @@ func (u *User) Validate() error {
 		return ErrInvalidEmail
 	}
 
-	if u.HashedPassword == "" {
-		return ErrEmptyHashedPassword
+	// Password validation
+	// During user creation/update we need to validate the provided password
+	if u.Password != "" {
+		// When plaintext password is provided, validate its complexity
+		if len(u.Password) < 8 {
+			return ErrPasswordTooShort
+		}
+
+		// Additional password complexity checks
+		if !validatePasswordComplexity(u.Password) {
+			return ErrPasswordNotComplex
+		}
+	} else {
+		// When no plaintext password is provided, the user must have a hashed password
+		// (this would be the case for existing users in the database)
+		if u.HashedPassword == "" {
+			return ErrEmptyPassword
+		}
 	}
 
 	return nil
@@ -112,4 +135,41 @@ func validateEmailFormat(email string) bool {
 	}
 
 	return true
+}
+
+// validatePasswordComplexity checks if a password meets complexity requirements:
+// - At least one uppercase letter
+// - At least one lowercase letter
+// - At least one number
+// - At least one special character
+func validatePasswordComplexity(password string) bool {
+	var (
+		hasUpper   bool
+		hasLower   bool
+		hasNumber  bool
+		hasSpecial bool
+	)
+
+	specialChars := "!@#$%^&*()-_+={}[]|:;\"'<>,.?/~`"
+
+	for _, char := range password {
+		switch {
+		case 'A' <= char && char <= 'Z':
+			hasUpper = true
+		case 'a' <= char && char <= 'z':
+			hasLower = true
+		case '0' <= char && char <= '9':
+			hasNumber = true
+		default:
+			// Check if char is in specialChars
+			for _, special := range specialChars {
+				if char == special {
+					hasSpecial = true
+					break
+				}
+			}
+		}
+	}
+
+	return hasUpper && hasLower && hasNumber && hasSpecial
 }

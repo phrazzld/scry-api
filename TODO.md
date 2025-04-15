@@ -50,7 +50,7 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
   - **Dependencies**: Authentication Middleware implementation
   - **Estimated Complexity**: Moderate
 
-- [ ] **Add Tests for Missing Packages**:
+- [x] **Add Tests for Missing Packages**:
   - **Issue**: Several packages have no test files
   - **Description**: The following packages show "[no test files]" when running `go test ./...`:
     - `github.com/phrazzld/scry-api/internal/api`

@@ -18,8 +18,8 @@ func TestLocalPostgresSetup(t *testing.T) {
 		t.Skip("Skipping Docker-based PostgreSQL test. Set DOCKER_TEST=1 to run")
 	}
 
-	// Find the working directory for docker-compose
-	workDir := "."
+	// Set the working directory for docker-compose using filepath.Join for consistency
+	workDir := filepath.Join(".")
 
 	// Verify required files exist
 	dockerComposeFile := filepath.Join(workDir, "docker-compose.yml")

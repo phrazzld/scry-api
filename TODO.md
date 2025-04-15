@@ -44,7 +44,7 @@
   - **Depends On:** None
   - **AC Ref:** Test Quality Issue 1
 
-- [ ] **Use filepath.Join in Local Postgres Test:** Refactor `TestLocalPostgresSetup` to use `filepath.Join`.
+- [x] **Use filepath.Join in Local Postgres Test:** Refactor `TestLocalPostgresSetup` to use `filepath.Join`.
   - **Action:** Modify the path construction logic in `infrastructure/local_dev/local_postgres_test.go` (line ~23). Replace the hardcoded relative path concatenation for finding `docker-compose.yml` with `filepath.Join(".", "docker-compose.yml")` or similar to correctly refer to the file relative to the working directory.
   - **Depends On:** None
   - **AC Ref:** Test Quality Issue 2

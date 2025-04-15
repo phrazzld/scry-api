@@ -34,7 +34,7 @@
   - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
   - **AC Ref:** PLAN.md Sections 2.1, 3, 4.2
 
-- [ ] **Implement PostgresUserStore GetByID Method:**
+- [x] **Implement PostgresUserStore GetByID Method:**
   - **Action:** Implement the `GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)` method on `PostgresUserStore`. Use parameterized SQL SELECT query, map the row to a `domain.User` struct, and handle the "not found" case by returning `store.ErrUserNotFound`.
   - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
   - **AC Ref:** PLAN.md Section 2.2
@@ -65,7 +65,7 @@
   - **Depends On:** Implement PostgresUserStore Create Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5
 
-- [ ] **Write Integration Tests for GetByID Method:**
+- [x] **Write Integration Tests for GetByID Method:**
   - **Action:** Implement integration tests in `user_store_test.go` covering the `GetByID` method. Test cases should include successful retrieval and attempting to retrieve a non-existent user (expecting `store.ErrUserNotFound`).
   - **Depends On:** Implement PostgresUserStore GetByID Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5

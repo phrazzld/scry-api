@@ -132,9 +132,39 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 }
 
 // GetByID implements store.UserStore.GetByID
+// It retrieves a user by their unique ID from the database.
+// Returns store.ErrUserNotFound if the user does not exist.
 func (s *PostgresUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	// Placeholder implementation - will be fully implemented in a separate task
-	return nil, nil
+	// Get the logger from context or use default
+	log := logger.FromContext(ctx)
+
+	log.Debug("retrieving user by ID", slog.String("user_id", id.String()))
+
+	// Query the user from database
+	var user domain.User
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email, hashed_password, created_at, updated_at
+		FROM users
+		WHERE id = $1
+	`, id).Scan(&user.ID, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.UpdatedAt)
+
+	// Handle the result
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Debug("user not found", slog.String("user_id", id.String()))
+			return nil, store.ErrUserNotFound
+		}
+		log.Error("failed to query user by ID",
+			slog.String("user_id", id.String()),
+			slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	// Ensure the Password field is empty as it should never be populated from the database
+	user.Password = ""
+
+	log.Debug("user retrieved successfully", slog.String("user_id", id.String()))
+	return &user, nil
 }
 
 // GetByEmail implements store.UserStore.GetByEmail

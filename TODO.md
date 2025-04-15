@@ -39,7 +39,7 @@
   - **AC Ref:** Code Quality Issue 2
 
 ## Test Quality (TESTING_STRATEGY.md)
-- [ ] **Use Relative Paths in Migration Syntax Test:** Refactor `TestMigrationsValidSyntax` to avoid absolute paths.
+- [x] **Use Relative Paths in Migration Syntax Test:** Refactor `TestMigrationsValidSyntax` to avoid absolute paths.
   - **Action:** Modify the path construction logic in `cmd/server/migrations_test.go` (lines ~79-83) for `TestMigrationsValidSyntax`. Instead of constructing an absolute path based on `os.Getwd()`, use a relative path from the test file's location or determine the project root reliably. Consider using `filepath.Abs` on the relative path if an absolute path is still required by `goose.CollectMigrations`.
   - **Depends On:** None
   - **AC Ref:** Test Quality Issue 1

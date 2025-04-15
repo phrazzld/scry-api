@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
-	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -115,13 +115,21 @@ func TestMigrationsValidSyntax(t *testing.T) {
 	// Set up goose logger with a test adapter that fails the test on fatal errors
 	goose.SetLogger(&testGooseLogger{t: t})
 
-	// Get absolute path to migrations directory based on current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
+	// Get the directory of the current file using runtime.Caller
+	// This is more reliable than os.Getwd() because it's not affected by
+	// where the test is run from
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("Failed to get current file path from runtime.Caller")
 	}
-	// Go up one level from cmd/server to project root
-	projectRoot := filepath.Dir(filepath.Dir(wd))
+
+	// Get the directory containing this file (cmd/server)
+	thisDir := filepath.Dir(thisFile)
+
+	// Go up two levels: from cmd/server to project root
+	projectRoot := filepath.Dir(filepath.Dir(thisDir))
+
+	// Construct path to migrations directory
 	absoluteMigrationsDir := filepath.Join(projectRoot, migrationsDir)
 
 	// First check if we can parse all migrations

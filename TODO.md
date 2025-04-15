@@ -12,12 +12,12 @@
   - **AC Ref:** PLAN.md Section 1
 
 ## 2. Implement PostgreSQL User Store Structure
-- [ ] **Create PostgresUserStore Struct:**
+- [x] **Create PostgresUserStore Struct:**
   - **Action:** Create the `PostgresUserStore` struct in `internal/platform/postgres/user_store.go`, including the `db *sql.DB` field and the `uniqueViolationCode` constant. Import necessary packages.
   - **Depends On:** Define UserStore Interface
   - **AC Ref:** PLAN.md Section 2
 
-- [ ] **Implement NewPostgresUserStore Constructor:**
+- [x] **Implement NewPostgresUserStore Constructor:**
   - **Action:** Implement the `NewPostgresUserStore(db *sql.DB) *PostgresUserStore` constructor function in `internal/platform/postgres/user_store.go`.
   - **Depends On:** Create PostgresUserStore Struct
   - **AC Ref:** PLAN.md Section 2

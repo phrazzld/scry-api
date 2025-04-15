@@ -83,7 +83,7 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
 
 ### Refactoring Tasks
 
-- [ ] **Standardize Test Helper Functions**:
+- [x] **Standardize Test Helper Functions**:
   - **Issue**: Test helper functions might not be consistent across test files
   - **Description**: Review test helper functions across the codebase to ensure they follow consistent patterns, particularly regarding transaction-based isolation.
   - **Acceptance Criteria**:
@@ -94,7 +94,7 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
   - **Dependencies**: None
   - **Estimated Complexity**: Moderate
 
-- [ ] **Add Comprehensive Error Handling in Tests**:
+- [x] **Add Comprehensive Error Handling in Tests**:
   - **Issue**: Some tests may not have thorough error handling
   - **Description**: Ensure all tests properly handle errors, including from deferred functions.
   - **Acceptance Criteria**:

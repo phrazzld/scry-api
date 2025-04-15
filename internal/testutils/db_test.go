@@ -28,12 +28,7 @@ func TestParallelIsolation(t *testing.T) {
 	dbURL := testutils.MustGetTestDatabaseURL()
 	db, err := sql.Open("pgx", dbURL)
 	require.NoError(t, err, "Failed to open database connection")
-	defer func() {
-		err := db.Close()
-		if err != nil {
-			t.Logf("Warning: Failed to close database connection: %v", err)
-		}
-	}()
+	defer testutils.AssertCloseNoError(t, db)
 
 	// Set up the database schema
 	err = testutils.SetupTestDatabaseSchema(db)

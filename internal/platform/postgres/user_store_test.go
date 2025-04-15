@@ -68,21 +68,22 @@ func TestMain(m *testing.M) {
 
 	// Clean up
 	if err := testDB.Close(); err != nil {
-		fmt.Printf("Warning: Failed to close database connection: %v\n", err)
+		fmt.Printf("CRITICAL: Failed to close database connection in TestMain: %v\n", err)
+		// Note: We could use log.Panicf here if we consider this critical enough
+		// to abort the entire test run, but for TestMain cleanup it might be too aggressive.
 	}
 
 	os.Exit(exitCode)
 }
 
-// createTestUser is a helper function to create a valid test user
+// For backwards compatibility in this file
+// In new tests, use the standardized helper functions from testutils package directly
 func createTestUser(t *testing.T) *domain.User {
-	email := fmt.Sprintf("test-%s@example.com", uuid.New().String()[:8])
-	user, err := domain.NewUser(email, "Password123!")
-	require.NoError(t, err, "Failed to create test user")
-	return user
+	return testutils.CreateTestUser(t)
 }
 
 // insertTestUser inserts a user into the database for testing using PostgresUserStore.Create
+// This version uses the actual UserStore to insert the user, which is more of an integration test approach
 func insertTestUser(ctx context.Context, t *testing.T, db store.DBTX, email string) uuid.UUID {
 	// Create a test password that meets validation requirements (12+ chars)
 	password := "TestPassword123!"
@@ -111,6 +112,7 @@ func insertTestUser(ctx context.Context, t *testing.T, db store.DBTX, email stri
 }
 
 // getUserByID retrieves a user from the database using PostgresUserStore.GetByID
+// This version uses the actual UserStore to retrieve the user, which is more of an integration test approach
 func getUserByID(ctx context.Context, t *testing.T, db store.DBTX, id uuid.UUID) *domain.User {
 	// Create a user store
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
@@ -131,16 +133,7 @@ func getUserByID(ctx context.Context, t *testing.T, db store.DBTX, id uuid.UUID)
 
 // countUsers counts the number of users in the database matching certain criteria
 func countUsers(ctx context.Context, t *testing.T, db store.DBTX, whereClause string, args ...interface{}) int {
-	query := "SELECT COUNT(*) FROM users"
-	if whereClause != "" {
-		query += " WHERE " + whereClause
-	}
-
-	var count int
-	err := db.QueryRowContext(ctx, query, args...).Scan(&count)
-	require.NoError(t, err, "Failed to count users")
-
-	return count
+	return testutils.CountUsers(ctx, t, db, whereClause, args...)
 }
 
 // TestNewPostgresUserStore verifies the constructor works correctly

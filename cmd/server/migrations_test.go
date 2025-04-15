@@ -42,12 +42,7 @@ func TestMigrationFlow(t *testing.T) {
 		t.Fatalf("Failed to open database connection: %v", err)
 	}
 
-	defer func() {
-		err := db.Close()
-		if err != nil {
-			t.Logf("Error closing database connection: %v", err)
-		}
-	}()
+	defer testutils.AssertCloseNoError(t, db)
 
 	// Set a timeout for the verification
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

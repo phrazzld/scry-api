@@ -3,7 +3,6 @@ package testutils
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -86,13 +85,7 @@ func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
 	}
 
 	// Make sure the transaction is rolled back when the test is done
-	defer func() {
-		err := tx.Rollback()
-		// It's okay if the transaction is already committed/rolled back
-		if err != nil && !errors.Is(err, sql.ErrTxDone) {
-			t.Logf("Warning: Failed to rollback transaction: %v", err)
-		}
-	}()
+	defer AssertRollbackNoError(t, tx)
 
 	// Run the test function with the transaction
 	fn(tx)

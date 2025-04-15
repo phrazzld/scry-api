@@ -7,47 +7,6 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 
-
-* **Set Up Database Migration Framework (Completed):**
-    * ✅ Research and select a suitable database migration tool for the project (chosen: `pressly/goose`).
-    * ✅ Set up the migration framework in the codebase.
-    * ✅ Create migration directory structure.
-    * ✅ Configure the migration tool to work with PostgreSQL.
-    * ✅ Implement connection and migration execution logic.
-    * ✅ Add proper logging and error handling.
-    * ✅ Implement all migration commands (up, down, status, create, version).
-    * ✅ Add unit tests for migration functionality.
-    * ✅ Document migration usage in README.md and dedicated migration guide.
-
-* **Define Core Domain Models (Completed):**
-    * ✅ Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`).
-    * ✅ Implement strong typing following type standards (`CODING_STANDARDS.md` Section 2).
-    * ✅ Ensure models include necessary validation methods.
-    * ✅ Document the domain model relationships and purpose.
-
-* **Create Initial Database Schema Migrations (Completed):**
-    * ✅ Create initial database schema migration scripts.
-    * ✅ Define `users` table structure with appropriate fields and constraints.
-    * ✅ Define `memos` table including `status` field ('pending', 'processing', 'completed', 'completed_with_errors', 'failed').
-    * ✅ Define `cards` table with `content` JSONB structure.
-    * ✅ Define `user_card_stats` table with appropriate fields.
-    * ✅ Add essential indexes (esp. on `user_card_stats` for `next_review_at`).
-    * ✅ Implement rollback migrations.
-
-* **Provision Database Infrastructure (Completed):**
-    * ✅ Provision DigitalOcean Managed PostgreSQL instance using Infrastructure as Code (Terraform).
-    * ✅ Configure PostgreSQL settings for optimal performance.
-    * ✅ Enable `pgvector` extension on the DO Managed Postgres instance.
-    * ✅ Set up backup and monitoring.
-    * ✅ Document connection and access procedures.
-    * ✅ Create local development database setup with Docker.
-
-* **Core Domain Logic Implementation (SRS) (Completed):**
-    * ✅ Define `srs.Service` interface within the core domain/application layer.
-    * ✅ Implement basic SRS algorithm logic (SM-2 variant) within the `srs` service.
-    * ✅ Define precise MVP parameters (initial intervals, ease factors, lapse handling) in a separate design doc.
-    * ✅ Adhere to pure function principles as specified in `CODING_STANDARDS.md` Section 4.
-
 * **Authentication Implementation:**
     * Implement `store.UserStore` interface and PostgreSQL implementation (`internal/platform/postgres`) for user CRUD, including secure password hashing (`bcrypt`).
     * Implement JWT generation logic within an `auth.Service`.
@@ -118,6 +77,46 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Define a basic health check endpoint (`/healthz`).
 
 ## Completed Items
+
+* **Set Up Database Migration Framework (Completed):**
+    * ✅ Research and select a suitable database migration tool for the project (chosen: `pressly/goose`).
+    * ✅ Set up the migration framework in the codebase.
+    * ✅ Create migration directory structure.
+    * ✅ Configure the migration tool to work with PostgreSQL.
+    * ✅ Implement connection and migration execution logic.
+    * ✅ Add proper logging and error handling.
+    * ✅ Implement all migration commands (up, down, status, create, version).
+    * ✅ Add unit tests for migration functionality.
+    * ✅ Document migration usage in README.md and dedicated migration guide.
+
+* **Define Core Domain Models (Completed):**
+    * ✅ Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`).
+    * ✅ Implement strong typing following type standards (`CODING_STANDARDS.md` Section 2).
+    * ✅ Ensure models include necessary validation methods.
+    * ✅ Document the domain model relationships and purpose.
+
+* **Create Initial Database Schema Migrations (Completed):**
+    * ✅ Create initial database schema migration scripts.
+    * ✅ Define `users` table structure with appropriate fields and constraints.
+    * ✅ Define `memos` table including `status` field ('pending', 'processing', 'completed', 'completed_with_errors', 'failed').
+    * ✅ Define `cards` table with `content` JSONB structure.
+    * ✅ Define `user_card_stats` table with appropriate fields.
+    * ✅ Add essential indexes (esp. on `user_card_stats` for `next_review_at`).
+    * ✅ Implement rollback migrations.
+
+* **Provision Database Infrastructure (Completed):**
+    * ✅ Provision DigitalOcean Managed PostgreSQL instance using Infrastructure as Code (Terraform).
+    * ✅ Configure PostgreSQL settings for optimal performance.
+    * ✅ Enable `pgvector` extension on the DO Managed Postgres instance.
+    * ✅ Set up backup and monitoring.
+    * ✅ Document connection and access procedures.
+    * ✅ Create local development database setup with Docker.
+
+* **Core Domain Logic Implementation (SRS) (Completed):**
+    * ✅ Define `srs.Service` interface within the core domain/application layer.
+    * ✅ Implement basic SRS algorithm logic (SM-2 variant) within the `srs` service.
+    * ✅ Define precise MVP parameters (initial intervals, ease factors, lapse handling) in a separate design doc.
+    * ✅ Adhere to pure function principles as specified in `CODING_STANDARDS.md` Section 4.
 
 * **Pre-commit Hook Enhancement (Completed):**
     * ✅ Added pre-commit hook to warn (but not fail) when files are too long.

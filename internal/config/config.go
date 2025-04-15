@@ -56,6 +56,13 @@ type AuthConfig struct {
 	// Must be at least 32 characters long to ensure adequate security.
 	// This value should be kept secret and never committed to source control.
 	JWTSecret string `mapstructure:"jwt_secret" validate:"required,min=32"`
+
+	// BCryptCost determines the computational cost of the bcrypt password hashing algorithm.
+	// Valid values are between 4 and 31, with higher values being more secure but slower.
+	// Default is 10 if not specified (bcrypt.DefaultCost).
+	// Values below 10 are not recommended for production environments.
+	// Values above 14 may cause significant performance impact.
+	BCryptCost int `mapstructure:"bcrypt_cost" validate:"omitempty,gte=4,lte=31"`
 	// Add other auth settings as needed (e.g., token expiry duration, refresh token settings)
 }
 

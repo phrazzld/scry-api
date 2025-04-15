@@ -21,7 +21,8 @@ const uniqueViolationCode = "23505" // PostgreSQL unique violation error code
 // PostgresUserStore implements the store.UserStore interface
 // using a PostgreSQL database as the storage backend.
 type PostgresUserStore struct {
-	db *sql.DB
+	db         *sql.DB
+	bcryptCost int // Cost parameter for bcrypt password hashing
 }
 
 // DB returns the underlying database connection for testing purposes.
@@ -32,9 +33,17 @@ func (s *PostgresUserStore) DB() *sql.DB {
 
 // NewPostgresUserStore creates a new PostgreSQL implementation of the UserStore interface.
 // It accepts a database connection that should be initialized and managed by the caller.
-func NewPostgresUserStore(db *sql.DB) *PostgresUserStore {
+// The bcryptCost parameter determines the computational cost of password hashing.
+// If bcryptCost is 0 or invalid, bcrypt.DefaultCost (10) will be used.
+func NewPostgresUserStore(db *sql.DB, bcryptCost int) *PostgresUserStore {
+	// Validate bcrypt cost and use default if invalid
+	if bcryptCost < 4 || bcryptCost > 31 {
+		bcryptCost = bcrypt.DefaultCost
+	}
+
 	return &PostgresUserStore{
-		db: db,
+		db:         db,
+		bcryptCost: bcryptCost,
 	}
 }
 
@@ -67,11 +76,12 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) (err 
 		return err
 	}
 
-	// Hash the password using bcrypt
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	// Hash the password using bcrypt with the configured cost
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.bcryptCost)
 	if err != nil {
 		log.Error("failed to hash password",
-			slog.String("error", err.Error()))
+			slog.String("error", err.Error()),
+			slog.Int("bcrypt_cost", s.bcryptCost))
 		return err
 	}
 
@@ -236,11 +246,12 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err 
 
 	if user.Password != "" {
 		// Hash the new password if provided
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.bcryptCost)
 		if err != nil {
 			log.Error("failed to hash password",
 				slog.String("error", err.Error()),
-				slog.String("user_id", user.ID.String()))
+				slog.String("user_id", user.ID.String()),
+				slog.Int("bcrypt_cost", s.bcryptCost))
 			return err
 		}
 		hashedPasswordToStore = string(hashedPassword)

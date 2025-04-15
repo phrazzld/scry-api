@@ -83,7 +83,7 @@
 
 ## Architecture Improvements
 
-- [ ] **Add configuration option for bcrypt cost:** Make security tunable
+- [x] **Add configuration option for bcrypt cost:** Make security tunable
   - **Action:** Add a `bcrypt_cost` integer field to `AuthConfig` in `internal/config/config.go` with appropriate validation. Update `PostgresUserStore.Create` and `PostgresUserStore.Update` to use this configured cost instead of `bcrypt.DefaultCost`
   - **Depends On:** None
   - **AC Ref:** Architecture Improvements.1

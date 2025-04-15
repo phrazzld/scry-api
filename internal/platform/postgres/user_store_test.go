@@ -18,6 +18,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const testTimeout = 5 * time.Second
@@ -117,7 +118,7 @@ func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string)
 	}
 
 	// Create a user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Insert the user using Create method
 	err := userStore.Create(ctx, user)
@@ -133,7 +134,7 @@ func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string)
 // getUserByID retrieves a user from the database using PostgresUserStore.GetByID
 func getUserByID(ctx context.Context, t *testing.T, db *sql.DB, id uuid.UUID) *domain.User {
 	// Create a user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Retrieve the user using GetByID method
 	user, err := userStore.GetByID(ctx, id)
@@ -170,7 +171,7 @@ func TestNewPostgresUserStore(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	// Initialize the store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Assertions
 	assert.NotNil(t, userStore, "PostgresUserStore should be created successfully")
@@ -216,7 +217,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	// Create a new user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Test Case 1: Successful user creation
 	t.Run("Successful user creation", func(t *testing.T) {
@@ -370,7 +371,7 @@ func TestPostgresUserStore_GetByID(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	// Create a new user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Test Case 1: Successfully retrieve existing user by ID
 	t.Run("Successfully retrieve existing user", func(t *testing.T) {
@@ -422,7 +423,7 @@ func TestPostgresUserStore_GetByEmail(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	// Create a new user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Test Case 1: Successfully retrieve existing user by email
 	t.Run("Successfully retrieve existing user", func(t *testing.T) {
@@ -495,7 +496,7 @@ func TestPostgresUserStore_Update(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	// Create a new user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Test Case 1: Successfully update existing user with a new email but same password
 	t.Run("Update email only", func(t *testing.T) {
@@ -766,7 +767,7 @@ func TestPostgresUserStore_Delete(t *testing.T) {
 	defer teardownTestDB(t, db)
 
 	// Create a new user store
-	userStore := postgres.NewPostgresUserStore(db)
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 
 	// Test Case 1: Successfully delete existing user
 	t.Run("Successfully delete existing user", func(t *testing.T) {

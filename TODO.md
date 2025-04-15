@@ -17,7 +17,7 @@
   - **AC Ref:** Design Principles Issue 3
 
 ## Architectural Patterns (ARCHITECTURE_GUIDELINES.md)
-- [ ] **Refactor slogGooseLogger Fatalf:** Prevent `slogGooseLogger.Fatalf` from exiting the application directly.
+- [x] **Refactor slogGooseLogger Fatalf:** Prevent `slogGooseLogger.Fatalf` from exiting the application directly.
   - **Action:** Remove the `os.Exit(1)` call from the `Fatalf` method in `cmd/server/main.go`'s `slogGooseLogger`. Modify the `runMigrations` function to return the error encountered during `goose` operations. Update the `main` function's migration handling block to check for errors returned by `runMigrations` and call `os.Exit(1)` there if an error occurred.
   - **Depends On:** None
   - **AC Ref:** Architectural Patterns Issue 1

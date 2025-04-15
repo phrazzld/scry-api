@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -178,4 +179,10 @@ func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
 	if err != nil && !errors.Is(err, sql.ErrTxDone) {
 		assert.NoError(t, err, "Failed to rollback transaction")
 	}
+}
+
+// CreateTestUserStore creates a new PostgresUserStore for testing.
+// It uses the given transaction to ensure test isolation.
+func CreateTestUserStore(tx store.DBTX) store.UserStore {
+	return postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 }

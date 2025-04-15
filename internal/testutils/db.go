@@ -162,3 +162,29 @@ func (*testGooseLogger) Println(v ...interface{}) {
 func (*testGooseLogger) Printf(format string, v ...interface{}) {
 	// Silence regular prints during tests
 }
+
+// GetTestDB returns a database connection for testing.
+// It reads the database URL from the SCRY_TEST_DB_URL environment variable.
+// If the environment variable is not set, it uses a default local database URL.
+func GetTestDB() (*sql.DB, error) {
+	// Get database URL from environment variable
+	dbURL := os.Getenv("SCRY_TEST_DB_URL")
+	if dbURL == "" {
+		// Use default local database URL
+		dbURL = "postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable"
+	}
+
+	// Open database connection
+	db, err := sql.Open("pgx", dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
+
+	// Setup database schema
+	if err := SetupTestDatabaseSchema(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to setup database schema: %w", err)
+	}
+
+	return db, nil
+}

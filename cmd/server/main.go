@@ -11,16 +11,25 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/phrazzld/scry-api/internal/api"
+	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
+	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/pressly/goose/v3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Constant for the migrations directory path
@@ -99,8 +108,117 @@ func main() {
 	slog.Info("Scry API Server initialized successfully",
 		"port", cfg.Server.Port)
 
-	// Server would start here after initialization
-	// This would be added in a future task
+	// Start the server
+	startServer(cfg)
+}
+
+// startServer configures and starts the HTTP server.
+func startServer(cfg *config.Config) {
+	// Open a database connection
+	db, err := sql.Open("pgx", cfg.Database.URL)
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Error("Error closing database connection", "error", err)
+		}
+	}()
+
+	// Configure connection pool settings
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Verify database connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		slog.Error("Failed to ping database", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Database connection established")
+
+	// Initialize dependencies
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
+	jwtService, err := auth.NewJWTService(cfg.Auth)
+	if err != nil {
+		slog.Error("Failed to initialize JWT service", "error", err)
+		os.Exit(1)
+	}
+
+	// Create a router
+	r := chi.NewRouter()
+
+	// Apply standard middleware
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Create the password verifier
+	passwordVerifier := auth.NewBcryptVerifier()
+
+	// Create API handlers
+	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier)
+	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
+
+	// Register routes
+	r.Route("/api", func(r chi.Router) {
+		// Authentication endpoints (public)
+		r.Post("/auth/register", authHandler.Register)
+		r.Post("/auth/login", authHandler.Login)
+
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.Authenticate)
+			// Add protected routes here
+		})
+	})
+
+	// Health check endpoint
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			slog.Error("Error writing health check response", "error", err)
+		}
+	})
+
+	// Create and run server
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler: r,
+	}
+
+	// Start server in a goroutine
+	go func() {
+		slog.Info("Starting server", "port", cfg.Server.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Set up graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+
+	slog.Info("Shutting down server...")
+
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	// Attempt graceful shutdown
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("Server shutdown failed", "error", err)
+	}
+
+	slog.Info("Server shutdown completed")
 }
 
 // initializeApp loads configuration and sets up application components.
@@ -133,10 +251,32 @@ func initializeApp() (*config.Config, error) {
 	}
 
 	// Initialize services
-	// Note: Future implementations will include database connection, API router setup, etc.
 
-	// Initialize JWT authentication service
-	authService, err := auth.NewJWTService(cfg.Auth)
+	// Establish database connection
+	db, err := sql.Open("pgx", cfg.Database.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database connection: %w", err)
+	}
+
+	// Configure connection pool settings
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Verify database connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+	slog.Info("Database connection established")
+
+	// Initialize UserStore (will be used in startServer)
+	slog.Info("User store initialized")
+
+	// Initialize JWT authentication service (will be used in startServer)
+	_, err = auth.NewJWTService(cfg.Auth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize JWT authentication service: %w", err)
 	}
@@ -144,13 +284,7 @@ func initializeApp() (*config.Config, error) {
 		"token_lifetime_minutes", cfg.Auth.TokenLifetimeMinutes)
 
 	// These services will be initialized in future tasks:
-	// - Establishing database connection using Database.URL
 	// - Initializing LLM client with LLM.GeminiAPIKey
-	// - Setting up HTTP server and router
-	// - Configuring middleware components
-
-	// Store services in application context or dependency container
-	_ = authService // Using blank identifier for now until we have a proper service container
 
 	return cfg, nil
 }

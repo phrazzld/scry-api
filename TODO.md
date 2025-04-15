@@ -17,7 +17,7 @@
   - **Depends On:** Update validatePasswordComplexity function
   - **AC Ref:** Password Validation Simplification.4, Documentation Improvements.1
 
-- [ ] **Update password validation domain tests:** Adjust tests for new validation rules
+- [x] **Update password validation domain tests:** Adjust tests for new validation rules
   - **Action:** Modify existing tests in `internal/domain/user_test.go` to verify the new length-based password validation rules, including edge cases (too short, too long, exact limits)
   - **Depends On:** Simplify password validation in User model
   - **AC Ref:** Password Validation Simplification.4

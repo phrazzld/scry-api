@@ -9,7 +9,7 @@ import (
 func TestNewUser(t *testing.T) {
 	// Test valid user creation
 	validEmail := "test@example.com"
-	validPassword := "Password123!ABC" // 15 characters
+	validPassword := "Password123!ABC" // 15 characters - meets length requirements
 
 	user, err := NewUser(validEmail, validPassword)
 
@@ -55,17 +55,40 @@ func TestNewUser(t *testing.T) {
 	}
 
 	// Test password too short
-	_, err = NewUser(validEmail, "Pass1!")
+	shortPassword := "Pass1!" // 6 characters, below minimum of 12
+	_, err = NewUser(validEmail, shortPassword)
 	if err != ErrPasswordTooShort {
 		t.Errorf("Expected error %v, got %v", ErrPasswordTooShort, err)
 	}
 
+	// Test almost but still too short (boundary testing)
+	almostLongEnough := "12345678901" // 11 characters, just below minimum of 12
+	_, err = NewUser(validEmail, almostLongEnough)
+	if err != ErrPasswordTooShort {
+		t.Errorf("Expected error %v for password length %d, got %v",
+			ErrPasswordTooShort, len(almostLongEnough), err)
+	}
+
+	// Test exact minimum length
+	exactMinLength := "123456789012" // Exactly 12 characters (minimum allowed)
+	_, err = NewUser(validEmail, exactMinLength)
+	if err != nil {
+		t.Errorf("Expected no error for minimum length password, got %v", err)
+	}
+
+	// Test exact maximum length
+	exactMaxLength := "123456789012345678901234567890123456789012345678901234567890123456789012" // Exactly 72 characters
+	_, err = NewUser(validEmail, exactMaxLength)
+	if err != nil {
+		t.Errorf("Expected no error for maximum length password, got %v", err)
+	}
+
 	// Test password too long
-	veryLongPassword := "AbcDefGhiJklMnoPqrStuVwxYz0123456789!@#$%^&*()_+=[]{}|;:,.<>?/~`" +
-		"AbcDefGhiJklMnoPqrStuVwxYz0123456789"
-	_, err = NewUser(validEmail, veryLongPassword)
+	tooLongPassword := "1234567890123456789012345678901234567890123456789012345678901234567890123" // 73 characters, above limit
+	_, err = NewUser(validEmail, tooLongPassword)
 	if err != ErrPasswordTooLong {
-		t.Errorf("Expected error %v, got %v", ErrPasswordTooLong, err)
+		t.Errorf("Expected error %v for password length %d, got %v",
+			ErrPasswordTooLong, len(tooLongPassword), err)
 	}
 }
 
@@ -110,11 +133,47 @@ func TestUserValidate(t *testing.T) {
 
 	// When Password is provided, check that password validation is done
 	// and HashedPassword validation is skipped
+
+	// Test password too short
 	invalidUser = validUser
-	invalidUser.Password = "abc"    // Too short
+	invalidUser.Password = "abc"    // 3 characters - well below minimum
 	invalidUser.HashedPassword = "" // Would normally cause ErrEmptyHashedPassword
 	if err := invalidUser.Validate(); err != ErrPasswordTooShort {
 		t.Errorf("Expected error %v, got %v", ErrPasswordTooShort, err)
+	}
+
+	// Test password almost but not quite long enough (boundary test)
+	invalidUser = validUser
+	invalidUser.Password = "12345678901" // 11 characters - just below minimum
+	invalidUser.HashedPassword = ""
+	if err := invalidUser.Validate(); err != ErrPasswordTooShort {
+		t.Errorf("Expected error %v for password length %d, got %v",
+			ErrPasswordTooShort, len(invalidUser.Password), err)
+	}
+
+	// Test password exactly at minimum length
+	invalidUser = validUser
+	invalidUser.Password = "123456789012" // 12 characters - exact minimum
+	invalidUser.HashedPassword = ""
+	if err := invalidUser.Validate(); err != nil {
+		t.Errorf("Expected no error for minimum length password, got %v", err)
+	}
+
+	// Test password exactly at maximum length
+	invalidUser = validUser
+	invalidUser.Password = "123456789012345678901234567890123456789012345678901234567890123456789012" // 72 characters
+	invalidUser.HashedPassword = ""
+	if err := invalidUser.Validate(); err != nil {
+		t.Errorf("Expected no error for maximum length password, got %v", err)
+	}
+
+	// Test password too long
+	invalidUser = validUser
+	invalidUser.Password = "1234567890123456789012345678901234567890123456789012345678901234567890123" // 73 characters
+	invalidUser.HashedPassword = ""
+	if err := invalidUser.Validate(); err != ErrPasswordTooLong {
+		t.Errorf("Expected error %v for password length %d, got %v",
+			ErrPasswordTooLong, len(invalidUser.Password), err)
 	}
 }
 
@@ -154,35 +213,66 @@ func TestUserValidate_PasswordComplexity(t *testing.T) {
 		password string
 		wantErr  error
 	}{
+		// Valid password tests
 		{
-			name:     "valid password with minimum length",
-			password: "password12345",
+			name:     "valid password well above minimum length",
+			password: "password12345", // 15 characters
 			wantErr:  nil,
 		},
 		{
-			name:     "valid password with maximum length",
-			password: "12345678901234567890123456789012345678901234567890123456789012345678901", // exactly 72 characters
+			name:     "valid password with all character types",
+			password: "Password123!@#", // 15 characters with mixed case, numbers, symbols
 			wantErr:  nil,
 		},
 		{
-			name:     "password too short",
-			password: "Pass1!",
+			name:     "valid password with only letters",
+			password: "abcdefghijklmnopqrstuvwx", // 24 characters, all lowercase letters
+			wantErr:  nil,
+		},
+		{
+			name:     "valid password with only numbers",
+			password: "123456789012345678901234", // 24 characters, all digits
+			wantErr:  nil,
+		},
+
+		// Boundary tests
+		{
+			name:     "password at exact minimum length",
+			password: "123456789012", // Exactly 12 characters
+			wantErr:  nil,
+		},
+		{
+			name:     "password at exact maximum length",
+			password: "123456789012345678901234567890123456789012345678901234567890123456789012", // Exactly 72 characters
+			wantErr:  nil,
+		},
+		{
+			name:     "password just below minimum length",
+			password: "12345678901", // 11 characters (one short)
 			wantErr:  ErrPasswordTooShort,
 		},
 		{
-			name:     "password at exact minimum length",
-			password: "123456789012", // 12 characters
-			wantErr:  nil,
+			name:     "password just above maximum length",
+			password: "1234567890123456789012345678901234567890123456789012345678901234567890123", // 73 characters (one over)
+			wantErr:  ErrPasswordTooLong,
+		},
+
+		// Error cases
+		{
+			name:     "password very short",
+			password: "Pass1!", // 6 characters
+			wantErr:  ErrPasswordTooShort,
 		},
 		{
-			name:     "password too long",
-			password: "1234567890123456789012345678901234567890123456789012345678901234567890123", // 73 characters
+			name:     "password very long",
+			password: "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", // 100 characters
 			wantErr:  ErrPasswordTooLong,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Create a user with the test password
 			user := &User{
 				ID:             uuid.New(),
 				Email:          "test@example.com",
@@ -190,15 +280,19 @@ func TestUserValidate_PasswordComplexity(t *testing.T) {
 				HashedPassword: "some-hashed-password", // Not validated when Password is present
 			}
 
+			// Validate the user
 			err := user.Validate()
 
+			// Check error expectations
 			if tt.wantErr != nil {
 				if err != tt.wantErr {
-					t.Errorf("Expected error %v, got %v", tt.wantErr, err)
+					t.Errorf("Password length %d: Expected error %v, got %v",
+						len(tt.password), tt.wantErr, err)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
+					t.Errorf("Password length %d: Expected no error, got %v",
+						len(tt.password), err)
 				}
 			}
 		})
@@ -211,34 +305,71 @@ func TestValidatePasswordComplexity(t *testing.T) {
 		password string
 		want     bool
 	}{
+		// Valid passwords
 		{
-			name:     "password with minimum length",
-			password: "123456789012", // 12 characters
+			name:     "password at exact minimum length",
+			password: "123456789012", // Exactly 12 characters
 			want:     true,
 		},
 		{
-			name:     "password too short",
-			password: "12345678901", // 11 characters
+			name:     "password at exact maximum length",
+			password: "12345678901234567890123456789012345678901234567890123456789012345678901", // Exactly 72 characters
+			want:     true,
+		},
+		{
+			name:     "password well above minimum length",
+			password: "passwordpasswordpassword", // 24 characters
+			want:     true,
+		},
+
+		// Invalid passwords - too short
+		{
+			name:     "password just below minimum length",
+			password: "12345678901", // 11 characters - one short
 			want:     false,
 		},
 		{
-			name:     "password with maximum length",
-			password: "12345678901234567890123456789012345678901234567890123456789012345678901", // exactly 72 characters
-			want:     true,
-		},
-		{
-			name:     "password too long",
-			password: "1234567890123456789012345678901234567890123456789012345678901234567890123", // 73 characters
+			name:     "password very short",
+			password: "short", // 5 characters
 			want:     false,
 		},
 		{
-			name:     "password with mix of characters within length",
-			password: "Password123!@#",
+			name:     "empty password",
+			password: "",
+			want:     false,
+		},
+
+		// Invalid passwords - too long
+		{
+			name:     "password just above maximum length",
+			password: "1234567890123456789012345678901234567890123456789012345678901234567890123", // 73 characters - one over
+			want:     false,
+		},
+		{
+			name:     "password far above maximum length",
+			password: "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", // 100 characters
+			want:     false,
+		},
+
+		// Testing with different character compositions
+		{
+			name:     "password with mix of character types",
+			password: "Password123!@#", // Mixed case, numbers, symbols
 			want:     true,
 		},
 		{
-			name:     "password with only letters within length",
-			password: "abcdefghijklmnopqrstuvwx",
+			name:     "password with only letters",
+			password: "abcdefghijklmnopqrstuvwx", // All lowercase letters
+			want:     true,
+		},
+		{
+			name:     "password with only numbers",
+			password: "123456789012345678901234", // All digits
+			want:     true,
+		},
+		{
+			name:     "password with only symbols",
+			password: "!@#$%^&*()_+-=[]{}|;:,.<>?/~`!@#$%^&*()", // All symbols
 			want:     true,
 		},
 	}
@@ -247,7 +378,8 @@ func TestValidatePasswordComplexity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := validatePasswordComplexity(tt.password)
 			if got != tt.want {
-				t.Errorf("validatePasswordComplexity() = %v, want %v", got, tt.want)
+				t.Errorf("validatePasswordComplexity(%q) [length=%d] = %v, want %v",
+					tt.password, len(tt.password), got, tt.want)
 			}
 		})
 	}

@@ -1,21 +1,18 @@
-# Task: Implement Authentication API Endpoints and Middleware
+# Task: Implement Asynchronous Task Runner
 
-## Description
-We need to implement two authentication endpoints: Registration (`POST /auth/register`) and Login (`POST /auth/login`), as well as the JWT authentication middleware for protected routes. These endpoints and middleware will leverage the existing User Store and JWT Authentication Service implementations.
+## Task Description
+Implement a background task processing system that allows for asynchronous execution of long-running tasks in the Scry API. The system should use in-memory queues with goroutines and channels for task processing, and include a recovery mechanism to handle application restarts.
 
 ## Acceptance Criteria
-- Implement `POST /auth/register` endpoint that validates input and creates user accounts
-- Implement `POST /auth/login` endpoint that authenticates users and returns JWT tokens
-- Implement JWT authentication middleware for protecting API routes
-- Integrate middleware with the router
-- Add comprehensive validation for all request payloads
-- Return proper HTTP status codes and error messages
-- Add thorough integration tests for authentication flows
-- Ensure all error scenarios are properly handled and tested
+- Implement a basic in-memory task queue
+- Implement a worker pool using goroutines and channels
+- Implement a recovery mechanism for handling application restarts
+- Ensure tasks can be processed asynchronously
+- Add comprehensive tests for the task processing system
+- Ensure proper error handling and logging
 
 ## Dependencies
-- User Store implementation (completed)
-- JWT Authentication Service (completed)
+None
 
 # Implementation Approach Analysis Instructions
 

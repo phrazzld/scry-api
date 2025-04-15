@@ -9,6 +9,21 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
 
 ## New Tasks
 
+### Core Functionality Tasks
+
+- [x] **Implement Asynchronous Task Runner**:
+  - **Issue**: Need to implement a background task processing system
+  - **Description**: According to BACKLOG.md, we need to implement an in-memory background task queue with a worker pool using goroutines and channels, along with a recovery mechanism for processing tasks.
+  - **Acceptance Criteria**:
+    - Implement a basic in-memory task queue
+    - Implement a worker pool using goroutines and channels
+    - Implement a recovery mechanism for handling application restarts
+    - Ensure tasks can be processed asynchronously
+    - Add comprehensive tests for the task processing system
+    - Ensure proper error handling and logging
+  - **Dependencies**: None
+  - **Estimated Complexity**: Complex
+
 ### Authentication Tasks
 
 - [x] **Implement JWT Authentication Service**:

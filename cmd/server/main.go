@@ -28,6 +28,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -148,6 +149,23 @@ func startServer(cfg *config.Config) {
 		slog.Error("Failed to initialize JWT service", "error", err)
 		os.Exit(1)
 	}
+	
+	// Initialize task store and runner
+	taskStore := postgres.NewPostgresTaskStore(db)
+	taskRunner := task.NewTaskRunner(taskStore, task.TaskRunnerConfig{
+		WorkerCount:  cfg.Task.WorkerCount,
+		QueueSize:    cfg.Task.QueueSize,
+		StuckTaskAge: time.Duration(cfg.Task.StuckTaskAgeMinutes) * time.Minute,
+	}, slog.Default())
+	
+	// Start the task runner
+	if err := taskRunner.Start(); err != nil {
+		slog.Error("Failed to start task runner", "error", err)
+		os.Exit(1)
+	}
+	
+	// Ensure task runner is stopped on server shutdown
+	defer taskRunner.Stop()
 
 	// Create a router
 	r := chi.NewRouter()

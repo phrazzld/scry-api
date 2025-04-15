@@ -55,7 +55,7 @@
   - **AC Ref:** Test Quality Issue 3
 
 ## Documentation Practices (DOCUMENTATION_APPROACH.md)
-- [ ] **Add Godoc Comments to SRS Algorithm Functions:** Document core SRS calculation functions.
+- [x] **Add Godoc Comments to SRS Algorithm Functions:** Document core SRS calculation functions.
   - **Action:** Add comprehensive Godoc comments to the functions `calculateNewEaseFactor`, `calculateNewInterval`, `calculateNextReviewDate`, and `calculateNextStats` in `internal/domain/srs/algorithm.go`. Explain the purpose, parameters, return values, and any relevant algorithmic details for each function.
   - **Depends On:** None
   - **AC Ref:** Documentation Practices Issue 1

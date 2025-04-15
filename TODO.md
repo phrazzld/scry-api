@@ -44,7 +44,7 @@
   - **Depends On:** None
   - **AC Ref:** Code Quality Improvements.2
 
-- [ ] **Remove unnecessary nolint:unused directives:** Clean up code
+- [x] **Remove unnecessary nolint:unused directives:** Clean up code
   - **Action:** Remove the `//nolint:unused` comments from helper functions in `internal/platform/postgres/user_store_test.go` as they are actively used within the test file
   - **Depends On:** Add context.Context to test helper functions
   - **AC Ref:** Code Quality Improvements.3

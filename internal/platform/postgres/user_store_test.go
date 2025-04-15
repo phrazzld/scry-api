@@ -90,8 +90,6 @@ func teardownTestDB(t *testing.T, db *sql.DB) {
 }
 
 // createTestUser is a helper function to create a valid test user
-//
-//nolint:unused
 func createTestUser(t *testing.T) *domain.User {
 	email := fmt.Sprintf("test-%s@example.com", uuid.New().String()[:8])
 	user, err := domain.NewUser(email, "Password123!")
@@ -100,8 +98,6 @@ func createTestUser(t *testing.T) *domain.User {
 }
 
 // insertTestUser inserts a user directly into the database for testing
-//
-//nolint:unused
 func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string) uuid.UUID {
 	// Generate a unique ID
 	id := uuid.New()
@@ -118,8 +114,6 @@ func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string)
 }
 
 // getUserByID retrieves a user from the database directly for verification
-//
-//nolint:unused
 func getUserByID(ctx context.Context, t *testing.T, db *sql.DB, id uuid.UUID) *domain.User {
 	// Query the user
 	var user domain.User
@@ -140,8 +134,6 @@ func getUserByID(ctx context.Context, t *testing.T, db *sql.DB, id uuid.UUID) *d
 }
 
 // countUsers counts the number of users in the database matching certain criteria
-//
-//nolint:unused
 func countUsers(ctx context.Context, t *testing.T, db *sql.DB, whereClause string, args ...interface{}) int {
 	query := "SELECT COUNT(*) FROM users"
 	if whereClause != "" {

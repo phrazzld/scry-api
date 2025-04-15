@@ -74,29 +74,6 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-// setupTestDB ensures test isolation by clearing all data
-// and returns the shared database connection.
-// DEPRECATED: Use testutils.WithTx for transaction-based isolation instead.
-func setupTestDB(t *testing.T) *sql.DB {
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
-	// Reset test data
-	err := testutils.ResetTestData(testDB)
-	require.NoError(t, err, "Failed to reset test data")
-
-	return testDB
-}
-
-// teardownTestDB doesn't need to do anything since connection
-// cleanup happens in TestMain and data cleanup happens in setupTestDB
-// DEPRECATED: Use testutils.WithTx for transaction-based isolation instead.
-func teardownTestDB(t *testing.T, db *sql.DB) {
-	// No action needed, connection closing is handled in TestMain
-	// and data cleanup is handled in the next test's setupTestDB
-}
-
 // createTestUser is a helper function to create a valid test user
 func createTestUser(t *testing.T) *domain.User {
 	email := fmt.Sprintf("test-%s@example.com", uuid.New().String()[:8])

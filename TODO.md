@@ -1,106 +1,106 @@
-# TODO
+# TODO List
 
-## Password Validation Simplification
+This file contains detailed, atomic tasks that need to be addressed in the codebase. Each task is designed to be highly focused and independently addressable.
 
-- [x] **Update validatePasswordComplexity function:** Implement length-based password validation
-  - **Action:** Modify the `validatePasswordComplexity` function in `internal/domain/user.go` to enforce a minimum length of 12 characters and a maximum length of 72 characters (bcrypt's practical limit), removing all character class requirements
-  - **Depends On:** None
-  - **AC Ref:** Password Validation Simplification.2
+## Status Key
+- [ ] Not started
+- [~] In progress
+- [x] Completed
 
-- [x] **Simplify password validation in User model:** Update User.Validate method
-  - **Action:** Update the `Validate` method in `internal/domain/user.go` to use the simplified length check when `Password` field is present, ensuring it still checks for `HashedPassword` presence if `Password` is empty
-  - **Depends On:** Update validatePasswordComplexity function
-  - **AC Ref:** Password Validation Simplification.2, Password Validation Simplification.4
+## Urgent Tasks
 
-- [x] **Add Godoc comments to password validation function:** Document the new approach
-  - **Action:** Add clear Godoc comments to the validatePasswordComplexity function in `internal/domain/user.go`, explaining the length-based approach and rationale
-  - **Depends On:** Update validatePasswordComplexity function
-  - **AC Ref:** Password Validation Simplification.4, Documentation Improvements.1
+### Linting Tasks
 
-- [x] **Update password validation domain tests:** Adjust tests for new validation rules
-  - **Action:** Modify existing tests in `internal/domain/user_test.go` to verify the new length-based password validation rules, including edge cases (too short, too long, exact limits)
-  - **Depends On:** Simplify password validation in User model
-  - **AC Ref:** Password Validation Simplification.4
+- [x] **Remove Unused Test Setup Functions**:
+  - **File**: `/internal/platform/postgres/user_store_test.go`
+  - **Issue**: Functions `setupTestDB` and `teardownTestDB` are flagged as unused by golangci-lint
+  - **Description**: These functions are marked as deprecated with comments indicating that `testutils.WithTx` should be used instead, but they're still generating linting errors.
+  - **Acceptance Criteria**:
+    - Remove both functions completely OR
+    - Use build tags or other techniques to retain them for reference without triggering linter errors
+    - Verify golangci-lint runs without these specific errors
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
 
-## Code Quality Improvements
+### Build Tasks
 
-- [x] **Refactor transaction handling in PostgresUserStore.Create:** Use named error returns
-  - **Action:** Modify the `Create` method in `internal/platform/postgres/user_store.go` to use named return values for errors and update the deferred rollback function to check this named error variable before rolling back
-  - **Depends On:** None
-  - **AC Ref:** Code Quality Improvements.1
+- [ ] **Complete Full Integration Test Changes**:
+  - **File**: `/internal/platform/postgres/user_store_test.go` and potentially others
+  - **Issue**: The conversion to transaction-based testing might not be complete across all tests
+  - **Description**: While some tests have been updated to use transaction-based isolation with `t.Parallel()`, there may be other tests or test utilities that still need updating.
+  - **Acceptance Criteria**:
+    - Audit all test files to ensure consistent use of the transaction-based approach
+    - Update any tests still using the old `setupTestDB`/`teardownTestDB` pattern
+    - Ensure all tests properly use `t.Parallel()` where appropriate
+    - All tests pass when run with `-race` flag
+  - **Dependencies**: None
+  - **Estimated Complexity**: Moderate
 
-- [x] **Refactor transaction handling in PostgresUserStore.Update:** Use named error returns
-  - **Action:** Modify the `Update` method in `internal/platform/postgres/user_store.go` to use named return values for errors and update the deferred rollback function to check this named error variable before rolling back
-  - **Depends On:** None
-  - **AC Ref:** Code Quality Improvements.1
+### Missing Tests
 
-- [x] **Optimize password hash fetching in PostgresUserStore.Update:** Conditionally fetch password hash
-  - **Action:** Refactor `internal/platform/postgres/user_store.go:225-240` to only query the existing `hashed_password` when necessary (i.e., when the input `user.Password` field is empty)
-  - **Depends On:** None
-  - **AC Ref:** Core Principles and Design Improvements.1
+- [ ] **Add Tests for Middleware Components**:
+  - **Issue**: Authentication middleware tests appear to be missing
+  - **Description**: According to BACKLOG.md, the "Authentication Middleware" task includes a sub-task for adding tests, but there doesn't appear to be relevant test coverage.
+  - **Acceptance Criteria**:
+    - Create integration tests for JWT validation middleware
+    - Test both valid and invalid token scenarios
+    - Test expired token handling
+    - Test proper authorization flow
+    - Test role-based access control (if implemented)
+  - **Dependencies**: Authentication Middleware implementation
+  - **Estimated Complexity**: Moderate
 
-- [x] **Add context.Context to test helper functions:** Improve helper function signatures
-  - **Action:** Modify the test helper functions (`insertTestUser`, `getUserByID`, `countUsers`) in `internal/platform/postgres/user_store_test.go` to accept `ctx context.Context` as the first argument and pass it to the appropriate database methods
-  - **Depends On:** None
-  - **AC Ref:** Code Quality Improvements.2
+- [ ] **Add Tests for Missing Packages**:
+  - **Issue**: Several packages have no test files
+  - **Description**: The following packages show "[no test files]" when running `go test ./...`:
+    - `github.com/phrazzld/scry-api/internal/api`
+    - `github.com/phrazzld/scry-api/internal/generation`
+    - `github.com/phrazzld/scry-api/internal/service`
+    - `github.com/phrazzld/scry-api/internal/store`
+    - `github.com/phrazzld/scry-api/internal/task`
+  - **Acceptance Criteria**:
+    - Evaluate each package to determine appropriate test coverage
+    - Implement unit tests for core functionality in each package
+    - Create integration tests where appropriate
+    - Ensure at least 70% code coverage for critical components
+  - **Dependencies**: Implementation of the respective packages
+  - **Estimated Complexity**: Complex
 
-- [x] **Remove unnecessary nolint:unused directives:** Clean up code
-  - **Action:** Remove the `//nolint:unused` comments from helper functions in `internal/platform/postgres/user_store_test.go` as they are actively used within the test file
-  - **Depends On:** Add context.Context to test helper functions
-  - **AC Ref:** Code Quality Improvements.3
+## Non-Urgent Tasks
 
-- [x] **Add TODO comment for improving validateEmailFormat:** Track technical debt
-  - **Action:** Add a `// TODO:` comment above the `validateEmailFormat` function in `internal/domain/user.go` indicating it's a basic implementation that should be replaced with more robust validation in the future
-  - **Depends On:** None
-  - **AC Ref:** Code Quality Improvements.4
+### Documentation Tasks
 
-## Testing Improvements
+- [ ] **Add Package Documentation for Missing Packages**:
+  - **Issue**: Several packages have a `doc.go` file but may need actual implementation documentation
+  - **Description**: Ensure comprehensive package documentation exists for all packages, particularly those that show as having a `doc.go` file but potentially lacking implementation details.
+  - **Acceptance Criteria**:
+    - Review all `doc.go` files for completeness
+    - Add or update package documentation where missing or incomplete
+    - Ensure documentation follows project standards
+    - Verify documentation with `godoc` tool
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple to Moderate
 
-- [x] **Refactor setupTestDB to use project migrations:** Eliminate schema duplication
-  - **Action:** Modify the `setupTestDB` function in `internal/platform/postgres/user_store_test.go` to use the project's migrations instead of direct `CREATE TABLE` SQL, ensuring tests run against the canonical schema definition
-  - **Depends On:** None
-  - **AC Ref:** Testing Improvements.1
+### Refactoring Tasks
 
-- [x] **Add password validation integration tests:** Test validation in store methods
-  - **Action:** Add test cases to `TestPostgresUserStore_Create` and `TestPostgresUserStore_Update` in `internal/platform/postgres/user_store_test.go` that explicitly verify password validation rejects passwords that don't meet length requirements
-  - **Depends On:** Update password validation domain tests
-  - **AC Ref:** Testing Improvements.2
+- [ ] **Standardize Test Helper Functions**:
+  - **Issue**: Test helper functions might not be consistent across test files
+  - **Description**: Review test helper functions across the codebase to ensure they follow consistent patterns, particularly regarding transaction-based isolation.
+  - **Acceptance Criteria**:
+    - Identify all test helper functions in test files
+    - Standardize their signatures and naming conventions
+    - Move common helpers to `testutils` package if appropriate
+    - Update all tests to use the standardized helpers
+  - **Dependencies**: None
+  - **Estimated Complexity**: Moderate
 
-- [x] **Refactor insertTestUser to use PostgresUserStore.Create:** Improve test helper
-  - **Action:** Modify the `insertTestUser` helper function to use the `PostgresUserStore.Create` method instead of direct SQL, leveraging automatic password hashing
-  - **Depends On:** Refactor setupTestDB to use project migrations
-  - **AC Ref:** Testing Improvements.3, Testing Improvements.4
-
-- [x] **Refactor getUserByID to use PostgresUserStore.GetByID:** Improve test helper
-  - **Action:** Modify the `getUserByID` helper function to use the `PostgresUserStore.GetByID` method instead of direct SQL queries
-  - **Depends On:** Refactor setupTestDB to use project migrations
-  - **AC Ref:** Testing Improvements.3
-
-- [~] **Improve test data isolation:** Enable parallel testing
-  - **Action:** Implement a better test isolation strategy that allows for parallel test execution, such as using transaction-based isolation or unique database/schema names for each test
-  - **Depends On:** Refactor setupTestDB to use project migrations
-  - **AC Ref:** Testing Improvements.5
-
-## Architecture Improvements
-
-- [x] **Add configuration option for bcrypt cost:** Make security tunable
-  - **Action:** Add a `bcrypt_cost` integer field to `AuthConfig` in `internal/config/config.go` with appropriate validation. Update `PostgresUserStore.Create` and `PostgresUserStore.Update` to use this configured cost instead of `bcrypt.DefaultCost`
-  - **Depends On:** None
-  - **AC Ref:** Architecture Improvements.1
-
-## Documentation and Organization
-
-- [x] **Break down Authentication Implementation in BACKLOG.md:** Improve task tracking
-  - **Action:** Edit `BACKLOG.md` to replace the single "Authentication Implementation" item with separate, granular tasks: User Store Implementation, JWT Authentication Service, Authentication API Endpoints, and Authentication Middleware
-  - **Depends On:** None
-  - **AC Ref:** Core Principles and Design Improvements.2
-
-## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
-
-- [ ] **Issue/Assumption:** Acceptance Criteria References
-  - **Context:** The `PLAN.md` does not have explicit AC IDs.
-  - **Assumption:** The `AC Ref` fields in this `TODO.md` refer to the specific numbered items within each section of the `PLAN.md` document (e.g., "Password Validation Simplification.2" refers to item 2 in that section).
-
-- [ ] **Issue/Assumption:** Test Helper countUsers Refactoring
-  - **Context:** Testing Improvements item 3 suggests refactoring helpers to use store methods. However, `countUsers` is primarily for verification purposes.
-  - **Assumption:** The `countUsers` helper will retain direct SQL access for verification purposes, but will be updated to accept `context.Context` as per Code Quality Improvements item 2.
+- [ ] **Add Comprehensive Error Handling in Tests**:
+  - **Issue**: Some tests may not have thorough error handling
+  - **Description**: Ensure all tests properly handle errors, including from deferred functions.
+  - **Acceptance Criteria**:
+    - Review all deferred function calls in tests
+    - Implement proper error handling for deferred functions
+    - Use appropriate error-checking assertion functions
+    - Document any special error handling patterns
+  - **Dependencies**: None
+  - **Estimated Complexity**: Moderate

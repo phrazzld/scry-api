@@ -171,6 +171,31 @@ The server will automatically:
 - Use default values for non-critical settings when not specified
 - Log the configured port and other key settings at startup
 
+### Database Migrations
+
+The application uses [goose](https://github.com/pressly/goose) for database migrations.
+
+To run migrations:
+
+```bash
+# Run all pending migrations
+go run cmd/server/main.go -migrate=up
+
+# Rollback the last migration
+go run cmd/server/main.go -migrate=down
+
+# Show migration status
+go run cmd/server/main.go -migrate=status
+
+# Show current version
+go run cmd/server/main.go -migrate=version
+
+# Create a new migration
+go run cmd/server/main.go -migrate=create -name=create_users_table
+```
+
+Migration files are stored in `internal/platform/postgres/migrations/`. See the [migrations README](internal/platform/postgres/migrations/README.md) for more details.
+
 ## Key Scripts / Commands
 - Format code: `go fmt ./...`
 - Lint code: `golangci-lint run`

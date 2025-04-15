@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -129,24 +130,23 @@ func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string)
 	return user.ID
 }
 
-// getUserByID retrieves a user from the database directly for verification
+// getUserByID retrieves a user from the database using PostgresUserStore.GetByID
 func getUserByID(ctx context.Context, t *testing.T, db *sql.DB, id uuid.UUID) *domain.User {
-	// Query the user
-	var user domain.User
-	err := db.QueryRowContext(ctx, `
-		SELECT id, email, hashed_password, created_at, updated_at
-		FROM users
-		WHERE id = $1
-	`, id).Scan(&user.ID, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.UpdatedAt)
+	// Create a user store
+	userStore := postgres.NewPostgresUserStore(db)
 
+	// Retrieve the user using GetByID method
+	user, err := userStore.GetByID(ctx, id)
+
+	// Handle the result
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, store.ErrUserNotFound) {
 			return nil
 		}
-		require.NoError(t, err, "Failed to query user by ID")
+		require.NoError(t, err, "Failed to retrieve user by ID")
 	}
 
-	return &user
+	return user
 }
 
 // countUsers counts the number of users in the database matching certain criteria

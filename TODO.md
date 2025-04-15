@@ -71,7 +71,7 @@
   - **Depends On:** Refactor setupTestDB to use project migrations
   - **AC Ref:** Testing Improvements.3, Testing Improvements.4
 
-- [ ] **Refactor getUserByID to use PostgresUserStore.GetByID:** Improve test helper
+- [x] **Refactor getUserByID to use PostgresUserStore.GetByID:** Improve test helper
   - **Action:** Modify the `getUserByID` helper function to use the `PostgresUserStore.GetByID` method instead of direct SQL queries
   - **Depends On:** Refactor setupTestDB to use project migrations
   - **AC Ref:** Testing Improvements.3

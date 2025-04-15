@@ -22,6 +22,12 @@ type PostgresUserStore struct {
 	db *sql.DB
 }
 
+// DB returns the underlying database connection for testing purposes.
+// This method is not part of the store.UserStore interface.
+func (s *PostgresUserStore) DB() *sql.DB {
+	return s.db
+}
+
 // NewPostgresUserStore creates a new PostgreSQL implementation of the UserStore interface.
 // It accepts a database connection that should be initialized and managed by the caller.
 func NewPostgresUserStore(db *sql.DB) *PostgresUserStore {

@@ -55,7 +55,7 @@
   - **AC Ref:** PLAN.md Section 2.4
 
 ## 5. Testing Implementation
-- [ ] **Set Up User Store Test File and Helpers:**
+- [x] **Set Up User Store Test File and Helpers:**
   - **Action:** Create the test file `internal/platform/postgres/user_store_test.go`. Include necessary imports (`testing`, `testify`, `uuid`, domain, store, postgres, testutils, etc.). Set up test helper functions, potentially including setup/teardown logic for a test PostgreSQL database (e.g., using `testcontainers-go` or similar, connecting via `testutils.GetTestDatabaseURL`).
   - **Depends On:** Implement NewPostgresUserStore Constructor
   - **AC Ref:** PLAN.md Section 5

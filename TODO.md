@@ -22,7 +22,7 @@
   - **Depends On:** None
   - **AC Ref:** Architectural Patterns Issue 1
 
-- [ ] **Add Explicit DB Password Management in Terraform:** Introduce a Terraform variable for the database user password.
+- [x] **Add Explicit DB Password Management in Terraform:** Introduce a Terraform variable for the database user password.
   - **Action:** Define a new `variable "database_password"` in `infrastructure/terraform/variables.tf` (mark as sensitive). Update the `digitalocean_database_user` resource in `infrastructure/terraform/main.tf` to use this variable for the password instead of relying on auto-generation. Update `terraform.tfvars.example` and any relevant documentation.
   - **Depends On:** None
   - **AC Ref:** Architectural Patterns Issue 2

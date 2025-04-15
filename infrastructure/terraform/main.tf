@@ -34,6 +34,7 @@ resource "digitalocean_database_db" "app_database" {
 resource "digitalocean_database_user" "app_user" {
   cluster_id = digitalocean_database_cluster.postgres.id
   name       = "scryapiuser"  # Specific app user with restricted permissions
+  password   = var.database_password
 }
 
 # Firewall rules for database access

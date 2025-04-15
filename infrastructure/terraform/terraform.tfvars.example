@@ -10,3 +10,4 @@ authorized_ips = [
 alert_emails = [
   "admin@example.com"  # Replace with actual alert contact emails
 ]
+database_password = "StrongPasswordHere#123!"  # Replace with a secure password (min 16 chars with mixed case, numbers, symbols)

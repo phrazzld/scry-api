@@ -63,3 +63,9 @@ variable "alert_emails" {
   type        = list(string)
   default     = ["admin@example.com"]  # Replace with actual emails
 }
+
+variable "database_password" {
+  description = "Password for the application database user"
+  type        = string
+  sensitive   = true
+}

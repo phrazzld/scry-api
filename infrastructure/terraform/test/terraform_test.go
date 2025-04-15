@@ -27,11 +27,12 @@ func TestTerraformDatabaseInfrastructure(t *testing.T) {
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: terraformDir,
 		Vars: map[string]interface{}{
-			"do_token":      doToken,
-			"cluster_name":  "scry-db-test",
-			"database_name": "scry_test",
-			"node_size":     "db-s-1vcpu-1gb", // Smallest size for testing
-			"node_count":    1,                // Single node for testing
+			"do_token":          doToken,
+			"cluster_name":      "scry-db-test",
+			"database_name":     "scry_test",
+			"node_size":         "db-s-1vcpu-1gb",   // Smallest size for testing
+			"node_count":        1,                  // Single node for testing
+			"database_password": "TestPassword123!", // Test password
 		},
 	})
 
@@ -66,4 +67,6 @@ func TestTerraformDatabaseInfrastructure(t *testing.T) {
 	// TODO: Use the connection string to test database connectivity and run migrations
 	// This would require importing the database/sql package and executing some queries
 	// as well as potentially running the migration code.
+	// Also verify that the database_password variable works correctly by attempting
+	// to authenticate with the specified password.
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -388,11 +389,75 @@ func TestPostgresUserStore_GetByID(t *testing.T) {
 
 // TestPostgresUserStore_GetByEmail tests the GetByEmail method
 func TestPostgresUserStore_GetByEmail(t *testing.T) {
-	t.Skip("Implementing method is a future task")
+	// Set up the test database
+	db := setupTestDB(t)
+	defer teardownTestDB(t, db)
 
-	// Test Cases (to be implemented):
-	// 1. Successfully retrieve existing user by email
-	// 2. Attempt to retrieve user with non-existent email (should return ErrUserNotFound)
+	// Create a new user store
+	userStore := postgres.NewPostgresUserStore(db)
+
+	// Test Case 1: Successfully retrieve existing user by email
+	t.Run("Successfully retrieve existing user", func(t *testing.T) {
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("getbyemail-test-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(t, db, email)
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Call the GetByEmail method
+		user, err := userStore.GetByEmail(ctx, email)
+
+		// Verify the result
+		require.NoError(t, err, "GetByEmail should succeed for existing user")
+		require.NotNil(t, user, "Retrieved user should not be nil")
+		assert.Equal(t, userId, user.ID, "User ID should match")
+		assert.Equal(t, email, user.Email, "User email should match")
+		assert.NotEmpty(t, user.HashedPassword, "Hashed password should not be empty")
+		assert.Empty(t, user.Password, "Plaintext password should be empty")
+		assert.False(t, user.CreatedAt.IsZero(), "CreatedAt should not be zero")
+		assert.False(t, user.UpdatedAt.IsZero(), "UpdatedAt should not be zero")
+	})
+
+	// Test Case 2: Attempt to retrieve user with non-existent email
+	t.Run("Non-existent email", func(t *testing.T) {
+		// Use an email that doesn't exist in the database
+		nonExistentEmail := fmt.Sprintf("nonexistent-%s@example.com", uuid.New().String())
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Call the GetByEmail method
+		user, err := userStore.GetByEmail(ctx, nonExistentEmail)
+
+		// Verify the result
+		assert.Error(t, err, "GetByEmail should return error for non-existent email")
+		assert.ErrorIs(t, err, store.ErrUserNotFound, "Error should be ErrUserNotFound")
+		assert.Nil(t, user, "User should be nil for non-existent email")
+	})
+
+	// Test Case 3: Case insensitivity for email matching
+	t.Run("Case insensitive email matching", func(t *testing.T) {
+		// Insert a test user with lowercase email
+		email := fmt.Sprintf("casesensitive-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(t, db, email)
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Query with uppercase email
+		upperEmail := strings.ToUpper(email)
+		user, err := userStore.GetByEmail(ctx, upperEmail)
+
+		// Verify the result (should find the user despite case difference)
+		require.NoError(t, err, "GetByEmail should be case insensitive")
+		require.NotNil(t, user, "Retrieved user should not be nil")
+		assert.Equal(t, userId, user.ID, "User ID should match")
+		assert.Equal(t, email, user.Email, "User email should match original case")
+	})
 }
 
 // TestPostgresUserStore_Update tests the Update method

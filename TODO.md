@@ -39,7 +39,7 @@
   - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
   - **AC Ref:** PLAN.md Section 2.2
 
-- [ ] **Implement PostgresUserStore GetByEmail Method:**
+- [x] **Implement PostgresUserStore GetByEmail Method:**
   - **Action:** Implement the `GetByEmail(ctx context.Context, email string) (*domain.User, error)` method on `PostgresUserStore`. Use parameterized SQL SELECT query, map the row to a `domain.User` struct, and handle the "not found" case by returning `store.ErrUserNotFound`.
   - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
   - **AC Ref:** PLAN.md Section 2.2
@@ -70,7 +70,7 @@
   - **Depends On:** Implement PostgresUserStore GetByID Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5
 
-- [ ] **Write Integration Tests for GetByEmail Method:**
+- [x] **Write Integration Tests for GetByEmail Method:**
   - **Action:** Implement integration tests in `user_store_test.go` covering the `GetByEmail` method. Test cases should include successful retrieval and attempting to retrieve a user by a non-existent email (expecting `store.ErrUserNotFound`).
   - **Depends On:** Implement PostgresUserStore GetByEmail Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5

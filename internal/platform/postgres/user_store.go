@@ -168,9 +168,43 @@ func (s *PostgresUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 }
 
 // GetByEmail implements store.UserStore.GetByEmail
+// It retrieves a user by their email address from the database.
+// Returns store.ErrUserNotFound if the user does not exist.
+// The email matching is case-insensitive.
 func (s *PostgresUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	// Placeholder implementation - will be fully implemented in a separate task
-	return nil, nil
+	// Get the logger from context or use default
+	log := logger.FromContext(ctx)
+
+	log.Debug("retrieving user by email",
+		slog.String("email", email))
+
+	// Query the user from database with case-insensitive email matching
+	var user domain.User
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email, hashed_password, created_at, updated_at
+		FROM users
+		WHERE LOWER(email) = LOWER($1)
+	`, email).Scan(&user.ID, &user.Email, &user.HashedPassword, &user.CreatedAt, &user.UpdatedAt)
+
+	// Handle the result
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Debug("user not found", slog.String("email", email))
+			return nil, store.ErrUserNotFound
+		}
+		log.Error("failed to query user by email",
+			slog.String("email", email),
+			slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	// Ensure the Password field is empty as it should never be populated from the database
+	user.Password = ""
+
+	log.Debug("user retrieved successfully",
+		slog.String("user_id", user.ID.String()),
+		slog.String("email", user.Email))
+	return &user, nil
 }
 
 // Update implements store.UserStore.Update

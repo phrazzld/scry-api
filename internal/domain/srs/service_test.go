@@ -9,6 +9,7 @@ import (
 )
 
 func TestNewDefaultService(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	service := NewDefaultService()
 	if service == nil {
 		t.Fatal("Expected non-nil service")
@@ -26,6 +27,7 @@ func TestNewDefaultService(t *testing.T) {
 }
 
 func TestCalculateNextReview(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	service := NewDefaultService()
 	userID := uuid.New()
 	cardID := uuid.New()
@@ -158,6 +160,7 @@ func TestCalculateNextReview(t *testing.T) {
 }
 
 func TestPostponeReview(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	service := NewDefaultService()
 	userID := uuid.New()
 	cardID := uuid.New()

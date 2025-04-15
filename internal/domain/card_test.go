@@ -8,6 +8,7 @@ import (
 )
 
 func TestNewCard(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	// Test valid card creation
 	userID := uuid.New()
 	memoID := uuid.New()
@@ -70,6 +71,7 @@ func TestNewCard(t *testing.T) {
 }
 
 func TestCardValidate(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	validCard := Card{
 		ID:      uuid.New(),
 		UserID:  uuid.New(),
@@ -119,6 +121,7 @@ func TestCardValidate(t *testing.T) {
 }
 
 func TestUpdateContent(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	card := Card{
 		ID:      uuid.New(),
 		UserID:  uuid.New(),

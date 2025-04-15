@@ -8,6 +8,7 @@ import (
 )
 
 func TestNewUserCardStats(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	// Test valid user card stats creation
 	userID := uuid.New()
 	cardID := uuid.New()
@@ -75,6 +76,7 @@ func TestNewUserCardStats(t *testing.T) {
 }
 
 func TestUserCardStatsValidate(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	validStats := UserCardStats{
 		UserID:     uuid.New(),
 		CardID:     uuid.New(),

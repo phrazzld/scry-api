@@ -7,6 +7,7 @@ import (
 )
 
 func TestNewDefaultParams(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	params := NewDefaultParams()
 
 	// Verify minimum parameters are set
@@ -60,6 +61,7 @@ func TestNewDefaultParams(t *testing.T) {
 }
 
 func TestNewParams(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	customParams := NewParams(ParamsConfig{
 		MinEaseFactor:             1.5,
 		MaxEaseFactor:             3.0,

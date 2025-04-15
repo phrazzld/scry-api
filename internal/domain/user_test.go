@@ -7,6 +7,7 @@ import (
 )
 
 func TestNewUser(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	// Test valid user creation
 	validEmail := "test@example.com"
 	validPassword := "Password123!ABC" // 15 characters - meets length requirements
@@ -93,6 +94,7 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestUserValidate(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	validUser := User{
 		ID:             uuid.New(),
 		Email:          "test@example.com",
@@ -178,6 +180,7 @@ func TestUserValidate(t *testing.T) {
 }
 
 func TestValidateEmailFormat(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	validEmails := []string{
 		"user@example.com",
 		"user.name@example.com",
@@ -208,6 +211,7 @@ func TestValidateEmailFormat(t *testing.T) {
 }
 
 func TestUserValidate_PasswordComplexity(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	tests := []struct {
 		name     string
 		password string
@@ -300,6 +304,7 @@ func TestUserValidate_PasswordComplexity(t *testing.T) {
 }
 
 func TestValidatePasswordComplexity(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	tests := []struct {
 		name     string
 		password string

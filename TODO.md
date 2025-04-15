@@ -24,7 +24,7 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
 
 ### Build Tasks
 
-- [ ] **Complete Full Integration Test Changes**:
+- [x] **Complete Full Integration Test Changes**:
   - **File**: `/internal/platform/postgres/user_store_test.go` and potentially others
   - **Issue**: The conversion to transaction-based testing might not be complete across all tests
   - **Description**: While some tests have been updated to use transaction-based isolation with `t.Parallel()`, there may be other tests or test utilities that still need updating.

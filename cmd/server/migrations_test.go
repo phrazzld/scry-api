@@ -112,6 +112,7 @@ func TestMigrationFlow(t *testing.T) {
 // TestMigrationsValidSyntax tests that all migration files contain valid SQL syntax.
 // This test doesn't require a database connection.
 func TestMigrationsValidSyntax(t *testing.T) {
+	t.Parallel() // Can safely run in parallel since it doesn't use the database
 	// Set up goose logger with a test adapter that fails the test on fatal errors
 	goose.SetLogger(&testGooseLogger{t: t})
 

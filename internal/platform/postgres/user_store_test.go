@@ -101,20 +101,32 @@ func createTestUser(t *testing.T) *domain.User {
 	return user
 }
 
-// insertTestUser inserts a user directly into the database for testing
+// insertTestUser inserts a user into the database for testing using PostgresUserStore.Create
 func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string) uuid.UUID {
-	// Generate a unique ID
-	id := uuid.New()
-	hashedPassword := "$2a$10$abcdefghijklmnopqrstuvwxyz0123456789"
+	// Create a test password that meets validation requirements (12+ chars)
+	password := "TestPassword123!"
 
-	// Insert the user directly
-	_, err := db.ExecContext(ctx, `
-		INSERT INTO users (id, email, hashed_password, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
-	`, id, email, hashedPassword)
-	require.NoError(t, err, "Failed to insert test user directly")
+	// Create a user with the provided email and test password
+	user := &domain.User{
+		ID:        uuid.New(),
+		Email:     email,
+		Password:  password,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
 
-	return id
+	// Create a user store
+	userStore := postgres.NewPostgresUserStore(db)
+
+	// Insert the user using Create method
+	err := userStore.Create(ctx, user)
+	require.NoError(t, err, "Failed to insert test user using UserStore.Create")
+
+	// Password should be hashed and the plaintext cleared by the Create method
+	assert.Empty(t, user.Password, "Plaintext password should be cleared")
+	assert.NotEmpty(t, user.HashedPassword, "Hashed password should be set")
+
+	return user.ID
 }
 
 // getUserByID retrieves a user from the database directly for verification
@@ -689,8 +701,8 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		// Create an updated user with password that's too short
 		updatedUser := &domain.User{
 			ID:        userId,
-			Email:     email,              // Same email
-			Password:  "short",            // Too short (less than 12 characters)
+			Email:     email,   // Same email
+			Password:  "short", // Too short (less than 12 characters)
 			CreatedAt: originalUser.CreatedAt,
 			UpdatedAt: originalUser.UpdatedAt,
 		}
@@ -727,8 +739,8 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		tooLongPassword := strings.Repeat("p", 73) // 73 characters (exceeds bcrypt's 72 character limit)
 		updatedUser := &domain.User{
 			ID:        userId,
-			Email:     email,              // Same email
-			Password:  tooLongPassword,    // Too long (more than 72 characters)
+			Email:     email,           // Same email
+			Password:  tooLongPassword, // Too long (more than 72 characters)
 			CreatedAt: originalUser.CreatedAt,
 			UpdatedAt: originalUser.UpdatedAt,
 		}

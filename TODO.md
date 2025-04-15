@@ -66,7 +66,7 @@
   - **Depends On:** Update password validation domain tests
   - **AC Ref:** Testing Improvements.2
 
-- [ ] **Refactor insertTestUser to use PostgresUserStore.Create:** Improve test helper
+- [x] **Refactor insertTestUser to use PostgresUserStore.Create:** Improve test helper
   - **Action:** Modify the `insertTestUser` helper function to use the `PostgresUserStore.Create` method instead of direct SQL, leveraging automatic password hashing
   - **Depends On:** Refactor setupTestDB to use project migrations
   - **AC Ref:** Testing Improvements.3, Testing Improvements.4

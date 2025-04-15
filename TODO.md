@@ -12,7 +12,7 @@
   - **Depends On:** Update validatePasswordComplexity function
   - **AC Ref:** Password Validation Simplification.2, Password Validation Simplification.4
 
-- [ ] **Add Godoc comments to password validation function:** Document the new approach
+- [x] **Add Godoc comments to password validation function:** Document the new approach
   - **Action:** Add clear Godoc comments to the validatePasswordComplexity function in `internal/domain/user.go`, explaining the length-based approach and rationale
   - **Depends On:** Update validatePasswordComplexity function
   - **AC Ref:** Password Validation Simplification.4, Documentation Improvements.1

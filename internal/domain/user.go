@@ -134,13 +134,32 @@ func validateEmailFormat(email string) bool {
 	return true
 }
 
-// validatePasswordComplexity checks if a password meets length requirements:
+// validatePasswordComplexity checks if a password meets our security requirements
+// based on length rather than character class composition.
+//
+// Password requirements:
 // - Minimum length: 12 characters
 // - Maximum length: 72 characters (bcrypt's practical limit)
+// - No character class requirements (uppercase, lowercase, digits, symbols)
 //
-// This simplified approach focuses on length rather than character complexity
-// because longer passwords provide better security than shorter ones with
-// special character requirements, which can be harder for users to remember.
+// Rationale for length-based approach:
+//
+//  1. Security research shows password length is more important than complexity
+//     rules for resistance against brute force attacks. Each additional character
+//     exponentially increases the password's entropy.
+//
+//  2. Complex character class requirements (uppercase, digits, symbols) often lead
+//     to predictable patterns that weaken passwords (e.g., "Password1!") or increase
+//     user frustration, leading to password reuse across services.
+//
+//  3. The 72-character maximum is a technical limitation of bcrypt, which truncates
+//     passwords longer than 72 bytes. This prevents unnecessary password data from
+//     being ignored during the hashing process.
+//
+//  4. This approach aligns with NIST SP 800-63B guidelines, which recommend
+//     allowing longer passwords without arbitrary complexity requirements.
+//
+// Returns true if the password meets the length requirements, false otherwise.
 func validatePasswordComplexity(password string) bool {
 	// Check if password is between 12 and 72 characters
 	passLen := len(password)

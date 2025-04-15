@@ -38,7 +38,7 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
 
 ### Missing Tests
 
-- [ ] **Add Tests for Middleware Components**:
+- [x] **Add Tests for Middleware Components**:
   - **Issue**: Authentication middleware tests appear to be missing
   - **Description**: According to BACKLOG.md, the "Authentication Middleware" task includes a sub-task for adding tests, but there doesn't appear to be relevant test coverage.
   - **Acceptance Criteria**:

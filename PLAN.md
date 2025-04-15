@@ -1,281 +1,235 @@
-# Implementation Plan: Database Migration Framework Setup
+# User Store Implementation Plan
 
-## Goal
-Set up a robust, maintainable database migration framework for the Scry API that integrates with the existing codebase, supports PostgreSQL migrations, and adheres to the project's architectural principles and coding standards.
+This plan outlines the implementation of the User Store component for the Scry API authentication system, adhering to the project's standards for simplicity, modularity, testability, and maintainability.
 
-## 1. Overview of Approach
+## Overview
 
-After evaluating multiple potential migration tools (golang-migrate, goose, and liquibase), **this plan recommends using the `pressly/goose` library** integrated directly into the Go application. This approach provides the best balance of simplicity, integration with existing code, and adherence to project standards.
+The User Store will provide a data access layer for user management, including:
+- A clear interface definition for CRUD operations
+- A PostgreSQL implementation of this interface
+- Secure password handling with bcrypt
+- Comprehensive validation
+- Thorough testing
 
-Key features of this approach:
-- Migrations will be written as plain SQL files for maximum clarity and simplicity
-- Migration commands will be executed through a dedicated subcommand in the main application binary
-- The framework will leverage existing configuration, logging, and error handling systems
-- Migration operations will be properly logged through the application's structured logging framework
+This implementation follows the standard interface/implementation pattern with direct SQL for maximum control, clarity, and alignment with testing principles.
 
-## 2. Detailed Implementation Steps
+## Implementation Steps
 
-### 2.1. Add Dependencies
+### 1. Define Store Interface and Errors
 
-1. Add `github.com/pressly/goose/v3` to `go.mod`:
-   ```bash
-   go get github.com/pressly/goose/v3
-   ```
-
-2. Ensure the appropriate PostgreSQL driver is present:
-   ```bash
-   go get github.com/jackc/pgx/v5/stdlib
-   go mod tidy
-   ```
-
-### 2.2. Create Migration Directory Structure
-
-1. Create a dedicated directory for migrations:
-   ```bash
-   mkdir -p internal/platform/postgres/migrations
-   ```
-
-2. Add a `.keep` file to ensure the directory is included in version control even when empty.
-
-### 2.3. Implement Migration Command
-
-Create a mechanism to run migrations through the main application by adding a `migrate` subcommand to `cmd/server/main.go`.
-
-1. Modify `cmd/server/main.go` to detect and handle the `migrate` command:
-   - Use standard `flag` package to detect migration commands
-   - If a migration command is detected, execute it and exit
-   - Otherwise, proceed with normal server startup
-
-2. Implement a `runMigrations` function to handle the migration execution:
-   - Takes the migration command (up, down, status, etc.) and arguments
-   - Uses the existing configuration system to get database connection details
-   - Connects to the database and executes the specified migration command
-   - Returns appropriate errors or success messages
-
-### 2.4. Implement Logging Integration
-
-1. Create a custom logger adapter to integrate `goose` with the application's structured logging:
-   ```go
-   // slogGooseLogger adapts slog for goose's simple logger interface
-   type slogGooseLogger struct{}
-
-   func (l *slogGooseLogger) Printf(format string, v ...interface{}) {
-       slog.Info(fmt.Sprintf(format, v...))
-   }
-
-   func (l *slogGooseLogger) Fatalf(format string, v ...interface{}) {
-       slog.Error(fmt.Sprintf(format, v...))
-       os.Exit(1)
-   }
-   ```
-
-2. Configure `goose` to use this logger:
-   ```go
-   goose.SetLogger(&slogGooseLogger{})
-   ```
-
-### 2.5. Implement Migration Commands
-
-Support the following migration commands:
-- `up`: Apply all pending migrations
-- `down`: Roll back the last applied migration
-- `status`: Show current migration status
-- `create`: Create a new migration file
-- `version`: Show the current migration version
-
-The implementation should handle all commands appropriately, validate inputs, and provide clear error messages.
-
-### 2.6. Add Tests
-
-Implement tests to verify the migration framework functions correctly:
-- Unit tests for the migration command handling logic
-- Basic integration tests to verify migration file creation and execution
-
-### 2.7. Update Documentation
-
-1. Update `README.md` with instructions on how to:
-   - Create new migrations
-   - Apply migrations
-   - Check migration status
-   - Roll back migrations
-
-2. Document the migration file format and naming conventions
-
-## 3. Example Implementation
-
-### 3.1. Migration Command in `cmd/server/main.go`
+**Location:** `internal/store/user.go`
 
 ```go
-package main
+package store
 
 import (
-    "database/sql"
-    "flag"
-    "fmt"
-    "log/slog"
-    "os"
+    "context"
+    "errors"
 
-    "github.com/jackc/pgx/v5/stdlib"
-    "github.com/phrazzld/scry-api/internal/config"
-    "github.com/phrazzld/scry-api/internal/platform/logger"
-    "github.com/pressly/goose/v3"
+    "github.com/google/uuid"
+    "github.com/phrazzld/scry-api/internal/domain"
 )
 
-const migrationsDir = "internal/platform/postgres/migrations"
+// Common store errors
+var (
+    ErrUserNotFound = errors.New("user not found")
+    ErrEmailExists  = errors.New("email already exists")
+)
 
-func main() {
-    // Migration command-line flags
-    migrateCmd := flag.String("migrate", "", "Run database migrations (up|down|create|status|version)")
-    migrationName := flag.String("name", "", "Name for new migration file (used with -migrate=create)")
-    flag.Parse()
+// UserStore defines the interface for user data persistence.
+type UserStore interface {
+    // Create saves a new user to the store.
+    // Returns ErrEmailExists if the email is already taken.
+    Create(ctx context.Context, user *domain.User) error
 
-    // Initialize logger early for startup messages
-    slog.Info("Scry API Server starting...")
+    // GetByID retrieves a user by their unique ID.
+    // Returns ErrUserNotFound if the user does not exist.
+    GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 
-    // Load configuration
-    cfg, err := config.Load()
-    if err != nil {
-        slog.Error("Failed to load configuration", "error", err)
-        os.Exit(1)
-    }
+    // GetByEmail retrieves a user by their email address.
+    // Returns ErrUserNotFound if the user does not exist.
+    GetByEmail(ctx context.Context, email string) (*domain.User, error)
 
-    // Setup structured logging
-    _, err = logger.Setup(cfg.Server)
-    if err != nil {
-        slog.Error("Failed to set up logger", "error", err)
-        os.Exit(1)
-    }
+    // Update modifies an existing user's details.
+    // Returns ErrUserNotFound if the user does not exist.
+    // Returns ErrEmailExists if updating to an email that already exists.
+    Update(ctx context.Context, user *domain.User) error
 
-    // Handle migration command if specified
-    if *migrateCmd != "" {
-        err := runMigrations(cfg, *migrateCmd, *migrationName)
-        if err != nil {
-            slog.Error("Migration command failed", "command", *migrateCmd, "error", err)
-            os.Exit(1)
-        }
-        slog.Info("Migration command finished successfully", "command", *migrateCmd)
-        os.Exit(0)
-    }
-
-    // Normal server startup logic
-    slog.Info("Scry API Server initialized successfully", "port", cfg.Server.Port)
-    // ... rest of the server logic ...
-}
-
-// runMigrations handles the execution of database migrations
-func runMigrations(cfg *config.Config, command string, args ...string) error {
-    slog.Info("Running migration command", "command", command, "dir", migrationsDir)
-
-    // Configure goose logger
-    goose.SetLogger(&slogGooseLogger{})
-
-    // Open database connection
-    db, err := sql.Open("pgx", cfg.Database.URL)
-    if err != nil {
-        return fmt.Errorf("failed to open database connection: %w", err)
-    }
-    defer db.Close()
-
-    if err := db.Ping(); err != nil {
-        return fmt.Errorf("failed to ping database: %w", err)
-    }
-
-    // Execute the goose command
-    switch command {
-    case "up":
-        return goose.Up(db, migrationsDir)
-    case "down":
-        return goose.Down(db, migrationsDir)
-    case "status":
-        return goose.Status(db, migrationsDir)
-    case "create":
-        if len(args) == 0 || args[0] == "" {
-            return fmt.Errorf("migration name must be provided for 'create' command")
-        }
-        return goose.Create(db, migrationsDir, args[0], "sql")
-    case "version":
-        return goose.Version(db, migrationsDir)
-    default:
-        return fmt.Errorf("unknown migration command: %s", command)
-    }
-}
-
-// slogGooseLogger adapts slog for goose's logger interface
-type slogGooseLogger struct{}
-
-func (l *slogGooseLogger) Printf(format string, v ...interface{}) {
-    slog.Info(fmt.Sprintf(format, v...))
-}
-
-func (l *slogGooseLogger) Fatalf(format string, v ...interface{}) {
-    slog.Error(fmt.Sprintf(format, v...))
-    os.Exit(1)
+    // Delete removes a user from the store by their ID.
+    // Returns ErrUserNotFound if the user does not exist.
+    Delete(ctx context.Context, id uuid.UUID) error
 }
 ```
 
-### 3.2. Example Initial Migration
+### 2. Implement PostgreSQL User Store
 
-Creating an example initial migration to verify the setup:
+**Location:** `internal/platform/postgres/user_store.go`
 
-```bash
-go run ./cmd/server/main.go -migrate=create -name=init_schema
+```go
+package postgres
+
+import (
+    "context"
+    "database/sql"
+    "errors"
+    "log/slog"
+
+    "github.com/google/uuid"
+    "github.com/jackc/pgx/v5/pgconn"
+    "github.com/phrazzld/scry-api/internal/domain"
+    "github.com/phrazzld/scry-api/internal/store"
+    "golang.org/x/crypto/bcrypt"
+)
+
+const uniqueViolationCode = "23505" // PostgreSQL unique violation error code
+
+type PostgresUserStore struct {
+    db *sql.DB
+}
+
+// NewPostgresUserStore creates a new user store implementation.
+func NewPostgresUserStore(db *sql.DB) *PostgresUserStore {
+    return &PostgresUserStore{db: db}
+}
+
+// Implement Create, GetByID, GetByEmail, Update, Delete methods...
 ```
 
-This will create `internal/platform/postgres/migrations/yyyymmddhhmmss_init_schema.sql` with placeholders for `-- +goose Up` and `-- +goose Down` sections.
+Implementation details for each method:
 
-## 4. Alignment with Project Standards
+1. **Create**:
+   - Hash the user's password using bcrypt
+   - Insert user into the database
+   - Handle unique constraint violations (email already exists)
 
-### 4.1. Simplicity and Clarity (CORE_PRINCIPLES.md)
-This approach embraces simplicity by:
-- Using plain SQL files for migrations (clear, easy to understand format)
-- Minimizing setup complexity with a straightforward integration pattern
-- Using a battle-tested library with a clean API
-- Keeping the migration command interface simple and intuitive
+2. **GetByID/GetByEmail**:
+   - Query the database using parameterized queries
+   - Map database rows to domain model
+   - Handle "not found" cases appropriately
 
-### 4.2. Separation of Concerns (ARCHITECTURE_GUIDELINES.md)
-This approach maintains proper separation by:
-- Keeping migration-related code in a dedicated function
-- Integrating with existing configuration and logging systems
-- Focusing each migration file on a single schema change
-- Allowing separation between the concerns of running the application and managing migrations
+3. **Update**:
+   - Update user details in the database
+   - Rehash password if changed
+   - Handle unique constraint violations
 
-### 4.3. Testability (TESTING_STRATEGY.md)
-The approach supports testability by:
-- Making migration commands callable as pure functions for unit testing
-- Allowing integration tests with test containers to verify actual migration behavior
-- Supporting isolation of migration functionality from the rest of the application
+4. **Delete**:
+   - Delete user from the database
+   - Handle "not found" cases
 
-### 4.4. Coding Conventions (CODING_STANDARDS.md)
-The implementation follows project coding standards by:
-- Using strong typing throughout
-- Employing standard Go practices for error handling
-- Using the established logging framework
-- Adding descriptive comments to explain the migration process
+### 3. Password Hashing Implementation
 
-### 4.5. Documentation (DOCUMENTATION_APPROACH.md)
-The plan ensures proper documentation by:
-- Adding clear usage instructions to README.md
-- Using descriptive migration file names
-- Adding comments to explain migration file formats
-- Documenting commands and options
+**Location:** Within the PostgresUserStore implementation
 
-## 5. Potential Challenges and Mitigation
+```go
+// Example for Create method - Password hashing
+func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error {
+    // Validate user
+    if err := user.Validate(); err != nil {
+        return err
+    }
 
-1. **Database Connection Errors:**
-   - Implement proper error handling and clear error messages
-   - Provide guidance in docs for common connection issues
+    // Hash password
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+    if err != nil {
+        slog.ErrorContext(ctx, "Failed to hash password", "error", err)
+        return err
+    }
 
-2. **Migration Conflicts:**
-   - Use a consistent naming convention with timestamps
-   - Document best practices for creating migrations
-   - Ensure CI/CD pipeline catches conflicts before deployment
+    // Set hashed password
+    user.HashedPassword = string(hashedPassword)
+    user.Password = "" // Clear plaintext password
 
-3. **Migration Performance:**
-   - For large migrations that might lock tables, consider breaking them into smaller operations
-   - Document migration performance considerations
+    // SQL insert implementation...
+}
+```
 
-## 6. Implementation Summary
+### 4. Data Validation
 
-This plan provides a clean, maintainable, and integrated approach to database migrations for the Scry API. By using the `pressly/goose` library with SQL migration files, we achieve a good balance of simplicity, power, and integration with the existing codebase.
+Validation should occur in multiple layers:
 
-The implementation avoids external dependencies outside the Go ecosystem and leverages the application's existing configuration and logging systems. Migration commands will be accessible through the main application binary, providing a cohesive experience for developers and in CI/CD environments.
+1. **Domain Model Validation**: The `User` struct in the domain package should have a `Validate()` method that checks:
+   - Email format (already implemented)
+   - Password complexity requirements
+   - Other business rules
+
+2. **Store-Level Validation**: The store implementation should:
+   - Call `user.Validate()` before database operations
+   - Leverage database constraints for additional validation
+
+### 5. Testing Implementation
+
+**Location:** `internal/platform/postgres/user_store_test.go`
+
+Testing will focus on integration tests with a real PostgreSQL database, following the project's testing strategy for data stores:
+
+```go
+package postgres_test
+
+import (
+    "context"
+    "database/sql"
+    "testing"
+    "time"
+
+    "github.com/google/uuid"
+    "github.com/phrazzld/scry-api/internal/domain"
+    "github.com/phrazzld/scry-api/internal/platform/postgres"
+    "github.com/phrazzld/scry-api/internal/store"
+    "github.com/phrazzld/scry-api/internal/testutils"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+// Test helpers and test cases for each method...
+```
+
+Test cases should cover:
+- Successful operations
+- Error conditions (not found, duplicate email, etc.)
+- Data integrity verification
+- Password hashing verification
+
+## Rationale for This Approach
+
+This plan was chosen because it:
+
+1. **Prioritizes Simplicity (CORE_PRINCIPLES.md)**:
+   - Clear interface definition with focused responsibilities
+   - Direct SQL for explicit control and transparency
+   - No unnecessary abstractions or dependencies
+
+2. **Ensures Separation of Concerns (ARCHITECTURE_GUIDELINES.md)**:
+   - Interface defined in core application layer
+   - Implementation details isolated in platform layer
+   - Follows Dependency Inversion Principle
+
+3. **Optimizes for Testability (TESTING_STRATEGY.md)**:
+   - Integration tests against real PostgreSQL
+   - Minimal mocking (only at external boundaries)
+   - Tests verify behavior, not implementation details
+
+4. **Follows Coding Standards (CODING_STANDARDS.md)**:
+   - Strong typing with explicit error handling
+   - Consistent error types and handling
+   - Clear function signatures and documentation
+
+5. **Supports Documentation (DOCUMENTATION_APPROACH.md)**:
+   - Interface serves as contract documentation
+   - SQL queries are self-documenting regarding database interaction
+   - Comments explain "why" not just "what"
+
+## Risks and Mitigations
+
+1. **Risk**: SQL injection vulnerabilities
+   **Mitigation**: Use parameterized queries consistently
+
+2. **Risk**: Password security vulnerabilities
+   **Mitigation**: Use industry-standard bcrypt with appropriate cost factor
+
+3. **Risk**: Inadequate validation allowing invalid data
+   **Mitigation**: Multi-layered validation (domain model, store, database constraints)
+
+4. **Risk**: Database connection management issues
+   **Mitigation**: Proper resource cleanup, appropriate connection pool settings
+
+This approach provides a robust, maintainable implementation that aligns with project standards while prioritizing security and correctness for this critical authentication component.

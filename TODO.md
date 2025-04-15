@@ -29,7 +29,7 @@
   - **AC Ref:** PLAN.md Section 4.1
 
 ## 4. Implement Store Methods
-- [ ] **Implement PostgresUserStore Create Method:**
+- [x] **Implement PostgresUserStore Create Method:**
   - **Action:** Implement the `Create(ctx context.Context, user *domain.User) error` method on `PostgresUserStore`. Include calling `user.Validate()`, hashing the password using `bcrypt` (clearing the plaintext password field), executing the SQL INSERT statement using parameterized queries, and handling potential unique constraint violations (returning `store.ErrEmailExists`). Log errors appropriately using `slog`.
   - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
   - **AC Ref:** PLAN.md Sections 2.1, 3, 4.2
@@ -60,7 +60,7 @@
   - **Depends On:** Implement NewPostgresUserStore Constructor
   - **AC Ref:** PLAN.md Section 5
 
-- [ ] **Write Integration Tests for Create Method:**
+- [x] **Write Integration Tests for Create Method:**
   - **Action:** Implement integration tests in `user_store_test.go` covering the `Create` method. Test cases should include successful creation, attempting to create a user with an existing email (expecting `store.ErrEmailExists`), and validation failures passed from `domain.User.Validate()`. Verify data integrity and password hashing.
   - **Depends On:** Implement PostgresUserStore Create Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5

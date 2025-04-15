@@ -1,75 +1,105 @@
 # TODO
 
-## Design Principles (CORE_PRINCIPLES.md)
-- [x] **Refactor UserCardStats Mutability:** Remove mutable methods from `UserCardStats` and rely solely on `srs.Service`.
-  - **Action:** Delete the `UpdateReview` and `PostponeReview` methods from `internal/domain/user_card_stats.go`. Refactor any code that currently calls these methods to use the corresponding methods in `internal/domain/srs/service.go` instead, ensuring immutability is maintained. Update relevant tests.
+## 1. Define Store Interface and Errors
+- [x] **Define UserStore Interface:**
+  - **Action:** Define the `UserStore` interface in `internal/store/user.go` with methods `Create`, `GetByID`, `GetByEmail`, `Update`, `Delete` as specified in the plan. Include comments explaining each method and its potential errors.
   - **Depends On:** None
-  - **AC Ref:** Design Principles Issue 1
+  - **AC Ref:** PLAN.md Section 1
 
-- [x] **Correct Ease Factor DB Constraint:** Align the database check constraint for `ease_factor` with the defined algorithm minimum.
-  - **Action:** Modify the SQL `CHECK` constraint in `internal/platform/postgres/migrations/20250415000004_create_user_card_stats_table.sql` from `CHECK (ease_factor > 1.0 AND ease_factor <= 2.5)` to `CHECK (ease_factor >= 1.3 AND ease_factor <= 2.5)`. Ensure the corresponding down migration (if applicable) is correct or add a new migration if necessary.
+- [ ] **Define Common Store Errors:**
+  - **Action:** Define the `ErrUserNotFound` and `ErrEmailExists` error variables in `internal/store/user.go`.
   - **Depends On:** None
-  - **AC Ref:** Design Principles Issue 2
+  - **AC Ref:** PLAN.md Section 1
 
-- [x] **Remove Redundant Local Dev Test Helpers:** Eliminate helper functions in `local_postgres_test.go` that duplicate existing configuration files.
-  - **Action:** Delete the `generateDockerComposeYml` and `generateInitScript` functions from `infrastructure/local_dev/local_postgres_test.go`. Update the tests (e.g., `TestLocalPostgresSetup`) to assume the `docker-compose.yml` and `init-scripts/01-init.sql` files exist in their expected locations relative to the test file.
+## 2. Implement PostgreSQL User Store Structure
+- [ ] **Create PostgresUserStore Struct:**
+  - **Action:** Create the `PostgresUserStore` struct in `internal/platform/postgres/user_store.go`, including the `db *sql.DB` field and the `uniqueViolationCode` constant. Import necessary packages.
+  - **Depends On:** Define UserStore Interface
+  - **AC Ref:** PLAN.md Section 2
+
+- [ ] **Implement NewPostgresUserStore Constructor:**
+  - **Action:** Implement the `NewPostgresUserStore(db *sql.DB) *PostgresUserStore` constructor function in `internal/platform/postgres/user_store.go`.
+  - **Depends On:** Create PostgresUserStore Struct
+  - **AC Ref:** PLAN.md Section 2
+
+## 3. Implement Data Validation
+- [ ] **Implement Domain-Level Password Validation:**
+  - **Action:** Enhance the `Validate()` method on the `domain.User` struct (`internal/domain/user.go`) to include checks for password complexity requirements.
   - **Depends On:** None
-  - **AC Ref:** Design Principles Issue 3
+  - **AC Ref:** PLAN.md Section 4.1
 
-## Architectural Patterns (ARCHITECTURE_GUIDELINES.md)
-- [x] **Refactor slogGooseLogger Fatalf:** Prevent `slogGooseLogger.Fatalf` from exiting the application directly.
-  - **Action:** Remove the `os.Exit(1)` call from the `Fatalf` method in `cmd/server/main.go`'s `slogGooseLogger`. Modify the `runMigrations` function to return the error encountered during `goose` operations. Update the `main` function's migration handling block to check for errors returned by `runMigrations` and call `os.Exit(1)` there if an error occurred.
-  - **Depends On:** None
-  - **AC Ref:** Architectural Patterns Issue 1
+## 4. Implement Store Methods
+- [ ] **Implement PostgresUserStore Create Method:**
+  - **Action:** Implement the `Create(ctx context.Context, user *domain.User) error` method on `PostgresUserStore`. Include calling `user.Validate()`, hashing the password using `bcrypt` (clearing the plaintext password field), executing the SQL INSERT statement using parameterized queries, and handling potential unique constraint violations (returning `store.ErrEmailExists`). Log errors appropriately using `slog`.
+  - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
+  - **AC Ref:** PLAN.md Sections 2.1, 3, 4.2
 
-- [x] **Add Explicit DB Password Management in Terraform:** Introduce a Terraform variable for the database user password.
-  - **Action:** Define a new `variable "database_password"` in `infrastructure/terraform/variables.tf` (mark as sensitive). Update the `digitalocean_database_user` resource in `infrastructure/terraform/main.tf` to use this variable for the password instead of relying on auto-generation. Update `terraform.tfvars.example` and any relevant documentation.
-  - **Depends On:** None
-  - **AC Ref:** Architectural Patterns Issue 2
+- [ ] **Implement PostgresUserStore GetByID Method:**
+  - **Action:** Implement the `GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)` method on `PostgresUserStore`. Use parameterized SQL SELECT query, map the row to a `domain.User` struct, and handle the "not found" case by returning `store.ErrUserNotFound`.
+  - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
+  - **AC Ref:** PLAN.md Section 2.2
 
-## Code Quality (CODING_STANDARDS.md)
-- [x] **Enhance DB Connection Error Handling:** Add specific error type checks for database connection attempts.
-  - **Action:** In `cmd/server/main.go` within the `runMigrations` function's `db.PingContext` error handling block (lines ~220-248), add specific checks using `errors.Is` or type assertions for common connection errors (e.g., `context.DeadlineExceeded`, `pgconn.PgError` for authentication failures, network errors) to provide more informative error messages.
-  - **Depends On:** None
-  - **AC Ref:** Code Quality Issue 1
+- [ ] **Implement PostgresUserStore GetByEmail Method:**
+  - **Action:** Implement the `GetByEmail(ctx context.Context, email string) (*domain.User, error)` method on `PostgresUserStore`. Use parameterized SQL SELECT query, map the row to a `domain.User` struct, and handle the "not found" case by returning `store.ErrUserNotFound`.
+  - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
+  - **AC Ref:** PLAN.md Section 2.2
 
-- [x] **Add TODO for Robust Email Validation:** Mark the basic email validation for future improvement.
-  - **Action:** Add a `// TODO:` comment above the `validateEmailFormat` function in `internal/domain/user.go` indicating that the current implementation is basic and should be replaced with a more robust validation library in a future task.
-  - **Depends On:** None
-  - **AC Ref:** Code Quality Issue 2
+- [ ] **Implement PostgresUserStore Update Method:**
+  - **Action:** Implement the `Update(ctx context.Context, user *domain.User) error` method on `PostgresUserStore`. Include calling `user.Validate()`, checking if the password needs rehashing (using `bcrypt`) and updating it if necessary, executing the SQL UPDATE statement using parameterized queries, handling potential unique constraint violations for email (returning `store.ErrEmailExists`), and handling "not found" cases (returning `store.ErrUserNotFound`). Log errors appropriately.
+  - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
+  - **AC Ref:** PLAN.md Sections 2.3, 3, 4.2
 
-## Test Quality (TESTING_STRATEGY.md)
-- [x] **Use Relative Paths in Migration Syntax Test:** Refactor `TestMigrationsValidSyntax` to avoid absolute paths.
-  - **Action:** Modify the path construction logic in `cmd/server/migrations_test.go` (lines ~79-83) for `TestMigrationsValidSyntax`. Instead of constructing an absolute path based on `os.Getwd()`, use a relative path from the test file's location or determine the project root reliably. Consider using `filepath.Abs` on the relative path if an absolute path is still required by `goose.CollectMigrations`.
-  - **Depends On:** None
-  - **AC Ref:** Test Quality Issue 1
+- [ ] **Implement PostgresUserStore Delete Method:**
+  - **Action:** Implement the `Delete(ctx context.Context, id uuid.UUID) error` method on `PostgresUserStore`. Use parameterized SQL DELETE statement and handle "not found" cases by checking rows affected or using a specific query, returning `store.ErrUserNotFound` if the user doesn't exist.
+  - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
+  - **AC Ref:** PLAN.md Section 2.4
 
-- [x] **Use filepath.Join in Local Postgres Test:** Refactor `TestLocalPostgresSetup` to use `filepath.Join`.
-  - **Action:** Modify the path construction logic in `infrastructure/local_dev/local_postgres_test.go` (line ~23). Replace the hardcoded relative path concatenation for finding `docker-compose.yml` with `filepath.Join(".", "docker-compose.yml")` or similar to correctly refer to the file relative to the working directory.
-  - **Depends On:** None
-  - **AC Ref:** Test Quality Issue 2
+## 5. Testing Implementation
+- [ ] **Set Up User Store Test File and Helpers:**
+  - **Action:** Create the test file `internal/platform/postgres/user_store_test.go`. Include necessary imports (`testing`, `testify`, `uuid`, domain, store, postgres, testutils, etc.). Set up test helper functions, potentially including setup/teardown logic for a test PostgreSQL database (e.g., using `testcontainers-go` or similar, connecting via `testutils.GetTestDatabaseURL`).
+  - **Depends On:** Implement NewPostgresUserStore Constructor
+  - **AC Ref:** PLAN.md Section 5
 
-- [x] **Enhance Terraform Test Validation:** Improve Terraform tests to verify database connectivity.
-  - **Action:** Modify the `TestTerraformDatabaseInfrastructure` test in `infrastructure/terraform/test/terraform_test.go`. After `terraform.InitAndApply`, use the `connection_string` output to establish a database connection, perform a `Ping()` to verify connectivity, and optionally attempt to run a simple query or apply migrations.
-  - **Depends On:** Add Explicit DB Password Management in Terraform
-  - **AC Ref:** Test Quality Issue 3
+- [ ] **Write Integration Tests for Create Method:**
+  - **Action:** Implement integration tests in `user_store_test.go` covering the `Create` method. Test cases should include successful creation, attempting to create a user with an existing email (expecting `store.ErrEmailExists`), and validation failures passed from `domain.User.Validate()`. Verify data integrity and password hashing.
+  - **Depends On:** Implement PostgresUserStore Create Method, Set Up User Store Test File and Helpers
+  - **AC Ref:** PLAN.md Section 5
 
-## Documentation Practices (DOCUMENTATION_APPROACH.md)
-- [x] **Add Godoc Comments to SRS Algorithm Functions:** Document core SRS calculation functions.
-  - **Action:** Add comprehensive Godoc comments to the functions `calculateNewEaseFactor`, `calculateNewInterval`, `calculateNextReviewDate`, and `calculateNextStats` in `internal/domain/srs/algorithm.go`. Explain the purpose, parameters, return values, and any relevant algorithmic details for each function.
-  - **Depends On:** None
-  - **AC Ref:** Documentation Practices Issue 1
+- [ ] **Write Integration Tests for GetByID Method:**
+  - **Action:** Implement integration tests in `user_store_test.go` covering the `GetByID` method. Test cases should include successful retrieval and attempting to retrieve a non-existent user (expecting `store.ErrUserNotFound`).
+  - **Depends On:** Implement PostgresUserStore GetByID Method, Set Up User Store Test File and Helpers
+  - **AC Ref:** PLAN.md Section 5
 
-- [x] **Document SRS Lapse Handling Multiplier:** Clarify the 'Good' outcome multiplier after a lapse in SRS design docs.
-  - **Action:** Update the `docs/design/srs_algorithm.md` document. Add a specific point under "Lapse Handling" or within the interval calculation description explaining the use of the `1.5` multiplier for the "Good" outcome immediately following an "Again" outcome (lapse). Include the rationale for this specific value.
-  - **Depends On:** Refactor UserCardStats Mutability
-  - **AC Ref:** Documentation Practices Issue 2
+- [ ] **Write Integration Tests for GetByEmail Method:**
+  - **Action:** Implement integration tests in `user_store_test.go` covering the `GetByEmail` method. Test cases should include successful retrieval and attempting to retrieve a user by a non-existent email (expecting `store.ErrUserNotFound`).
+  - **Depends On:** Implement PostgresUserStore GetByEmail Method, Set Up User Store Test File and Helpers
+  - **AC Ref:** PLAN.md Section 5
+
+- [ ] **Write Integration Tests for Update Method:**
+  - **Action:** Implement integration tests in `user_store_test.go` covering the `Update` method. Test cases should include successful update (with and without password change), attempting to update a non-existent user (expecting `store.ErrUserNotFound`), attempting to update email to an existing one (expecting `store.ErrEmailExists`), and validation failures. Verify data integrity and password rehashing.
+  - **Depends On:** Implement PostgresUserStore Update Method, Set Up User Store Test File and Helpers
+  - **AC Ref:** PLAN.md Section 5
+
+- [ ] **Write Integration Tests for Delete Method:**
+  - **Action:** Implement integration tests in `user_store_test.go` covering the `Delete` method. Test cases should include successful deletion and attempting to delete a non-existent user (expecting `store.ErrUserNotFound`). Verify the user is actually removed.
+  - **Depends On:** Implement PostgresUserStore Delete Method, Set Up User Store Test File and Helpers
+  - **AC Ref:** PLAN.md Section 5
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
-- [ ] **Issue/Assumption:** Acceptance Criteria References
-  - **Context:** The `PLAN.md` (Code Review) does not have explicit AC IDs.
-  - **Assumption:** The `AC Ref` fields in this `TODO.md` refer to the specific numbered issues within each section of the `PLAN.md` (Code Review) document (e.g., "Design Principles Issue 1", "Test Quality Issue 3").
+- [ ] **Issue/Assumption:** Assumed `domain.User` struct exists but needs enhancement for password complexity validation.
+  - **Context:** PLAN.md Section 4.1 mentions `domain.User` should have `Validate()` checking password complexity, implying the struct exists but validation needs adding/updating.
 
-- [ ] **Issue/Assumption:** Exit handling in slogGooseLogger.Fatalf
-  - **Context:** PLAN.md Section Architectural Patterns 1 shows `slogGooseLogger.Fatalf` calling `os.Exit(1)`, but `main.go` already handles exits.
-  - **Assumption:** The `slogGooseLogger.Fatalf` implementation should only log the error using `slog.Error` and not call `os.Exit(1)`. The `runMigrations` function will return errors to `main` which handles program exit consistently.
+- [ ] **Issue/Assumption:** Assumed `bcrypt.DefaultCost` is the appropriate cost factor for password hashing.
+  - **Context:** PLAN.md Section 3 shows `bcrypt.DefaultCost` in the example. Confirm if this is sufficient or if a configurable/higher cost is needed.
+
+- [ ] **Issue/Assumption:** Assumed the `sql.DB` dependency for `NewPostgresUserStore` will be provided externally.
+  - **Context:** PLAN.md Section 2 shows `NewPostgresUserStore` accepting `*sql.DB`. The plan doesn't cover where this DB connection pool is created and managed.
+
+- [ ] **Issue/Assumption:** Assumed integration tests will use a real PostgreSQL instance.
+  - **Context:** PLAN.md Section 5 mentions "integration tests with a real PostgreSQL database".
+
+- [ ] **Issue/Assumption:** Password complexity rules are not specified.
+  - **Context:** PLAN.md Section 4.1 mentions checking "Password complexity requirements" but doesn't define them (e.g., min length, character types). Assuming a basic length check (e.g., 8 chars) for now.
+
+- [ ] **Issue/Assumption:** "Other business rules" for domain validation are not specified.
+  - **Context:** PLAN.md Section 4.1 mentions "Other business rules". Assuming only email format and password complexity are required for the `User` domain validation at this stage.

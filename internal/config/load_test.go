@@ -14,9 +14,10 @@ func TestLoadDefaults(t *testing.T) {
 	// Setup environment with required fields but not the ones with defaults
 	cleanup := testutils.SetupEnv(t, map[string]string{
 		// Set required fields
-		"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-		"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-		"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+		"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+		"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60", // Add token lifetime
+		"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 		// Explicitly unset the ones we want to test defaults for
 		"SCRY_SERVER_PORT":      "",
 		"SCRY_SERVER_LOG_LEVEL": "",
@@ -32,18 +33,20 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, 8080, cfg.Server.Port, "Default server port should be 8080")
 	assert.Equal(t, "info", cfg.Server.LogLevel, "Default log level should be 'info'")
 	assert.Equal(t, 10, cfg.Auth.BCryptCost, "Default bcrypt cost should be 10")
+	assert.Equal(t, 60, cfg.Auth.TokenLifetimeMinutes, "Token lifetime minutes should be set to 60")
 }
 
 // TestLoadFromEnv verifies that the Load function correctly reads values from environment variables.
 func TestLoadFromEnv(t *testing.T) {
 	// Setup environment
 	cleanup := testutils.SetupEnv(t, map[string]string{
-		"SCRY_SERVER_PORT":        "9090",
-		"SCRY_SERVER_LOG_LEVEL":   "debug",
-		"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-		"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-		"SCRY_AUTH_BCRYPT_COST":   "12",
-		"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+		"SCRY_SERVER_PORT":                 "9090",
+		"SCRY_SERVER_LOG_LEVEL":            "debug",
+		"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+		"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+		"SCRY_AUTH_BCRYPT_COST":            "12",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "120", // 2 hours
+		"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 	})
 	defer cleanup()
 
@@ -68,6 +71,7 @@ func TestLoadFromEnv(t *testing.T) {
 		"JWT secret should be loaded from environment variables",
 	)
 	assert.Equal(t, 12, cfg.Auth.BCryptCost, "Bcrypt cost should be loaded from environment variables")
+	assert.Equal(t, 120, cfg.Auth.TokenLifetimeMinutes, "Token lifetime should be loaded from environment variables")
 	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
 }
 
@@ -93,11 +97,12 @@ func TestLoadValidationErrors(t *testing.T) {
 		{
 			name: "Invalid port number",
 			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "999999", // Port out of range
-				"SCRY_SERVER_LOG_LEVEL":   "debug",
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+				"SCRY_SERVER_PORT":                 "999999", // Port out of range
+				"SCRY_SERVER_LOG_LEVEL":            "debug",
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60",
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 			},
 			expectError:    true,
 			errorSubstring: "validation failed",
@@ -105,11 +110,12 @@ func TestLoadValidationErrors(t *testing.T) {
 		{
 			name: "Invalid log level",
 			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "9090",
-				"SCRY_SERVER_LOG_LEVEL":   "invalid-level", // Invalid log level
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+				"SCRY_SERVER_PORT":                 "9090",
+				"SCRY_SERVER_LOG_LEVEL":            "invalid-level", // Invalid log level
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60",
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 			},
 			expectError:    true,
 			errorSubstring: "validation failed",
@@ -117,11 +123,12 @@ func TestLoadValidationErrors(t *testing.T) {
 		{
 			name: "Short JWT secret",
 			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "9090",
-				"SCRY_SERVER_LOG_LEVEL":   "debug",
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "tooshort", // Too short JWT secret
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+				"SCRY_SERVER_PORT":                 "9090",
+				"SCRY_SERVER_LOG_LEVEL":            "debug",
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "tooshort", // Too short JWT secret
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60",
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 			},
 			expectError:    true,
 			errorSubstring: "validation failed",
@@ -129,12 +136,13 @@ func TestLoadValidationErrors(t *testing.T) {
 		{
 			name: "Invalid bcrypt cost (too high)",
 			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "9090",
-				"SCRY_SERVER_LOG_LEVEL":   "debug",
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-				"SCRY_AUTH_BCRYPT_COST":   "32", // Too high (max is 31)
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+				"SCRY_SERVER_PORT":                 "9090",
+				"SCRY_SERVER_LOG_LEVEL":            "debug",
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+				"SCRY_AUTH_BCRYPT_COST":            "32", // Too high (max is 31)
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60",
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 			},
 			expectError:    true,
 			errorSubstring: "validation failed",
@@ -142,12 +150,39 @@ func TestLoadValidationErrors(t *testing.T) {
 		{
 			name: "Invalid bcrypt cost (too low)",
 			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "9090",
-				"SCRY_SERVER_LOG_LEVEL":   "debug",
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-				"SCRY_AUTH_BCRYPT_COST":   "3", // Too low (min is 4)
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
+				"SCRY_SERVER_PORT":                 "9090",
+				"SCRY_SERVER_LOG_LEVEL":            "debug",
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+				"SCRY_AUTH_BCRYPT_COST":            "3", // Too low (min is 4)
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60",
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
+			},
+			expectError:    true,
+			errorSubstring: "validation failed",
+		},
+		{
+			name: "Invalid token lifetime (too high)",
+			envVars: map[string]string{
+				"SCRY_SERVER_PORT":                 "9090",
+				"SCRY_SERVER_LOG_LEVEL":            "debug",
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "50000", // Too high (max is 44640 - 31 days)
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
+			},
+			expectError:    true,
+			errorSubstring: "validation failed",
+		},
+		{
+			name: "Invalid token lifetime (too low)",
+			envVars: map[string]string{
+				"SCRY_SERVER_PORT":                 "9090",
+				"SCRY_SERVER_LOG_LEVEL":            "debug",
+				"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
+				"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
+				"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "0", // Too low (min is 1)
+				"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
 			},
 			expectError:    true,
 			errorSubstring: "validation failed",

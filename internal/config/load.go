@@ -42,7 +42,8 @@ func Load() (*Config, error) {
 	// These defaults are used if the setting is not found in any other source
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.log_level", "info")
-	v.SetDefault("auth.bcrypt_cost", 10) // Default bcrypt cost (same as bcrypt.DefaultCost)
+	v.SetDefault("auth.bcrypt_cost", 10)            // Default bcrypt cost (same as bcrypt.DefaultCost)
+	v.SetDefault("auth.token_lifetime_minutes", 60) // Default token lifetime (1 hour)
 
 	// --- Configure config file (optional, for local dev) ---
 	// Looks for config.yaml in the working directory
@@ -78,6 +79,7 @@ func Load() (*Config, error) {
 		{"database.url", "SCRY_DATABASE_URL"},
 		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET"},
 		{"auth.bcrypt_cost", "SCRY_AUTH_BCRYPT_COST"},
+		{"auth.token_lifetime_minutes", "SCRY_AUTH_TOKEN_LIFETIME_MINUTES"},
 		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
 		{"server.port", "SCRY_SERVER_PORT"},
 		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},

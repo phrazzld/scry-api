@@ -63,7 +63,11 @@ type AuthConfig struct {
 	// Values below 10 are not recommended for production environments.
 	// Values above 14 may cause significant performance impact.
 	BCryptCost int `mapstructure:"bcrypt_cost" validate:"omitempty,gte=4,lte=31"`
-	// Add other auth settings as needed (e.g., token expiry duration, refresh token settings)
+
+	// TokenLifetimeMinutes defines how long a JWT token is valid before expiring.
+	// Shorter lifetimes are more secure but may affect user experience.
+	// Default is 60 minutes (1 hour) if not specified.
+	TokenLifetimeMinutes int `mapstructure:"token_lifetime_minutes" validate:"required,gt=0,lt=44640"` // max 31 days
 }
 
 // LLMConfig defines settings for Language Model integration.

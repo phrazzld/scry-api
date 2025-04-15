@@ -23,13 +23,18 @@ auth:
   # JWT secret for token signing/verification
   # IMPORTANT: In production, use a secure random string of at least 32 characters
   jwt_secret: replace-this-with-32-plus-random-chars!
-  
+
   # BCrypt cost parameter for password hashing (4-31)
   # Higher values are more secure but slower
   # Default: 10 (bcrypt.DefaultCost if omitted)
   # NOTE: Values below 10 are not recommended for production
   # NOTE: Values above 14 may cause significant performance impact
   bcrypt_cost: 10
+
+  # Token lifetime in minutes (default: 60)
+  # Determines how long JWT tokens are valid before expiring
+  # Shorter lifetimes are more secure but require more frequent re-authentication
+  token_lifetime_minutes: 60
 
 # LLM settings
 llm:

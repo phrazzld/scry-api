@@ -19,6 +19,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
+	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/pressly/goose/v3"
 )
 
@@ -131,13 +132,25 @@ func initializeApp() (*config.Config, error) {
 		slog.Debug("Auth configuration", "jwt_secret_present", true)
 	}
 
-	// Future initialization steps would happen here
-	// (database, services, etc.)
+	// Initialize services
+	// Note: Future implementations will include database connection, API router setup, etc.
+
+	// Initialize JWT authentication service
+	authService, err := auth.NewJWTService(cfg.Auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize JWT authentication service: %w", err)
+	}
+	slog.Info("JWT authentication service initialized",
+		"token_lifetime_minutes", cfg.Auth.TokenLifetimeMinutes)
+
+	// These services will be initialized in future tasks:
 	// - Establishing database connection using Database.URL
-	// - Configuring authentication with Auth.JWTSecret
 	// - Initializing LLM client with LLM.GeminiAPIKey
-	// - Injecting these dependencies into service layer
-	// - Starting the HTTP server on the configured port
+	// - Setting up HTTP server and router
+	// - Configuring middleware components
+
+	// Store services in application context or dependency container
+	_ = authService // Using blank identifier for now until we have a proper service container
 
 	return cfg, nil
 }

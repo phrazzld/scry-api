@@ -28,7 +28,7 @@
   - **AC Ref:** Architectural Patterns Issue 2
 
 ## Code Quality (CODING_STANDARDS.md)
-- [ ] **Enhance DB Connection Error Handling:** Add specific error type checks for database connection attempts.
+- [x] **Enhance DB Connection Error Handling:** Add specific error type checks for database connection attempts.
   - **Action:** In `cmd/server/main.go` within the `runMigrations` function's `db.PingContext` error handling block (lines ~220-248), add specific checks using `errors.Is` or type assertions for common connection errors (e.g., `context.DeadlineExceeded`, `pgconn.PgError` for authentication failures, network errors) to provide more informative error messages.
   - **Depends On:** None
   - **AC Ref:** Code Quality Issue 1

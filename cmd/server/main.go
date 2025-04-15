@@ -10,10 +10,12 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
@@ -210,14 +212,59 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 
 	if err := db.PingContext(pingCtx); err != nil {
 		// Check for specific error types and provide targeted advice
+
+		// Context deadline exceeded error (connection timeout)
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf(
-				"database ping timed out after 5s: %w (check network connectivity and firewall rules)",
+				"database ping timed out after 5s: %w (check network connectivity, firewall rules, and server load)",
 				err,
 			)
 		}
 
-		// Provide different error messages based on error types
+		// Network-related errors
+		var netErr net.Error
+		if errors.As(err, &netErr) {
+			if netErr.Timeout() {
+				return fmt.Errorf(
+					"network timeout connecting to database: %w (check network latency and database server load)",
+					err,
+				)
+			}
+
+			return fmt.Errorf(
+				"network error connecting to database: %w (check network connectivity and DNS resolution)",
+				err,
+			)
+		}
+
+		// PostgreSQL-specific errors
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "28P01": // ERRCODE_INVALID_PASSWORD
+				return fmt.Errorf(
+					"database authentication failed: %w (check username and password in connection string)",
+					err,
+				)
+			case "3D000": // ERRCODE_INVALID_CATALOG_NAME
+				return fmt.Errorf(
+					"database does not exist: %w (check database name in connection string or create the database)",
+					err,
+				)
+			case "42501": // ERRCODE_INSUFFICIENT_PRIVILEGE
+				return fmt.Errorf(
+					"insufficient privileges to connect to database: %w (check user permissions)",
+					err,
+				)
+			default:
+				return fmt.Errorf(
+					"PostgreSQL error: %s (code: %s): %w (check PostgreSQL logs for details)",
+					pgErr.Message, pgErr.Code, err,
+				)
+			}
+		}
+
+		// Fallback to string-based error detection for errors not caught above
 		switch {
 		case strings.Contains(err.Error(), "connect: connection refused"):
 			return fmt.Errorf(
@@ -225,12 +272,26 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 				err,
 			)
 		case strings.Contains(err.Error(), "no such host"):
-			return fmt.Errorf("database host not found: %w (check hostname in connection URL)", err)
+			return fmt.Errorf(
+				"database host not found: %w (check hostname in connection URL and DNS resolution)",
+				err,
+			)
 		case strings.Contains(err.Error(), "authentication failed"):
-			return fmt.Errorf("database authentication failed: %w (check username and password)", err)
+			return fmt.Errorf(
+				"database authentication failed: %w (check username and password in connection string)",
+				err,
+			)
 		case strings.Contains(err.Error(), "database"):
-			return fmt.Errorf("database not found: %w (check database name in connection URL)", err)
+			return fmt.Errorf(
+				"database not found: %w (check database name in connection URL)",
+				err,
+			)
 		default:
+			// Log the detailed error type for debugging
+			slog.Debug("Unhandled database connection error",
+				"error_type", fmt.Sprintf("%T", err),
+				"error", err.Error(),
+			)
 			return fmt.Errorf("failed to ping database: %w (type: %T)", err, err)
 		}
 	}

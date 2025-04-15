@@ -49,7 +49,7 @@
   - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
   - **AC Ref:** PLAN.md Sections 2.3, 3, 4.2
 
-- [ ] **Implement PostgresUserStore Delete Method:**
+- [x] **Implement PostgresUserStore Delete Method:**
   - **Action:** Implement the `Delete(ctx context.Context, id uuid.UUID) error` method on `PostgresUserStore`. Use parameterized SQL DELETE statement and handle "not found" cases by checking rows affected or using a specific query, returning `store.ErrUserNotFound` if the user doesn't exist.
   - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
   - **AC Ref:** PLAN.md Section 2.4
@@ -80,7 +80,7 @@
   - **Depends On:** Implement PostgresUserStore Update Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5
 
-- [ ] **Write Integration Tests for Delete Method:**
+- [x] **Write Integration Tests for Delete Method:**
   - **Action:** Implement integration tests in `user_store_test.go` covering the `Delete` method. Test cases should include successful deletion and attempting to delete a non-existent user (expecting `store.ErrUserNotFound`). Verify the user is actually removed.
   - **Depends On:** Implement PostgresUserStore Delete Method, Set Up User Store Test File and Helpers
   - **AC Ref:** PLAN.md Section 5

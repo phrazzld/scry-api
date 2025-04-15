@@ -214,7 +214,43 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 }
 
 // Delete implements store.UserStore.Delete
+// It removes a user from the database by their ID.
+// Returns store.ErrUserNotFound if the user does not exist.
 func (s *PostgresUserStore) Delete(ctx context.Context, id uuid.UUID) error {
-	// Placeholder implementation - will be fully implemented in a separate task
+	// Get the logger from context or use default
+	log := logger.FromContext(ctx)
+
+	log.Debug("deleting user by ID", slog.String("user_id", id.String()))
+
+	// Execute the DELETE statement
+	result, err := s.db.ExecContext(ctx, `
+		DELETE FROM users
+		WHERE id = $1
+	`, id)
+
+	// Handle execution errors
+	if err != nil {
+		log.Error("failed to execute delete statement",
+			slog.String("user_id", id.String()),
+			slog.String("error", err.Error()))
+		return err
+	}
+
+	// Check if a row was actually deleted
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get rows affected",
+			slog.String("user_id", id.String()),
+			slog.String("error", err.Error()))
+		return err
+	}
+
+	// If no rows were affected, the user didn't exist
+	if rowsAffected == 0 {
+		log.Debug("user not found for deletion", slog.String("user_id", id.String()))
+		return store.ErrUserNotFound
+	}
+
+	log.Info("user deleted successfully", slog.String("user_id", id.String()))
 	return nil
 }

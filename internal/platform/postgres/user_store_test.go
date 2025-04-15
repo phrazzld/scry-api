@@ -474,9 +474,52 @@ func TestPostgresUserStore_Update(t *testing.T) {
 
 // TestPostgresUserStore_Delete tests the Delete method
 func TestPostgresUserStore_Delete(t *testing.T) {
-	t.Skip("Implementing method is a future task")
+	// Set up the test database
+	db := setupTestDB(t)
+	defer teardownTestDB(t, db)
 
-	// Test Cases (to be implemented):
-	// 1. Successfully delete existing user
-	// 2. Attempt to delete non-existent user (should return ErrUserNotFound)
+	// Create a new user store
+	userStore := postgres.NewPostgresUserStore(db)
+
+	// Test Case 1: Successfully delete existing user
+	t.Run("Successfully delete existing user", func(t *testing.T) {
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("delete-test-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(t, db, email)
+
+		// Verify user exists before deletion
+		beforeCount := countUsers(t, db, "id = $1", userId)
+		assert.Equal(t, 1, beforeCount, "User should exist before deletion")
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Call the Delete method
+		err := userStore.Delete(ctx, userId)
+
+		// Verify the result
+		require.NoError(t, err, "Delete should succeed for existing user")
+
+		// Verify user no longer exists
+		afterCount := countUsers(t, db, "id = $1", userId)
+		assert.Equal(t, 0, afterCount, "User should not exist after deletion")
+	})
+
+	// Test Case 2: Attempt to delete non-existent user
+	t.Run("Non-existent user", func(t *testing.T) {
+		// Generate a random UUID that doesn't exist in the database
+		nonExistentID := uuid.New()
+
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Call the Delete method
+		err := userStore.Delete(ctx, nonExistentID)
+
+		// Verify the result
+		assert.Error(t, err, "Delete should return error for non-existent user")
+		assert.ErrorIs(t, err, store.ErrUserNotFound, "Error should be ErrUserNotFound")
+	})
 }

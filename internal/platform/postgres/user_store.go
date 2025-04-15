@@ -55,12 +55,12 @@ var _ store.UserStore = (*PostgresUserStore)(nil)
 // Create implements store.UserStore.Create
 // It creates a new user in the database, handling domain validation and password hashing.
 // Returns store.ErrEmailExists if a user with the same email already exists.
-func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error {
+func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) (err error) {
 	// Get the logger from context or use default
 	log := logger.FromContext(ctx)
 
 	// First, validate the user data
-	if err := user.Validate(); err != nil {
+	if err = user.Validate(); err != nil {
 		log.Warn("user validation failed during create",
 			slog.String("error", err.Error()),
 			slog.String("email", user.Email))
@@ -86,9 +86,10 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 			slog.String("error", err.Error()))
 		return err
 	}
+
 	// Defer a rollback in case anything fails
 	defer func() {
-		// If error occurs, attempt to rollback
+		// Only attempt rollback if an error occurred and the transaction is still active
 		if err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
 				log.Error("failed to rollback transaction",

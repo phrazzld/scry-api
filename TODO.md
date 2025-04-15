@@ -1,105 +1,106 @@
 # TODO
 
-## 1. Define Store Interface and Errors
-- [x] **Define UserStore Interface:**
-  - **Action:** Define the `UserStore` interface in `internal/store/user.go` with methods `Create`, `GetByID`, `GetByEmail`, `Update`, `Delete` as specified in the plan. Include comments explaining each method and its potential errors.
+## Password Validation Simplification
+
+- [x] **Update validatePasswordComplexity function:** Implement length-based password validation
+  - **Action:** Modify the `validatePasswordComplexity` function in `internal/domain/user.go` to enforce a minimum length of 12 characters and a maximum length of 72 characters (bcrypt's practical limit), removing all character class requirements
   - **Depends On:** None
-  - **AC Ref:** PLAN.md Section 1
+  - **AC Ref:** Password Validation Simplification.2
 
-- [x] **Define Common Store Errors:**
-  - **Action:** Define the `ErrUserNotFound` and `ErrEmailExists` error variables in `internal/store/user.go`.
+- [ ] **Simplify password validation in User model:** Update User.Validate method
+  - **Action:** Update the `Validate` method in `internal/domain/user.go` to use the simplified length check when `Password` field is present, ensuring it still checks for `HashedPassword` presence if `Password` is empty
+  - **Depends On:** Update validatePasswordComplexity function
+  - **AC Ref:** Password Validation Simplification.2, Password Validation Simplification.4
+
+- [ ] **Add Godoc comments to password validation function:** Document the new approach
+  - **Action:** Add clear Godoc comments to the validatePasswordComplexity function in `internal/domain/user.go`, explaining the length-based approach and rationale
+  - **Depends On:** Update validatePasswordComplexity function
+  - **AC Ref:** Password Validation Simplification.4, Documentation Improvements.1
+
+- [ ] **Update password validation domain tests:** Adjust tests for new validation rules
+  - **Action:** Modify existing tests in `internal/domain/user_test.go` to verify the new length-based password validation rules, including edge cases (too short, too long, exact limits)
+  - **Depends On:** Simplify password validation in User model
+  - **AC Ref:** Password Validation Simplification.4
+
+## Code Quality Improvements
+
+- [ ] **Refactor transaction handling in PostgresUserStore.Create:** Use named error returns
+  - **Action:** Modify the `Create` method in `internal/platform/postgres/user_store.go` to use named return values for errors and update the deferred rollback function to check this named error variable before rolling back
   - **Depends On:** None
-  - **AC Ref:** PLAN.md Section 1
+  - **AC Ref:** Code Quality Improvements.1
 
-## 2. Implement PostgreSQL User Store Structure
-- [x] **Create PostgresUserStore Struct:**
-  - **Action:** Create the `PostgresUserStore` struct in `internal/platform/postgres/user_store.go`, including the `db *sql.DB` field and the `uniqueViolationCode` constant. Import necessary packages.
-  - **Depends On:** Define UserStore Interface
-  - **AC Ref:** PLAN.md Section 2
-
-- [x] **Implement NewPostgresUserStore Constructor:**
-  - **Action:** Implement the `NewPostgresUserStore(db *sql.DB) *PostgresUserStore` constructor function in `internal/platform/postgres/user_store.go`.
-  - **Depends On:** Create PostgresUserStore Struct
-  - **AC Ref:** PLAN.md Section 2
-
-## 3. Implement Data Validation
-- [x] **Implement Domain-Level Password Validation:**
-  - **Action:** Enhance the `Validate()` method on the `domain.User` struct (`internal/domain/user.go`) to include checks for password complexity requirements.
+- [ ] **Refactor transaction handling in PostgresUserStore.Update:** Use named error returns
+  - **Action:** Modify the `Update` method in `internal/platform/postgres/user_store.go` to use named return values for errors and update the deferred rollback function to check this named error variable before rolling back
   - **Depends On:** None
-  - **AC Ref:** PLAN.md Section 4.1
+  - **AC Ref:** Code Quality Improvements.1
 
-## 4. Implement Store Methods
-- [x] **Implement PostgresUserStore Create Method:**
-  - **Action:** Implement the `Create(ctx context.Context, user *domain.User) error` method on `PostgresUserStore`. Include calling `user.Validate()`, hashing the password using `bcrypt` (clearing the plaintext password field), executing the SQL INSERT statement using parameterized queries, and handling potential unique constraint violations (returning `store.ErrEmailExists`). Log errors appropriately using `slog`.
-  - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
-  - **AC Ref:** PLAN.md Sections 2.1, 3, 4.2
+- [ ] **Optimize password hash fetching in PostgresUserStore.Update:** Conditionally fetch password hash
+  - **Action:** Refactor `internal/platform/postgres/user_store.go:225-240` to only query the existing `hashed_password` when necessary (i.e., when the input `user.Password` field is empty)
+  - **Depends On:** None
+  - **AC Ref:** Core Principles and Design Improvements.1
 
-- [x] **Implement PostgresUserStore GetByID Method:**
-  - **Action:** Implement the `GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)` method on `PostgresUserStore`. Use parameterized SQL SELECT query, map the row to a `domain.User` struct, and handle the "not found" case by returning `store.ErrUserNotFound`.
-  - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
-  - **AC Ref:** PLAN.md Section 2.2
+- [ ] **Add context.Context to test helper functions:** Improve helper function signatures
+  - **Action:** Modify the test helper functions (`insertTestUser`, `getUserByID`, `countUsers`) in `internal/platform/postgres/user_store_test.go` to accept `ctx context.Context` as the first argument and pass it to the appropriate database methods
+  - **Depends On:** None
+  - **AC Ref:** Code Quality Improvements.2
 
-- [x] **Implement PostgresUserStore GetByEmail Method:**
-  - **Action:** Implement the `GetByEmail(ctx context.Context, email string) (*domain.User, error)` method on `PostgresUserStore`. Use parameterized SQL SELECT query, map the row to a `domain.User` struct, and handle the "not found" case by returning `store.ErrUserNotFound`.
-  - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
-  - **AC Ref:** PLAN.md Section 2.2
+- [ ] **Remove unnecessary nolint:unused directives:** Clean up code
+  - **Action:** Remove the `//nolint:unused` comments from helper functions in `internal/platform/postgres/user_store_test.go` as they are actively used within the test file
+  - **Depends On:** Add context.Context to test helper functions
+  - **AC Ref:** Code Quality Improvements.3
 
-- [x] **Implement PostgresUserStore Update Method:**
-  - **Action:** Implement the `Update(ctx context.Context, user *domain.User) error` method on `PostgresUserStore`. Include calling `user.Validate()`, checking if the password needs rehashing (using `bcrypt`) and updating it if necessary, executing the SQL UPDATE statement using parameterized queries, handling potential unique constraint violations for email (returning `store.ErrEmailExists`), and handling "not found" cases (returning `store.ErrUserNotFound`). Log errors appropriately.
-  - **Depends On:** Implement NewPostgresUserStore Constructor, Implement Domain-Level Password Validation, Define Common Store Errors
-  - **AC Ref:** PLAN.md Sections 2.3, 3, 4.2
+- [ ] **Add TODO comment for improving validateEmailFormat:** Track technical debt
+  - **Action:** Add a `// TODO:` comment above the `validateEmailFormat` function in `internal/domain/user.go` indicating it's a basic implementation that should be replaced with more robust validation in the future
+  - **Depends On:** None
+  - **AC Ref:** Code Quality Improvements.4
 
-- [x] **Implement PostgresUserStore Delete Method:**
-  - **Action:** Implement the `Delete(ctx context.Context, id uuid.UUID) error` method on `PostgresUserStore`. Use parameterized SQL DELETE statement and handle "not found" cases by checking rows affected or using a specific query, returning `store.ErrUserNotFound` if the user doesn't exist.
-  - **Depends On:** Implement NewPostgresUserStore Constructor, Define Common Store Errors
-  - **AC Ref:** PLAN.md Section 2.4
+## Testing Improvements
 
-## 5. Testing Implementation
-- [x] **Set Up User Store Test File and Helpers:**
-  - **Action:** Create the test file `internal/platform/postgres/user_store_test.go`. Include necessary imports (`testing`, `testify`, `uuid`, domain, store, postgres, testutils, etc.). Set up test helper functions, potentially including setup/teardown logic for a test PostgreSQL database (e.g., using `testcontainers-go` or similar, connecting via `testutils.GetTestDatabaseURL`).
-  - **Depends On:** Implement NewPostgresUserStore Constructor
-  - **AC Ref:** PLAN.md Section 5
+- [ ] **Refactor setupTestDB to use project migrations:** Eliminate schema duplication
+  - **Action:** Modify the `setupTestDB` function in `internal/platform/postgres/user_store_test.go` to use the project's migrations instead of direct `CREATE TABLE` SQL, ensuring tests run against the canonical schema definition
+  - **Depends On:** None
+  - **AC Ref:** Testing Improvements.1
 
-- [x] **Write Integration Tests for Create Method:**
-  - **Action:** Implement integration tests in `user_store_test.go` covering the `Create` method. Test cases should include successful creation, attempting to create a user with an existing email (expecting `store.ErrEmailExists`), and validation failures passed from `domain.User.Validate()`. Verify data integrity and password hashing.
-  - **Depends On:** Implement PostgresUserStore Create Method, Set Up User Store Test File and Helpers
-  - **AC Ref:** PLAN.md Section 5
+- [ ] **Add password validation integration tests:** Test validation in store methods
+  - **Action:** Add test cases to `TestPostgresUserStore_Create` and `TestPostgresUserStore_Update` in `internal/platform/postgres/user_store_test.go` that explicitly verify password validation rejects passwords that don't meet length requirements
+  - **Depends On:** Update password validation domain tests
+  - **AC Ref:** Testing Improvements.2
 
-- [x] **Write Integration Tests for GetByID Method:**
-  - **Action:** Implement integration tests in `user_store_test.go` covering the `GetByID` method. Test cases should include successful retrieval and attempting to retrieve a non-existent user (expecting `store.ErrUserNotFound`).
-  - **Depends On:** Implement PostgresUserStore GetByID Method, Set Up User Store Test File and Helpers
-  - **AC Ref:** PLAN.md Section 5
+- [ ] **Refactor insertTestUser to use PostgresUserStore.Create:** Improve test helper
+  - **Action:** Modify the `insertTestUser` helper function to use the `PostgresUserStore.Create` method instead of direct SQL, leveraging automatic password hashing
+  - **Depends On:** Refactor setupTestDB to use project migrations
+  - **AC Ref:** Testing Improvements.3, Testing Improvements.4
 
-- [x] **Write Integration Tests for GetByEmail Method:**
-  - **Action:** Implement integration tests in `user_store_test.go` covering the `GetByEmail` method. Test cases should include successful retrieval and attempting to retrieve a user by a non-existent email (expecting `store.ErrUserNotFound`).
-  - **Depends On:** Implement PostgresUserStore GetByEmail Method, Set Up User Store Test File and Helpers
-  - **AC Ref:** PLAN.md Section 5
+- [ ] **Refactor getUserByID to use PostgresUserStore.GetByID:** Improve test helper
+  - **Action:** Modify the `getUserByID` helper function to use the `PostgresUserStore.GetByID` method instead of direct SQL queries
+  - **Depends On:** Refactor setupTestDB to use project migrations
+  - **AC Ref:** Testing Improvements.3
 
-- [x] **Write Integration Tests for Update Method:**
-  - **Action:** Implement integration tests in `user_store_test.go` covering the `Update` method. Test cases should include successful update (with and without password change), attempting to update a non-existent user (expecting `store.ErrUserNotFound`), attempting to update email to an existing one (expecting `store.ErrEmailExists`), and validation failures. Verify data integrity and password rehashing.
-  - **Depends On:** Implement PostgresUserStore Update Method, Set Up User Store Test File and Helpers
-  - **AC Ref:** PLAN.md Section 5
+- [ ] **Improve test data isolation:** Enable parallel testing
+  - **Action:** Implement a better test isolation strategy that allows for parallel test execution, such as using transaction-based isolation or unique database/schema names for each test
+  - **Depends On:** Refactor setupTestDB to use project migrations
+  - **AC Ref:** Testing Improvements.5
 
-- [x] **Write Integration Tests for Delete Method:**
-  - **Action:** Implement integration tests in `user_store_test.go` covering the `Delete` method. Test cases should include successful deletion and attempting to delete a non-existent user (expecting `store.ErrUserNotFound`). Verify the user is actually removed.
-  - **Depends On:** Implement PostgresUserStore Delete Method, Set Up User Store Test File and Helpers
-  - **AC Ref:** PLAN.md Section 5
+## Architecture Improvements
+
+- [ ] **Add configuration option for bcrypt cost:** Make security tunable
+  - **Action:** Add a `bcrypt_cost` integer field to `AuthConfig` in `internal/config/config.go` with appropriate validation. Update `PostgresUserStore.Create` and `PostgresUserStore.Update` to use this configured cost instead of `bcrypt.DefaultCost`
+  - **Depends On:** None
+  - **AC Ref:** Architecture Improvements.1
+
+## Documentation and Organization
+
+- [ ] **Break down Authentication Implementation in BACKLOG.md:** Improve task tracking
+  - **Action:** Edit `BACKLOG.md` to replace the single "Authentication Implementation" item with separate, granular tasks: User Store Implementation, JWT Authentication Service, Authentication API Endpoints, and Authentication Middleware
+  - **Depends On:** None
+  - **AC Ref:** Core Principles and Design Improvements.2
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
-- [ ] **Issue/Assumption:** Assumed `domain.User` struct exists but needs enhancement for password complexity validation.
-  - **Context:** PLAN.md Section 4.1 mentions `domain.User` should have `Validate()` checking password complexity, implying the struct exists but validation needs adding/updating.
 
-- [ ] **Issue/Assumption:** Assumed `bcrypt.DefaultCost` is the appropriate cost factor for password hashing.
-  - **Context:** PLAN.md Section 3 shows `bcrypt.DefaultCost` in the example. Confirm if this is sufficient or if a configurable/higher cost is needed.
+- [ ] **Issue/Assumption:** Acceptance Criteria References
+  - **Context:** The `PLAN.md` does not have explicit AC IDs.
+  - **Assumption:** The `AC Ref` fields in this `TODO.md` refer to the specific numbered items within each section of the `PLAN.md` document (e.g., "Password Validation Simplification.2" refers to item 2 in that section).
 
-- [ ] **Issue/Assumption:** Assumed the `sql.DB` dependency for `NewPostgresUserStore` will be provided externally.
-  - **Context:** PLAN.md Section 2 shows `NewPostgresUserStore` accepting `*sql.DB`. The plan doesn't cover where this DB connection pool is created and managed.
-
-- [ ] **Issue/Assumption:** Assumed integration tests will use a real PostgreSQL instance.
-  - **Context:** PLAN.md Section 5 mentions "integration tests with a real PostgreSQL database".
-
-- [ ] **Issue/Assumption:** Password complexity rules are not specified.
-  - **Context:** PLAN.md Section 4.1 mentions checking "Password complexity requirements" but doesn't define them (e.g., min length, character types). Assuming a basic length check (e.g., 8 chars) for now.
-
-- [ ] **Issue/Assumption:** "Other business rules" for domain validation are not specified.
-  - **Context:** PLAN.md Section 4.1 mentions "Other business rules". Assuming only email format and password complexity are required for the `User` domain validation at this stage.
+- [ ] **Issue/Assumption:** Test Helper countUsers Refactoring
+  - **Context:** Testing Improvements item 3 suggests refactoring helpers to use store methods. However, `countUsers` is primarily for verification purposes.
+  - **Assumption:** The `countUsers` helper will retain direct SQL access for verification purposes, but will be updated to accept `context.Context` as per Code Quality Improvements item 2.

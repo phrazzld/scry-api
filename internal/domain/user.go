@@ -9,13 +9,11 @@ import (
 
 // Common validation errors
 var (
-	ErrEmptyUserID        = errors.New("user ID cannot be empty")
-	ErrInvalidEmail       = errors.New("invalid email format")
-	ErrEmptyEmail         = errors.New("email cannot be empty")
-	ErrPasswordTooShort   = errors.New("password must be at least 8 characters long")
-	ErrPasswordNotComplex = errors.New(
-		"password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
-	)
+	ErrEmptyUserID         = errors.New("user ID cannot be empty")
+	ErrInvalidEmail        = errors.New("invalid email format")
+	ErrEmptyEmail          = errors.New("email cannot be empty")
+	ErrPasswordTooShort    = errors.New("password must be at least 12 characters long")
+	ErrPasswordTooLong     = errors.New("password must be at most 72 characters long")
 	ErrEmptyPassword       = errors.New("password cannot be empty")
 	ErrEmptyHashedPassword = errors.New("hashed password cannot be empty")
 )
@@ -73,14 +71,12 @@ func (u *User) Validate() error {
 	// Password validation
 	// During user creation/update we need to validate the provided password
 	if u.Password != "" {
-		// When plaintext password is provided, validate its complexity
-		if len(u.Password) < 8 {
-			return ErrPasswordTooShort
-		}
-
-		// Additional password complexity checks
+		// When plaintext password is provided, validate its length
 		if !validatePasswordComplexity(u.Password) {
-			return ErrPasswordNotComplex
+			if len(u.Password) < 12 {
+				return ErrPasswordTooShort
+			}
+			return ErrPasswordTooLong
 		}
 	} else {
 		// When no plaintext password is provided, the user must have a hashed password
@@ -137,39 +133,15 @@ func validateEmailFormat(email string) bool {
 	return true
 }
 
-// validatePasswordComplexity checks if a password meets complexity requirements:
-// - At least one uppercase letter
-// - At least one lowercase letter
-// - At least one number
-// - At least one special character
+// validatePasswordComplexity checks if a password meets length requirements:
+// - Minimum length: 12 characters
+// - Maximum length: 72 characters (bcrypt's practical limit)
+//
+// This simplified approach focuses on length rather than character complexity
+// because longer passwords provide better security than shorter ones with
+// special character requirements, which can be harder for users to remember.
 func validatePasswordComplexity(password string) bool {
-	var (
-		hasUpper   bool
-		hasLower   bool
-		hasNumber  bool
-		hasSpecial bool
-	)
-
-	specialChars := "!@#$%^&*()-_+={}[]|:;\"'<>,.?/~`"
-
-	for _, char := range password {
-		switch {
-		case 'A' <= char && char <= 'Z':
-			hasUpper = true
-		case 'a' <= char && char <= 'z':
-			hasLower = true
-		case '0' <= char && char <= '9':
-			hasNumber = true
-		default:
-			// Check if char is in specialChars
-			for _, special := range specialChars {
-				if char == special {
-					hasSpecial = true
-					break
-				}
-			}
-		}
-	}
-
-	return hasUpper && hasLower && hasNumber && hasSpecial
+	// Check if password is between 12 and 72 characters
+	passLen := len(password)
+	return passLen >= 12 && passLen <= 72
 }

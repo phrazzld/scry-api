@@ -317,7 +317,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		user := &domain.User{
 			ID:        uuid.New(),
 			Email:     fmt.Sprintf("weak-password-%s@example.com", uuid.New().String()[:8]),
-			Password:  "password", // Missing complexity requirements
+			Password:  "password", // Too short (less than 12 characters)
 			CreatedAt: time.Now().UTC(),
 			UpdatedAt: time.Now().UTC(),
 		}
@@ -327,7 +327,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 
 		// Verify the result
 		assert.Error(t, err, "Creating user with weak password should fail")
-		assert.Equal(t, domain.ErrPasswordNotComplex, err, "Error should be ErrPasswordNotComplex")
+		assert.Equal(t, domain.ErrPasswordTooShort, err, "Error should be ErrPasswordTooShort")
 
 		// Verify no user was created
 		count := countUsers(t, db, "email = $1", user.Email)

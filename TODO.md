@@ -34,7 +34,7 @@
   - **Depends On:** None
   - **AC Ref:** Code Quality Improvements.1
 
-- [ ] **Optimize password hash fetching in PostgresUserStore.Update:** Conditionally fetch password hash
+- [x] **Optimize password hash fetching in PostgresUserStore.Update:** Conditionally fetch password hash
   - **Action:** Refactor `internal/platform/postgres/user_store.go:225-240` to only query the existing `hashed_password` when necessary (i.e., when the input `user.Password` field is empty)
   - **Depends On:** None
   - **AC Ref:** Core Principles and Design Improvements.1

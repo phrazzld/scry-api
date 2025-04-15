@@ -245,8 +245,13 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err 
 		}
 		hashedPasswordToStore = string(hashedPassword)
 		user.Password = "" // Clear plaintext password for security
+	} else if user.HashedPassword != "" {
+		// If no new password is provided but user already has a hashed password, use that
+		hashedPasswordToStore = user.HashedPassword
+		log.Debug("using provided hashed password", slog.String("user_id", user.ID.String()))
 	} else {
-		// Fetch the existing password hash if not updating the password
+		// Only fetch the existing password hash if we don't have a new password or existing hash
+		log.Debug("fetching existing hashed password", slog.String("user_id", user.ID.String()))
 		err = s.db.QueryRowContext(ctx, `
 			SELECT hashed_password FROM users WHERE id = $1
 		`, user.ID).Scan(&hashedPasswordToStore)

@@ -70,6 +70,11 @@ func (u *User) Validate() error {
 	return nil
 }
 
+// TODO: Replace this basic email validation with a more robust library.
+// This implementation is intentionally simple and has limitations.
+// Consider using a dedicated email validation library that follows
+// RFC 5322 standards and handles edge cases properly.
+//
 // validateEmailFormat performs basic validation of email format.
 // Returns true if the email appears to be in a valid format.
 func validateEmailFormat(email string) bool {

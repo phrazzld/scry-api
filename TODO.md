@@ -33,7 +33,7 @@
   - **Depends On:** None
   - **AC Ref:** Code Quality Issue 1
 
-- [ ] **Add TODO for Robust Email Validation:** Mark the basic email validation for future improvement.
+- [x] **Add TODO for Robust Email Validation:** Mark the basic email validation for future improvement.
   - **Action:** Add a `// TODO:` comment above the `validateEmailFormat` function in `internal/domain/user.go` indicating that the current implementation is basic and should be replaced with a more robust validation library in a future task.
   - **Depends On:** None
   - **AC Ref:** Code Quality Issue 2

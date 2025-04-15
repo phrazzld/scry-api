@@ -61,7 +61,7 @@
   - **Depends On:** None
   - **AC Ref:** Testing Improvements.1
 
-- [ ] **Add password validation integration tests:** Test validation in store methods
+- [x] **Add password validation integration tests:** Test validation in store methods
   - **Action:** Add test cases to `TestPostgresUserStore_Create` and `TestPostgresUserStore_Update` in `internal/platform/postgres/user_store_test.go` that explicitly verify password validation rejects passwords that don't meet length requirements
   - **Depends On:** Update password validation domain tests
   - **AC Ref:** Testing Improvements.2

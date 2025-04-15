@@ -320,6 +320,35 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		count := countUsers(ctx, t, db, "email = $1", user.Email)
 		assert.Equal(t, 0, count, "No user should be created with weak password")
 	})
+
+	// Test Case 5: Attempt to create user with password that's too long
+	t.Run("Password too long", func(t *testing.T) {
+		// Create context
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Create a user with valid email but password that's too long
+		// Create a password longer than 72 characters (bcrypt's limit)
+		tooLongPassword := strings.Repeat("p", 73)
+		user := &domain.User{
+			ID:        uuid.New(),
+			Email:     fmt.Sprintf("long-password-%s@example.com", uuid.New().String()[:8]),
+			Password:  tooLongPassword,
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		}
+
+		// Call the Create method
+		err := userStore.Create(ctx, user)
+
+		// Verify the result
+		assert.Error(t, err, "Creating user with too long password should fail")
+		assert.Equal(t, domain.ErrPasswordTooLong, err, "Error should be ErrPasswordTooLong")
+
+		// Verify no user was created
+		count := countUsers(ctx, t, db, "email = $1", user.Email)
+		assert.Equal(t, 0, count, "No user should be created with too long password")
+	})
 }
 
 // TestPostgresUserStore_GetByID tests the GetByID method
@@ -640,6 +669,81 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		updatedDbUser := getUserByID(ctx, t, db, userId)
 		require.NotNil(t, updatedDbUser, "User should still exist")
 		assert.Equal(t, email, updatedDbUser.Email, "Email should not be changed")
+	})
+
+	// Test Case 6: Attempt to update with password that's too short
+	t.Run("Password too short", func(t *testing.T) {
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Insert a test user
+		email := fmt.Sprintf("short-password-update-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
+
+		// Get original user data
+		originalUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+		originalHash := originalUser.HashedPassword
+
+		// Create an updated user with password that's too short
+		updatedUser := &domain.User{
+			ID:        userId,
+			Email:     email,              // Same email
+			Password:  "short",            // Too short (less than 12 characters)
+			CreatedAt: originalUser.CreatedAt,
+			UpdatedAt: originalUser.UpdatedAt,
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, updatedUser)
+
+		// Verify the result
+		assert.Error(t, err, "Update should return error for short password")
+		assert.Equal(t, domain.ErrPasswordTooShort, err, "Error should be ErrPasswordTooShort")
+
+		// Verify the user was not updated
+		updatedDbUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, updatedDbUser, "User should still exist")
+		assert.Equal(t, originalHash, updatedDbUser.HashedPassword, "Password hash should not be changed")
+	})
+
+	// Test Case 7: Attempt to update with password that's too long
+	t.Run("Password too long", func(t *testing.T) {
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
+		// Insert a test user
+		email := fmt.Sprintf("long-password-update-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
+
+		// Get original user data
+		originalUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+		originalHash := originalUser.HashedPassword
+
+		// Create an updated user with password that's too long
+		tooLongPassword := strings.Repeat("p", 73) // 73 characters (exceeds bcrypt's 72 character limit)
+		updatedUser := &domain.User{
+			ID:        userId,
+			Email:     email,              // Same email
+			Password:  tooLongPassword,    // Too long (more than 72 characters)
+			CreatedAt: originalUser.CreatedAt,
+			UpdatedAt: originalUser.UpdatedAt,
+		}
+
+		// Call the Update method
+		err := userStore.Update(ctx, updatedUser)
+
+		// Verify the result
+		assert.Error(t, err, "Update should return error for too long password")
+		assert.Equal(t, domain.ErrPasswordTooLong, err, "Error should be ErrPasswordTooLong")
+
+		// Verify the user was not updated
+		updatedDbUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, updatedDbUser, "User should still exist")
+		assert.Equal(t, originalHash, updatedDbUser.HashedPassword, "Password hash should not be changed")
 	})
 }
 

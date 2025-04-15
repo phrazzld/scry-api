@@ -76,7 +76,7 @@
   - **Depends On:** Refactor setupTestDB to use project migrations
   - **AC Ref:** Testing Improvements.3
 
-- [ ] **Improve test data isolation:** Enable parallel testing
+- [~] **Improve test data isolation:** Enable parallel testing
   - **Action:** Implement a better test isolation strategy that allows for parallel test execution, such as using transaction-based isolation or unique database/schema names for each test
   - **Depends On:** Refactor setupTestDB to use project migrations
   - **AC Ref:** Testing Improvements.5
@@ -90,7 +90,7 @@
 
 ## Documentation and Organization
 
-- [ ] **Break down Authentication Implementation in BACKLOG.md:** Improve task tracking
+- [x] **Break down Authentication Implementation in BACKLOG.md:** Improve task tracking
   - **Action:** Edit `BACKLOG.md` to replace the single "Authentication Implementation" item with separate, granular tasks: User Store Implementation, JWT Authentication Service, Authentication API Endpoints, and Authentication Middleware
   - **Depends On:** None
   - **AC Ref:** Core Principles and Design Improvements.2

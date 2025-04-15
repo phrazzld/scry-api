@@ -102,10 +102,7 @@ func createTestUser(t *testing.T) *domain.User {
 // insertTestUser inserts a user directly into the database for testing
 //
 //nolint:unused
-func insertTestUser(t *testing.T, db *sql.DB, email string) uuid.UUID {
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
+func insertTestUser(ctx context.Context, t *testing.T, db *sql.DB, email string) uuid.UUID {
 	// Generate a unique ID
 	id := uuid.New()
 	hashedPassword := "$2a$10$abcdefghijklmnopqrstuvwxyz0123456789"
@@ -123,10 +120,7 @@ func insertTestUser(t *testing.T, db *sql.DB, email string) uuid.UUID {
 // getUserByID retrieves a user from the database directly for verification
 //
 //nolint:unused
-func getUserByID(t *testing.T, db *sql.DB, id uuid.UUID) *domain.User {
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
+func getUserByID(ctx context.Context, t *testing.T, db *sql.DB, id uuid.UUID) *domain.User {
 	// Query the user
 	var user domain.User
 	err := db.QueryRowContext(ctx, `
@@ -148,10 +142,7 @@ func getUserByID(t *testing.T, db *sql.DB, id uuid.UUID) *domain.User {
 // countUsers counts the number of users in the database matching certain criteria
 //
 //nolint:unused
-func countUsers(t *testing.T, db *sql.DB, whereClause string, args ...interface{}) int {
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
+func countUsers(ctx context.Context, t *testing.T, db *sql.DB, whereClause string, args ...interface{}) int {
 	query := "SELECT COUNT(*) FROM users"
 	if whereClause != "" {
 		query += " WHERE " + whereClause
@@ -235,7 +226,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		require.NoError(t, err, "User creation should succeed")
 
 		// Verify the user was inserted into the database
-		dbUser := getUserByID(t, db, user.ID)
+		dbUser := getUserByID(ctx, t, db, user.ID)
 		require.NotNil(t, dbUser, "User should exist in the database")
 		assert.Equal(t, user.ID, dbUser.ID, "User ID should match")
 		assert.Equal(t, user.Email, dbUser.Email, "User email should match")
@@ -252,16 +243,16 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		// Create a test user
 		email := fmt.Sprintf("duplicate-%s@example.com", uuid.New().String()[:8])
 
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+		defer cancel()
+
 		// Insert the first user directly into the database
-		insertTestUser(t, db, email)
+		insertTestUser(ctx, t, db, email)
 
 		// Create a second user with the same email
 		user, err := domain.NewUser(email, "Password123!")
 		require.NoError(t, err, "Creating user struct should succeed")
-
-		// Create a context with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-		defer cancel()
 
 		// Call the Create method
 		err = userStore.Create(ctx, user)
@@ -275,7 +266,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		)
 
 		// Verify there's still only one user with this email
-		count := countUsers(t, db, "email = $1", email)
+		count := countUsers(ctx, t, db, "email = $1", email)
 		assert.Equal(t, 1, count, "There should still be only one user with this email")
 	})
 
@@ -303,7 +294,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		assert.Equal(t, domain.ErrInvalidEmail, err, "Error should be ErrInvalidEmail")
 
 		// Verify no user was created
-		count := countUsers(t, db, "email = $1", "not-an-email")
+		count := countUsers(ctx, t, db, "email = $1", "not-an-email")
 		assert.Equal(t, 0, count, "No user should be created with invalid email")
 	})
 
@@ -330,7 +321,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 		assert.Equal(t, domain.ErrPasswordTooShort, err, "Error should be ErrPasswordTooShort")
 
 		// Verify no user was created
-		count := countUsers(t, db, "email = $1", user.Email)
+		count := countUsers(ctx, t, db, "email = $1", user.Email)
 		assert.Equal(t, 0, count, "No user should be created with weak password")
 	})
 }
@@ -346,13 +337,13 @@ func TestPostgresUserStore_GetByID(t *testing.T) {
 
 	// Test Case 1: Successfully retrieve existing user by ID
 	t.Run("Successfully retrieve existing user", func(t *testing.T) {
-		// Insert a test user directly into the database
-		email := fmt.Sprintf("getbyid-test-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, email)
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("getbyid-test-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
 
 		// Call the GetByID method
 		user, err := userStore.GetByID(ctx, userId)
@@ -398,13 +389,13 @@ func TestPostgresUserStore_GetByEmail(t *testing.T) {
 
 	// Test Case 1: Successfully retrieve existing user by email
 	t.Run("Successfully retrieve existing user", func(t *testing.T) {
-		// Insert a test user directly into the database
-		email := fmt.Sprintf("getbyemail-test-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, email)
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("getbyemail-test-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
 
 		// Call the GetByEmail method
 		user, err := userStore.GetByEmail(ctx, email)
@@ -440,13 +431,13 @@ func TestPostgresUserStore_GetByEmail(t *testing.T) {
 
 	// Test Case 3: Case insensitivity for email matching
 	t.Run("Case insensitive email matching", func(t *testing.T) {
-		// Insert a test user with lowercase email
-		email := fmt.Sprintf("casesensitive-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, email)
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user with lowercase email
+		email := fmt.Sprintf("casesensitive-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
 
 		// Query with uppercase email
 		upperEmail := strings.ToUpper(email)
@@ -471,18 +462,18 @@ func TestPostgresUserStore_Update(t *testing.T) {
 
 	// Test Case 1: Successfully update existing user with a new email but same password
 	t.Run("Update email only", func(t *testing.T) {
-		// Insert a test user directly into the database
-		oldEmail := fmt.Sprintf("update-test-email-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, oldEmail)
-
-		// Fetch the user to get current hashed password and timestamps
-		originalUser := getUserByID(t, db, userId)
-		require.NotNil(t, originalUser, "User should exist before update")
-		oldHash := originalUser.HashedPassword
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user directly into the database
+		oldEmail := fmt.Sprintf("update-test-email-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, oldEmail)
+
+		// Fetch the user to get current hashed password and timestamps
+		originalUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+		oldHash := originalUser.HashedPassword
 
 		// Create an updated user (change email but not password)
 		newEmail := fmt.Sprintf("updated-email-%s@example.com", uuid.New().String()[:8])
@@ -501,7 +492,7 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		require.NoError(t, err, "Update should succeed for existing user")
 
 		// Verify the user was updated in the database
-		updatedDbUser := getUserByID(t, db, userId)
+		updatedDbUser := getUserByID(ctx, t, db, userId)
 		require.NotNil(t, updatedDbUser, "User should still exist after update")
 		assert.Equal(t, userId, updatedDbUser.ID, "User ID should not change")
 		assert.Equal(t, newEmail, updatedDbUser.Email, "Email should be updated")
@@ -512,18 +503,18 @@ func TestPostgresUserStore_Update(t *testing.T) {
 
 	// Test Case 2: Successfully update existing user with a new password but same email
 	t.Run("Update password only", func(t *testing.T) {
-		// Insert a test user directly into the database
-		email := fmt.Sprintf("update-test-pwd-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, email)
-
-		// Fetch the user to get current hashed password and timestamps
-		originalUser := getUserByID(t, db, userId)
-		require.NotNil(t, originalUser, "User should exist before update")
-		oldHash := originalUser.HashedPassword
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("update-test-pwd-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
+
+		// Fetch the user to get current hashed password and timestamps
+		originalUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
+		oldHash := originalUser.HashedPassword
 
 		// Create an updated user (change password but not email)
 		newPassword := "NewPassword123!"
@@ -542,7 +533,7 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		require.NoError(t, err, "Update should succeed for existing user")
 
 		// Verify the user was updated in the database
-		updatedDbUser := getUserByID(t, db, userId)
+		updatedDbUser := getUserByID(ctx, t, db, userId)
 		require.NotNil(t, updatedDbUser, "User should still exist after update")
 		assert.Equal(t, userId, updatedDbUser.ID, "User ID should not change")
 		assert.Equal(t, email, updatedDbUser.Email, "Email should remain unchanged")
@@ -579,20 +570,20 @@ func TestPostgresUserStore_Update(t *testing.T) {
 
 	// Test Case 4: Attempt to update email to one that already exists
 	t.Run("Duplicate email", func(t *testing.T) {
-		// Insert two test users
-		existingEmail := fmt.Sprintf("existing-email-%s@example.com", uuid.New().String()[:8])
-		existingID := insertTestUser(t, db, existingEmail)
-
-		updateEmail := fmt.Sprintf("update-email-%s@example.com", uuid.New().String()[:8])
-		updateID := insertTestUser(t, db, updateEmail)
-
-		// Get original user data
-		originalUser := getUserByID(t, db, updateID)
-		require.NotNil(t, originalUser, "User should exist before update")
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert two test users
+		existingEmail := fmt.Sprintf("existing-email-%s@example.com", uuid.New().String()[:8])
+		existingID := insertTestUser(ctx, t, db, existingEmail)
+
+		updateEmail := fmt.Sprintf("update-email-%s@example.com", uuid.New().String()[:8])
+		updateID := insertTestUser(ctx, t, db, updateEmail)
+
+		// Get original user data
+		originalUser := getUserByID(ctx, t, db, updateID)
+		require.NotNil(t, originalUser, "User should exist before update")
 
 		// Create an updated user (change email to one that already exists)
 		updatedUser := &domain.User{
@@ -610,29 +601,29 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		assert.ErrorIs(t, err, store.ErrEmailExists, "Error should be ErrEmailExists")
 
 		// Verify the user was not updated
-		updatedDbUser := getUserByID(t, db, updateID)
+		updatedDbUser := getUserByID(ctx, t, db, updateID)
 		require.NotNil(t, updatedDbUser, "User should still exist")
 		assert.Equal(t, updateEmail, updatedDbUser.Email, "Email should not be changed")
 
 		// Verify the other user was not affected
-		otherUser := getUserByID(t, db, existingID)
+		otherUser := getUserByID(ctx, t, db, existingID)
 		require.NotNil(t, otherUser, "Other user should still exist")
 		assert.Equal(t, existingEmail, otherUser.Email, "Other user's email should not change")
 	})
 
 	// Test Case 5: Update with invalid data
 	t.Run("Invalid data", func(t *testing.T) {
-		// Insert a test user
-		email := fmt.Sprintf("valid-email-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, email)
-
-		// Get original user data
-		originalUser := getUserByID(t, db, userId)
-		require.NotNil(t, originalUser, "User should exist before update")
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user
+		email := fmt.Sprintf("valid-email-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
+
+		// Get original user data
+		originalUser := getUserByID(ctx, t, db, userId)
+		require.NotNil(t, originalUser, "User should exist before update")
 
 		// Create an updated user with invalid email
 		updatedUser := &domain.User{
@@ -650,7 +641,7 @@ func TestPostgresUserStore_Update(t *testing.T) {
 		assert.Equal(t, domain.ErrInvalidEmail, err, "Error should be ErrInvalidEmail")
 
 		// Verify the user was not updated
-		updatedDbUser := getUserByID(t, db, userId)
+		updatedDbUser := getUserByID(ctx, t, db, userId)
 		require.NotNil(t, updatedDbUser, "User should still exist")
 		assert.Equal(t, email, updatedDbUser.Email, "Email should not be changed")
 	})
@@ -667,17 +658,17 @@ func TestPostgresUserStore_Delete(t *testing.T) {
 
 	// Test Case 1: Successfully delete existing user
 	t.Run("Successfully delete existing user", func(t *testing.T) {
-		// Insert a test user directly into the database
-		email := fmt.Sprintf("delete-test-%s@example.com", uuid.New().String()[:8])
-		userId := insertTestUser(t, db, email)
-
-		// Verify user exists before deletion
-		beforeCount := countUsers(t, db, "id = $1", userId)
-		assert.Equal(t, 1, beforeCount, "User should exist before deletion")
-
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
+
+		// Insert a test user directly into the database
+		email := fmt.Sprintf("delete-test-%s@example.com", uuid.New().String()[:8])
+		userId := insertTestUser(ctx, t, db, email)
+
+		// Verify user exists before deletion
+		beforeCount := countUsers(ctx, t, db, "id = $1", userId)
+		assert.Equal(t, 1, beforeCount, "User should exist before deletion")
 
 		// Call the Delete method
 		err := userStore.Delete(ctx, userId)
@@ -686,7 +677,7 @@ func TestPostgresUserStore_Delete(t *testing.T) {
 		require.NoError(t, err, "Delete should succeed for existing user")
 
 		// Verify user no longer exists
-		afterCount := countUsers(t, db, "id = $1", userId)
+		afterCount := countUsers(ctx, t, db, "id = $1", userId)
 		assert.Equal(t, 0, afterCount, "User should not exist after deletion")
 	})
 

@@ -39,7 +39,7 @@
   - **Depends On:** None
   - **AC Ref:** Core Principles and Design Improvements.1
 
-- [ ] **Add context.Context to test helper functions:** Improve helper function signatures
+- [x] **Add context.Context to test helper functions:** Improve helper function signatures
   - **Action:** Modify the test helper functions (`insertTestUser`, `getUserByID`, `countUsers`) in `internal/platform/postgres/user_store_test.go` to accept `ctx context.Context` as the first argument and pass it to the appropriate database methods
   - **Depends On:** None
   - **AC Ref:** Code Quality Improvements.2

@@ -71,11 +71,12 @@ func (u *User) Validate() error {
 	// Password validation
 	// During user creation/update we need to validate the provided password
 	if u.Password != "" {
-		// When plaintext password is provided, validate its length
-		if !validatePasswordComplexity(u.Password) {
-			if len(u.Password) < 12 {
-				return ErrPasswordTooShort
-			}
+		// When plaintext password is provided, check length requirements directly
+		passLen := len(u.Password)
+		if passLen < 12 {
+			return ErrPasswordTooShort
+		}
+		if passLen > 72 {
 			return ErrPasswordTooLong
 		}
 	} else {

@@ -7,7 +7,7 @@
   - **Depends On:** None
   - **AC Ref:** Password Validation Simplification.2
 
-- [ ] **Simplify password validation in User model:** Update User.Validate method
+- [x] **Simplify password validation in User model:** Update User.Validate method
   - **Action:** Update the `Validate` method in `internal/domain/user.go` to use the simplified length check when `Password` field is present, ensuring it still checks for `HashedPassword` presence if `Password` is empty
   - **Depends On:** Update validatePasswordComplexity function
   - **AC Ref:** Password Validation Simplification.2, Password Validation Simplification.4

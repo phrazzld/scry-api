@@ -29,7 +29,7 @@
   - **Depends On:** None
   - **AC Ref:** Code Quality Improvements.1
 
-- [ ] **Refactor transaction handling in PostgresUserStore.Update:** Use named error returns
+- [x] **Refactor transaction handling in PostgresUserStore.Update:** Use named error returns
   - **Action:** Modify the `Update` method in `internal/platform/postgres/user_store.go` to use named return values for errors and update the deferred rollback function to check this named error variable before rolling back
   - **Depends On:** None
   - **AC Ref:** Code Quality Improvements.1

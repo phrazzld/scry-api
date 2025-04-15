@@ -214,14 +214,14 @@ func (s *PostgresUserStore) GetByEmail(ctx context.Context, email string) (*doma
 // Returns store.ErrUserNotFound if the user does not exist.
 // Returns store.ErrEmailExists if updating to an email that already exists.
 // Returns validation errors from the domain User if data is invalid.
-func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error {
+func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err error) {
 	// Get the logger from context or use default
 	log := logger.FromContext(ctx)
 
 	log.Debug("updating user", slog.String("user_id", user.ID.String()))
 
 	// First, validate the user data
-	if err := user.Validate(); err != nil {
+	if err = user.Validate(); err != nil {
 		log.Warn("user validation failed during update",
 			slog.String("error", err.Error()),
 			slog.String("user_id", user.ID.String()))
@@ -247,7 +247,7 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 		user.Password = "" // Clear plaintext password for security
 	} else {
 		// Fetch the existing password hash if not updating the password
-		err := s.db.QueryRowContext(ctx, `
+		err = s.db.QueryRowContext(ctx, `
 			SELECT hashed_password FROM users WHERE id = $1
 		`, user.ID).Scan(&hashedPasswordToStore)
 
@@ -271,8 +271,10 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 			slog.String("user_id", user.ID.String()))
 		return err
 	}
+
 	// Defer a rollback in case anything fails
 	defer func() {
+		// Only attempt rollback if an error occurred and the transaction is still active
 		if err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
 				log.Error("failed to rollback transaction",

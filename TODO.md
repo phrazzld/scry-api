@@ -49,7 +49,7 @@
   - **Depends On:** Add context.Context to test helper functions
   - **AC Ref:** Code Quality Improvements.3
 
-- [ ] **Add TODO comment for improving validateEmailFormat:** Track technical debt
+- [x] **Add TODO comment for improving validateEmailFormat:** Track technical debt
   - **Action:** Add a `// TODO:` comment above the `validateEmailFormat` function in `internal/domain/user.go` indicating it's a basic implementation that should be replaced with more robust validation in the future
   - **Depends On:** None
   - **AC Ref:** Code Quality Improvements.4

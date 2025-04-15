@@ -90,10 +90,18 @@ func (u *User) Validate() error {
 	return nil
 }
 
-// TODO: Replace this basic email validation with a more robust library.
-// This implementation is intentionally simple and has limitations.
-// Consider using a dedicated email validation library that follows
-// RFC 5322 standards and handles edge cases properly.
+// TODO: Replace this basic email validation with a more robust solution.
+// Technical debt: This implementation is intentionally simple and has several limitations:
+// 1. It only checks for @ and . characters in the right positions
+// 2. It doesn't validate against RFC 5322 standards for email addresses
+// 3. It doesn't handle international domains or special character requirements
+// 4. It can't detect many invalid email patterns that would be rejected by mail servers
+//
+// Future improvements:
+//   - Consider using a dedicated email validation library like "net/mail" or a third-party
+//     package that specifically implements RFC 5322/6531 standards
+//   - Alternatively, implement a more comprehensive regex pattern that covers common cases
+//   - For mission-critical validation, consider adding actual mail server verification
 //
 // validateEmailFormat performs basic validation of email format.
 // Returns true if the email appears to be in a valid format.

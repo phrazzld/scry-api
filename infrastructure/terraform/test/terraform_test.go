@@ -1,11 +1,15 @@
 package test
 
 import (
+	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
+	_ "github.com/jackc/pgx/v5/stdlib" // Register pgx driver
 )
 
 func TestTerraformDatabaseInfrastructure(t *testing.T) {
@@ -64,9 +68,57 @@ func TestTerraformDatabaseInfrastructure(t *testing.T) {
 		t.Fatalf("Connection string appears invalid: %s", connectionString)
 	}
 
-	// TODO: Use the connection string to test database connectivity and run migrations
-	// This would require importing the database/sql package and executing some queries
-	// as well as potentially running the migration code.
-	// Also verify that the database_password variable works correctly by attempting
-	// to authenticate with the specified password.
+	// Verify database connectivity
+	t.Log("Attempting to connect to database using connection string")
+
+	// Open connection to the database
+	db, err := sql.Open("pgx", connectionString)
+	if err != nil {
+		t.Fatalf("Failed to open database connection: %v", err)
+	}
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Logf("Warning: failed to close database connection: %v", err)
+		}
+	}()
+
+	// Set connection pool parameters
+	db.SetMaxOpenConns(2)                  // Limit connections for test
+	db.SetMaxIdleConns(1)                  // Keep a single connection ready
+	db.SetConnMaxLifetime(time.Minute * 5) // Recreate connections after 5 minutes
+
+	// Ping the database with timeout
+	t.Log("Pinging database to verify connectivity")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = db.PingContext(ctx)
+	if err != nil {
+		t.Fatalf("Failed to ping database: %v", err)
+	}
+	t.Log("Successfully pinged database")
+
+	// Execute a simple query to verify database functionality
+	t.Log("Executing simple query to verify database functionality")
+	var version string
+	err = db.QueryRowContext(ctx, "SELECT version()").Scan(&version)
+	if err != nil {
+		t.Fatalf("Failed to execute query: %v", err)
+	}
+	t.Logf("Database version: %s", version)
+
+	// Verify pgvector extension is available
+	t.Log("Checking if pgvector extension is available")
+	var extensionExists bool
+	err = db.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector')").
+		Scan(&extensionExists)
+	if err != nil {
+		t.Fatalf("Failed to check pgvector extension availability: %v", err)
+	}
+
+	if !extensionExists {
+		t.Fatal("pgvector extension is not available in the database")
+	}
+	t.Log("pgvector extension is available")
 }

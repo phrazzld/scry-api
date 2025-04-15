@@ -49,7 +49,7 @@
   - **Depends On:** None
   - **AC Ref:** Test Quality Issue 2
 
-- [ ] **Enhance Terraform Test Validation:** Improve Terraform tests to verify database connectivity.
+- [x] **Enhance Terraform Test Validation:** Improve Terraform tests to verify database connectivity.
   - **Action:** Modify the `TestTerraformDatabaseInfrastructure` test in `infrastructure/terraform/test/terraform_test.go`. After `terraform.InitAndApply`, use the `connection_string` output to establish a database connection, perform a `Ping()` to verify connectivity, and optionally attempt to run a simple query or apply migrations.
   - **Depends On:** Add Explicit DB Password Management in Terraform
   - **AC Ref:** Test Quality Issue 3

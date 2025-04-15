@@ -6,7 +6,7 @@
   - **Depends On:** None
   - **AC Ref:** PLAN.md Section 1
 
-- [ ] **Define Common Store Errors:**
+- [x] **Define Common Store Errors:**
   - **Action:** Define the `ErrUserNotFound` and `ErrEmailExists` error variables in `internal/store/user.go`.
   - **Depends On:** None
   - **AC Ref:** PLAN.md Section 1

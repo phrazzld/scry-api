@@ -143,6 +143,13 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Organized and improved documentation in pre-commit config.
     * ✅ Enhanced README with comprehensive pre-commit hooks documentation.
 
+* **Improve Test Data Isolation (Completed):**
+    * ✅ Implemented transaction-based test isolation to enable parallel test execution.
+    * ✅ Created DBTX interface to support both *sql.DB and *sql.Tx.
+    * ✅ Refactored PostgresUserStore to use the DBTX interface.
+    * ✅ Added WithTx helper function to testutils package.
+    * ✅ Updated tests to use transaction-based isolation and enabled t.Parallel().
+
 * **Logging Framework Setup (Completed):**
     * ✅ Set up basic structured logging framework using `log/slog`.
     * ✅ Configure the logging system using the application configuration.

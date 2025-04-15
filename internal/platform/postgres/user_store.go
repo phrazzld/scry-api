@@ -21,21 +21,22 @@ const uniqueViolationCode = "23505" // PostgreSQL unique violation error code
 // PostgresUserStore implements the store.UserStore interface
 // using a PostgreSQL database as the storage backend.
 type PostgresUserStore struct {
-	db         *sql.DB
+	db         store.DBTX
 	bcryptCost int // Cost parameter for bcrypt password hashing
 }
 
 // DB returns the underlying database connection for testing purposes.
 // This method is not part of the store.UserStore interface.
-func (s *PostgresUserStore) DB() *sql.DB {
+// Note: This now returns a store.DBTX interface, which could be either *sql.DB or *sql.Tx
+func (s *PostgresUserStore) DB() store.DBTX {
 	return s.db
 }
 
 // NewPostgresUserStore creates a new PostgreSQL implementation of the UserStore interface.
-// It accepts a database connection that should be initialized and managed by the caller.
+// It accepts a database connection or transaction that should be initialized and managed by the caller.
 // The bcryptCost parameter determines the computational cost of password hashing.
 // If bcryptCost is 0 or invalid, bcrypt.DefaultCost (10) will be used.
-func NewPostgresUserStore(db *sql.DB, bcryptCost int) *PostgresUserStore {
+func NewPostgresUserStore(db store.DBTX, bcryptCost int) *PostgresUserStore {
 	// Validate bcrypt cost and use default if invalid
 	if bcryptCost < 4 || bcryptCost > 31 {
 		bcryptCost = bcrypt.DefaultCost
@@ -64,12 +65,12 @@ var _ store.UserStore = (*PostgresUserStore)(nil)
 // Create implements store.UserStore.Create
 // It creates a new user in the database, handling domain validation and password hashing.
 // Returns store.ErrEmailExists if a user with the same email already exists.
-func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) (err error) {
+func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error {
 	// Get the logger from context or use default
 	log := logger.FromContext(ctx)
 
 	// First, validate the user data
-	if err = user.Validate(); err != nil {
+	if err := user.Validate(); err != nil {
 		log.Warn("user validation failed during create",
 			slog.String("error", err.Error()),
 			slog.String("email", user.Email))
@@ -89,28 +90,8 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) (err 
 	user.HashedPassword = string(hashedPassword)
 	user.Password = "" // Clear plaintext password from memory for security
 
-	// Start a transaction to ensure data consistency
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		log.Error("failed to begin transaction",
-			slog.String("error", err.Error()))
-		return err
-	}
-
-	// Defer a rollback in case anything fails
-	defer func() {
-		// Only attempt rollback if an error occurred and the transaction is still active
-		if err != nil {
-			if rbErr := tx.Rollback(); rbErr != nil {
-				log.Error("failed to rollback transaction",
-					slog.String("rollback_error", rbErr.Error()),
-					slog.String("original_error", err.Error()))
-			}
-		}
-	}()
-
 	// Insert the user into the database
-	_, err = tx.ExecContext(ctx, `
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO users (id, email, hashed_password, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`, user.ID, user.Email, user.HashedPassword, user.CreatedAt, user.UpdatedAt)
@@ -124,14 +105,6 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) (err 
 		}
 		// Log other errors
 		log.Error("failed to insert user",
-			slog.String("error", err.Error()),
-			slog.String("email", user.Email))
-		return err
-	}
-
-	// Commit the transaction
-	if err = tx.Commit(); err != nil {
-		log.Error("failed to commit transaction",
 			slog.String("error", err.Error()),
 			slog.String("email", user.Email))
 		return err
@@ -224,14 +197,14 @@ func (s *PostgresUserStore) GetByEmail(ctx context.Context, email string) (*doma
 // Returns store.ErrUserNotFound if the user does not exist.
 // Returns store.ErrEmailExists if updating to an email that already exists.
 // Returns validation errors from the domain User if data is invalid.
-func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err error) {
+func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error {
 	// Get the logger from context or use default
 	log := logger.FromContext(ctx)
 
 	log.Debug("updating user", slog.String("user_id", user.ID.String()))
 
 	// First, validate the user data
-	if err = user.Validate(); err != nil {
+	if err := user.Validate(); err != nil {
 		log.Warn("user validation failed during update",
 			slog.String("error", err.Error()),
 			slog.String("user_id", user.ID.String()))
@@ -263,7 +236,7 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err 
 	} else {
 		// Only fetch the existing password hash if we don't have a new password or existing hash
 		log.Debug("fetching existing hashed password", slog.String("user_id", user.ID.String()))
-		err = s.db.QueryRowContext(ctx, `
+		err := s.db.QueryRowContext(ctx, `
 			SELECT hashed_password FROM users WHERE id = $1
 		`, user.ID).Scan(&hashedPasswordToStore)
 
@@ -279,30 +252,8 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err 
 		}
 	}
 
-	// Start a transaction for the update
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		log.Error("failed to begin transaction",
-			slog.String("error", err.Error()),
-			slog.String("user_id", user.ID.String()))
-		return err
-	}
-
-	// Defer a rollback in case anything fails
-	defer func() {
-		// Only attempt rollback if an error occurred and the transaction is still active
-		if err != nil {
-			if rbErr := tx.Rollback(); rbErr != nil {
-				log.Error("failed to rollback transaction",
-					slog.String("rollback_error", rbErr.Error()),
-					slog.String("original_error", err.Error()),
-					slog.String("user_id", user.ID.String()))
-			}
-		}
-	}()
-
 	// Execute the update statement
-	result, err := tx.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, `
 		UPDATE users
 		SET email = $1, hashed_password = $2, updated_at = $3
 		WHERE id = $4
@@ -336,14 +287,6 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) (err 
 	if rowsAffected == 0 {
 		log.Debug("user not found for update", slog.String("user_id", user.ID.String()))
 		return store.ErrUserNotFound
-	}
-
-	// Commit the transaction
-	if err = tx.Commit(); err != nil {
-		log.Error("failed to commit transaction",
-			slog.String("error", err.Error()),
-			slog.String("user_id", user.ID.String()))
-		return err
 	}
 
 	log.Info("user updated successfully",

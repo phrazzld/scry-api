@@ -1,13 +1,23 @@
 package testutils
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
+	"testing"
 
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/pressly/goose/v3"
+)
+
+var (
+	// migrationsRunOnce ensures migrations are only run once across all tests
+	migrationsRunOnce sync.Once
 )
 
 // SetupTestDatabaseSchema initializes the database schema using project migrations.
@@ -15,45 +25,87 @@ import (
 // then applies all migrations. This ensures tests run against the canonical schema.
 //
 // This function should typically be called once in TestMain, rather than for each test.
+// It uses sync.Once to ensure migrations are only run once even if called multiple times.
 func SetupTestDatabaseSchema(db *sql.DB) error {
-	// Set the goose dialect
-	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("failed to set goose dialect: %w", err)
-	}
+	var setupErr error
+	migrationsRunOnce.Do(func() {
+		// Set the goose dialect
+		if err := goose.SetDialect("postgres"); err != nil {
+			setupErr = fmt.Errorf("failed to set goose dialect: %w", err)
+			return
+		}
 
-	// Get the project root directory
-	projectRoot, err := findProjectRoot()
+		// Get the project root directory
+		projectRoot, err := findProjectRoot()
+		if err != nil {
+			setupErr = fmt.Errorf("failed to find project root: %w", err)
+			return
+		}
+
+		// Path to migrations directory
+		migrationsDir := filepath.Join(projectRoot, "internal", "platform", "postgres", "migrations")
+
+		// Verify migrations directory exists
+		if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+			setupErr = fmt.Errorf("migrations directory not found at %s: %w", migrationsDir, err)
+			return
+		}
+
+		// Set custom logger for goose to avoid unwanted output during tests
+		goose.SetLogger(&testGooseLogger{})
+
+		// Reset database schema to baseline
+		if err := goose.DownTo(db, migrationsDir, 0); err != nil {
+			setupErr = fmt.Errorf("failed to reset database schema: %w", err)
+			return
+		}
+
+		// Apply all migrations
+		if err := goose.Up(db, migrationsDir); err != nil {
+			setupErr = fmt.Errorf("failed to apply migrations: %w", err)
+			return
+		}
+	})
+
+	return setupErr
+}
+
+// WithTx runs a test function with transaction-based isolation.
+// It creates a new transaction, runs the test function with that transaction,
+// and then rolls back the transaction to ensure test isolation.
+//
+// This enables parallel testing since each test runs in its own transaction
+// and changes are automatically rolled back, preventing interference between tests.
+func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
+	t.Helper()
+
+	// Begin a transaction
+	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
-		return fmt.Errorf("failed to find project root: %w", err)
+		t.Fatalf("Failed to begin transaction: %v", err)
 	}
 
-	// Path to migrations directory
-	migrationsDir := filepath.Join(projectRoot, "internal", "platform", "postgres", "migrations")
+	// Make sure the transaction is rolled back when the test is done
+	defer func() {
+		err := tx.Rollback()
+		// It's okay if the transaction is already committed/rolled back
+		if err != nil && !errors.Is(err, sql.ErrTxDone) {
+			t.Logf("Warning: Failed to rollback transaction: %v", err)
+		}
+	}()
 
-	// Verify migrations directory exists
-	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-		return fmt.Errorf("migrations directory not found at %s: %w", migrationsDir, err)
-	}
-
-	// Set custom logger for goose to avoid unwanted output during tests
-	goose.SetLogger(&testGooseLogger{})
-
-	// Reset database schema to baseline
-	if err := goose.DownTo(db, migrationsDir, 0); err != nil {
-		return fmt.Errorf("failed to reset database schema: %w", err)
-	}
-
-	// Apply all migrations
-	if err := goose.Up(db, migrationsDir); err != nil {
-		return fmt.Errorf("failed to apply migrations: %w", err)
-	}
-
-	return nil
+	// Run the test function with the transaction
+	fn(tx)
 }
 
 // ResetTestData truncates all test tables to ensure test isolation.
-// This should be called before each test to start with a clean slate.
+//
+// NOTE: This function is now deprecated and only provided for backward compatibility.
+// Tests should use WithTx instead to achieve isolation via transactions.
 func ResetTestData(db *sql.DB) error {
+	// With transaction-based isolation, this is no longer needed for new tests.
+	// It's kept for backward compatibility with existing tests.
+	//
 	// Use CASCADE to handle foreign key constraints
 	_, err := db.Exec("TRUNCATE TABLE users CASCADE")
 	if err != nil {
@@ -117,4 +169,3 @@ func (*testGooseLogger) Println(v ...interface{}) {
 func (*testGooseLogger) Printf(format string, v ...interface{}) {
 	// Silence regular prints during tests
 }
-

@@ -11,7 +11,7 @@
   - **Depends On:** None
   - **AC Ref:** Design Principles Issue 2
 
-- [ ] **Remove Redundant Local Dev Test Helpers:** Eliminate helper functions in `local_postgres_test.go` that duplicate existing configuration files.
+- [x] **Remove Redundant Local Dev Test Helpers:** Eliminate helper functions in `local_postgres_test.go` that duplicate existing configuration files.
   - **Action:** Delete the `generateDockerComposeYml` and `generateInitScript` functions from `infrastructure/local_dev/local_postgres_test.go`. Update the tests (e.g., `TestLocalPostgresSetup`) to assume the `docker-compose.yml` and `init-scripts/01-init.sql` files exist in their expected locations relative to the test file.
   - **Depends On:** None
   - **AC Ref:** Design Principles Issue 3

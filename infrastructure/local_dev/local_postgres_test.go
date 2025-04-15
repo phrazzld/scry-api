@@ -2,7 +2,6 @@ package local_dev
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,25 +19,17 @@ func TestLocalPostgresSetup(t *testing.T) {
 	}
 
 	// Find the working directory for docker-compose
-	workDir := filepath.Join("..", "local_dev")
-	if _, err := os.Stat(filepath.Join(workDir, "docker-compose.yml")); os.IsNotExist(err) {
-		// Create the directory if it doesn't exist
-		err := os.MkdirAll(workDir, 0755)
-		if err != nil {
-			t.Fatalf("Failed to create directory: %v", err)
-		}
+	workDir := "."
 
-		// Generate docker-compose file
-		err = generateDockerComposeYml(workDir)
-		if err != nil {
-			t.Fatalf("Failed to generate docker-compose.yml: %v", err)
-		}
+	// Verify required files exist
+	dockerComposeFile := filepath.Join(workDir, "docker-compose.yml")
+	if _, err := os.Stat(dockerComposeFile); os.IsNotExist(err) {
+		t.Fatalf("Required file not found: %s", dockerComposeFile)
+	}
 
-		// Generate init script
-		err = generateInitScript(workDir)
-		if err != nil {
-			t.Fatalf("Failed to generate init script: %v", err)
-		}
+	initScriptFile := filepath.Join(workDir, "init-scripts", "01-init.sql")
+	if _, err := os.Stat(initScriptFile); os.IsNotExist(err) {
+		t.Fatalf("Required file not found: %s", initScriptFile)
 	}
 
 	// Clean up previous container if it exists
@@ -117,59 +108,4 @@ func TestLocalPostgresSetup(t *testing.T) {
 	}
 
 	t.Log("Local PostgreSQL setup verified successfully")
-}
-
-// Helper function to generate docker-compose.yml
-func generateDockerComposeYml(dir string) error {
-	dockerComposeContent := `version: '3.8'
-
-services:
-  postgres:
-    image: pgvector/pgvector:pg15
-    environment:
-      POSTGRES_DB: scry
-      POSTGRES_USER: scryapiuser
-      POSTGRES_PASSWORD: local_development_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
-    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "work_mem=16MB", "-c", "max_connections=50"]
-
-volumes:
-  postgres_data:
-`
-
-	// Create docker-compose.yml
-	err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(dockerComposeContent), 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write docker-compose.yml: %w", err)
-	}
-
-	return nil
-}
-
-// Helper function to generate init script
-func generateInitScript(dir string) error {
-	// Create init-scripts directory
-	initScriptsDir := filepath.Join(dir, "init-scripts")
-	err := os.MkdirAll(initScriptsDir, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create init-scripts directory: %w", err)
-	}
-
-	// Create init script
-	initScriptContent := `-- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- Add any additional setup required for development
-`
-
-	err = os.WriteFile(filepath.Join(initScriptsDir, "01-init.sql"), []byte(initScriptContent), 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write init script: %w", err)
-	}
-
-	return nil
 }

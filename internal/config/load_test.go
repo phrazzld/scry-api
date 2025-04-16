@@ -50,10 +50,11 @@ func TestLoadDefaults(t *testing.T) {
 	// Setup environment with required fields but not the ones with defaults
 	cleanup := setupEnv(t, map[string]string{
 		// Set required fields
-		"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
-		"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
-		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "60", // Add token lifetime
-		"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
+		"SCRY_DATABASE_URL":                        "postgresql://user:pass@localhost:5432/testdb",
+		"SCRY_AUTH_JWT_SECRET":                     "thisisasecretkeythatis32charslong!!",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES":         "60",    // Add token lifetime
+		"SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES": "10080", // Add refresh token lifetime
+		"SCRY_LLM_GEMINI_API_KEY":                  "test-api-key",
 		// Explicitly unset the ones we want to test defaults for
 		"SCRY_SERVER_PORT":      "",
 		"SCRY_SERVER_LOG_LEVEL": "",
@@ -76,13 +77,14 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadFromEnv(t *testing.T) {
 	// Setup environment
 	cleanup := setupEnv(t, map[string]string{
-		"SCRY_SERVER_PORT":                 "9090",
-		"SCRY_SERVER_LOG_LEVEL":            "debug",
-		"SCRY_DATABASE_URL":                "postgresql://user:pass@localhost:5432/testdb",
-		"SCRY_AUTH_JWT_SECRET":             "thisisasecretkeythatis32charslong!!",
-		"SCRY_AUTH_BCRYPT_COST":            "12",
-		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES": "120", // 2 hours
-		"SCRY_LLM_GEMINI_API_KEY":          "test-api-key",
+		"SCRY_SERVER_PORT":                         "9090",
+		"SCRY_SERVER_LOG_LEVEL":                    "debug",
+		"SCRY_DATABASE_URL":                        "postgresql://user:pass@localhost:5432/testdb",
+		"SCRY_AUTH_JWT_SECRET":                     "thisisasecretkeythatis32charslong!!",
+		"SCRY_AUTH_BCRYPT_COST":                    "12",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES":         "120",   // 2 hours
+		"SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES": "20160", // 2 weeks
+		"SCRY_LLM_GEMINI_API_KEY":                  "test-api-key",
 	})
 	defer cleanup()
 
@@ -108,6 +110,12 @@ func TestLoadFromEnv(t *testing.T) {
 	)
 	assert.Equal(t, 12, cfg.Auth.BCryptCost, "Bcrypt cost should be loaded from environment variables")
 	assert.Equal(t, 120, cfg.Auth.TokenLifetimeMinutes, "Token lifetime should be loaded from environment variables")
+	assert.Equal(
+		t,
+		20160,
+		cfg.Auth.RefreshTokenLifetimeMinutes,
+		"Refresh token lifetime should be loaded from environment variables",
+	)
 	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
 }
 

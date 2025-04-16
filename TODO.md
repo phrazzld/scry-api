@@ -122,7 +122,7 @@
     - **Files:** `/internal/api/auth_handler_test.go`
     - **Complexity:** Medium
 
-- [ ] **T049:** Write Integration Tests for Failure Cases
+- [x] **T049:** Write Integration Tests for Failure Cases
     - **Action:** Add integration tests to `/internal/api/auth_handler_test.go` for unsuccessful refresh scenarios: using access token, invalid token, and missing token.
     - **Depends On:** [T042, T043, T044, T045]
     - **Files:** `/internal/api/auth_handler_test.go`

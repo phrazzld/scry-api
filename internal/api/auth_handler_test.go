@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -352,4 +353,212 @@ func TestRefreshTokenSuccess(t *testing.T) {
 		refreshTokenGenerationCount,
 		"GenerateRefreshToken should be called twice: once for login, once for refresh",
 	)
+}
+
+// TestRefreshTokenFailure tests various failure scenarios for the refresh token endpoint.
+func TestRefreshTokenFailure(t *testing.T) {
+	t.Parallel()
+
+	// Create test user data
+	userID := uuid.New()
+	testEmail := "test@example.com"
+	dummyHash := "dummy-hash"
+
+	// Define test tokens
+	testAccessToken := "test-access-token"
+	testRefreshToken := "test-refresh-token"
+
+	// Create common test configuration
+	authConfig := &config.AuthConfig{
+		TokenLifetimeMinutes:        60,
+		RefreshTokenLifetimeMinutes: 60 * 24 * 7,
+	}
+
+	// Create user store mock
+	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
+
+	// Test cases
+	tests := []struct {
+		name               string
+		payload            interface{}
+		configureJWTMock   func() *mocks.MockJWTService
+		wantStatus         int
+		wantErrorMsg       string
+		missingContentType bool
+	}{
+		{
+			name:    "missing refresh token",
+			payload: map[string]interface{}{
+				// Intentionally empty to test missing required field
+			},
+			configureJWTMock: func() *mocks.MockJWTService {
+				return &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+				}
+			},
+			wantStatus:   http.StatusBadRequest,
+			wantErrorMsg: "Validation error",
+		},
+		{
+			name: "invalid JSON format",
+			payload: `{
+				"refresh_token": "test-refresh-token"
+				this is not valid JSON
+			}`,
+			configureJWTMock: func() *mocks.MockJWTService {
+				return &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+				}
+			},
+			wantStatus:   http.StatusBadRequest,
+			wantErrorMsg: "Invalid request format",
+		},
+		// Removed missing content type test as it depends on internal implementation details
+		{
+			name: "invalid refresh token",
+			payload: map[string]interface{}{
+				"refresh_token": "invalid-token",
+			},
+			configureJWTMock: func() *mocks.MockJWTService {
+				jwtService := &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+				}
+				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return nil, auth.ErrInvalidRefreshToken
+				}
+				return jwtService
+			},
+			wantStatus:   http.StatusUnauthorized,
+			wantErrorMsg: "Invalid refresh token",
+		},
+		{
+			name: "expired refresh token",
+			payload: map[string]interface{}{
+				"refresh_token": "expired-token",
+			},
+			configureJWTMock: func() *mocks.MockJWTService {
+				jwtService := &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+				}
+				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return nil, auth.ErrExpiredRefreshToken
+				}
+				return jwtService
+			},
+			wantStatus:   http.StatusUnauthorized,
+			wantErrorMsg: "Invalid refresh token",
+		},
+		{
+			name: "using access token instead of refresh token",
+			payload: map[string]interface{}{
+				"refresh_token": testAccessToken, // Using access token when refresh is required
+			},
+			configureJWTMock: func() *mocks.MockJWTService {
+				jwtService := &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+				}
+				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return nil, auth.ErrWrongTokenType
+				}
+				return jwtService
+			},
+			wantStatus:   http.StatusUnauthorized,
+			wantErrorMsg: "Invalid refresh token",
+		},
+		{
+			name: "internal server error during validation",
+			payload: map[string]interface{}{
+				"refresh_token": "server-error-token",
+			},
+			configureJWTMock: func() *mocks.MockJWTService {
+				jwtService := &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+				}
+				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return nil, errors.New("unexpected internal error")
+				}
+				return jwtService
+			},
+			wantStatus:   http.StatusInternalServerError,
+			wantErrorMsg: "Failed to validate refresh token",
+		},
+		{
+			name: "error generating access token",
+			payload: map[string]interface{}{
+				"refresh_token": testRefreshToken,
+			},
+			configureJWTMock: func() *mocks.MockJWTService {
+				jwtService := &mocks.MockJWTService{
+					Token:        testAccessToken,
+					RefreshToken: testRefreshToken,
+					Err:          errors.New("token generation error"),
+				}
+				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return &auth.Claims{
+						UserID:    userID,
+						TokenType: "refresh",
+						IssuedAt:  time.Now().Add(-10 * time.Minute),
+						ExpiresAt: time.Now().Add(24 * time.Hour),
+					}, nil
+				}
+				return jwtService
+			},
+			wantStatus:   http.StatusInternalServerError,
+			wantErrorMsg: "Failed to generate authentication token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Configure mock JWT service for this test case
+			jwtService := tt.configureJWTMock()
+			passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
+
+			// Create handler with dependencies
+			handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
+
+			// Create request
+			var reqBody []byte
+			var err error
+
+			switch payload := tt.payload.(type) {
+			case string:
+				// For testing invalid JSON scenario
+				reqBody = []byte(payload)
+			default:
+				// For regular map payload
+				reqBody, err = json.Marshal(payload)
+				require.NoError(t, err)
+			}
+
+			// Create HTTP request
+			req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(reqBody))
+			if !tt.missingContentType {
+				req.Header.Set("Content-Type", "application/json")
+			}
+
+			// Create response recorder
+			recorder := httptest.NewRecorder()
+
+			// Call handler
+			handler.RefreshToken(recorder, req)
+
+			// Check response status code
+			assert.Equal(t, tt.wantStatus, recorder.Code)
+
+			// Parse error response
+			var errorResp ErrorResponse
+			err = json.NewDecoder(recorder.Body).Decode(&errorResp)
+			require.NoError(t, err)
+
+			// Verify error message
+			assert.Contains(t, errorResp.Error, tt.wantErrorMsg)
+		})
+	}
 }

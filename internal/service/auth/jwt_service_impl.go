@@ -33,8 +33,9 @@ var _ JWTService = (*hmacJWTService)(nil)
 
 // NewJWTService creates a new JWT service using HMAC-SHA signing.
 func NewJWTService(cfg config.AuthConfig) (JWTService, error) {
-	// Convert token lifetime from minutes to duration
-	lifetime := time.Duration(cfg.TokenLifetimeMinutes) * time.Minute
+	// Convert token lifetimes from minutes to duration
+	accessTokenLifetime := time.Duration(cfg.TokenLifetimeMinutes) * time.Minute
+	refreshTokenLifetime := time.Duration(cfg.RefreshTokenLifetimeMinutes) * time.Minute
 
 	// Validate that the secret meets minimum length requirements
 	if len(cfg.JWTSecret) < 32 {
@@ -42,10 +43,11 @@ func NewJWTService(cfg config.AuthConfig) (JWTService, error) {
 	}
 
 	return &hmacJWTService{
-		signingKey:    []byte(cfg.JWTSecret),
-		tokenLifetime: lifetime,
-		timeFunc:      time.Now,
-		clockSkew:     2 * time.Minute, // Allow 2 minutes of clock skew to handle minor time drifts
+		signingKey:           []byte(cfg.JWTSecret),
+		tokenLifetime:        accessTokenLifetime,
+		refreshTokenLifetime: refreshTokenLifetime,
+		timeFunc:             time.Now,
+		clockSkew:            2 * time.Minute, // Allow 2 minutes of clock skew to handle minor time drifts
 	}, nil
 }
 

@@ -32,7 +32,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** Low
 
-- [ ] **T034:** Update NewJWTService Constructor
+- [x] **T034:** Update NewJWTService Constructor
     - **Action:** Modify the `NewJWTService` function in `/internal/service/auth/jwt_service_impl.go` to calculate both token lifetimes from config and store them in the struct.
     - **Depends On:** [T029, T033]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

@@ -7,7 +7,7 @@
   - **Files:** `internal/api/refresh_token_test.go`, `internal/api/auth_handler_test.go`
   - **Complexity:** Low
 
-- [ ] **T051:** Extract Token Generation Logic
+- [x] **T051:** Extract Token Generation Logic
   - **Action:** Refactor the duplicated token generation code in `Register` and `Login` handlers into a private helper method.
   - **Files:** `internal/api/auth_handler.go`
   - **Complexity:** Low

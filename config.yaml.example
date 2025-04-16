@@ -31,10 +31,15 @@ auth:
   # NOTE: Values above 14 may cause significant performance impact
   bcrypt_cost: 10
 
-  # Token lifetime in minutes (default: 60)
-  # Determines how long JWT tokens are valid before expiring
+  # Access token lifetime in minutes (default: 60)
+  # Determines how long JWT access tokens are valid before expiring
   # Shorter lifetimes are more secure but require more frequent re-authentication
   token_lifetime_minutes: 60
+
+  # Refresh token lifetime in minutes (default: 10080)
+  # Determines how long JWT refresh tokens are valid before expiring
+  # Refresh tokens typically have a longer lifetime than access tokens (e.g., 7 days)
+  refresh_token_lifetime_minutes: 10080
 
 # LLM settings
 llm:
@@ -45,10 +50,10 @@ llm:
 task:
   # Number of worker goroutines for processing background tasks (default: 2)
   worker_count: 2
-  
+
   # Size of the in-memory task queue buffer (default: 100)
   queue_size: 100
-  
+
   # Age in minutes after which a task in "processing" state is considered stuck (default: 30)
   # Stuck tasks will be reset to "pending" state and reprocessed
   stuck_task_age_minutes: 30

@@ -42,11 +42,12 @@ func Load() (*Config, error) {
 	// These defaults are used if the setting is not found in any other source
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.log_level", "info")
-	v.SetDefault("auth.bcrypt_cost", 10)            // Default bcrypt cost (same as bcrypt.DefaultCost)
-	v.SetDefault("auth.token_lifetime_minutes", 60) // Default token lifetime (1 hour)
-	v.SetDefault("task.worker_count", 2)            // Default worker count
-	v.SetDefault("task.queue_size", 100)            // Default queue size
-	v.SetDefault("task.stuck_task_age_minutes", 30) // Default stuck task age (30 minutes)
+	v.SetDefault("auth.bcrypt_cost", 10)                       // Default bcrypt cost (same as bcrypt.DefaultCost)
+	v.SetDefault("auth.token_lifetime_minutes", 60)            // Default access token lifetime (1 hour)
+	v.SetDefault("auth.refresh_token_lifetime_minutes", 10080) // Default refresh token lifetime (7 days)
+	v.SetDefault("task.worker_count", 2)                       // Default worker count
+	v.SetDefault("task.queue_size", 100)                       // Default queue size
+	v.SetDefault("task.stuck_task_age_minutes", 30)            // Default stuck task age (30 minutes)
 
 	// --- Configure config file (optional, for local dev) ---
 	// Looks for config.yaml in the working directory
@@ -83,6 +84,7 @@ func Load() (*Config, error) {
 		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET"},
 		{"auth.bcrypt_cost", "SCRY_AUTH_BCRYPT_COST"},
 		{"auth.token_lifetime_minutes", "SCRY_AUTH_TOKEN_LIFETIME_MINUTES"},
+		{"auth.refresh_token_lifetime_minutes", "SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES"},
 		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
 		{"server.port", "SCRY_SERVER_PORT"},
 		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},

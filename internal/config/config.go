@@ -67,10 +67,15 @@ type AuthConfig struct {
 	// Values above 14 may cause significant performance impact.
 	BCryptCost int `mapstructure:"bcrypt_cost" validate:"omitempty,gte=4,lte=31"`
 
-	// TokenLifetimeMinutes defines how long a JWT token is valid before expiring.
+	// TokenLifetimeMinutes defines how long a JWT access token is valid before expiring.
 	// Shorter lifetimes are more secure but may affect user experience.
 	// Default is 60 minutes (1 hour) if not specified.
 	TokenLifetimeMinutes int `mapstructure:"token_lifetime_minutes" validate:"required,gt=0,lt=44640"` // max 31 days
+
+	// RefreshTokenLifetimeMinutes defines how long a JWT refresh token is valid before expiring.
+	// Refresh tokens typically have a longer lifetime than access tokens.
+	// Default is 10080 minutes (7 days) if not specified.
+	RefreshTokenLifetimeMinutes int `mapstructure:"refresh_token_lifetime_minutes" validate:"required,gt=0,lt=44640"` // max 31 days
 }
 
 // LLMConfig defines settings for Language Model integration.

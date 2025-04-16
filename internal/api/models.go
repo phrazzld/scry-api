@@ -25,9 +25,36 @@ type LoginRequest struct {
 
 // AuthResponse defines the successful response for authentication endpoints.
 type AuthResponse struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Token     string    `json:"token"`
-	ExpiresAt string    `json:"expires_at,omitempty"`
+	// UserID is the unique identifier for the authenticated user
+	UserID uuid.UUID `json:"user_id"`
+
+	// AccessToken is the JWT token used for API authorization
+	// Field renamed from Token for clarity but JSON field name kept for backward compatibility
+	AccessToken string `json:"token"`
+
+	// RefreshToken is the JWT token used to obtain new access tokens
+	RefreshToken string `json:"refresh_token,omitempty"`
+
+	// ExpiresAt is the ISO 8601 timestamp when the access token expires
+	ExpiresAt string `json:"expires_at,omitempty"`
+}
+
+// RefreshTokenRequest defines the payload for the token refresh endpoint.
+type RefreshTokenRequest struct {
+	// RefreshToken is the JWT refresh token to be used to obtain a new token pair
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+// RefreshTokenResponse defines the successful response for the token refresh endpoint.
+type RefreshTokenResponse struct {
+	// AccessToken is the new JWT token used for API authorization
+	AccessToken string `json:"access_token"`
+
+	// RefreshToken is the new JWT token used to obtain future access tokens
+	RefreshToken string `json:"refresh_token"`
+
+	// ExpiresAt is the ISO 8601 timestamp when the access token expires
+	ExpiresAt string `json:"expires_at"`
 }
 
 // ErrorResponse defines the standard error response structure.

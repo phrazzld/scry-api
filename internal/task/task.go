@@ -36,6 +36,24 @@ type Task interface {
 	Execute(ctx context.Context) error
 }
 
+// TaskQueueReader provides read-only access to the task channel
+// allowing workers to consume tasks without the ability to enqueue
+type TaskQueueReader interface {
+	// GetChannel returns a read-only channel for consuming tasks
+	GetChannel() <-chan Task
+}
+
+// TaskQueueWriter provides write access to the task queue
+// allowing services to enqueue tasks for processing
+type TaskQueueWriter interface {
+	// Enqueue adds a task to the queue for processing
+	// Returns an error if the queue is full or closed
+	Enqueue(task Task) error
+
+	// Close closes the task queue, preventing further task submission
+	Close()
+}
+
 // TaskStore defines the interface for persisting tasks
 type TaskStore interface {
 	// SaveTask persists a task to the database

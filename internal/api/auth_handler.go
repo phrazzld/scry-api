@@ -11,6 +11,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -99,32 +100,32 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 
 	// Parse request
-	if err := DecodeJSON(r, &req); err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+	if err := shared.DecodeJSON(r, &req); err != nil {
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
 	// Validate request
 	if err := h.validator.Struct(req); err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
 		return
 	}
 
 	// Create user
 	user, err := domain.NewUser(req.Email, req.Password)
 	if err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Invalid user data: "+err.Error())
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid user data: "+err.Error())
 		return
 	}
 
 	// Store user
 	if err := h.userStore.Create(r.Context(), user); err != nil {
 		if errors.Is(err, store.ErrEmailExists) {
-			RespondWithError(w, r, http.StatusConflict, "Email already exists")
+			shared.RespondWithError(w, r, http.StatusConflict, "Email already exists")
 			return
 		}
 		slog.Error("failed to create user", "error", err, "email", req.Email)
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to create user")
+		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to create user")
 		return
 	}
 
@@ -134,12 +135,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		slog.Error("token generation failed during registration",
 			"error", err,
 			"user_id", user.ID)
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
+		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
 		return
 	}
 
 	// Return success response with both tokens and expiration time
-	RespondWithJSON(w, r, http.StatusCreated, AuthResponse{
+	shared.RespondWithJSON(w, r, http.StatusCreated, AuthResponse{
 		UserID:       user.ID,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -153,14 +154,14 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshTokenRequest
 
 	// Parse request
-	if err := DecodeJSON(r, &req); err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+	if err := shared.DecodeJSON(r, &req); err != nil {
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
 	// Validate request
 	if err := h.validator.Struct(req); err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
 		return
 	}
 
@@ -173,10 +174,10 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 			errors.Is(err, auth.ErrExpiredRefreshToken),
 			errors.Is(err, auth.ErrWrongTokenType):
 			slog.Debug("refresh token validation failed", "error", err)
-			RespondWithError(w, r, http.StatusUnauthorized, "Invalid refresh token")
+			shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid refresh token")
 		default:
 			slog.Error("unexpected error validating refresh token", "error", err)
-			RespondWithError(w, r, http.StatusInternalServerError, "Failed to validate refresh token")
+			shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to validate refresh token")
 		}
 		return
 	}
@@ -195,12 +196,12 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		slog.Error("token generation failed during refresh token operation",
 			"error", err,
 			"user_id", userID)
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate new authentication tokens")
+		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate new authentication tokens")
 		return
 	}
 
 	// Return success response with new tokens and expiration time
-	RespondWithJSON(w, r, http.StatusOK, RefreshTokenResponse{
+	shared.RespondWithJSON(w, r, http.StatusOK, RefreshTokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
@@ -212,14 +213,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	// Parse request
-	if err := DecodeJSON(r, &req); err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+	if err := shared.DecodeJSON(r, &req); err != nil {
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
 	// Validate request
 	if err := h.validator.Struct(req); err != nil {
-		RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
 		return
 	}
 
@@ -227,17 +228,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userStore.GetByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, store.ErrUserNotFound) {
-			RespondWithError(w, r, http.StatusUnauthorized, "Invalid credentials")
+			shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid credentials")
 			return
 		}
 		slog.Error("failed to get user by email", "error", err, "email", req.Email)
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to authenticate user")
+		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to authenticate user")
 		return
 	}
 
 	// Verify password using the injected verifier
 	if err := h.passwordVerifier.Compare(user.HashedPassword, req.Password); err != nil {
-		RespondWithError(w, r, http.StatusUnauthorized, "Invalid credentials")
+		shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
@@ -247,12 +248,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		slog.Error("token generation failed during login",
 			"error", err,
 			"user_id", user.ID)
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
+		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
 		return
 	}
 
 	// Return success response with both tokens and expiration time
-	RespondWithJSON(w, r, http.StatusOK, AuthResponse{
+	shared.RespondWithJSON(w, r, http.StatusOK, AuthResponse{
 		UserID:       user.ID,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,

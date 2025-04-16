@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -738,7 +739,7 @@ func TestRefreshTokenFailure(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, recorder.Code)
 
 			// Parse error response
-			var errorResp ErrorResponse
+			var errorResp shared.ErrorResponse
 			err = json.NewDecoder(recorder.Body).Decode(&errorResp)
 			require.NoError(t, err)
 

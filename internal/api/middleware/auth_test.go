@@ -7,11 +7,15 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Use the shared context key for testing
+var UserIDKey = shared.UserIDContextKey
 
 func TestAuthMiddleware_Authenticate(t *testing.T) {
 	t.Parallel()

@@ -7,15 +7,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/phrazzld/scry-api/internal/api"
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 )
-
-// Key type for context values
-type contextKey string
-
-// UserIDKey is the context key for the user ID
-const UserIDKey contextKey = "userID"
 
 // AuthMiddleware provides JWT authentication for routes.
 type AuthMiddleware struct {
@@ -36,14 +30,14 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		// Extract token from Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			api.RespondWithError(w, r, http.StatusUnauthorized, "Authorization header required")
+			shared.RespondWithError(w, r, http.StatusUnauthorized, "Authorization header required")
 			return
 		}
 
 		// Check Bearer prefix
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			api.RespondWithError(w, r, http.StatusUnauthorized, "Invalid authorization format")
+			shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid authorization format")
 			return
 		}
 
@@ -54,18 +48,18 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		if err != nil {
 			switch err {
 			case auth.ErrExpiredToken:
-				api.RespondWithError(w, r, http.StatusUnauthorized, "Token expired")
+				shared.RespondWithError(w, r, http.StatusUnauthorized, "Token expired")
 			case auth.ErrInvalidToken:
-				api.RespondWithError(w, r, http.StatusUnauthorized, "Invalid token")
+				shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid token")
 			default:
 				slog.Error("failed to validate token", "error", err)
-				api.RespondWithError(w, r, http.StatusInternalServerError, "Authentication error")
+				shared.RespondWithError(w, r, http.StatusInternalServerError, "Authentication error")
 			}
 			return
 		}
 
 		// Add user ID to context
-		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+		ctx := context.WithValue(r.Context(), shared.UserIDContextKey, claims.UserID)
 
 		// Continue with the authenticated request
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -75,6 +69,6 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 // GetUserID extracts the user ID from the request context.
 // Returns the user ID and a boolean indicating if it was found.
 func GetUserID(r *http.Request) (uuid.UUID, bool) {
-	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
+	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	return userID, ok
 }

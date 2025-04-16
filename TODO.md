@@ -122,10 +122,11 @@
   - **Complexity:** Low
   - **Note:** Implemented in `cmd/server/main.go` with a deferred call to `taskRunner.Stop()` in the `startServer` function (line 271). This ensures that when the server receives a shutdown signal, the task runner is properly stopped, allowing in-progress tasks to complete before the application exits. The TaskRunner.Stop() method itself is implemented in `internal/task/runner.go` to handle proper cancellation and wait for all workers to finish.
 
-- [ ] **T114:** Integrate with memo creation endpoint
+- [x] **T114:** Integrate with memo creation endpoint
   - **Action:** Update the memo creation endpoint to save memos with 'pending' status and enqueue generation tasks instead of processing synchronously.
   - **Depends On:** [T107, T112]
   - **Complexity:** Medium
+  - **Note:** Implemented using a service layer architecture to separate concerns. Created `MemoService` interface in `internal/service/memo_service.go` to orchestrate memo creation and task submission. Created `MemoHandler` in `internal/api/memo_handler.go` to handle HTTP requests, and `MemoGenerationTaskFactory` in `internal/task/memo_generation_task_factory.go` to create memo generation tasks. Added appropriate tests and wired up dependencies in `cmd/server/main.go`.
 
 - [x] **T115:** Add stuck task monitoring
   - **Action:** Implement a background process to identify tasks stuck in 'processing' state for too long and retry them.
@@ -157,10 +158,11 @@
   - **Complexity:** Medium
   - **Note:** Extensive tests implemented in `internal/task/memo_generation_task_test.go` covering constructor validation, payload serialization, and the Execute method with various scenarios including success path, error handling for each step of the process, context cancellation, and edge cases.
 
-- [ ] **T120:** Create integration tests for task lifecycle
+- [x] **T120:** Create integration tests for task lifecycle
   - **Action:** Create end-to-end tests for task submission, processing, and completion.
   - **Depends On:** [T114]
   - **Complexity:** High
+  - **Note:** Implemented comprehensive integration tests in `cmd/server/main_task_lifecycle_test.go` that verify the full task lifecycle from API submission to worker execution. Includes tests for both success and failure paths, verifying state transitions and database consistency.
 
 - [ ] **T121:** Create integration tests for recovery mechanism
   - **Action:** Test the system's ability to recover 'processing' tasks after restart.

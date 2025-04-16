@@ -69,7 +69,30 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 	// Get the logger from context or use default
 	log := logger.FromContext(ctx)
 
-	// First, validate the user data
+	// Validate password format if a plaintext password is provided
+	if user.Password != "" {
+		if err := domain.ValidatePassword(user.Password); err != nil {
+			log.Warn("password validation failed during user create",
+				slog.String("error", err.Error()),
+				slog.String("email", user.Email))
+			return err
+		}
+
+		// Hash the password using bcrypt with the configured cost
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.bcryptCost)
+		if err != nil {
+			log.Error("failed to hash password",
+				slog.String("error", err.Error()),
+				slog.Int("bcrypt_cost", s.bcryptCost))
+			return err
+		}
+
+		// Store the hashed password and clear the plaintext password from memory
+		user.HashedPassword = string(hashedPassword)
+		user.Password = "" // Clear plaintext password from memory for security
+	}
+
+	// Validate user data for persistence
 	if err := user.Validate(); err != nil {
 		log.Warn("user validation failed during create",
 			slog.String("error", err.Error()),
@@ -77,21 +100,8 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 		return err
 	}
 
-	// Hash the password using bcrypt with the configured cost
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.bcryptCost)
-	if err != nil {
-		log.Error("failed to hash password",
-			slog.String("error", err.Error()),
-			slog.Int("bcrypt_cost", s.bcryptCost))
-		return err
-	}
-
-	// Store the hashed password and clear the plaintext password from memory
-	user.HashedPassword = string(hashedPassword)
-	user.Password = "" // Clear plaintext password from memory for security
-
 	// Insert the user into the database
-	_, err = s.db.ExecContext(ctx, `
+	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO users (id, email, hashed_password, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`, user.ID, user.Email, user.HashedPassword, user.CreatedAt, user.UpdatedAt)
@@ -203,14 +213,6 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 
 	log.Debug("updating user", slog.String("user_id", user.ID.String()))
 
-	// First, validate the user data
-	if err := user.Validate(); err != nil {
-		log.Warn("user validation failed during update",
-			slog.String("error", err.Error()),
-			slog.String("user_id", user.ID.String()))
-		return err
-	}
-
 	// Update the timestamp
 	user.UpdatedAt = time.Now().UTC()
 
@@ -218,7 +220,15 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 	var hashedPasswordToStore string
 
 	if user.Password != "" {
-		// Hash the new password if provided
+		// Validate the new password format
+		if err := domain.ValidatePassword(user.Password); err != nil {
+			log.Warn("password validation failed during user update",
+				slog.String("error", err.Error()),
+				slog.String("user_id", user.ID.String()))
+			return err
+		}
+
+		// Hash the new password
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.bcryptCost)
 		if err != nil {
 			log.Error("failed to hash password",
@@ -229,6 +239,7 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 		}
 		hashedPasswordToStore = string(hashedPassword)
 		user.Password = "" // Clear plaintext password for security
+		user.HashedPassword = hashedPasswordToStore
 	} else if user.HashedPassword != "" {
 		// If no new password is provided but user already has a hashed password, use that
 		hashedPasswordToStore = user.HashedPassword
@@ -250,6 +261,16 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 				slog.String("user_id", user.ID.String()))
 			return err
 		}
+		// Store the fetched hashed password in the user object
+		user.HashedPassword = hashedPasswordToStore
+	}
+
+	// Validate the user for persistence after any modifications
+	if err := user.Validate(); err != nil {
+		log.Warn("user validation failed during update",
+			slog.String("error", err.Error()),
+			slog.String("user_id", user.ID.String()))
+		return err
 	}
 
 	// Execute the update statement

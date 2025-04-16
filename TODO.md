@@ -54,10 +54,11 @@
     - **AC Ref:** PLAN.md Section 3
     - **Note:** Modified `NewUser` to validate password format using the `ValidatePassword` function before creating the user object. This improves separation of concerns by handling input validation before persistence validation.
 
-- [ ] **T010:** Update PostgresUserStore.Create for correct password handling
+- [x] **T010:** Update PostgresUserStore.Create for correct password handling
     - **Action:** Review and update the `Create` method in `internal/platform/postgres/user_store.go`. Ensure it correctly hashes the `Password` field from the input `User` struct, stores it in the `HashedPassword` field, and clears the `Password` field before saving to the database. Ensure it calls the refactored `User.Validate` (from T008) before hashing and saving.
     - **Depends On:** [T008, T009]
     - **AC Ref:** PLAN.md Section 3
+    - **Note:** Updated both `Create` and `Update` methods to explicitly validate password format using `domain.ValidatePassword()` before hashing. Moved the persistence validation (`User.Validate()`) to occur after password hashing to ensure the user object is in the correct state for validation.
 
 ## 4. Address Unused AuthResponse Field (Low Risk)
 - [ ] **T011:** Update AuthHandler.Register to populate ExpiresAt

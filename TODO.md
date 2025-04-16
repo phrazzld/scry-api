@@ -30,10 +30,11 @@
   - **Files:** `internal/api/auth_handler_test.go`
   - **Complexity:** Medium
 
-- [ ] **T055:** Improve Configuration Documentation
+- [x] **T055:** Improve Configuration Documentation
   - **Action:** Add comments explaining the relationship between access and refresh token lifetimes in the configuration.
   - **Files:** `config.yaml.example`
   - **Complexity:** Low
+  - **Note:** Added comprehensive documentation to the config.yaml.example file that explains the relationship between access and refresh tokens, their security implications, and recommended values. Created a new 'ACCESS AND REFRESH TOKEN CONFIGURATION' section with detailed explanations of the dual-token approach, security considerations, and practical guidance on token lifetime settings.
 
 ## Asynchronous Task Runner Setup
 

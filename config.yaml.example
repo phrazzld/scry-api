@@ -31,14 +31,29 @@ auth:
   # NOTE: Values above 14 may cause significant performance impact
   bcrypt_cost: 10
 
+  # ACCESS AND REFRESH TOKEN CONFIGURATION
+  # The authentication system uses a dual-token approach:
+  # 1. Short-lived access tokens for API authorization
+  # 2. Longer-lived refresh tokens for obtaining new access tokens without re-authentication
+  #
+  # SECURITY CONSIDERATIONS:
+  # - Access tokens should have short lifetimes to minimize the risk if tokens are compromised
+  # - Refresh tokens have longer lifetimes but are only used for a single purpose
+  # - RefreshTokenLifetime should ALWAYS be longer than TokenLifetime (typically 5-10x longer)
+  # - Very long refresh token lifetimes increase security risks (max recommended: 2 weeks)
+
   # Access token lifetime in minutes (default: 60)
-  # Determines how long JWT access tokens are valid before expiring
-  # Shorter lifetimes are more secure but require more frequent re-authentication
+  # - These tokens are used for API authorization
+  # - Presented with every API request in the Authorization header
+  # - Shorter lifetimes (15-60 minutes) are more secure but require more frequent token refreshes
+  # - Longer lifetimes (2-24 hours) improve user experience but increase security risk
   token_lifetime_minutes: 60
 
-  # Refresh token lifetime in minutes (default: 10080)
-  # Determines how long JWT refresh tokens are valid before expiring
-  # Refresh tokens typically have a longer lifetime than access tokens (e.g., 7 days)
+  # Refresh token lifetime in minutes (default: 10080 = 7 days)
+  # - These tokens are used only to obtain new access/refresh token pairs
+  # - Should be stored securely (HTTP-only, secure cookies, or encrypted storage)
+  # - Recommended values: 1-14 days (1440-20160 minutes)
+  # - Current setting: 7 days (10080 minutes) balances security and convenience
   refresh_token_lifetime_minutes: 10080
 
 # LLM settings

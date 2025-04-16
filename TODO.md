@@ -48,10 +48,11 @@
     - **AC Ref:** PLAN.md Section 3
     - **Note:** Modified the `Validate` method to focus only on persistence-relevant validations. Updated tests to reflect the new validation logic. The plaintext password length check is now handled entirely by the `ValidatePassword` function.
 
-- [ ] **T009:** Update NewUser to use ValidatePassword
+- [x] **T009:** Update NewUser to use ValidatePassword
     - **Action:** Modify the `NewUser` function in `internal/domain/user.go`. Call the new `ValidatePassword` function (from T007) on the input password. Return an error immediately if validation fails. Remove any password validation logic previously within `NewUser`.
     - **Depends On:** [T007]
     - **AC Ref:** PLAN.md Section 3
+    - **Note:** Modified `NewUser` to validate password format using the `ValidatePassword` function before creating the user object. This improves separation of concerns by handling input validation before persistence validation.
 
 - [ ] **T010:** Update PostgresUserStore.Create for correct password handling
     - **Action:** Review and update the `Create` method in `internal/platform/postgres/user_store.go`. Ensure it correctly hashes the `Password` field from the input `User` struct, stores it in the `HashedPassword` field, and clears the `Password` field before saving to the database. Ensure it calls the refactored `User.Validate` (from T008) before hashing and saving.

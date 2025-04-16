@@ -36,6 +36,11 @@ type User struct {
 // NOTE: This function only sets up the user structure with the plaintext password.
 // The caller is responsible for hashing the password before storing the user.
 func NewUser(email, password string) (*User, error) {
+	// Validate password format first, before creating the user
+	if err := ValidatePassword(password); err != nil {
+		return nil, err
+	}
+
 	user := &User{
 		ID:        uuid.New(),
 		Email:     email,
@@ -44,6 +49,7 @@ func NewUser(email, password string) (*User, error) {
 		UpdatedAt: time.Now().UTC(),
 	}
 
+	// Check other validation rules (ID, email, etc.)
 	if err := user.Validate(); err != nil {
 		return nil, err
 	}

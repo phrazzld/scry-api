@@ -142,6 +142,20 @@ func validateEmailFormat(email string) bool {
 	return true
 }
 
+// ValidatePassword validates the plaintext password format
+// This should be called before setting the password field or creating a user
+// Returns specific errors based on validation failures.
+func ValidatePassword(password string) error {
+	passLen := len(password)
+	if passLen < 12 {
+		return ErrPasswordTooShort
+	}
+	if passLen > 72 {
+		return ErrPasswordTooLong
+	}
+	return nil
+}
+
 // validatePasswordComplexity checks if a password meets our security requirements
 // based on length rather than character class composition.
 //

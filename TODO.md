@@ -74,7 +74,7 @@
     - **Files:** `/internal/api/models.go`
     - **Complexity:** Low
 
-- [ ] **T041:** Add Refresh Token Request/Response Models
+- [x] **T041:** Add Refresh Token Request/Response Models
     - **Action:** Add new structs to `/internal/api/models.go`: `RefreshTokenRequest` with a refresh token field and `RefreshTokenResponse` with access token, refresh token, and expiry fields.
     - **Depends On:** None
     - **Files:** `/internal/api/models.go`

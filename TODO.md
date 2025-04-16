@@ -172,7 +172,7 @@
     - **Note:** This task has been completed as part of the implementation of task T023. The `middleware/auth_test.go` file is already importing the centralized mocks package (`github.com/phrazzld/scry-api/internal/mocks`) and using the centralized `MockJWTService` implementation. The local mock definition was removed and the tests are working correctly with the centralized implementation.
 
 ## 7. Improve Email Validation (Low Risk)
-- [ ] **T028:** Add TODO comment to validateEmailFormat
+- [x] **T028:** Add TODO comment to validateEmailFormat
     - **Action:** Add the following comment above the `validateEmailFormat` function in `internal/domain/user.go`:
       ```go
       // validateEmailFormat performs basic validation of email format.
@@ -183,6 +183,7 @@
       ```
     - **Depends On:** None
     - **AC Ref:** PLAN.md Section 7
+    - **Note:** This task is already completed. The `validateEmailFormat` function already has a comprehensive TODO comment (lines 87-99) that covers the concerns mentioned in the task and provides additional context about the current limitations and future improvements. The existing comment is more detailed than the one specified in the task and includes references to the RFC standards mentioned.
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
 - [ ] **Issue/Assumption:** Acceptance Criteria References

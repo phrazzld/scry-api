@@ -159,10 +159,11 @@
     - **AC Ref:** PLAN.md Section 5
     - **Note:** Created `internal/mocks/password_verifier.go` with a centralized `MockPasswordVerifier` implementation that replaces the inline mock in `auth_handler_test.go`. Enhanced the implementation with function fields (CompareFn) for more flexible test behavior customization while maintaining backward compatibility. Added tracking fields (CompareCalledWith, CompareCallCount) for easier test verification. Updated all test files to use the centralized mock and cleaned up unused imports.
 
-- [ ] **T026:** Update auth_handler_test.go to use centralized mocks
+- [x] **T026:** Update auth_handler_test.go to use centralized mocks
     - **Action:** Modify `internal/api/auth_handler_test.go`. Remove the local mock definitions. Update the import statements to use `github.com/phrazzld/scry-api/internal/mocks`. Ensure tests still instantiate and use the mocks correctly from the new package.
     - **Depends On:** [T023, T024, T025]
     - **AC Ref:** PLAN.md Section 5
+    - **Note:** This task has been completed as part of the implementations of tasks T023, T024, and T025. All mock definitions have been removed from `auth_handler_test.go` and replaced with imports and usages of centralized mocks from the `mocks` package. Tests are working correctly with the centralized implementations.
 
 - [ ] **T027:** Update middleware/auth_test.go to use centralized mocks
     - **Action:** Modify `internal/api/middleware/auth_test.go`. Remove the local mock definition for `MockJWTService`. Update the import statements to use `github.com/phrazzld/scry-api/internal/mocks`. Ensure tests still instantiate and use the `MockJWTService` correctly from the new package.

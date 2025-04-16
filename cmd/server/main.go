@@ -38,6 +38,28 @@ import (
 // This is a relative path from the project root
 const migrationsDir = "internal/platform/postgres/migrations"
 
+// appDependencies holds all the shared application dependencies
+// to simplify passing them around between functions.
+type appDependencies struct { //nolint:unused // Will be used in subsequent tasks
+	// Configuration
+	Config *config.Config
+
+	// Core services
+	Logger *slog.Logger
+	DB     *sql.DB
+
+	// Stores
+	UserStore *postgres.PostgresUserStore
+	TaskStore *postgres.PostgresTaskStore
+
+	// Services
+	JWTService       auth.JWTService
+	PasswordVerifier auth.PasswordVerifier
+
+	// Task handling
+	TaskRunner *task.TaskRunner
+}
+
 // main is the entry point for the scry-api server.
 // It will be responsible for initializing configuration, setting up logging,
 // establishing database connections, injecting dependencies, and starting the

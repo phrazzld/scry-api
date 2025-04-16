@@ -74,10 +74,11 @@
     - **Note:** Updated `Login` method to calculate token expiration time based on `authConfig.TokenLifetimeMinutes` and included it in the response using RFC3339 format, consistent with the `Register` method's implementation.
 
 ## 5. Improve Server Initialization Structure (Low Risk)
-- [ ] **T013:** Create appDependencies struct
+- [x] **T013:** Create appDependencies struct
     - **Action:** Define a new struct `appDependencies` in `cmd/server/main.go` to hold shared application dependencies like Config, Logger, DB, UserStore, JWTService, etc.
     - **Depends On:** None
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `appDependencies` struct with fields for all shared dependencies identified in the codebase. The struct is currently unused (which is expected) but will be used in subsequent tasks to simplify dependency management.
 
 - [ ] **T014:** Extract loadConfig function
     - **Action:** Create a new function `loadConfig() (*config.Config, error)` in `cmd/server/main.go`. Move the configuration loading logic (using `config.Load()`) from `initializeApp` into this new function.

@@ -12,7 +12,8 @@ var (
 	ErrEmptyUserID         = errors.New("user ID cannot be empty")
 	ErrInvalidEmail        = errors.New("invalid email format")
 	ErrEmptyEmail          = errors.New("email cannot be empty")
-	ErrPasswordTooShort    = errors.New("password must be at least 8 characters long")
+	ErrPasswordTooShort    = errors.New("password must be at least 12 characters long")
+	ErrPasswordTooLong     = errors.New("password must be at most 72 characters long")
 	ErrEmptyPassword       = errors.New("password cannot be empty")
 	ErrEmptyHashedPassword = errors.New("hashed password cannot be empty")
 )
@@ -22,23 +23,33 @@ var (
 type User struct {
 	ID             uuid.UUID `json:"id"`
 	Email          string    `json:"email"`
+	Password       string    `json:"-"` // Plaintext password, used temporarily during registration/updates
 	HashedPassword string    `json:"-"` // Never expose password hash in JSON
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// NewUser creates a new User with the given email and hashed password.
+// NewUser creates a new User with the given email and password.
 // It generates a new UUID for the user ID and sets the creation/update timestamps.
 // Returns an error if validation fails.
-func NewUser(email, hashedPassword string) (*User, error) {
-	user := &User{
-		ID:             uuid.New(),
-		Email:          email,
-		HashedPassword: hashedPassword,
-		CreatedAt:      time.Now().UTC(),
-		UpdatedAt:      time.Now().UTC(),
+//
+// NOTE: This function only sets up the user structure with the plaintext password.
+// The caller is responsible for hashing the password before storing the user.
+func NewUser(email, password string) (*User, error) {
+	// Validate password format first, before creating the user
+	if err := ValidatePassword(password); err != nil {
+		return nil, err
 	}
 
+	user := &User{
+		ID:        uuid.New(),
+		Email:     email,
+		Password:  password, // Plaintext password - must be hashed before storage
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+
+	// Check other validation rules (ID, email, etc.)
 	if err := user.Validate(); err != nil {
 		return nil, err
 	}
@@ -46,7 +57,9 @@ func NewUser(email, hashedPassword string) (*User, error) {
 	return user, nil
 }
 
-// Validate checks if the User has valid data.
+// Validate checks if the User has valid data for persistence.
+// This method only validates fields relevant for database persistence,
+// not input validation concerns like password requirements.
 // Returns an error if any field fails validation.
 func (u *User) Validate() error {
 	if u.ID == uuid.Nil {
@@ -58,22 +71,31 @@ func (u *User) Validate() error {
 	}
 
 	// Basic email format validation
-	// In a real application, consider using a more robust email validation library
 	if !validateEmailFormat(u.Email) {
 		return ErrInvalidEmail
 	}
 
-	if u.HashedPassword == "" {
+	// For persistence, we need either a plaintext password (which will be hashed)
+	// or a hashed password to be present
+	if u.Password == "" && u.HashedPassword == "" {
 		return ErrEmptyHashedPassword
 	}
 
 	return nil
 }
 
-// TODO: Replace this basic email validation with a more robust library.
-// This implementation is intentionally simple and has limitations.
-// Consider using a dedicated email validation library that follows
-// RFC 5322 standards and handles edge cases properly.
+// TODO: Replace this basic email validation with a more robust solution.
+// Technical debt: This implementation is intentionally simple and has several limitations:
+// 1. It only checks for @ and . characters in the right positions
+// 2. It doesn't validate against RFC 5322 standards for email addresses
+// 3. It doesn't handle international domains or special character requirements
+// 4. It can't detect many invalid email patterns that would be rejected by mail servers
+//
+// Future improvements:
+//   - Consider using a dedicated email validation library like "net/mail" or a third-party
+//     package that specifically implements RFC 5322/6531 standards
+//   - Alternatively, implement a more comprehensive regex pattern that covers common cases
+//   - For mission-critical validation, consider adding actual mail server verification
 //
 // validateEmailFormat performs basic validation of email format.
 // Returns true if the email appears to be in a valid format.
@@ -112,4 +134,50 @@ func validateEmailFormat(email string) bool {
 	}
 
 	return true
+}
+
+// ValidatePassword validates the plaintext password format
+// This should be called before setting the password field or creating a user
+// Returns specific errors based on validation failures.
+func ValidatePassword(password string) error {
+	passLen := len(password)
+	if passLen < 12 {
+		return ErrPasswordTooShort
+	}
+	if passLen > 72 {
+		return ErrPasswordTooLong
+	}
+	return nil
+}
+
+// validatePasswordComplexity checks if a password meets our security requirements
+// based on length rather than character class composition.
+//
+// Password requirements:
+// - Minimum length: 12 characters
+// - Maximum length: 72 characters (bcrypt's practical limit)
+// - No character class requirements (uppercase, lowercase, digits, symbols)
+//
+// Rationale for length-based approach:
+//
+//  1. Security research shows password length is more important than complexity
+//     rules for resistance against brute force attacks. Each additional character
+//     exponentially increases the password's entropy.
+//
+//  2. Complex character class requirements (uppercase, digits, symbols) often lead
+//     to predictable patterns that weaken passwords (e.g., "Password1!") or increase
+//     user frustration, leading to password reuse across services.
+//
+//  3. The 72-character maximum is a technical limitation of bcrypt, which truncates
+//     passwords longer than 72 bytes. This prevents unnecessary password data from
+//     being ignored during the hashing process.
+//
+//  4. This approach aligns with NIST SP 800-63B guidelines, which recommend
+//     allowing longer passwords without arbitrary complexity requirements.
+//
+// Returns true if the password meets the length requirements, false otherwise.
+func validatePasswordComplexity(password string) bool {
+	// Check if password is between 12 and 72 characters
+	passLen := len(password)
+	return passLen >= 12 && passLen <= 72
 }

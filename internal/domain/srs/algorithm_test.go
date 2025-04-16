@@ -9,6 +9,7 @@ import (
 )
 
 func TestCalculateNewInterval(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	params := NewDefaultParams()
 
 	testCases := []struct {
@@ -97,6 +98,7 @@ func TestCalculateNewInterval(t *testing.T) {
 }
 
 func TestCalculateNewEaseFactor(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	params := NewDefaultParams()
 
 	testCases := []struct {
@@ -157,6 +159,7 @@ func TestCalculateNewEaseFactor(t *testing.T) {
 }
 
 func TestCalculateNextReviewDate(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	params := NewDefaultParams()
 	now := time.Now().UTC()
 
@@ -220,6 +223,7 @@ func TestCalculateNextReviewDate(t *testing.T) {
 }
 
 func TestCalculateNextStats(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	params := NewDefaultParams()
 	userID := uuid.New()
 	cardID := uuid.New()

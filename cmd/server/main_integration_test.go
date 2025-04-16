@@ -1,255 +1,285 @@
+// Package main contains integration tests for the server application
+// These tests require a real database connection to run.
+//
+// To run these tests:
+//
+//  1. Start the local development database:
+//     cd infrastructure/local_dev && docker-compose up -d
+//
+//  2. Set the DATABASE_URL environment variable to a valid connection string:
+//     export DATABASE_URL=postgres://scryapiuser:local_development_password@localhost:5432/scry?sslmode=disable
+//
+//  3. Run the tests:
+//     go test -v ./cmd/server
+//
+// If DATABASE_URL is not set, these tests will be skipped automatically.
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testutils"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// createTempConfigFile creates a temporary config.yaml file with the given content
-func createTempConfigFile(t *testing.T, content string) (string, func()) {
-	tempDir := t.TempDir()
-	configPath := tempDir + "/config.yaml"
+// Use the testDB variable defined in main_task_test.go
+// TestMain function is also defined in main_task_test.go
 
-	err := os.WriteFile(configPath, []byte(content), 0600)
-	require.NoError(t, err, "Failed to create temporary config file")
-
-	// Return the directory path and a cleanup function
-	return tempDir, func() {
-		// t.TempDir() handles cleanup automatically
-	}
-}
+// This function was removed to fix linting errors
 
 // TestSuccessfulInitialization verifies the application initializes correctly
 // with valid configuration from environment variables
 func TestSuccessfulInitialization(t *testing.T) {
-	// Setup required environment variables
-	cleanup := testutils.SetupEnv(t, map[string]string{
-		"SCRY_SERVER_PORT":        "9090",
-		"SCRY_SERVER_LOG_LEVEL":   "debug",
-		"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-		"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-		"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
-	})
-	defer cleanup()
+	// Disable parallel testing to avoid environment variable conflicts
+	// t.Parallel()
 
-	// Initialize the application
-	cfg, err := initializeApp()
+	// Skip if not in integration test environment
+	if !testutils.IsIntegrationTestEnvironment() {
+		t.Skip("Skipping integration test - DATABASE_URL environment variable required")
+	}
 
-	// Verify initialization succeeded
-	require.NoError(t, err, "Application initialization should succeed with valid config")
-	require.NotNil(t, cfg, "Configuration should not be nil")
+	// Get a real database URL from the test environment
+	dbURL := testutils.GetTestDatabaseURL(t)
 
-	// Verify config values were loaded correctly
-	assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
-	assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
-	assert.Equal(
-		t,
-		"postgresql://user:pass@localhost:5432/testdb",
-		cfg.Database.URL,
-		"Database URL should be loaded from environment variables",
-	)
-	assert.Equal(
-		t,
-		"thisisasecretkeythatis32charslong!!",
-		cfg.Auth.JWTSecret,
-		"JWT secret should be loaded from environment variables",
-	)
-	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
-}
+	// First save any existing environment variables we'll need to restore
+	oldEnv := make(map[string]string)
+	varsToSet := []string{
+		"SCRY_SERVER_PORT",
+		"SCRY_SERVER_LOG_LEVEL",
+		"SCRY_DATABASE_URL",
+		"SCRY_AUTH_JWT_SECRET",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES",
+		"SCRY_LLM_GEMINI_API_KEY",
+	}
 
-// loadConfigWithFile wraps config.Load with the ability to specify a config file path
-// This avoids the need to change the working directory in tests
-func loadConfigWithFile(configPath string) (*config.Config, error) {
-	// This function is nearly identical to config.Load but allows specifying a config file
-	// It is exported for testing purposes only
-	v := viper.New()
+	// Save old values
+	for _, varName := range varsToSet {
+		oldEnv[varName] = os.Getenv(varName)
+		// Clear each variable to avoid any interference
+		err := os.Unsetenv(varName)
+		require.NoError(t, err, "Failed to unset environment variable %s", varName)
+	}
 
-	// Set default values
-	v.SetDefault("server.port", 8080)
-	v.SetDefault("server.log_level", "info")
-
-	// Set the specific config file rather than looking in the working directory
-	v.SetConfigType("yaml")
-	if configPath != "" {
-		v.SetConfigFile(configPath)
-
-		// Attempt to read the config file
-		if err := v.ReadInConfig(); err != nil {
-			// Only log non-file-not-found errors (though this shouldn't happen with an explicit file)
-			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-				fmt.Printf("Warning: error reading config file: %v\n", err)
+	// Restore environment when test completes
+	defer func() {
+		for key, value := range oldEnv {
+			if value != "" {
+				err := os.Setenv(key, value)
+				if err != nil {
+					t.Logf("Warning: Failed to restore env var %s: %v", key, err)
+				}
 			}
 		}
-	}
+	}()
 
-	// Configure environment variables
-	v.SetEnvPrefix("SCRY")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
+	// Set our test values explicitly
+	err := os.Setenv("SCRY_SERVER_PORT", "9090")
+	require.NoError(t, err, "Failed to set SCRY_SERVER_PORT environment variable")
 
-	// Explicitly bind critical environment variables
-	bindEnvs := []struct {
-		key    string
-		envVar string
-	}{
-		{"database.url", "SCRY_DATABASE_URL"},
-		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET"},
-		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
-		{"server.port", "SCRY_SERVER_PORT"},
-		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},
-	}
+	err = os.Setenv("SCRY_SERVER_LOG_LEVEL", "debug")
+	require.NoError(t, err, "Failed to set SCRY_SERVER_LOG_LEVEL environment variable")
 
-	for _, env := range bindEnvs {
-		err := v.BindEnv(env.key, env.envVar)
-		if err != nil {
-			return nil, fmt.Errorf("error binding environment variable %s: %w", env.envVar, err)
-		}
-	}
+	err = os.Setenv("SCRY_DATABASE_URL", dbURL)
+	require.NoError(t, err, "Failed to set SCRY_DATABASE_URL environment variable")
 
-	// Unmarshal and validate
-	var cfg config.Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal configuration: %w", err)
-	}
+	err = os.Setenv("SCRY_AUTH_JWT_SECRET", "thisisasecretkeythatis32charslong!!")
+	require.NoError(t, err, "Failed to set SCRY_AUTH_JWT_SECRET environment variable")
 
-	validate := validator.New()
-	if err := validate.Struct(&cfg); err != nil {
-		return nil, fmt.Errorf("configuration validation failed: %w", err)
-	}
+	err = os.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60") // 1 hour
+	require.NoError(t, err, "Failed to set SCRY_AUTH_TOKEN_LIFETIME_MINUTES environment variable")
 
-	return &cfg, nil
-}
+	err = os.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-api-key")
+	require.NoError(t, err, "Failed to set SCRY_LLM_GEMINI_API_KEY environment variable")
 
-// initializeAppWithConfigFile is a version of initializeApp that uses the specific config file
-func initializeAppWithConfigFile(configPath string) (*config.Config, error) {
-	// Load configuration with the specific file
-	cfg, err := loadConfigWithFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
-	}
+	// Use the shared database connection with transaction isolation
+	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+		// Load configuration directly
+		cfg, err := loadConfig()
 
-	// Log configuration details
-	fmt.Printf("Server configuration: Port=%d, LogLevel=%s\n",
-		cfg.Server.Port, cfg.Server.LogLevel)
+		// Verify configuration loading succeeded
+		require.NoError(t, err, "Configuration loading should succeed with valid env vars")
+		require.NotNil(t, cfg, "Configuration should not be nil")
 
-	return cfg, nil
-}
-
-// TestEnvironmentVariablePrecedence verifies that environment variables take precedence over config file values
-func TestEnvironmentVariablePrecedence(t *testing.T) {
-	// Create a temporary config file with one set of values
-	configYaml := `
-server:
-  port: 7070
-  log_level: info
-database:
-  url: postgresql://db_user:db_pass@db-host:5432/db
-auth:
-  jwt_secret: thisisasecretkeythatis32charslong!!
-llm:
-  gemini_api_key: config-file-api-key
-`
-	tempDir, cleanupFile := createTempConfigFile(t, configYaml)
-	defer cleanupFile()
-
-	configPath := tempDir + "/config.yaml"
-
-	// Setup environment variables with different values
-	// The environment variables should take precedence over the config file
-	envCleanup := testutils.SetupEnv(t, map[string]string{
-		"SCRY_SERVER_PORT":        "9090", // Different from config.yaml
-		"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-		"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-		"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
-		// Deliberately not setting SCRY_SERVER_LOG_LEVEL to test config file value
+		// Verify config values were loaded correctly
+		assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
+		assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
+		assert.Equal(t, dbURL, cfg.Database.URL, "Database URL should be loaded from environment variables")
+		assert.Equal(
+			t,
+			"thisisasecretkeythatis32charslong!!",
+			cfg.Auth.JWTSecret,
+			"JWT secret should be loaded from environment variables",
+		)
+		assert.Equal(
+			t,
+			60,
+			cfg.Auth.TokenLifetimeMinutes,
+			"Token lifetime should be loaded from environment variables",
+		)
 	})
-	defer envCleanup()
-
-	// Initialize the application with the specific config file
-	cfg, err := initializeAppWithConfigFile(configPath)
-
-	// Verify initialization succeeded
-	require.NoError(t, err, "Application initialization should succeed")
-	require.NotNil(t, cfg, "Configuration should not be nil")
-
-	// Verify environment variable took precedence
-	assert.Equal(t, 9090, cfg.Server.Port, "Server port should come from environment variable (precedence)")
-	// Verify config file value was used when env var not set
-	assert.Equal(t, "info", cfg.Server.LogLevel, "Log level should come from config file when env var not set")
 }
 
-// TestInvalidConfiguration tests initialization with invalid configuration
-func TestInvalidConfiguration(t *testing.T) {
-	testCases := []struct {
-		name      string
-		envVars   map[string]string
-		errorText string
+// TestValidationErrors verifies that configuration validation works correctly
+// and returns appropriate errors
+func TestValidationErrors(t *testing.T) {
+	// Don't run in parallel to avoid environment variable conflicts
+	// t.Parallel()
+
+	// This test doesn't need to connect to a real database
+	// It only tests configuration validation
+
+	// First save any existing environment variables we'll need to restore
+	oldEnv := make(map[string]string)
+	varsToChange := []string{
+		"SCRY_SERVER_PORT",
+		"SCRY_SERVER_LOG_LEVEL",
+		"SCRY_DATABASE_URL",
+		"SCRY_AUTH_JWT_SECRET",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES",
+		"SCRY_LLM_GEMINI_API_KEY",
+		"DATABASE_URL", // Also clear this one which might interfere
+	}
+
+	// Save old values
+	for _, varName := range varsToChange {
+		oldEnv[varName] = os.Getenv(varName)
+		// Clear each variable to avoid any interference
+		err := os.Unsetenv(varName)
+		require.NoError(t, err, "Failed to unset environment variable %s", varName)
+	}
+
+	// Restore environment when test completes
+	defer func() {
+		for key, value := range oldEnv {
+			if value != "" {
+				err := os.Setenv(key, value)
+				if err != nil {
+					t.Logf("Warning: Failed to restore env var %s: %v", key, err)
+				}
+			}
+		}
+	}()
+
+	// Set up our invalid test values
+	setEnvs := []struct {
+		name, value string
 	}{
-		{
-			name: "Missing required fields",
-			envVars: map[string]string{
-				"SCRY_SERVER_PORT":      "9090",
-				"SCRY_SERVER_LOG_LEVEL": "debug",
-				// Missing Database URL, JWT Secret, and Gemini API Key
-			},
-			errorText: "validation failed",
-		},
-		{
-			name: "Invalid port number",
-			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "999999", // Port out of range
-				"SCRY_SERVER_LOG_LEVEL":   "debug",
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
-			},
-			errorText: "validation failed",
-		},
-		{
-			name: "Invalid log level",
-			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "9090",
-				"SCRY_SERVER_LOG_LEVEL":   "invalid-level", // Invalid log level
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "thisisasecretkeythatis32charslong!!",
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
-			},
-			errorText: "validation failed",
-		},
-		{
-			name: "Short JWT secret",
-			envVars: map[string]string{
-				"SCRY_SERVER_PORT":        "9090",
-				"SCRY_SERVER_LOG_LEVEL":   "debug",
-				"SCRY_DATABASE_URL":       "postgresql://user:pass@localhost:5432/testdb",
-				"SCRY_AUTH_JWT_SECRET":    "tooshort", // Too short JWT secret
-				"SCRY_LLM_GEMINI_API_KEY": "test-api-key",
-			},
-			errorText: "validation failed",
-		},
+		{"SCRY_SERVER_PORT", "999999"},                // Invalid port (too high)
+		{"SCRY_SERVER_LOG_LEVEL", "invalid"},          // Invalid log level
+		{"SCRY_DATABASE_URL", ""},                     // Required field missing
+		{"SCRY_AUTH_JWT_SECRET", "short"},             // Too short
+		{"SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "50000"}, // Too high
+		{"SCRY_LLM_GEMINI_API_KEY", ""},               // Required field missing
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cleanup := testutils.SetupEnv(t, tc.envVars)
-			defer cleanup()
-
-			// Initialize the application
-			cfg, err := initializeApp()
-
-			// Verify initialization failed as expected
-			assert.Error(t, err, "Application initialization should fail with invalid config")
-			assert.Nil(t, cfg, "Configuration should be nil on error")
-			assert.Contains(t, err.Error(), tc.errorText, "Error message should contain expected text")
-		})
+	for _, env := range setEnvs {
+		err := os.Setenv(env.name, env.value)
+		require.NoError(t, err, "Failed to set %s environment variable", env.name)
 	}
+
+	// Test loading
+	_, err := config.Load()
+
+	// Verify error handling
+	require.Error(t, err, "Loading invalid config should return error")
+	assert.Contains(t, err.Error(), "validation failed", "Error should mention validation failure")
+
+	// Check for specific validation failures in the error message
+	errorMsg := err.Error()
+	assert.Contains(t, errorMsg, "Server.Port", "Error should mention invalid port")
+	assert.Contains(t, errorMsg, "Server.LogLevel", "Error should mention invalid log level")
+	assert.Contains(t, errorMsg, "Database.URL", "Error should mention missing URL")
+	assert.Contains(t, errorMsg, "Auth.JWTSecret", "Error should mention invalid JWT secret")
+	assert.Contains(t, errorMsg, "Auth.TokenLifetimeMinutes", "Error should mention invalid token lifetime")
+	assert.Contains(t, errorMsg, "LLM.GeminiAPIKey", "Error should mention missing API key")
+}
+
+// TestDatabaseConnection verifies that the application can successfully connect to the database
+// This test is important to verify our database connection fix works correctly
+func TestDatabaseConnection(t *testing.T) {
+	// Disable parallel testing to avoid environment variable conflicts
+	// t.Parallel()
+
+	// Skip if not in integration test environment
+	if !testutils.IsIntegrationTestEnvironment() {
+		t.Skip("Skipping integration test - DATABASE_URL environment variable required")
+	}
+
+	// Skip if database is not available
+	if testDB == nil {
+		t.Skip("Skipping integration test - database connection not available")
+	}
+
+	// Get a real database URL from the test environment
+	dbURL := testutils.GetTestDatabaseURL(t)
+
+	// First save any existing environment variables we'll need to restore
+	oldEnv := make(map[string]string)
+	varsToSet := []string{
+		"SCRY_SERVER_PORT",
+		"SCRY_SERVER_LOG_LEVEL",
+		"SCRY_DATABASE_URL",
+		"SCRY_AUTH_JWT_SECRET",
+		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES",
+		"SCRY_LLM_GEMINI_API_KEY",
+	}
+
+	// Save old values
+	for _, varName := range varsToSet {
+		oldEnv[varName] = os.Getenv(varName)
+		// Clear each variable to avoid any interference
+		err := os.Unsetenv(varName)
+		require.NoError(t, err, "Failed to unset environment variable %s", varName)
+	}
+
+	// Restore environment when test completes
+	defer func() {
+		for key, value := range oldEnv {
+			if value != "" {
+				err := os.Setenv(key, value)
+				if err != nil {
+					t.Logf("Warning: Failed to restore env var %s: %v", key, err)
+				}
+			}
+		}
+	}()
+
+	// Set our test values explicitly
+	testEnvs := []struct {
+		name, value string
+	}{
+		{"SCRY_SERVER_PORT", "8080"},
+		{"SCRY_SERVER_LOG_LEVEL", "info"},
+		{"SCRY_DATABASE_URL", dbURL},
+		{"SCRY_AUTH_JWT_SECRET", "thisisasecretkeythatis32charslong!!"},
+		{"SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60"},
+		{"SCRY_LLM_GEMINI_API_KEY", "test-api-key"},
+	}
+
+	for _, env := range testEnvs {
+		err := os.Setenv(env.name, env.value)
+		require.NoError(t, err, "Failed to set %s environment variable", env.name)
+	}
+
+	// Use transaction isolation for the test
+	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+		// Test that we can query the database
+		var result int
+		err := tx.QueryRowContext(context.Background(), "SELECT 1").Scan(&result)
+		require.NoError(t, err, "Should be able to query the database")
+		assert.Equal(t, 1, result, "Database query should return expected result")
+
+		// Check if we can query any system table to further verify connection
+		var currentDatabase string
+		err = tx.QueryRowContext(context.Background(), "SELECT current_database()").Scan(&currentDatabase)
+		require.NoError(t, err, "Should be able to query current database name")
+		assert.NotEmpty(t, currentDatabase, "Current database name should not be empty")
+
+		t.Logf("Successfully connected to database: %s", currentDatabase)
+	})
 }

@@ -42,6 +42,11 @@ func Load() (*Config, error) {
 	// These defaults are used if the setting is not found in any other source
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.log_level", "info")
+	v.SetDefault("auth.bcrypt_cost", 10)            // Default bcrypt cost (same as bcrypt.DefaultCost)
+	v.SetDefault("auth.token_lifetime_minutes", 60) // Default token lifetime (1 hour)
+	v.SetDefault("task.worker_count", 2)            // Default worker count
+	v.SetDefault("task.queue_size", 100)            // Default queue size
+	v.SetDefault("task.stuck_task_age_minutes", 30) // Default stuck task age (30 minutes)
 
 	// --- Configure config file (optional, for local dev) ---
 	// Looks for config.yaml in the working directory
@@ -76,9 +81,14 @@ func Load() (*Config, error) {
 	}{
 		{"database.url", "SCRY_DATABASE_URL"},
 		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET"},
+		{"auth.bcrypt_cost", "SCRY_AUTH_BCRYPT_COST"},
+		{"auth.token_lifetime_minutes", "SCRY_AUTH_TOKEN_LIFETIME_MINUTES"},
 		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
 		{"server.port", "SCRY_SERVER_PORT"},
 		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},
+		{"task.worker_count", "SCRY_TASK_WORKER_COUNT"},
+		{"task.queue_size", "SCRY_TASK_QUEUE_SIZE"},
+		{"task.stuck_task_age_minutes", "SCRY_TASK_STUCK_TASK_AGE_MINUTES"},
 	}
 
 	for _, env := range bindEnvs {

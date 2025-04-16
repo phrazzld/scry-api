@@ -24,7 +24,31 @@ auth:
   # IMPORTANT: In production, use a secure random string of at least 32 characters
   jwt_secret: replace-this-with-32-plus-random-chars!
 
+  # BCrypt cost parameter for password hashing (4-31)
+  # Higher values are more secure but slower
+  # Default: 10 (bcrypt.DefaultCost if omitted)
+  # NOTE: Values below 10 are not recommended for production
+  # NOTE: Values above 14 may cause significant performance impact
+  bcrypt_cost: 10
+
+  # Token lifetime in minutes (default: 60)
+  # Determines how long JWT tokens are valid before expiring
+  # Shorter lifetimes are more secure but require more frequent re-authentication
+  token_lifetime_minutes: 60
+
 # LLM settings
 llm:
   # API key for Google Gemini services
   gemini_api_key: your-gemini-api-key
+
+# Task processing settings
+task:
+  # Number of worker goroutines for processing background tasks (default: 2)
+  worker_count: 2
+  
+  # Size of the in-memory task queue buffer (default: 100)
+  queue_size: 100
+  
+  # Age in minutes after which a task in "processing" state is considered stuck (default: 30)
+  # Stuck tasks will be reset to "pending" state and reprocessed
+  stuck_task_age_minutes: 30

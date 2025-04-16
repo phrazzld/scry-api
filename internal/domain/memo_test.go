@@ -7,6 +7,7 @@ import (
 )
 
 func TestNewMemo(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	// Test valid memo creation
 	userID := uuid.New()
 	text := "This is a test memo for generating flashcards."
@@ -55,6 +56,7 @@ func TestNewMemo(t *testing.T) {
 }
 
 func TestMemoValidate(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	validMemo := Memo{
 		ID:     uuid.New(),
 		UserID: uuid.New(),
@@ -97,6 +99,7 @@ func TestMemoValidate(t *testing.T) {
 }
 
 func TestUpdateStatus(t *testing.T) {
+	t.Parallel() // Enable parallel execution
 	memo := Memo{
 		ID:     uuid.New(),
 		UserID: uuid.New(),

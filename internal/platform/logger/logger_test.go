@@ -12,7 +12,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 )
 
@@ -104,9 +103,8 @@ func TestSetup(t *testing.T) {
 	os.Stdout = w
 
 	// Basic setup with info level
-	cfg := config.ServerConfig{
-		LogLevel: "info",
-		Port:     8080,
+	cfg := logger.LoggerConfig{
+		Level: "info",
 	}
 
 	// Call Setup function
@@ -165,10 +163,9 @@ func TestInvalidLogLevelParsing(t *testing.T) {
 	// Redirect stdout to the pipe
 	os.Stdout = stdoutW
 
-	// Create a server config with an invalid log level
-	cfg := config.ServerConfig{
-		LogLevel: "invalid_level", // This is not one of the valid levels
-		Port:     8080,            // Port is required by validation, not used in test
+	// Create a logger config with an invalid log level
+	cfg := logger.LoggerConfig{
+		Level: "invalid_level", // This is not one of the valid levels
 	}
 
 	// Call Setup with the invalid log level
@@ -478,9 +475,8 @@ func TestValidLogLevelParsing(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Part 1: Verify the Setup function works correctly with the log level
-			cfg := config.ServerConfig{
-				LogLevel: tc.logLevel,
-				Port:     8080, // Port is required by validation, not used in test
+			cfg := logger.LoggerConfig{
+				Level: tc.logLevel,
 			}
 
 			// Verify Setup function works without error

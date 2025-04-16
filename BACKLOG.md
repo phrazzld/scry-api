@@ -7,12 +7,24 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 
-* **Authentication Implementation:**
-    * Implement `store.UserStore` interface and PostgreSQL implementation (`internal/platform/postgres`) for user CRUD, including secure password hashing (`bcrypt`).
-    * Implement JWT generation logic within an `auth.Service`.
-    * Implement User Registration endpoint (`POST /auth/register`) in `internal/api`, utilizing `auth.Service` and `store.UserStore`.
+
+* **JWT Authentication Service (Dependency: User Store):**
+    * Implement JWT generation and validation logic in `auth.Service`.
+    * Implement token refresh mechanisms if needed.
+    * Add necessary configuration for JWT secrets and token lifetimes.
+    * Add comprehensive tests for authentication service.
+
+* **Authentication API Endpoints (Dependencies: User Store, JWT Auth Service):**
+    * Implement User Registration endpoint (`POST /auth/register`) in `internal/api`.
     * Implement User Login endpoint (`POST /auth/login`).
-    * Implement Authentication Middleware (JWT validation) for protecting relevant API routes.
+    * Ensure proper error handling and validation for all endpoints.
+    * Add integration tests for authentication endpoints.
+
+* **Authentication Middleware (Dependency: JWT Auth Service):**
+    * Implement JWT validation middleware for protecting API routes.
+    * Integrate middleware with the router.
+    * Add role-based access control if needed.
+    * Add tests for middleware functionality.
 
 * **Asynchronous Task Runner Setup:**
     * Implement basic in-memory background task queue & worker pool (`internal/task`) using goroutines/channels.
@@ -125,6 +137,13 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Organized and improved documentation in pre-commit config.
     * ✅ Enhanced README with comprehensive pre-commit hooks documentation.
 
+* **Improve Test Data Isolation (Completed):**
+    * ✅ Implemented transaction-based test isolation to enable parallel test execution.
+    * ✅ Created DBTX interface to support both *sql.DB and *sql.Tx.
+    * ✅ Refactored PostgresUserStore to use the DBTX interface.
+    * ✅ Added WithTx helper function to testutils package.
+    * ✅ Updated tests to use transaction-based isolation and enabled t.Parallel().
+
 * **Logging Framework Setup (Completed):**
     * ✅ Set up basic structured logging framework using `log/slog`.
     * ✅ Configure the logging system using the application configuration.
@@ -150,3 +169,10 @@ This backlog outlines the major work items required to build the Minimum Viable 
       * golangci-lint for catching issues early.
       * Commit message validation for conventional commits.
       * Potentially run fast tests pre-commit.
+
+* **User Store Implementation (Completed):**
+    * ✅ Define `store.UserStore` interface with methods for CRUD operations.
+    * ✅ Implement PostgreSQL implementation (`internal/platform/postgres`) for user CRUD operations.
+    * ✅ Implement secure password hashing using `bcrypt`.
+    * ✅ Ensure validation of all user data before storage.
+    * ✅ Add comprehensive tests for store implementation.

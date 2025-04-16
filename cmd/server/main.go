@@ -11,21 +11,54 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/phrazzld/scry-api/internal/api"
+	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
+	"github.com/phrazzld/scry-api/internal/platform/postgres"
+	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Constant for the migrations directory path
 // Used in the migration command implementation
 // This is a relative path from the project root
 const migrationsDir = "internal/platform/postgres/migrations"
+
+// appDependencies holds all the shared application dependencies
+// to simplify passing them around between functions.
+type appDependencies struct { //nolint:unused // Will be used in subsequent tasks
+	// Configuration
+	Config *config.Config
+
+	// Core services
+	Logger *slog.Logger
+	DB     *sql.DB
+
+	// Stores
+	UserStore *postgres.PostgresUserStore
+	TaskStore *postgres.PostgresTaskStore
+
+	// Services
+	JWTService       auth.JWTService
+	PasswordVerifier auth.PasswordVerifier
+
+	// Task handling
+	TaskRunner *task.TaskRunner
+}
 
 // main is the entry point for the scry-api server.
 // It will be responsible for initializing configuration, setting up logging,
@@ -47,15 +80,15 @@ func main() {
 			"name", *migrationName)
 
 		// Load configuration for migration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			slog.Error("Failed to load configuration for migration",
 				"error", err)
 			os.Exit(1)
 		}
 
-		// Set up logging
-		_, err = logger.Setup(cfg.Server)
+		// Set up logging with the shared logger setup function
+		_, err = setupLogger(cfg)
 		if err != nil {
 			slog.Error("Failed to set up logger for migration",
 				"error", err)
@@ -83,39 +116,19 @@ func main() {
 	// sequence where even initialization errors can be logged.
 	slog.Info("Scry API Server starting...")
 
-	// Call the core initialization logic
-	cfg, err := initializeApp()
-	if err != nil {
-		// Still using the default logger here if initializeApp failed
-		// (which may include logger setup failure)
-		slog.Error("Failed to initialize application",
-			"error", err)
-		os.Exit(1)
-	}
-
-	// At this point, the JSON structured logger has been configured by initializeApp()
-	// All log messages from here on will use the structured JSON format
-	slog.Info("Scry API Server initialized successfully",
-		"port", cfg.Server.Port)
-
-	// Server would start here after initialization
-	// This would be added in a future task
-}
-
-// initializeApp loads configuration and sets up application components.
-// Returns the loaded config and any initialization error.
-func initializeApp() (*config.Config, error) {
 	// Load configuration
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
+		slog.Error("Failed to load configuration", "error", err)
+		os.Exit(1)
 	}
 
 	// Set up structured logging using the configured log level
 	// After this point, all slog calls will use the JSON structured logger
-	_, err = logger.Setup(cfg.Server)
+	_, err = setupLogger(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set up logger: %w", err)
+		slog.Error("Failed to set up logger", "error", err)
+		os.Exit(1)
 	}
 
 	// Log configuration details using structured logging
@@ -131,15 +144,257 @@ func initializeApp() (*config.Config, error) {
 		slog.Debug("Auth configuration", "jwt_secret_present", true)
 	}
 
-	// Future initialization steps would happen here
-	// (database, services, etc.)
-	// - Establishing database connection using Database.URL
-	// - Configuring authentication with Auth.JWTSecret
-	// - Initializing LLM client with LLM.GeminiAPIKey
-	// - Injecting these dependencies into service layer
-	// - Starting the HTTP server on the configured port
+	// Establish database connection
+	_, err = setupDatabase(cfg, slog.Default())
+	if err != nil {
+		slog.Error("Failed to setup database", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Database connection established")
 
+	// Initialize JWT authentication service
+	_, err = setupJWTService(cfg)
+	if err != nil {
+		slog.Error("Failed to initialize JWT service", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("JWT authentication service initialized",
+		"token_lifetime_minutes", cfg.Auth.TokenLifetimeMinutes)
+
+	// At this point, all required services have been initialized
+	slog.Info("Scry API Server initialized successfully",
+		"port", cfg.Server.Port)
+
+	// Start the server
+	startServer(cfg)
+}
+
+// setupRouter creates and configures the application router with all routes and middleware.
+// It accepts the application dependencies to create handlers and register routes.
+// Returns the configured router.
+func setupRouter(deps *appDependencies) *chi.Mux {
+	// Create a router
+	r := chi.NewRouter()
+
+	// Apply standard middleware
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Create the password verifier
+	passwordVerifier := auth.NewBcryptVerifier()
+
+	// Create API handlers
+	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
+	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
+
+	// Register routes
+	r.Route("/api", func(r chi.Router) {
+		// Authentication endpoints (public)
+		r.Post("/auth/register", authHandler.Register)
+		r.Post("/auth/login", authHandler.Login)
+
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.Authenticate)
+			// Add protected routes here
+		})
+	})
+
+	// Health check endpoint
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			slog.Error("Error writing health check response", "error", err)
+		}
+	})
+
+	return r
+}
+
+// startServer initializes application dependencies, configures and starts the HTTP server.
+// It also handles graceful shutdown when the application receives a termination signal.
+func startServer(cfg *config.Config) {
+	// Initialize core services and dependencies
+	logger := slog.Default()
+
+	// Step 1: Set up database connection
+	db, err := setupDatabase(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to setup database", "error", err)
+		os.Exit(1)
+	}
+	// Ensure database connection is closed when the server shuts down
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Error closing database connection", "error", err)
+		}
+	}()
+
+	// Step 2: Initialize JWT service
+	jwtService, err := setupJWTService(cfg)
+	if err != nil {
+		logger.Error("Failed to initialize JWT service", "error", err)
+		os.Exit(1)
+	}
+
+	// Step 3: Initialize stores and other dependencies
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
+	taskStore := postgres.NewPostgresTaskStore(db)
+	passwordVerifier := auth.NewBcryptVerifier()
+
+	// Step 4: Populate the application dependencies struct
+	deps := &appDependencies{
+		Config:           cfg,
+		Logger:           logger,
+		DB:               db,
+		UserStore:        userStore,
+		TaskStore:        taskStore,
+		JWTService:       jwtService,
+		PasswordVerifier: passwordVerifier,
+	}
+
+	// Step 5: Set up task runner using the new setup function
+	taskRunner, err := setupTaskRunner(deps)
+	if err != nil {
+		logger.Error("Failed to setup task runner", "error", err)
+		os.Exit(1)
+	}
+
+	// Update dependencies with the task runner
+	deps.TaskRunner = taskRunner
+
+	// Ensure task runner is stopped when the server shuts down
+	defer taskRunner.Stop()
+
+	// Step 6: Set up router using the new setup function
+	router := setupRouter(deps)
+
+	// Step 7: Configure and create HTTP server
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler: router,
+	}
+
+	// Step 8: Start server in a goroutine to allow for graceful shutdown
+	go func() {
+		logger.Info("Starting server", "port", cfg.Server.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Step 9: Set up graceful shutdown
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdownSignal
+
+	logger.Info("Shutting down server...")
+
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	// Attempt graceful shutdown
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Server shutdown failed", "error", err)
+	}
+
+	logger.Info("Server shutdown completed")
+}
+
+// loadConfig loads the application configuration from environment variables or config file.
+// Returns the loaded config and any loading error.
+func loadConfig() (*config.Config, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
 	return cfg, nil
+}
+
+// setupLogger configures and initializes the application logger based on config settings.
+// Returns the configured logger or an error if setup fails.
+func setupLogger(cfg *config.Config) (*slog.Logger, error) {
+	loggerConfig := logger.LoggerConfig{
+		Level: cfg.Server.LogLevel,
+	}
+
+	l, err := logger.Setup(loggerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up logger: %w", err)
+	}
+
+	return l, nil
+}
+
+// setupJWTService initializes the JWT authentication service with the provided configuration.
+// Returns the configured service or an error if initialization fails.
+func setupJWTService(cfg *config.Config) (auth.JWTService, error) {
+	jwtService, err := auth.NewJWTService(cfg.Auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize JWT authentication service: %w", err)
+	}
+
+	return jwtService, nil
+}
+
+// setupDatabase establishes a connection to the database using the configuration settings.
+// It configures the connection pool and verifies connectivity through a ping test.
+// Returns the database connection or an error if setup fails.
+func setupDatabase(cfg *config.Config, logger *slog.Logger) (*sql.DB, error) {
+	// Establish database connection
+	db, err := sql.Open("pgx", cfg.Database.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database connection: %w", err)
+	}
+
+	// Configure connection pool settings
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Verify database connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		// Close the database connection if ping fails to avoid resource leaks
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	if logger != nil {
+		logger.Info("Database connection established")
+	}
+
+	return db, nil
+}
+
+// setupTaskRunner initializes and configures the asynchronous task runner.
+// It uses the provided dependencies to create the task store and initialize
+// the runner with the appropriate configuration.
+// Returns the configured task runner and any initialization error.
+func setupTaskRunner(deps *appDependencies) (*task.TaskRunner, error) {
+	// Initialize task store
+	taskStore := postgres.NewPostgresTaskStore(deps.DB)
+
+	// Configure and create task runner
+	taskRunner := task.NewTaskRunner(taskStore, task.TaskRunnerConfig{
+		WorkerCount:  deps.Config.Task.WorkerCount,
+		QueueSize:    deps.Config.Task.QueueSize,
+		StuckTaskAge: time.Duration(deps.Config.Task.StuckTaskAgeMinutes) * time.Minute,
+	}, deps.Logger)
+
+	// Start the task runner
+	if err := taskRunner.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start task runner: %w", err)
+	}
+
+	return taskRunner, nil
 }
 
 // slogGooseLogger adapts slog for goose's logger interface

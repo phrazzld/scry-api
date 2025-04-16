@@ -7,25 +7,6 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 
-
-* **JWT Authentication Service (Dependency: User Store):**
-    * Implement JWT generation and validation logic in `auth.Service`.
-    * Implement token refresh mechanisms if needed.
-    * Add necessary configuration for JWT secrets and token lifetimes.
-    * Add comprehensive tests for authentication service.
-
-* **Authentication API Endpoints (Dependencies: User Store, JWT Auth Service):**
-    * Implement User Registration endpoint (`POST /auth/register`) in `internal/api`.
-    * Implement User Login endpoint (`POST /auth/login`).
-    * Ensure proper error handling and validation for all endpoints.
-    * Add integration tests for authentication endpoints.
-
-* **Authentication Middleware (Dependency: JWT Auth Service):**
-    * Implement JWT validation middleware for protecting API routes.
-    * Integrate middleware with the router.
-    * Add role-based access control if needed.
-    * Add tests for middleware functionality.
-
 * **Asynchronous Task Runner Setup:**
     * Implement basic in-memory background task queue & worker pool (`internal/task`) using goroutines/channels.
     * Implement recovery mechanism: On application startup, query `memos` table for entries with `status = 'processing'`, enqueue generation tasks for these Memos to handle potential restarts during processing. Define clear locking or timestamp logic if needed to prevent duplicate processing in multi-instance scenarios (though MVP likely single instance).
@@ -176,3 +157,21 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Implement secure password hashing using `bcrypt`.
     * ✅ Ensure validation of all user data before storage.
     * ✅ Add comprehensive tests for store implementation.
+
+* **JWT Authentication Service (Completed):**
+    * ✅ Implement JWT generation and validation logic in `auth.Service`.
+    * ✅ Implement token refresh mechanisms.
+    * ✅ Add necessary configuration for JWT secrets and token lifetimes.
+    * ✅ Add comprehensive tests for authentication service.
+
+* **Authentication API Endpoints (Completed):**
+    * ✅ Implement User Registration endpoint (`POST /auth/register`) in `internal/api`.
+    * ✅ Implement User Login endpoint (`POST /auth/login`).
+    * ✅ Implement Token Refresh endpoint (`POST /auth/refresh`).
+    * ✅ Ensure proper error handling and validation for all endpoints.
+    * ✅ Add integration tests for authentication endpoints.
+
+* **Authentication Middleware (Completed):**
+    * ✅ Implement JWT validation middleware for protecting API routes.
+    * ✅ Integrate middleware with the router.
+    * ✅ Add tests for middleware functionality.

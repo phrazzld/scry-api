@@ -135,10 +135,11 @@
     - **Note:** Refactored the `startServer` function to use a more structured, step-by-step approach with clear comments documenting each stage of the server initialization. Improved variable naming for clarity (e.g., `router` instead of `r`, `server` instead of `srv`, `shutdownSignal` instead of `stop`) and added more comprehensive code documentation. The function now clearly follows the dependency flow pattern: initialize dependencies → build dependency struct → set up task runner → set up router → start server → handle shutdown.
 
 ## 6. Centralize Mock Implementations (Low Risk)
-- [ ] **T022:** Create internal/mocks package
+- [x] **T022:** Create internal/mocks package
     - **Action:** Create the directory `internal/mocks`. Add a `doc.go` file explaining the purpose of the package.
     - **Depends On:** None
     - **AC Ref:** PLAN.md Section 5
+    - **Note:** Created the `internal/mocks` directory and added a comprehensive `doc.go` file that explains the purpose of the package, key features, usage examples, and guidelines for adding new mocks. This establishes a foundation for centralizing mock implementations that will be moved from individual test files in subsequent tasks.
 
 - [ ] **T023:** Move MockJWTService to internal/mocks
     - **Action:** Move the `MockJWTService` struct and its methods from `internal/api/auth_handler_test.go` (and potentially `internal/api/middleware/auth_test.go`) to a new file `internal/mocks/jwt_service.go`. Ensure the package declaration is `package mocks`. Update imports as needed.

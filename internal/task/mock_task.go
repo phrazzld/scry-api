@@ -65,7 +65,7 @@ func CreateMockTaskWithPayload(message string) *MockTask {
 		Message: message,
 		Created: time.Now().UTC(),
 	}
-	
+
 	data, _ := json.Marshal(payload)
 	return NewMockTask(uuid.New(), "mock_task", data)
 }

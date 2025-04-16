@@ -12,10 +12,10 @@ type TaskStatus string
 
 // Possible task status values
 const (
-	TaskStatusPending     TaskStatus = "pending"
-	TaskStatusProcessing  TaskStatus = "processing"
-	TaskStatusCompleted   TaskStatus = "completed"
-	TaskStatusFailed      TaskStatus = "failed"
+	TaskStatusPending    TaskStatus = "pending"
+	TaskStatusProcessing TaskStatus = "processing"
+	TaskStatusCompleted  TaskStatus = "completed"
+	TaskStatusFailed     TaskStatus = "failed"
 )
 
 // Task represents a unit of background work to be processed

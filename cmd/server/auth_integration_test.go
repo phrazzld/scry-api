@@ -111,7 +111,11 @@ func TestAuthIntegration(t *testing.T) {
 		bytes.NewBuffer(registerBody),
 	)
 	require.NoError(t, err)
-	defer registerResp.Body.Close()
+	defer func() {
+		if err := registerResp.Body.Close(); err != nil {
+			t.Errorf("Failed to close register response body: %v", err)
+		}
+	}()
 
 	// Check register response
 	assert.Equal(t, http.StatusCreated, registerResp.StatusCode)
@@ -135,7 +139,11 @@ func TestAuthIntegration(t *testing.T) {
 		bytes.NewBuffer(loginBody),
 	)
 	require.NoError(t, err)
-	defer loginResp.Body.Close()
+	defer func() {
+		if err := loginResp.Body.Close(); err != nil {
+			t.Errorf("Failed to close login response body: %v", err)
+		}
+	}()
 
 	// Check login response
 	assert.Equal(t, http.StatusOK, loginResp.StatusCode)
@@ -155,7 +163,11 @@ func TestAuthIntegration(t *testing.T) {
 	client := &http.Client{}
 	protectedResp, err := client.Do(req)
 	require.NoError(t, err)
-	defer protectedResp.Body.Close()
+	defer func() {
+		if err := protectedResp.Body.Close(); err != nil {
+			t.Errorf("Failed to close protected route response body: %v", err)
+		}
+	}()
 
 	// Check protected route response
 	assert.Equal(t, http.StatusOK, protectedResp.StatusCode)
@@ -167,7 +179,11 @@ func TestAuthIntegration(t *testing.T) {
 
 	invalidTokenResp, err := client.Do(req)
 	require.NoError(t, err)
-	defer invalidTokenResp.Body.Close()
+	defer func() {
+		if err := invalidTokenResp.Body.Close(); err != nil {
+			t.Errorf("Failed to close invalid token response body: %v", err)
+		}
+	}()
 
 	// Check invalid token response
 	assert.Equal(t, http.StatusUnauthorized, invalidTokenResp.StatusCode)

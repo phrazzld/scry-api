@@ -65,8 +65,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Set up logging
-		_, err = logger.Setup(cfg.Server)
+		// Set up logging with a logger-specific config
+		loggerConfig := logger.LoggerConfig{
+			Level: cfg.Server.LogLevel,
+		}
+		_, err = logger.Setup(loggerConfig)
 		if err != nil {
 			slog.Error("Failed to set up logger for migration",
 				"error", err)
@@ -149,7 +152,7 @@ func startServer(cfg *config.Config) {
 		slog.Error("Failed to initialize JWT service", "error", err)
 		os.Exit(1)
 	}
-	
+
 	// Initialize task store and runner
 	taskStore := postgres.NewPostgresTaskStore(db)
 	taskRunner := task.NewTaskRunner(taskStore, task.TaskRunnerConfig{
@@ -157,13 +160,13 @@ func startServer(cfg *config.Config) {
 		QueueSize:    cfg.Task.QueueSize,
 		StuckTaskAge: time.Duration(cfg.Task.StuckTaskAgeMinutes) * time.Minute,
 	}, slog.Default())
-	
+
 	// Start the task runner
 	if err := taskRunner.Start(); err != nil {
 		slog.Error("Failed to start task runner", "error", err)
 		os.Exit(1)
 	}
-	
+
 	// Ensure task runner is stopped on server shutdown
 	defer taskRunner.Stop()
 
@@ -250,7 +253,10 @@ func initializeApp() (*config.Config, error) {
 
 	// Set up structured logging using the configured log level
 	// After this point, all slog calls will use the JSON structured logger
-	_, err = logger.Setup(cfg.Server)
+	loggerConfig := logger.LoggerConfig{
+		Level: cfg.Server.LogLevel,
+	}
+	_, err = logger.Setup(loggerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up logger: %w", err)
 	}

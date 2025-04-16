@@ -28,14 +28,14 @@ func NewMockTaskStore() *MockTaskStore {
 	store.SaveFn = func(ctx context.Context, task Task) error {
 		store.mutex.Lock()
 		defer store.mutex.Unlock()
-		
+
 		mockTask, ok := task.(*MockTask)
 		if !ok {
 			// If it's not a MockTask, create a new one with same properties
 			mockTask = NewMockTask(task.ID(), task.Type(), task.Payload())
 			mockTask.TaskStatus = task.Status()
 		}
-		
+
 		store.tasks[task.ID()] = mockTask
 		store.taskStatusTimes[task.ID()] = time.Now()
 		return nil
@@ -45,12 +45,12 @@ func NewMockTaskStore() *MockTaskStore {
 	store.UpdateStatusFn = func(ctx context.Context, taskID uuid.UUID, status TaskStatus, errorMsg string) error {
 		store.mutex.Lock()
 		defer store.mutex.Unlock()
-		
+
 		task, exists := store.tasks[taskID]
 		if !exists {
 			return nil // Simulate "not found" as a no-op for testing simplicity
 		}
-		
+
 		mockTask := task.(*MockTask)
 		mockTask.TaskStatus = status
 		store.tasks[taskID] = mockTask
@@ -67,7 +67,12 @@ func (s *MockTaskStore) SaveTask(ctx context.Context, task Task) error {
 }
 
 // UpdateTaskStatus updates the status of a task in the mock store
-func (s *MockTaskStore) UpdateTaskStatus(ctx context.Context, taskID uuid.UUID, status TaskStatus, errorMsg string) error {
+func (s *MockTaskStore) UpdateTaskStatus(
+	ctx context.Context,
+	taskID uuid.UUID,
+	status TaskStatus,
+	errorMsg string,
+) error {
 	return s.UpdateStatusFn(ctx, taskID, status, errorMsg)
 }
 
@@ -75,14 +80,14 @@ func (s *MockTaskStore) UpdateTaskStatus(ctx context.Context, taskID uuid.UUID, 
 func (s *MockTaskStore) GetPendingTasks(ctx context.Context) ([]Task, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	
+
 	var pendingTasks []Task
 	for _, task := range s.tasks {
 		if task.Status() == TaskStatusPending {
 			pendingTasks = append(pendingTasks, task)
 		}
 	}
-	
+
 	return pendingTasks, nil
 }
 
@@ -90,10 +95,10 @@ func (s *MockTaskStore) GetPendingTasks(ctx context.Context) ([]Task, error) {
 func (s *MockTaskStore) GetProcessingTasks(ctx context.Context, olderThan time.Duration) ([]Task, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	
+
 	var processingTasks []Task
 	now := time.Now()
-	
+
 	for _, task := range s.tasks {
 		if task.Status() == TaskStatusProcessing {
 			statusTime, exists := s.taskStatusTimes[task.ID()]
@@ -104,6 +109,6 @@ func (s *MockTaskStore) GetProcessingTasks(ctx context.Context, olderThan time.D
 			}
 		}
 	}
-	
+
 	return processingTasks, nil
 }

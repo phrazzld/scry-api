@@ -96,13 +96,17 @@ func TestMain(m *testing.M) {
 				} else {
 					fmt.Printf("Database schema setup failed: %v - skipping integration tests\n", err)
 					if testDB != nil {
-						testDB.Close()
+						if err := testDB.Close(); err != nil {
+							fmt.Printf("Warning: Failed to close database connection: %v\n", err)
+						}
 					}
 				}
 			} else {
 				fmt.Printf("Database ping failed: %v - skipping integration tests\n", err)
 				if testDB != nil {
-					testDB.Close()
+					if err := testDB.Close(); err != nil {
+						fmt.Printf("Warning: Failed to close database connection: %v\n", err)
+					}
 				}
 			}
 		} else {

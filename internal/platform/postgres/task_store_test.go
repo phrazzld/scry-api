@@ -91,14 +91,14 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 	// Run test with transaction-based isolation
 	tx, err := db.Begin()
 	require.NoError(t, err, "Failed to begin transaction")
-	
+
 	defer func() {
 		err := tx.Rollback()
 		if err != nil && err != sql.ErrTxDone {
 			t.Logf("Error rolling back transaction: %v", err)
 		}
 	}()
-	
+
 	ctx := context.Background()
 	store := NewPostgresTaskStore(tx)
 

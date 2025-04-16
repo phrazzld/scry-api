@@ -52,10 +52,10 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		// Validate token
 		claims, err := m.jwtService.ValidateToken(r.Context(), token)
 		if err != nil {
-			switch {
-			case err == auth.ErrExpiredToken:
+			switch err {
+			case auth.ErrExpiredToken:
 				api.RespondWithError(w, r, http.StatusUnauthorized, "Token expired")
-			case err == auth.ErrInvalidToken:
+			case auth.ErrInvalidToken:
 				api.RespondWithError(w, r, http.StatusUnauthorized, "Invalid token")
 			default:
 				slog.Error("failed to validate token", "error", err)

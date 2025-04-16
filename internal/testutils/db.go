@@ -190,7 +190,13 @@ func GetTestDB() (*sql.DB, error) {
 
 	// Setup database schema
 	if err := SetupTestDatabaseSchema(db); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf(
+				"failed to setup database schema: %w (additionally, failed to close db: %v)",
+				err,
+				closeErr,
+			)
+		}
 		return nil, fmt.Errorf("failed to setup database schema: %w", err)
 	}
 

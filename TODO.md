@@ -11,6 +11,87 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
 
 ### Critical Issues
 
+- [x] **Fix Import Cycle in Config Package Tests**:
+  - **Files**: `/internal/config/load_test.go`
+  - **Issue**: Import cycle detected in config package tests causing linter errors
+  - **Description**: The config package's test file was importing testutils, which created an import cycle through the chain of dependencies.
+  - **Acceptance Criteria**:
+    - Break the circular dependency by moving test to config_test package
+    - Implement local version of needed test utilities
+    - Ensure tests pass without import cycle errors
+    - Ensure linter passes without this error
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Fix Error Handling in Response Body Close**:
+  - **Files**: `/cmd/server/auth_integration_test.go`
+  - **Issue**: Error return values of response Body.Close() are not being checked
+  - **Description**: The linter (errcheck) is flagging that error return values from response Body.Close() calls aren't being checked in test files.
+  - **Acceptance Criteria**:
+    - Update all instances of `defer resp.Body.Close()` to check return errors
+    - Ensure proper handling of these errors in test cleanup
+    - Ensure linter passes without these warnings
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Fix Unchecked os.Setenv Calls in Integration Tests**:
+  - **File**: `/cmd/server/main_integration_test.go`
+  - **Issue**: Error return values of os.Setenv are not being checked
+  - **Description**: The linter (errcheck) is flagging that several calls to os.Setenv don't check return values.
+  - **Acceptance Criteria**:
+    - Update all os.Setenv calls to check return errors
+    - Add proper error handling or test failures when environment variables can't be set
+    - Ensure linter passes without these warnings
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Fix Unchecked Database Close in Tests**:
+  - **Files**: `/cmd/server/main_task_test.go`, `/internal/testutils/db.go`
+  - **Issue**: Error return values of db.Close() are not being checked
+  - **Description**: The linter (errcheck) is flagging that db.Close() calls don't check return values.
+  - **Acceptance Criteria**:
+    - Update all db.Close() calls to check return errors
+    - Add proper error handling for database close failures
+    - Ensure linter passes without these warnings
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Fix Unchecked Store Method Calls in Task Tests**:
+  - **File**: `/internal/task/runner_test.go`
+  - **Issue**: Error return values for store methods not being checked
+  - **Description**: The linter (errcheck) is flagging that several store method calls like SaveTask() and UpdateTaskStatus() don't check return values.
+  - **Acceptance Criteria**:
+    - Update all store method calls to check return errors
+    - Add proper assertion/failure handling when store operations fail
+    - Ensure linter passes without these warnings
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Improve Switch Statement in Auth Middleware**:
+  - **File**: `/internal/api/middleware/auth.go`
+  - **Issue**: Could use tagged switch on err (staticcheck QF1002)
+  - **Description**: The linter suggests using a tagged switch on err for better readability.
+  - **Acceptance Criteria**:
+    - Refactor the switch statement to use a tagged switch on err
+    - Ensure functionality remains the same
+    - Ensure linter passes without this warning
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Remove Unused Function in Main Integration Test**:
+  - **File**: `/cmd/server/main_integration_test.go`
+  - **Issue**: Function createTempConfigFile is unused
+  - **Description**: The linter shows that createTempConfigFile function is defined but never used.
+  - **Acceptance Criteria**:
+    - Either implement proper usage of the function
+    - Or remove it if it's not needed
+    - Or mark it appropriately to indicate it's for future use
+    - Ensure linter passes without this warning
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+### Completed Tasks
+
 - [x] **Fix Import Cycle in Config and Logger Packages**:
   - **Files**: `/internal/config/load_test.go`, `/internal/platform/logger/logger.go`, `/internal/platform/logger/logger_test.go`
   - **Issue**: Import cycle detected between config and logger packages
@@ -69,8 +150,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
   - **Dependencies**: None
   - **Estimated Complexity**: Simple
 
-### Core Functionality Tasks
-
 - [x] **Implement Asynchronous Task Runner**:
   - **Issue**: Need to implement a background task processing system
   - **Description**: According to BACKLOG.md, we need to implement an in-memory background task queue with a worker pool using goroutines and channels, along with a recovery mechanism for processing tasks.
@@ -83,8 +162,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
     - Ensure proper error handling and logging
   - **Dependencies**: None
   - **Estimated Complexity**: Complex
-
-### Authentication Tasks
 
 - [x] **Implement JWT Authentication Service**:
   - **Issue**: Need to implement JWT token generation and validation
@@ -113,10 +190,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
   - **Dependencies**: User Store implementation (completed), JWT Authentication Service (completed)
   - **Estimated Complexity**: Complex
 
-## Urgent Tasks
-
-### Linting Tasks
-
 - [x] **Remove Unused Test Setup Functions**:
   - **File**: `/internal/platform/postgres/user_store_test.go`
   - **Issue**: Functions `setupTestDB` and `teardownTestDB` are flagged as unused by golangci-lint
@@ -127,8 +200,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
     - Verify golangci-lint runs without these specific errors
   - **Dependencies**: None
   - **Estimated Complexity**: Simple
-
-### Build Tasks
 
 - [x] **Complete Full Integration Test Changes**:
   - **File**: `/internal/platform/postgres/user_store_test.go` and potentially others
@@ -141,8 +212,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
     - All tests pass when run with `-race` flag
   - **Dependencies**: None
   - **Estimated Complexity**: Moderate
-
-### Missing Tests
 
 - [x] **Add Tests for Middleware Components**:
   - **Issue**: Authentication middleware tests appear to be missing
@@ -172,10 +241,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
   - **Dependencies**: Implementation of the respective packages
   - **Estimated Complexity**: Complex
 
-## Non-Urgent Tasks
-
-### Documentation Tasks
-
 - [x] **Add Package Documentation for Missing Packages**:
   - **Issue**: Several packages have a `doc.go` file but may need actual implementation documentation
   - **Description**: Ensure comprehensive package documentation exists for all packages, particularly those that show as having a `doc.go` file but potentially lacking implementation details.
@@ -186,8 +251,6 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
     - Verify documentation with `godoc` tool
   - **Dependencies**: None
   - **Estimated Complexity**: Simple to Moderate
-
-### Refactoring Tasks
 
 - [x] **Standardize Test Helper Functions**:
   - **Issue**: Test helper functions might not be consistent across test files

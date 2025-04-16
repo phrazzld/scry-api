@@ -30,11 +30,7 @@ import (
 // Use the testDB variable defined in main_task_test.go
 // TestMain function is also defined in main_task_test.go
 
-// For backwards compatibility in this file
-// In new tests, use testutils.CreateTempConfigFile directly
-func createTempConfigFile(t *testing.T, content string) (string, func()) {
-	return testutils.CreateTempConfigFile(t, content)
-}
+// This function was removed to fix linting errors
 
 // TestSuccessfulInitialization verifies the application initializes correctly
 // with valid configuration from environment variables
@@ -82,12 +78,23 @@ func TestSuccessfulInitialization(t *testing.T) {
 	}()
 
 	// Set our test values explicitly
-	os.Setenv("SCRY_SERVER_PORT", "9090")
-	os.Setenv("SCRY_SERVER_LOG_LEVEL", "debug")
-	os.Setenv("SCRY_DATABASE_URL", dbURL)
-	os.Setenv("SCRY_AUTH_JWT_SECRET", "thisisasecretkeythatis32charslong!!")
-	os.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60") // 1 hour
-	os.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-api-key")
+	err := os.Setenv("SCRY_SERVER_PORT", "9090")
+	require.NoError(t, err, "Failed to set SCRY_SERVER_PORT environment variable")
+
+	err = os.Setenv("SCRY_SERVER_LOG_LEVEL", "debug")
+	require.NoError(t, err, "Failed to set SCRY_SERVER_LOG_LEVEL environment variable")
+
+	err = os.Setenv("SCRY_DATABASE_URL", dbURL)
+	require.NoError(t, err, "Failed to set SCRY_DATABASE_URL environment variable")
+
+	err = os.Setenv("SCRY_AUTH_JWT_SECRET", "thisisasecretkeythatis32charslong!!")
+	require.NoError(t, err, "Failed to set SCRY_AUTH_JWT_SECRET environment variable")
+
+	err = os.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60") // 1 hour
+	require.NoError(t, err, "Failed to set SCRY_AUTH_TOKEN_LIFETIME_MINUTES environment variable")
+
+	err = os.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-api-key")
+	require.NoError(t, err, "Failed to set SCRY_LLM_GEMINI_API_KEY environment variable")
 
 	// Use the shared database connection with transaction isolation
 	testutils.WithTx(t, testDB, func(tx store.DBTX) {
@@ -159,12 +166,21 @@ func TestValidationErrors(t *testing.T) {
 	}()
 
 	// Set up our invalid test values
-	os.Setenv("SCRY_SERVER_PORT", "999999")                // Invalid port (too high)
-	os.Setenv("SCRY_SERVER_LOG_LEVEL", "invalid")          // Invalid log level
-	os.Setenv("SCRY_DATABASE_URL", "")                     // Required field missing
-	os.Setenv("SCRY_AUTH_JWT_SECRET", "short")             // Too short
-	os.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "50000") // Too high
-	os.Setenv("SCRY_LLM_GEMINI_API_KEY", "")               // Required field missing
+	setEnvs := []struct {
+		name, value string
+	}{
+		{"SCRY_SERVER_PORT", "999999"},                // Invalid port (too high)
+		{"SCRY_SERVER_LOG_LEVEL", "invalid"},          // Invalid log level
+		{"SCRY_DATABASE_URL", ""},                     // Required field missing
+		{"SCRY_AUTH_JWT_SECRET", "short"},             // Too short
+		{"SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "50000"}, // Too high
+		{"SCRY_LLM_GEMINI_API_KEY", ""},               // Required field missing
+	}
+
+	for _, env := range setEnvs {
+		err := os.Setenv(env.name, env.value)
+		require.NoError(t, err, "Failed to set %s environment variable", env.name)
+	}
 
 	// Test loading
 	_, err := config.Load()
@@ -234,12 +250,21 @@ func TestDatabaseConnection(t *testing.T) {
 	}()
 
 	// Set our test values explicitly
-	os.Setenv("SCRY_SERVER_PORT", "8080")
-	os.Setenv("SCRY_SERVER_LOG_LEVEL", "info")
-	os.Setenv("SCRY_DATABASE_URL", dbURL)
-	os.Setenv("SCRY_AUTH_JWT_SECRET", "thisisasecretkeythatis32charslong!!")
-	os.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60")
-	os.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-api-key")
+	testEnvs := []struct {
+		name, value string
+	}{
+		{"SCRY_SERVER_PORT", "8080"},
+		{"SCRY_SERVER_LOG_LEVEL", "info"},
+		{"SCRY_DATABASE_URL", dbURL},
+		{"SCRY_AUTH_JWT_SECRET", "thisisasecretkeythatis32charslong!!"},
+		{"SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60"},
+		{"SCRY_LLM_GEMINI_API_KEY", "test-api-key"},
+	}
+
+	for _, env := range testEnvs {
+		err := os.Setenv(env.name, env.value)
+		require.NoError(t, err, "Failed to set %s environment variable", env.name)
+	}
 
 	// Use transaction isolation for the test
 	testutils.WithTx(t, testDB, func(tx store.DBTX) {

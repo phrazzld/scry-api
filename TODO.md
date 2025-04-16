@@ -104,10 +104,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `setupJWTService` function that encapsulates JWT service initialization. Updated both the `initializeApp` and `startServer` functions to use this function, ensuring consistent JWT service setup and reducing code duplication.
 
-- [ ] **T018:** Extract setupRouter function
+- [x] **T018:** Extract setupRouter function
     - **Action:** Create a new function `setupRouter(deps *appDependencies) *chi.Mux` in `cmd/server/main.go`. Move the router creation (`chi.NewRouter()`), middleware setup, and route registration logic from `startServer` into this function. The function should accept the `appDependencies` struct to access handlers and services.
     - **Depends On:** [T013]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `setupRouter` function that centralizes router creation, middleware configuration, and route registration. The function accepts the `appDependencies` struct to access necessary handlers and services, and returns the configured router. Updated the `startServer` function to use this function, improving code organization and maintainability.
 
 - [ ] **T019:** Extract setupTaskRunner function
     - **Action:** Create a new function `setupTaskRunner(deps *appDependencies) (*task.Runner, error)` in `cmd/server/main.go`. Move the task runner initialization logic (including creating the task store and runner) from `startServer` into this function. Accept `appDependencies` for necessary components like DB, Config, Logger.

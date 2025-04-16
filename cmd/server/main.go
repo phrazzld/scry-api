@@ -135,6 +135,51 @@ func main() {
 	startServer(cfg)
 }
 
+// setupRouter creates and configures the application router with all routes and middleware.
+// It accepts the application dependencies to create handlers and register routes.
+// Returns the configured router.
+func setupRouter(deps *appDependencies) *chi.Mux {
+	// Create a router
+	r := chi.NewRouter()
+
+	// Apply standard middleware
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Create the password verifier
+	passwordVerifier := auth.NewBcryptVerifier()
+
+	// Create API handlers
+	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
+	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
+
+	// Register routes
+	r.Route("/api", func(r chi.Router) {
+		// Authentication endpoints (public)
+		r.Post("/auth/register", authHandler.Register)
+		r.Post("/auth/login", authHandler.Login)
+
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.Authenticate)
+			// Add protected routes here
+		})
+	})
+
+	// Health check endpoint
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			slog.Error("Error writing health check response", "error", err)
+		}
+	})
+
+	return r
+}
+
 // startServer configures and starts the HTTP server.
 func startServer(cfg *config.Config) {
 	// Open a database connection using the setup function
@@ -174,43 +219,20 @@ func startServer(cfg *config.Config) {
 	// Ensure task runner is stopped on server shutdown
 	defer taskRunner.Stop()
 
-	// Create a router
-	r := chi.NewRouter()
+	// Initialize application dependencies
+	deps := &appDependencies{
+		Config:           cfg,
+		Logger:           slog.Default(),
+		DB:               db,
+		UserStore:        userStore,
+		TaskStore:        taskStore,
+		JWTService:       jwtService,
+		PasswordVerifier: auth.NewBcryptVerifier(),
+		TaskRunner:       taskRunner,
+	}
 
-	// Apply standard middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-
-	// Create the password verifier
-	passwordVerifier := auth.NewBcryptVerifier()
-
-	// Create API handlers
-	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &cfg.Auth)
-	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
-
-	// Register routes
-	r.Route("/api", func(r chi.Router) {
-		// Authentication endpoints (public)
-		r.Post("/auth/register", authHandler.Register)
-		r.Post("/auth/login", authHandler.Login)
-
-		// Protected routes
-		r.Group(func(r chi.Router) {
-			r.Use(authMiddleware.Authenticate)
-			// Add protected routes here
-		})
-	})
-
-	// Health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte("OK"))
-		if err != nil {
-			slog.Error("Error writing health check response", "error", err)
-		}
-	})
+	// Create router using setupRouter function
+	r := setupRouter(deps)
 
 	// Create and run server
 	srv := &http.Server{

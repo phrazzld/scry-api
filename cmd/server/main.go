@@ -137,10 +137,10 @@ func main() {
 
 // startServer configures and starts the HTTP server.
 func startServer(cfg *config.Config) {
-	// Open a database connection
-	db, err := sql.Open("pgx", cfg.Database.URL)
+	// Open a database connection using the setup function
+	db, err := setupDatabase(cfg, slog.Default())
 	if err != nil {
-		slog.Error("Failed to connect to database", "error", err)
+		slog.Error("Failed to setup database", "error", err)
 		os.Exit(1)
 	}
 	defer func() {
@@ -148,21 +148,6 @@ func startServer(cfg *config.Config) {
 			slog.Error("Error closing database connection", "error", err)
 		}
 	}()
-
-	// Configure connection pool settings
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
-	// Verify database connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(ctx); err != nil {
-		slog.Error("Failed to ping database", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("Database connection established")
 
 	// Initialize dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
@@ -286,6 +271,38 @@ func setupLogger(cfg *config.Config) (*slog.Logger, error) {
 	return l, nil
 }
 
+// setupDatabase establishes a connection to the database using the configuration settings.
+// It configures the connection pool and verifies connectivity through a ping test.
+// Returns the database connection or an error if setup fails.
+func setupDatabase(cfg *config.Config, logger *slog.Logger) (*sql.DB, error) {
+	// Establish database connection
+	db, err := sql.Open("pgx", cfg.Database.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database connection: %w", err)
+	}
+
+	// Configure connection pool settings
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Verify database connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		// Close the database connection if ping fails to avoid resource leaks
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	if logger != nil {
+		logger.Info("Database connection established")
+	}
+
+	return db, nil
+}
+
 // initializeApp loads configuration and sets up application components.
 // Returns the loaded config and any initialization error.
 func initializeApp() (*config.Config, error) {
@@ -317,25 +334,11 @@ func initializeApp() (*config.Config, error) {
 
 	// Initialize services
 
-	// Establish database connection
-	db, err := sql.Open("pgx", cfg.Database.URL)
+	// Establish database connection using the setup function
+	_, err = setupDatabase(cfg, slog.Default())
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize database connection: %w", err)
+		return nil, fmt.Errorf("failed to setup database: %w", err)
 	}
-
-	// Configure connection pool settings
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
-	// Verify database connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-	slog.Info("Database connection established")
 
 	// Initialize UserStore (will be used in startServer)
 	slog.Info("User store initialized")

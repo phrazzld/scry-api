@@ -92,10 +92,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `setupLogger` function to encapsulate logger configuration and initialization. Updated both the `initializeApp` function and migration code in `main` to use this function, which provides consistent logger setup throughout the application.
 
-- [ ] **T016:** Extract setupDatabase function
+- [x] **T016:** Extract setupDatabase function
     - **Action:** Create a new function `setupDatabase(cfg *config.Config, logger *slog.Logger) (*sql.DB, error)` in `cmd/server/main.go`. Move the database connection opening and ping logic from `initializeApp` (or `startServer`) into this function. Return the `*sql.DB` instance or an error.
     - **Depends On:** [T014, T015]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `setupDatabase` function that encapsulates database initialization, connection pool configuration, and connectivity validation. Updated both the `initializeApp` and `startServer` functions to use this function, eliminating code duplication and ensuring consistent database setup across the application.
 
 - [ ] **T017:** Extract setupJWTService function
     - **Action:** Create a new function `setupJWTService(cfg *config.Config) (auth.JWTService, error)` in `cmd/server/main.go`. Move the JWT service initialization logic (using `auth.NewJWTService()`) from `initializeApp` into this function.

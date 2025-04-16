@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,18 +15,15 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/auth"
-	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Test server setup for integration tests
-func setupTestServer(t *testing.T) *httptest.Server {
-	// Get test database
-	db, err := testutils.GetTestDB()
-	require.NoError(t, err)
+func setupTestServer(t *testing.T, db *sql.DB) *httptest.Server {
+	t.Helper()
 
-	// Create UserStore
+	// Create UserStore using the provided database connection
 	userStore := postgres.NewPostgresUserStore(db, 10)
 
 	// Create JWT Service
@@ -85,13 +83,13 @@ func setupTestServer(t *testing.T) *httptest.Server {
 }
 
 func TestAuthIntegration(t *testing.T) {
-	// Skip integration tests if not in an integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test: environment not configured")
+	// Skip test if database is not available (testDB is set in TestMain)
+	if testDB == nil {
+		t.Skip("Skipping integration test - database connection not available")
 	}
 
-	// Start test server
-	testServer := setupTestServer(t)
+	// Start test server with the shared database connection
+	testServer := setupTestServer(t, testDB)
 	defer testServer.Close()
 
 	// Test data

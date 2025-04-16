@@ -7,12 +7,6 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 
-* **User Store Implementation:**
-    * Define `store.UserStore` interface with methods for CRUD operations.
-    * Implement PostgreSQL implementation (`internal/platform/postgres`) for user CRUD operations.
-    * Implement secure password hashing using `bcrypt`.
-    * Ensure validation of all user data before storage.
-    * Add comprehensive tests for store implementation.
 
 * **JWT Authentication Service (Dependency: User Store):**
     * Implement JWT generation and validation logic in `auth.Service`.
@@ -175,3 +169,10 @@ This backlog outlines the major work items required to build the Minimum Viable 
       * golangci-lint for catching issues early.
       * Commit message validation for conventional commits.
       * Potentially run fast tests pre-commit.
+
+* **User Store Implementation (Completed):**
+    * ✅ Define `store.UserStore` interface with methods for CRUD operations.
+    * ✅ Implement PostgreSQL implementation (`internal/platform/postgres`) for user CRUD operations.
+    * ✅ Implement secure password hashing using `bcrypt`.
+    * ✅ Ensure validation of all user data before storage.
+    * ✅ Add comprehensive tests for store implementation.

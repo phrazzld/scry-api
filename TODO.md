@@ -25,10 +25,11 @@
   - **Complexity:** Low
   - **Note:** Added more detailed error messages in token generation functions with context on what operation was being performed. Enhanced logging throughout authentication flow with consistent structured logging including token type, expiry information, and operation context. Added success logging at debug level for token generation and validation operations. Improved error specific handling in JWT validation flows to provide more accurate diagnostic information.
 
-- [ ] **T054:** Refactor Large Tests
+- [x] **T054:** Refactor Large Tests
   - **Action:** Split the large `TestRefreshTokenSuccess` test into smaller focused tests for login and refresh flows.
   - **Files:** `internal/api/auth_handler_test.go`
   - **Complexity:** Medium
+  - **Note:** Refactored `TestRefreshTokenSuccess` into three separate tests: `TestLoginWithTokenGeneration`, `TestRefreshTokenFlow`, and `TestCompleteAuthFlow`. Created a reusable `setupAuthTestEnvironment` helper function to reduce code duplication. Each test now focuses on a specific aspect of the authentication flow, making tests more maintainable and easier to understand while preserving the same test coverage.
 
 - [x] **T055:** Improve Configuration Documentation
   - **Action:** Add comments explaining the relationship between access and refresh token lifetimes in the configuration.

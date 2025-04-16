@@ -194,6 +194,7 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 		// Authentication endpoints (public)
 		r.Post("/auth/register", authHandler.Register)
 		r.Post("/auth/login", authHandler.Login)
+		r.Post("/auth/refresh", authHandler.RefreshToken)
 
 		// Protected routes
 		r.Group(func(r chi.Router) {

@@ -98,7 +98,7 @@
     - **Files:** `/internal/api/auth_handler.go`
     - **Complexity:** High
 
-- [ ] **T045:** Register Refresh Token Endpoint
+- [x] **T045:** Register Refresh Token Endpoint
     - **Action:** Add the `POST /auth/refresh` route to the router setup in `/cmd/server/main.go`, mapping to the new `authHandler.RefreshToken` method.
     - **Depends On:** [T044]
     - **Files:** `/cmd/server/main.go`
@@ -116,7 +116,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl_test.go`
     - **Complexity:** Medium
 
-- [ ] **T048:** Write Integration Tests for Success Case
+- [x] **T048:** Write Integration Tests for Success Case
     - **Action:** Add an integration test to `/internal/api/auth_handler_test.go` for successful token refresh flow, from login through refresh to verification of new tokens.
     - **Depends On:** [T042, T043, T044, T045]
     - **Files:** `/internal/api/auth_handler_test.go`

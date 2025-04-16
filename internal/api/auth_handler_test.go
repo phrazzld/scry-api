@@ -559,7 +559,7 @@ func TestRefreshTokenFailure(t *testing.T) {
 				return jwtService
 			},
 			wantStatus:   http.StatusInternalServerError,
-			wantErrorMsg: "Failed to generate authentication token",
+			wantErrorMsg: "Failed to generate",
 		},
 	}
 

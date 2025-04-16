@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -35,15 +36,23 @@ func (h *AuthHandler) generateTokenResponse(
 	// Generate access token
 	accessToken, err = h.jwtService.GenerateToken(ctx, userID)
 	if err != nil {
-		slog.Error("failed to generate access token", "error", err, "user_id", userID)
-		return "", "", "", err
+		slog.Error("failed to generate access token",
+			"error", err,
+			"user_id", userID,
+			"token_type", "access",
+			"lifetime_minutes", h.authConfig.TokenLifetimeMinutes)
+		return "", "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	// Generate refresh token
 	refreshToken, err = h.jwtService.GenerateRefreshToken(ctx, userID)
 	if err != nil {
-		slog.Error("failed to generate refresh token", "error", err, "user_id", userID)
-		return "", "", "", err
+		slog.Error("failed to generate refresh token",
+			"error", err,
+			"user_id", userID,
+			"token_type", "refresh",
+			"lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes)
+		return "", "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	// Calculate access token expiration time using the injected time source
@@ -51,6 +60,12 @@ func (h *AuthHandler) generateTokenResponse(
 
 	// Format expiration time in RFC3339 format (standard for JSON API responses)
 	expiresAt = expiresAtTime.Format(time.RFC3339)
+
+	// Log successful token generation with appropriate level
+	slog.Debug("successfully generated token pair",
+		"user_id", userID,
+		"access_token_expires_at", expiresAt,
+		"refresh_token_lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes)
 
 	return accessToken, refreshToken, expiresAt, nil
 }
@@ -116,7 +131,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), user.ID)
 	if err != nil {
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication token")
+		slog.Error("token generation failed during registration",
+			"error", err,
+			"user_id", user.ID)
+		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
 		return
 	}
 
@@ -166,10 +184,18 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Extract user ID from claims
 	userID := claims.UserID
 
+	// Log successful refresh token validation
+	slog.Debug("refresh token validated successfully",
+		"user_id", userID,
+		"token_id", claims.ID)
+
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), userID)
 	if err != nil {
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication token")
+		slog.Error("token generation failed during refresh token operation",
+			"error", err,
+			"user_id", userID)
+		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate new authentication tokens")
 		return
 	}
 
@@ -218,7 +244,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), user.ID)
 	if err != nil {
-		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication token")
+		slog.Error("token generation failed during login",
+			"error", err,
+			"user_id", user.ID)
+		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
 		return
 	}
 

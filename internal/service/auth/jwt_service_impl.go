@@ -72,10 +72,12 @@ func (s *hmacJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (s
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err := token.SignedString(s.signingKey)
 	if err != nil {
-		log.Error("failed to sign JWT token",
+		log.Error("failed to sign JWT access token",
 			"error", err,
-			"userID", userID)
-		return "", fmt.Errorf("failed to generate token: %w", err)
+			"user_id", userID,
+			"token_type", "access",
+			"signing_method", jwt.SigningMethodHS256.Name)
+		return "", fmt.Errorf("failed to sign access token with HMAC-SHA256: %w", err)
 	}
 
 	return signedToken, nil
@@ -110,16 +112,32 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 	if err != nil {
 		// Check for specific JWT validation errors
 		if errors.Is(err, jwt.ErrTokenExpired) {
-			log.Debug("token validation failed: expired", "error", err)
+			log.Debug("access token validation failed: token expired",
+				"error", err,
+				"token_type", "access")
 			return nil, ErrExpiredToken
 		} else if errors.Is(err, jwt.ErrTokenNotValidYet) {
-			log.Debug("token validation failed: not yet valid", "error", err)
+			log.Debug("access token validation failed: token not yet valid",
+				"error", err,
+				"token_type", "access")
 			return nil, ErrTokenNotYetValid
+		} else if errors.Is(err, jwt.ErrTokenMalformed) {
+			log.Debug("access token validation failed: malformed token",
+				"error", err,
+				"token_type", "access")
+			return nil, ErrInvalidToken
+		} else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
+			log.Debug("access token validation failed: invalid signature",
+				"error", err,
+				"token_type", "access")
+			return nil, ErrInvalidToken
 		} else {
-			log.Debug("token validation failed: other validation error", "error", err)
+			log.Debug("access token validation failed: other validation error",
+				"error", err,
+				"token_type", "access",
+				"error_type", fmt.Sprintf("%T", err))
 		}
 
-		log.Debug("token validation failed", "error", err)
 		return nil, ErrInvalidToken
 	}
 
@@ -141,6 +159,13 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 			ExpiresAt: claims.ExpiresAt.Time,
 			ID:        claims.ID,
 		}
+
+		// Log successful token validation
+		log.Debug("access token validated successfully",
+			"user_id", claims.UserID,
+			"token_id", claims.ID,
+			"expiry", claims.ExpiresAt.Time)
+
 		return customClaims, nil
 	}
 
@@ -172,8 +197,10 @@ func (s *hmacJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.U
 	if err != nil {
 		log.Error("failed to sign JWT refresh token",
 			"error", err,
-			"userID", userID)
-		return "", fmt.Errorf("failed to generate refresh token: %w", err)
+			"user_id", userID,
+			"token_type", "refresh",
+			"signing_method", jwt.SigningMethodHS256.Name)
+		return "", fmt.Errorf("failed to sign refresh token with HMAC-SHA256: %w", err)
 	}
 
 	return signedToken, nil
@@ -209,16 +236,32 @@ func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString s
 	if err != nil {
 		// Check for specific JWT validation errors
 		if errors.Is(err, jwt.ErrTokenExpired) {
-			log.Debug("refresh token validation failed: expired", "error", err)
+			log.Debug("refresh token validation failed: token expired",
+				"error", err,
+				"token_type", "refresh")
 			return nil, ErrExpiredRefreshToken
 		} else if errors.Is(err, jwt.ErrTokenNotValidYet) {
-			log.Debug("refresh token validation failed: not yet valid", "error", err)
+			log.Debug("refresh token validation failed: token not yet valid",
+				"error", err,
+				"token_type", "refresh")
+			return nil, ErrInvalidRefreshToken
+		} else if errors.Is(err, jwt.ErrTokenMalformed) {
+			log.Debug("refresh token validation failed: malformed token",
+				"error", err,
+				"token_type", "refresh")
+			return nil, ErrInvalidRefreshToken
+		} else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
+			log.Debug("refresh token validation failed: invalid signature",
+				"error", err,
+				"token_type", "refresh")
 			return nil, ErrInvalidRefreshToken
 		} else {
-			log.Debug("refresh token validation failed: other validation error", "error", err)
+			log.Debug("refresh token validation failed: other validation error",
+				"error", err,
+				"token_type", "refresh",
+				"error_type", fmt.Sprintf("%T", err))
 		}
 
-		log.Debug("refresh token validation failed", "error", err)
 		return nil, ErrInvalidRefreshToken
 	}
 
@@ -240,6 +283,13 @@ func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString s
 			ExpiresAt: claims.ExpiresAt.Time,
 			ID:        claims.ID,
 		}
+
+		// Log successful token validation
+		log.Debug("refresh token validated successfully",
+			"user_id", claims.UserID,
+			"token_id", claims.ID,
+			"expiry", claims.ExpiresAt.Time)
+
 		return customClaims, nil
 	}
 

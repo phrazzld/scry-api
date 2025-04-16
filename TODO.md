@@ -19,10 +19,11 @@
 
 ## Additional Improvements
 
-- [ ] **T053:** Enhance Error and Log Messages
+- [x] **T053:** Enhance Error and Log Messages
   - **Action:** Use more specific error messages for token generation failures and improve logging for refresh token operations.
   - **Files:** `internal/api/auth_handler.go`, `internal/service/auth/jwt_service_impl.go`
   - **Complexity:** Low
+  - **Note:** Added more detailed error messages in token generation functions with context on what operation was being performed. Enhanced logging throughout authentication flow with consistent structured logging including token type, expiry information, and operation context. Added success logging at debug level for token generation and validation operations. Improved error specific handling in JWT validation flows to provide more accurate diagnostic information.
 
 - [ ] **T054:** Refactor Large Tests
   - **Action:** Split the large `TestRefreshTokenSuccess` test into smaller focused tests for login and refresh flows.
@@ -107,15 +108,17 @@
   - **Complexity:** Medium
   - **Note:** Recovery mechanism is already implemented in `internal/task/runner.go` through the `Recover()` method (lines 126-184), which finds tasks in both "pending" and "processing" states, updates their status as needed, and requeues them for execution. This is accompanied by a comprehensive test suite in `internal/task/runner_test.go`. Additionally, a stuck task monitoring mechanism is implemented in `stuckTaskMonitor()` method to handle tasks that have been in the processing state for too long.
 
-- [ ] **T112:** Integrate task runner into application startup
+- [x] **T112:** Integrate task runner into application startup
   - **Action:** Modify `cmd/server/main.go` to initialize the task queue, worker pool, and recovery mechanism during server startup.
   - **Depends On:** [T105, T111]
   - **Complexity:** Medium
+  - **Note:** Implemented in `cmd/server/main.go` with the `setupTaskRunner` function (lines 378-399). The function configures a new TaskRunner with appropriate worker count, queue size, and stuck task monitoring settings from the application config. The task runner is properly initialized during server startup in the `startServer` function, where it calls `setupTaskRunner`, starts the task runner, and sets up a proper deferred stop to ensure graceful shutdown.
 
-- [ ] **T113:** Add graceful shutdown for task runner
+- [x] **T113:** Add graceful shutdown for task runner
   - **Action:** Update server shutdown logic to stop the worker pool gracefully, ensuring in-progress tasks complete.
   - **Depends On:** [T112]
   - **Complexity:** Low
+  - **Note:** Implemented in `cmd/server/main.go` with a deferred call to `taskRunner.Stop()` in the `startServer` function (line 271). This ensures that when the server receives a shutdown signal, the task runner is properly stopped, allowing in-progress tasks to complete before the application exits. The TaskRunner.Stop() method itself is implemented in `internal/task/runner.go` to handle proper cancellation and wait for all workers to finish.
 
 - [ ] **T114:** Integrate with memo creation endpoint
   - **Action:** Update the memo creation endpoint to save memos with 'pending' status and enqueue generation tasks instead of processing synchronously.
@@ -128,10 +131,11 @@
   - **Complexity:** Medium
   - **Note:** Stuck task monitoring is already implemented in `internal/task/runner.go` through the `stuckTaskMonitor()` method (lines 250-305), which runs as a goroutine and periodically checks for tasks that have been in the "processing" state for too long, resets their status to "pending", and requeues them for processing. The implementation includes configurable parameters for stuck task age and check interval, proper error handling, and comprehensive logging. Test coverage is provided in `internal/task/runner_test.go` through the `TestTaskRunner_StuckTasks` test function.
 
-- [ ] **T116:** Update configuration system
+- [x] **T116:** Update configuration system
   - **Action:** Add task runner configuration options (worker count, queue size, retry intervals, etc.) to the application configuration.
   - **Depends On:** [T112]
   - **Complexity:** Low
+  - **Note:** Task runner configuration options are already implemented in `internal/config/config.go` with the TaskConfig struct (lines 93-107), including WorkerCount, QueueSize, and StuckTaskAgeMinutes fields. The example configuration in `config.yaml.example` includes documentation and default values for these options. These configuration values are properly used in the `setupTaskRunner` function in `cmd/server/main.go` to initialize the task runner with the configured settings.
 
 - [x] **T117:** Write unit tests for TaskQueue
   - **Action:** Test enqueueing tasks, handling full queues, and closed channels.

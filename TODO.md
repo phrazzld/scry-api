@@ -26,7 +26,7 @@
     - **Files:** `/internal/service/auth/jwt_service.go`
     - **Complexity:** Low
 
-- [ ] **T033:** Update JWT Service Struct
+- [x] **T033:** Update JWT Service Struct
     - **Action:** Add the `refreshTokenLifetime` field to the `hmacJWTService` struct and add the `TokenType` field to the `jwtCustomClaims` struct in `/internal/service/auth/jwt_service_impl.go`.
     - **Depends On:** [T031]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

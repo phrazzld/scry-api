@@ -14,15 +14,17 @@ import (
 
 // hmacJWTService is an implementation of JWTService using HMAC-SHA signing.
 type hmacJWTService struct {
-	signingKey    []byte
-	tokenLifetime time.Duration
-	timeFunc      func() time.Time // Injectable for testing
-	clockSkew     time.Duration    // Allowed time difference for validation to handle clock drift
+	signingKey           []byte
+	tokenLifetime        time.Duration    // Access token lifetime
+	refreshTokenLifetime time.Duration    // Refresh token lifetime
+	timeFunc             func() time.Time // Injectable for testing
+	clockSkew            time.Duration    // Allowed time difference for validation to handle clock drift
 }
 
 // jwtCustomClaims defines the structure of JWT claims we use
 type jwtCustomClaims struct {
-	UserID uuid.UUID `json:"uid"`
+	UserID    uuid.UUID `json:"uid"`
+	TokenType string    `json:"type"`
 	jwt.RegisteredClaims
 }
 
@@ -121,6 +123,7 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 	if claims, ok := token.Claims.(*jwtCustomClaims); ok && token.Valid {
 		customClaims := &Claims{
 			UserID:    claims.UserID,
+			TokenType: claims.TokenType,
 			Subject:   claims.Subject,
 			IssuedAt:  claims.IssuedAt.Time,
 			ExpiresAt: claims.ExpiresAt.Time,
@@ -133,12 +136,27 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 	return nil, ErrInvalidToken
 }
 
+// GenerateRefreshToken creates a signed JWT refresh token with user claims.
+// Will be fully implemented in T036.
+func (s *hmacJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	// This is a placeholder implementation that will be replaced in T036
+	return "", fmt.Errorf("not implemented")
+}
+
+// ValidateRefreshToken validates a JWT refresh token and returns the claims if valid.
+// Will be fully implemented in T038.
+func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString string) (*Claims, error) {
+	// This is a placeholder implementation that will be replaced in T038
+	return nil, fmt.Errorf("not implemented")
+}
+
 // NewTestJWTService creates a JWT service with adjustable time for testing
 func NewTestJWTService(secret string, lifetime time.Duration, timeFunc func() time.Time) JWTService {
 	return &hmacJWTService{
-		signingKey:    []byte(secret),
-		tokenLifetime: lifetime,
-		timeFunc:      timeFunc,
-		clockSkew:     0, // No clock skew for tests to make them deterministic
+		signingKey:           []byte(secret),
+		tokenLifetime:        lifetime,
+		refreshTokenLifetime: lifetime * 7, // Default refresh token lifetime is 7x access token for testing
+		timeFunc:             timeFunc,
+		clockSkew:            0, // No clock skew for tests to make them deterministic
 	}
 }

@@ -78,7 +78,7 @@ func (m *MockMemoGenerationTask) ID() uuid.UUID {
 }
 
 func (m *MockMemoGenerationTask) Type() string {
-	return "memo_generation"
+	return task.TaskTypeMemoGeneration
 }
 
 func (m *MockMemoGenerationTask) Status() task.TaskStatus {

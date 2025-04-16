@@ -18,7 +18,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T002: Replace Magic Strings with Task Type Constant
+### T002: Replace Magic Strings with Task Type Constant [x]
 
 - **Description:** Replace all occurrences of the string literal `"memo_generation"` in the test files with the newly defined `task.TaskTypeMemoGeneration` constant.
 - **Acceptance Criteria:**

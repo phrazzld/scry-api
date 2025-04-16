@@ -454,7 +454,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 		now := time.Now().UTC()
 		_, err = tx.Exec(
 			"INSERT INTO tasks (id, type, payload, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-			taskID, "memo_generation", payloadBytes, string(task.TaskStatusProcessing), now, now,
+			taskID, task.TaskTypeMemoGeneration, payloadBytes, string(task.TaskStatusProcessing), now, now,
 		)
 		require.NoError(t, err, "Failed to insert task with processing status")
 
@@ -584,7 +584,7 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		now := time.Now().UTC()
 		_, err = tx.Exec(
 			"INSERT INTO tasks (id, type, payload, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-			taskID, "memo_generation", payloadBytes, string(task.TaskStatusProcessing), now, now,
+			taskID, task.TaskTypeMemoGeneration, payloadBytes, string(task.TaskStatusProcessing), now, now,
 		)
 		require.NoError(t, err, "Failed to insert task with processing status")
 

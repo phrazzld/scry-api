@@ -86,10 +86,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `loadConfig` function that encapsulates the config loading logic and updated both `initializeApp` and the migration code in `main` to use this new function. This improves code organization and reduces duplication.
 
-- [ ] **T015:** Extract setupLogger function
+- [x] **T015:** Extract setupLogger function
     - **Action:** Create a new function `setupLogger(cfg *config.Config) *slog.Logger` in `cmd/server/main.go`. Move the logger setup logic (using `logger.Setup()`) from `initializeApp` into this new function. Handle potential errors from `logger.Setup`.
     - **Depends On:** [T014]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `setupLogger` function to encapsulate logger configuration and initialization. Updated both the `initializeApp` function and migration code in `main` to use this function, which provides consistent logger setup throughout the application.
 
 - [ ] **T016:** Extract setupDatabase function
     - **Action:** Create a new function `setupDatabase(cfg *config.Config, logger *slog.Logger) (*sql.DB, error)` in `cmd/server/main.go`. Move the database connection opening and ping logic from `initializeApp` (or `startServer`) into this function. Return the `*sql.DB` instance or an error.

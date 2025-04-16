@@ -87,11 +87,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Set up logging with a logger-specific config
-		loggerConfig := logger.LoggerConfig{
-			Level: cfg.Server.LogLevel,
-		}
-		_, err = logger.Setup(loggerConfig)
+		// Set up logging with the shared logger setup function
+		_, err = setupLogger(cfg)
 		if err != nil {
 			slog.Error("Failed to set up logger for migration",
 				"error", err)
@@ -274,6 +271,21 @@ func loadConfig() (*config.Config, error) {
 	return cfg, nil
 }
 
+// setupLogger configures and initializes the application logger based on config settings.
+// Returns the configured logger or an error if setup fails.
+func setupLogger(cfg *config.Config) (*slog.Logger, error) {
+	loggerConfig := logger.LoggerConfig{
+		Level: cfg.Server.LogLevel,
+	}
+
+	l, err := logger.Setup(loggerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up logger: %w", err)
+	}
+
+	return l, nil
+}
+
 // initializeApp loads configuration and sets up application components.
 // Returns the loaded config and any initialization error.
 func initializeApp() (*config.Config, error) {
@@ -285,12 +297,9 @@ func initializeApp() (*config.Config, error) {
 
 	// Set up structured logging using the configured log level
 	// After this point, all slog calls will use the JSON structured logger
-	loggerConfig := logger.LoggerConfig{
-		Level: cfg.Server.LogLevel,
-	}
-	_, err = logger.Setup(loggerConfig)
+	_, err = setupLogger(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set up logger: %w", err)
+		return nil, err
 	}
 
 	// Log configuration details using structured logging

@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,25 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockPasswordVerifier implements auth.PasswordVerifier for testing
-type MockPasswordVerifier struct {
-	ShouldSucceed bool
-}
-
-func (m *MockPasswordVerifier) Compare(hashedPassword, password string) error {
-	if m.ShouldSucceed {
-		return nil // Successful comparison
-	}
-	return errors.New("password mismatch") // Failed comparison
-}
-
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	// Create dependencies
 	userStore := mocks.NewMockUserStore()
 	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
-	passwordVerifier := &MockPasswordVerifier{ShouldSucceed: true}
+	passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
 
 	// Create test auth config
 	authConfig := &config.AuthConfig{
@@ -143,7 +130,7 @@ func TestLogin(t *testing.T) {
 	tests := []struct {
 		name             string
 		payload          map[string]interface{}
-		passwordVerifier *MockPasswordVerifier
+		passwordVerifier *mocks.MockPasswordVerifier
 		wantStatus       int
 		wantToken        bool
 	}{
@@ -153,7 +140,7 @@ func TestLogin(t *testing.T) {
 				"email":    testEmail,
 				"password": testPassword,
 			},
-			passwordVerifier: &MockPasswordVerifier{ShouldSucceed: true},
+			passwordVerifier: &mocks.MockPasswordVerifier{ShouldSucceed: true},
 			wantStatus:       http.StatusOK,
 			wantToken:        true,
 		},
@@ -163,7 +150,7 @@ func TestLogin(t *testing.T) {
 				"email":    "nonexistent@example.com",
 				"password": testPassword,
 			},
-			passwordVerifier: &MockPasswordVerifier{ShouldSucceed: false},
+			passwordVerifier: &mocks.MockPasswordVerifier{ShouldSucceed: false},
 			wantStatus:       http.StatusUnauthorized,
 			wantToken:        false,
 		},
@@ -173,7 +160,7 @@ func TestLogin(t *testing.T) {
 				"email":    testEmail,
 				"password": "wrongpassword",
 			},
-			passwordVerifier: &MockPasswordVerifier{ShouldSucceed: false},
+			passwordVerifier: &mocks.MockPasswordVerifier{ShouldSucceed: false},
 			wantStatus:       http.StatusUnauthorized,
 			wantToken:        false,
 		},

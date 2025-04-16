@@ -153,10 +153,11 @@
     - **AC Ref:** PLAN.md Section 5
     - **Note:** Created `internal/mocks/user_store.go` with both the standard `MockUserStore` and specialized `LoginMockUserStore` implementations. Enhanced the implementation with function fields for more flexible test behavior customization (CreateFn, GetByEmailFn, etc.) while maintaining backward compatibility with existing tests. Exported all fields for easier test configuration. Updated `auth_handler_test.go` to use the centralized mocks and cleaned up unused imports.
 
-- [ ] **T025:** Move MockPasswordVerifier to internal/mocks
+- [x] **T025:** Move MockPasswordVerifier to internal/mocks
     - **Action:** Move the `MockPasswordVerifier` struct and its methods from `internal/api/auth_handler_test.go` to a new file `internal/mocks/password_verifier.go`. Ensure the package declaration is `package mocks`. Update imports as needed.
     - **Depends On:** [T022]
     - **AC Ref:** PLAN.md Section 5
+    - **Note:** Created `internal/mocks/password_verifier.go` with a centralized `MockPasswordVerifier` implementation that replaces the inline mock in `auth_handler_test.go`. Enhanced the implementation with function fields (CompareFn) for more flexible test behavior customization while maintaining backward compatibility. Added tracking fields (CompareCalledWith, CompareCallCount) for easier test verification. Updated all test files to use the centralized mock and cleaned up unused imports.
 
 - [ ] **T026:** Update auth_handler_test.go to use centralized mocks
     - **Action:** Modify `internal/api/auth_handler_test.go`. Remove the local mock definitions. Update the import statements to use `github.com/phrazzld/scry-api/internal/mocks`. Ensure tests still instantiate and use the mocks correctly from the new package.

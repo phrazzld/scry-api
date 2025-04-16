@@ -32,7 +32,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** T001
 
-### T003: Refactor `getTaskStatusDirectly` Helper
+### T003: Refactor `getTaskStatusDirectly` Helper [x]
 
 - **Description:** Modify the `getTaskStatusDirectly` helper function to accept `store.DBTX` instead of casting it to `*sql.Tx`.
 - **Acceptance Criteria:**

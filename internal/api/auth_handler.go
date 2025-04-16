@@ -89,9 +89,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response with expiration time
 	RespondWithJSON(w, r, http.StatusCreated, AuthResponse{
-		UserID:    user.ID,
-		Token:     token,
-		ExpiresAt: expiresAtFormatted,
+		UserID:      user.ID,
+		AccessToken: token,
+		ExpiresAt:   expiresAtFormatted,
 	})
 }
 
@@ -145,8 +145,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response with expiration time
 	RespondWithJSON(w, r, http.StatusOK, AuthResponse{
-		UserID:    user.ID,
-		Token:     token,
-		ExpiresAt: expiresAtFormatted,
+		UserID:      user.ID,
+		AccessToken: token,
+		ExpiresAt:   expiresAtFormatted,
 	})
 }

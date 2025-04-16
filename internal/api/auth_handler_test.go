@@ -106,7 +106,7 @@ func TestRegister(t *testing.T) {
 				err = json.NewDecoder(recorder.Body).Decode(&authResp)
 				require.NoError(t, err)
 				assert.NotEqual(t, uuid.Nil, authResp.UserID)
-				assert.Equal(t, "test-token", authResp.Token)
+				assert.Equal(t, "test-token", authResp.AccessToken)
 				assert.NotEmpty(t, authResp.ExpiresAt, "ExpiresAt should be populated")
 			}
 		})
@@ -198,7 +198,7 @@ func TestLogin(t *testing.T) {
 				err = json.NewDecoder(recorder.Body).Decode(&authResp)
 				require.NoError(t, err)
 				assert.Equal(t, userID, authResp.UserID)
-				assert.Equal(t, "test-token", authResp.Token)
+				assert.Equal(t, "test-token", authResp.AccessToken)
 				// We haven't implemented ExpiresAt in Login yet, so we don't check it here
 			}
 		})

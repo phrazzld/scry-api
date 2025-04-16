@@ -68,7 +68,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** Low
 
-- [ ] **T040:** Update AuthResponse Model
+- [x] **T040:** Update AuthResponse Model
     - **Action:** Modify the `AuthResponse` struct in `/internal/api/models.go`: rename `Token` to `AccessToken` and add a new `RefreshToken` field.
     - **Depends On:** None
     - **Files:** `/internal/api/models.go`

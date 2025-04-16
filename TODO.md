@@ -71,10 +71,11 @@
   - **Complexity:** Medium
   - **Note:** Implemented in `internal/task/worker_pool.go` alongside task T104. The `Start()` method launches worker goroutines and logs the start, while `Stop()` cancels the context, waits for all workers to finish via `WaitGroup`, and logs the completion. Both methods have comprehensive test coverage.
 
-- [ ] **T106:** Create `MemoGenerationTask` struct
+- [x] **T106:** Create `MemoGenerationTask` struct
   - **Action:** Implement the struct with fields for `memoID`, `memoRepo`, `generator`, and `logger`. Add constructor method.
   - **Depends On:** [T100]
   - **Complexity:** Low
+  - **Note:** Implemented in `internal/task/memo_generation_task.go` with fields for memoID, repositories, generator, and logger. Added constructor with validation and implemented Task interface methods (ID, Type, Status, Payload). Full test coverage provided in `internal/task/memo_generation_task_test.go`.
 
 - [ ] **T107:** Implement `MemoGenerationTask.Execute()` method
   - **Action:** Implement core flashcard generation logic: Update memo status to 'processing', call generator service, save generated cards to DB, handle errors, and update final memo status. Add structured logging.

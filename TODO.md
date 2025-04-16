@@ -20,7 +20,7 @@
     - **Files:** `/internal/service/auth/jwt_service.go`
     - **Complexity:** Low
 
-- [ ] **T032:** Extend JWTService Interface
+- [x] **T032:** Extend JWTService Interface
     - **Action:** Add new method signatures to the `JWTService` interface in `/internal/service/auth/jwt_service.go`: `GenerateRefreshToken` and `ValidateRefreshToken`.
     - **Depends On:** [T031]
     - **Files:** `/internal/service/auth/jwt_service.go`

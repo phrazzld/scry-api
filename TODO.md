@@ -92,7 +92,7 @@
     - **Files:** `/internal/api/auth_handler.go`
     - **Complexity:** Medium
 
-- [ ] **T044:** Implement RefreshToken Handler
+- [x] **T044:** Implement RefreshToken Handler
     - **Action:** Implement the new `RefreshToken` method in `/internal/api/auth_handler.go` to validate refresh tokens, generate new token pairs, and implement token rotation.
     - **Depends On:** [T035, T036, T038, T041]
     - **Files:** `/internal/api/auth_handler.go`

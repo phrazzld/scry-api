@@ -104,6 +104,73 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RefreshToken handles the /auth/refresh endpoint.
+// It validates a refresh token and issues a new access + refresh token pair.
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	var req RefreshTokenRequest
+
+	// Parse request
+	if err := DecodeJSON(r, &req); err != nil {
+		RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		return
+	}
+
+	// Validate request
+	if err := h.validator.Struct(req); err != nil {
+		RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+		return
+	}
+
+	// Validate refresh token
+	claims, err := h.jwtService.ValidateRefreshToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		// Map different error types to appropriate HTTP responses
+		switch {
+		case errors.Is(err, auth.ErrInvalidRefreshToken),
+			errors.Is(err, auth.ErrExpiredRefreshToken),
+			errors.Is(err, auth.ErrWrongTokenType):
+			slog.Debug("refresh token validation failed", "error", err)
+			RespondWithError(w, r, http.StatusUnauthorized, "Invalid refresh token")
+		default:
+			slog.Error("unexpected error validating refresh token", "error", err)
+			RespondWithError(w, r, http.StatusInternalServerError, "Failed to validate refresh token")
+		}
+		return
+	}
+
+	// Extract user ID from claims
+	userID := claims.UserID
+
+	// Generate new access token
+	accessToken, err := h.jwtService.GenerateToken(r.Context(), userID)
+	if err != nil {
+		slog.Error("failed to generate access token", "error", err, "user_id", userID)
+		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication token")
+		return
+	}
+
+	// Generate new refresh token (token rotation - each refresh token can only be used once)
+	refreshToken, err := h.jwtService.GenerateRefreshToken(r.Context(), userID)
+	if err != nil {
+		slog.Error("failed to generate refresh token", "error", err, "user_id", userID)
+		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate refresh token")
+		return
+	}
+
+	// Calculate access token expiration time
+	expiresAt := time.Now().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
+
+	// Format expiration time in RFC3339 format (standard for JSON API responses)
+	expiresAtFormatted := expiresAt.Format(time.RFC3339)
+
+	// Return success response with new tokens and expiration time
+	RespondWithJSON(w, r, http.StatusOK, RefreshTokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAtFormatted,
+	})
+}
+
 // Login handles the /auth/login endpoint.
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest

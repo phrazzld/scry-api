@@ -122,7 +122,7 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Removed the `initializeApp` function and moved its functionality directly into the `main` function by calling the extracted setup functions (loadConfig, setupLogger, setupDatabase, setupJWTService) in sequence. Also updated the integration test to use `loadConfig` directly instead of `initializeApp`. This further improves code organization by removing an unnecessary abstraction layer.
 
-- [ ] **T021:** Refactor startServer function
+- [x] **T021:** Refactor startServer function
     - **Action:** Modify the `startServer` function in `cmd/server/main.go`. Remove the extracted logic. Update it to:
         1. Initialize dependencies using the new helper functions (`setupDatabase`, `setupJWTService`, etc.) and populate the `appDependencies` struct.
         2. Call `setupRouter` and `setupTaskRunner` using the `appDependencies`.
@@ -132,6 +132,7 @@
         Ensure `db.Close()` and `taskRunner.Stop()` are called appropriately on shutdown.
     - **Depends On:** [T013, T016, T017, T018, T019, T020]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Refactored the `startServer` function to use a more structured, step-by-step approach with clear comments documenting each stage of the server initialization. Improved variable naming for clarity (e.g., `router` instead of `r`, `server` instead of `srv`, `shutdownSignal` instead of `stop`) and added more comprehensive code documentation. The function now clearly follows the dependency flow pattern: initialize dependencies → build dependency struct → set up task runner → set up router → start server → handle shutdown.
 
 ## 6. Centralize Mock Implementations (Low Risk)
 - [ ] **T022:** Create internal/mocks package

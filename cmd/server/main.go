@@ -214,90 +214,96 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	return r
 }
 
-// startServer configures and starts the HTTP server.
+// startServer initializes application dependencies, configures and starts the HTTP server.
+// It also handles graceful shutdown when the application receives a termination signal.
 func startServer(cfg *config.Config) {
-	// Open a database connection using the setup function
-	db, err := setupDatabase(cfg, slog.Default())
+	// Initialize core services and dependencies
+	logger := slog.Default()
+
+	// Step 1: Set up database connection
+	db, err := setupDatabase(cfg, logger)
 	if err != nil {
-		slog.Error("Failed to setup database", "error", err)
+		logger.Error("Failed to setup database", "error", err)
 		os.Exit(1)
 	}
+	// Ensure database connection is closed when the server shuts down
 	defer func() {
 		if err := db.Close(); err != nil {
-			slog.Error("Error closing database connection", "error", err)
+			logger.Error("Error closing database connection", "error", err)
 		}
 	}()
 
-	// Initialize dependencies
-	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
+	// Step 2: Initialize JWT service
 	jwtService, err := setupJWTService(cfg)
 	if err != nil {
-		slog.Error("Failed to initialize JWT service", "error", err)
+		logger.Error("Failed to initialize JWT service", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize task store
+	// Step 3: Initialize stores and other dependencies
+	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 	taskStore := postgres.NewPostgresTaskStore(db)
+	passwordVerifier := auth.NewBcryptVerifier()
 
-	// Initialize application dependencies
+	// Step 4: Populate the application dependencies struct
 	deps := &appDependencies{
 		Config:           cfg,
-		Logger:           slog.Default(),
+		Logger:           logger,
 		DB:               db,
 		UserStore:        userStore,
 		TaskStore:        taskStore,
 		JWTService:       jwtService,
-		PasswordVerifier: auth.NewBcryptVerifier(),
+		PasswordVerifier: passwordVerifier,
 	}
 
-	// Set up task runner
+	// Step 5: Set up task runner using the new setup function
 	taskRunner, err := setupTaskRunner(deps)
 	if err != nil {
-		slog.Error("Failed to setup task runner", "error", err)
+		logger.Error("Failed to setup task runner", "error", err)
 		os.Exit(1)
 	}
 
-	// Update dependencies with task runner
+	// Update dependencies with the task runner
 	deps.TaskRunner = taskRunner
 
-	// Ensure task runner is stopped on server shutdown
+	// Ensure task runner is stopped when the server shuts down
 	defer taskRunner.Stop()
 
-	// Create router using setupRouter function
-	r := setupRouter(deps)
+	// Step 6: Set up router using the new setup function
+	router := setupRouter(deps)
 
-	// Create and run server
-	srv := &http.Server{
+	// Step 7: Configure and create HTTP server
+	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler: r,
+		Handler: router,
 	}
 
-	// Start server in a goroutine
+	// Step 8: Start server in a goroutine to allow for graceful shutdown
 	go func() {
-		slog.Info("Starting server", "port", cfg.Server.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Server failed", "error", err)
+		logger.Info("Starting server", "port", cfg.Server.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Server failed", "error", err)
 			os.Exit(1)
 		}
 	}()
 
-	// Set up graceful shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
+	// Step 9: Set up graceful shutdown
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdownSignal
 
-	slog.Info("Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	// Create shutdown context with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	// Attempt graceful shutdown
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("Server shutdown failed", "error", err)
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Server shutdown failed", "error", err)
 	}
 
-	slog.Info("Server shutdown completed")
+	logger.Info("Server shutdown completed")
 }
 
 // loadConfig loads the application configuration from environment variables or config file.

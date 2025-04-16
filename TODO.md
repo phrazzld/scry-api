@@ -89,20 +89,23 @@
   - **Complexity:** Low
   - **Note:** The migration file already exists at `internal/platform/postgres/migrations/20250415000005_create_tasks_table.sql` with a complete schema including id, type, payload, status, error_message, and timestamps. The PostgreSQL task store implementation is also complete in `internal/platform/postgres/task_store.go` with comprehensive tests. The existing implementation fully meets the requirements of the TaskStore interface defined in `internal/task/task.go`.
 
-- [ ] **T109:** Create task store interface
+- [x] **T109:** Create task store interface
   - **Action:** Define the `TaskStore` interface with methods for saving, updating, and retrieving tasks from the database.
   - **Depends On:** [T100, T101]
   - **Complexity:** Low
+  - **Note:** The TaskStore interface is already defined in `internal/task/task.go` (lines 57-72) with methods for saving tasks, updating task status, and retrieving tasks by status. The interface is well-documented and includes all necessary methods for the task runner system.
 
-- [ ] **T110:** Implement PostgreSQL task store
+- [x] **T110:** Implement PostgreSQL task store
   - **Action:** Implement the `TaskStore` interface for PostgreSQL with methods to persist and retrieve tasks.
   - **Depends On:** [T108, T109]
   - **Complexity:** Medium
+  - **Note:** The PostgreSQL task store implementation already exists in `internal/platform/postgres/task_store.go` with a comprehensive test suite in `internal/platform/postgres/task_store_test.go`. The implementation includes methods for saving tasks, updating their status, and retrieving tasks by status with optional filtering by age. The code is well-structured with error handling and proper logging.
 
-- [ ] **T111:** Implement recovery mechanism
+- [x] **T111:** Implement recovery mechanism
   - **Action:** Create the `runRecoveryTasks` function to find 'processing' memos on startup and re-enqueue them for processing. Add appropriate logging and error handling.
   - **Depends On:** [T107, T110]
   - **Complexity:** Medium
+  - **Note:** Recovery mechanism is already implemented in `internal/task/runner.go` through the `Recover()` method (lines 126-184), which finds tasks in both "pending" and "processing" states, updates their status as needed, and requeues them for execution. This is accompanied by a comprehensive test suite in `internal/task/runner_test.go`. Additionally, a stuck task monitoring mechanism is implemented in `stuckTaskMonitor()` method to handle tasks that have been in the processing state for too long.
 
 - [ ] **T112:** Integrate task runner into application startup
   - **Action:** Modify `cmd/server/main.go` to initialize the task queue, worker pool, and recovery mechanism during server startup.
@@ -119,30 +122,34 @@
   - **Depends On:** [T107, T112]
   - **Complexity:** Medium
 
-- [ ] **T115:** Add stuck task monitoring
+- [x] **T115:** Add stuck task monitoring
   - **Action:** Implement a background process to identify tasks stuck in 'processing' state for too long and retry them.
   - **Depends On:** [T110, T112]
   - **Complexity:** Medium
+  - **Note:** Stuck task monitoring is already implemented in `internal/task/runner.go` through the `stuckTaskMonitor()` method (lines 250-305), which runs as a goroutine and periodically checks for tasks that have been in the "processing" state for too long, resets their status to "pending", and requeues them for processing. The implementation includes configurable parameters for stuck task age and check interval, proper error handling, and comprehensive logging. Test coverage is provided in `internal/task/runner_test.go` through the `TestTaskRunner_StuckTasks` test function.
 
 - [ ] **T116:** Update configuration system
   - **Action:** Add task runner configuration options (worker count, queue size, retry intervals, etc.) to the application configuration.
   - **Depends On:** [T112]
   - **Complexity:** Low
 
-- [ ] **T117:** Write unit tests for TaskQueue
+- [x] **T117:** Write unit tests for TaskQueue
   - **Action:** Test enqueueing tasks, handling full queues, and closed channels.
   - **Depends On:** [T102]
   - **Complexity:** Medium
+  - **Note:** Complete test suite already exists in `internal/task/task_queue_test.go` covering task enqueueing, queue full conditions, closing the queue, and channel operations. Tests include both individual operations and concurrent access patterns.
 
-- [ ] **T118:** Write unit tests for WorkerPool
+- [x] **T118:** Write unit tests for WorkerPool
   - **Action:** Test starting, stopping, task processing, and panic recovery.
   - **Depends On:** [T105]
   - **Complexity:** Medium
+  - **Note:** Comprehensive test suite implemented in `internal/task/worker_pool_test.go` testing worker pool creation, starting and stopping workers, task processing success and failure scenarios, panic recovery, and context cancellation handling.
 
-- [ ] **T119:** Write unit tests for MemoGenerationTask
+- [x] **T119:** Write unit tests for MemoGenerationTask
   - **Action:** Test success paths, error handling, and mocked dependencies.
   - **Depends On:** [T107]
   - **Complexity:** Medium
+  - **Note:** Extensive tests implemented in `internal/task/memo_generation_task_test.go` covering constructor validation, payload serialization, and the Execute method with various scenarios including success path, error handling for each step of the process, context cancellation, and edge cases.
 
 - [ ] **T120:** Create integration tests for task lifecycle
   - **Action:** Create end-to-end tests for task submission, processing, and completion.

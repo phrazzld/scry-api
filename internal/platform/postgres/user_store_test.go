@@ -21,6 +21,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// testTimeout is the maximum time allowed for a test to run
 const testTimeout = 5 * time.Second
 
 // testDB is a package-level variable that holds a shared database connection

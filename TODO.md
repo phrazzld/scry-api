@@ -164,10 +164,11 @@
   - **Complexity:** High
   - **Note:** Implemented comprehensive integration tests in `cmd/server/main_task_lifecycle_test.go` that verify the full task lifecycle from API submission to worker execution. Includes tests for both success and failure paths, verifying state transitions and database consistency.
 
-- [ ] **T121:** Create integration tests for recovery mechanism
+- [x] **T121:** Create integration tests for recovery mechanism
   - **Action:** Test the system's ability to recover 'processing' tasks after restart.
   - **Depends On:** [T111]
   - **Complexity:** Medium
+  - **Note:** Implemented comprehensive integration tests in `cmd/server/main_recovery_test.go` that verify the ability to recover tasks that were in the "processing" state when the application was shut down. Tests include three scenarios: successful recovery, recovery with execution failures, and end-to-end API-driven recovery. Each test verifies proper state transitions and database consistency.
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
 

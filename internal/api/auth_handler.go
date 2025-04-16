@@ -23,6 +23,7 @@ type AuthHandler struct {
 	passwordVerifier auth.PasswordVerifier
 	validator        *validator.Validate
 	authConfig       *config.AuthConfig // For accessing token lifetime and other auth settings
+	timeFunc         func() time.Time   // Injectable time source for testing
 }
 
 // generateTokenResponse generates access and refresh tokens for a user, along with expiration time.
@@ -45,8 +46,8 @@ func (h *AuthHandler) generateTokenResponse(
 		return "", "", "", err
 	}
 
-	// Calculate access token expiration time
-	expiresAtTime := time.Now().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
+	// Calculate access token expiration time using the injected time source
+	expiresAtTime := h.timeFunc().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
 
 	// Format expiration time in RFC3339 format (standard for JSON API responses)
 	expiresAt = expiresAtTime.Format(time.RFC3339)
@@ -67,7 +68,15 @@ func NewAuthHandler(
 		passwordVerifier: passwordVerifier,
 		validator:        validator.New(),
 		authConfig:       authConfig,
+		timeFunc:         time.Now, // Default to system time
 	}
+}
+
+// WithTimeFunc returns a new AuthHandler with the given time function.
+// This is useful for testing with a fixed time source.
+func (h *AuthHandler) WithTimeFunc(timeFunc func() time.Time) *AuthHandler {
+	h.timeFunc = timeFunc
+	return h
 }
 
 // Register handles the /auth/register endpoint.

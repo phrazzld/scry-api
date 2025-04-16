@@ -356,6 +356,55 @@ func TestRefreshTokenSuccess(t *testing.T) {
 }
 
 // TestRefreshTokenFailure tests various failure scenarios for the refresh token endpoint.
+func TestGenerateTokenResponse(t *testing.T) {
+	t.Parallel()
+
+	// Setup
+	fixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	tokenLifetime := 60 // minutes
+	userID := uuid.New()
+
+	// Create auth config with fixed token lifetime
+	authConfig := &config.AuthConfig{
+		TokenLifetimeMinutes: tokenLifetime,
+	}
+
+	// Create JWT service mock that returns predictable tokens
+	jwtService := &mocks.MockJWTService{
+		Token:        "test-access-token",
+		RefreshToken: "test-refresh-token",
+		Err:          nil,
+	}
+
+	// Create handler with injected dependencies
+	handler := NewAuthHandler(
+		nil, // userStore not needed for this test
+		jwtService,
+		nil, // passwordVerifier not needed for this test
+		authConfig,
+	)
+
+	// Override the time function to return a fixed time
+	handler.WithTimeFunc(func() time.Time {
+		return fixedTime
+	})
+
+	// Test token generation
+	accessToken, refreshToken, expiresAt, err := handler.generateTokenResponse(context.Background(), userID)
+
+	// Verify no error
+	require.NoError(t, err)
+
+	// Verify tokens
+	assert.Equal(t, "test-access-token", accessToken)
+	assert.Equal(t, "test-refresh-token", refreshToken)
+
+	// Verify expiration time - should be fixedTime + tokenLifetime minutes
+	expectedExpiry := fixedTime.Add(time.Duration(tokenLifetime) * time.Minute)
+	expectedExpiryStr := expectedExpiry.Format(time.RFC3339)
+	assert.Equal(t, expectedExpiryStr, expiresAt)
+}
+
 func TestRefreshTokenFailure(t *testing.T) {
 	t.Parallel()
 

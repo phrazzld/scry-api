@@ -12,7 +12,7 @@
   - **Files:** `internal/api/auth_handler.go`
   - **Complexity:** Low
 
-- [ ] **T052:** Improve Time Handling in Auth Handler
+- [x] **T052:** Improve Time Handling in Auth Handler
   - **Action:** Inject a time source into `AuthHandler` for calculating response `ExpiresAt` instead of using `time.Now()` directly.
   - **Files:** `internal/api/auth_handler.go`
   - **Complexity:** Medium

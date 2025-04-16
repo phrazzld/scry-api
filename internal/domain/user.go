@@ -51,7 +51,9 @@ func NewUser(email, password string) (*User, error) {
 	return user, nil
 }
 
-// Validate checks if the User has valid data.
+// Validate checks if the User has valid data for persistence.
+// This method only validates fields relevant for database persistence,
+// not input validation concerns like password requirements.
 // Returns an error if any field fails validation.
 func (u *User) Validate() error {
 	if u.ID == uuid.Nil {
@@ -63,28 +65,14 @@ func (u *User) Validate() error {
 	}
 
 	// Basic email format validation
-	// In a real application, consider using a more robust email validation library
 	if !validateEmailFormat(u.Email) {
 		return ErrInvalidEmail
 	}
 
-	// Password validation
-	// During user creation/update we need to validate the provided password
-	if u.Password != "" {
-		// When plaintext password is provided, check length requirements directly
-		passLen := len(u.Password)
-		if passLen < 12 {
-			return ErrPasswordTooShort
-		}
-		if passLen > 72 {
-			return ErrPasswordTooLong
-		}
-	} else {
-		// When no plaintext password is provided, the user must have a hashed password
-		// (this would be the case for existing users in the database)
-		if u.HashedPassword == "" {
-			return ErrEmptyPassword
-		}
+	// For persistence, we need either a plaintext password (which will be hashed)
+	// or a hashed password to be present
+	if u.Password == "" && u.HashedPassword == "" {
+		return ErrEmptyHashedPassword
 	}
 
 	return nil

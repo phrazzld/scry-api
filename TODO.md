@@ -80,10 +80,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `appDependencies` struct with fields for all shared dependencies identified in the codebase. The struct is currently unused (which is expected) but will be used in subsequent tasks to simplify dependency management.
 
-- [ ] **T014:** Extract loadConfig function
+- [x] **T014:** Extract loadConfig function
     - **Action:** Create a new function `loadConfig() (*config.Config, error)` in `cmd/server/main.go`. Move the configuration loading logic (using `config.Load()`) from `initializeApp` into this new function.
     - **Depends On:** None
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `loadConfig` function that encapsulates the config loading logic and updated both `initializeApp` and the migration code in `main` to use this new function. This improves code organization and reduces duplication.
 
 - [ ] **T015:** Extract setupLogger function
     - **Action:** Create a new function `setupLogger(cfg *config.Config) *slog.Logger` in `cmd/server/main.go`. Move the logger setup logic (using `logger.Setup()`) from `initializeApp` into this new function. Handle potential errors from `logger.Setup`.

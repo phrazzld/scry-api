@@ -80,7 +80,7 @@ func main() {
 			"name", *migrationName)
 
 		// Load configuration for migration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			slog.Error("Failed to load configuration for migration",
 				"error", err)
@@ -264,13 +264,23 @@ func startServer(cfg *config.Config) {
 	slog.Info("Server shutdown completed")
 }
 
+// loadConfig loads the application configuration from environment variables or config file.
+// Returns the loaded config and any loading error.
+func loadConfig() (*config.Config, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+	return cfg, nil
+}
+
 // initializeApp loads configuration and sets up application components.
 // Returns the loaded config and any initialization error.
 func initializeApp() (*config.Config, error) {
 	// Load configuration
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
+		return nil, err
 	}
 
 	// Set up structured logging using the configured log level

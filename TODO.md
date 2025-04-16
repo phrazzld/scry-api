@@ -116,10 +116,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `setupTaskRunner` function that encapsulates task runner initialization, configuration, and startup. The function accepts the `appDependencies` struct to access necessary components like DB, Config, and Logger. Updated the `startServer` function to use this function, improving code organization and making dependency flow more explicit with the two-stage approach (create deps, then create task runner, then update deps with the runner).
 
-- [ ] **T020:** Remove initializeApp function
+- [x] **T020:** Remove initializeApp function
     - **Action:** Delete the `initializeApp` function from `cmd/server/main.go` as its logic has been extracted into smaller functions. Update the `main` function to call the new helper functions directly for initial setup before `startServer`.
     - **Depends On:** [T014, T015, T016, T017]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Removed the `initializeApp` function and moved its functionality directly into the `main` function by calling the extracted setup functions (loadConfig, setupLogger, setupDatabase, setupJWTService) in sequence. Also updated the integration test to use `loadConfig` directly instead of `initializeApp`. This further improves code organization by removing an unnecessary abstraction layer.
 
 - [ ] **T021:** Refactor startServer function
     - **Action:** Modify the `startServer` function in `cmd/server/main.go`. Remove the extracted logic. Update it to:

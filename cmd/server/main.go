@@ -116,18 +116,52 @@ func main() {
 	// sequence where even initialization errors can be logged.
 	slog.Info("Scry API Server starting...")
 
-	// Call the core initialization logic
-	cfg, err := initializeApp()
+	// Load configuration
+	cfg, err := loadConfig()
 	if err != nil {
-		// Still using the default logger here if initializeApp failed
-		// (which may include logger setup failure)
-		slog.Error("Failed to initialize application",
-			"error", err)
+		slog.Error("Failed to load configuration", "error", err)
 		os.Exit(1)
 	}
 
-	// At this point, the JSON structured logger has been configured by initializeApp()
-	// All log messages from here on will use the structured JSON format
+	// Set up structured logging using the configured log level
+	// After this point, all slog calls will use the JSON structured logger
+	_, err = setupLogger(cfg)
+	if err != nil {
+		slog.Error("Failed to set up logger", "error", err)
+		os.Exit(1)
+	}
+
+	// Log configuration details using structured logging
+	slog.Info("Server configuration loaded",
+		"port", cfg.Server.Port,
+		"log_level", cfg.Server.LogLevel)
+
+	// Log additional configuration details at debug level if available
+	if cfg.Database.URL != "" {
+		slog.Debug("Database configuration", "url_present", true)
+	}
+	if cfg.Auth.JWTSecret != "" {
+		slog.Debug("Auth configuration", "jwt_secret_present", true)
+	}
+
+	// Establish database connection
+	_, err = setupDatabase(cfg, slog.Default())
+	if err != nil {
+		slog.Error("Failed to setup database", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Database connection established")
+
+	// Initialize JWT authentication service
+	_, err = setupJWTService(cfg)
+	if err != nil {
+		slog.Error("Failed to initialize JWT service", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("JWT authentication service initialized",
+		"token_lifetime_minutes", cfg.Auth.TokenLifetimeMinutes)
+
+	// At this point, all required services have been initialized
 	slog.Info("Scry API Server initialized successfully",
 		"port", cfg.Server.Port)
 
@@ -355,60 +389,6 @@ func setupTaskRunner(deps *appDependencies) (*task.TaskRunner, error) {
 	}
 
 	return taskRunner, nil
-}
-
-// initializeApp loads configuration and sets up application components.
-// Returns the loaded config and any initialization error.
-func initializeApp() (*config.Config, error) {
-	// Load configuration
-	cfg, err := loadConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	// Set up structured logging using the configured log level
-	// After this point, all slog calls will use the JSON structured logger
-	_, err = setupLogger(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Log configuration details using structured logging
-	slog.Info("Server configuration loaded",
-		"port", cfg.Server.Port,
-		"log_level", cfg.Server.LogLevel)
-
-	// Log additional configuration details at debug level if available
-	if cfg.Database.URL != "" {
-		slog.Debug("Database configuration", "url_present", true)
-	}
-	if cfg.Auth.JWTSecret != "" {
-		slog.Debug("Auth configuration", "jwt_secret_present", true)
-	}
-
-	// Initialize services
-
-	// Establish database connection using the setup function
-	_, err = setupDatabase(cfg, slog.Default())
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup database: %w", err)
-	}
-
-	// Initialize UserStore (will be used in startServer)
-	slog.Info("User store initialized")
-
-	// Initialize JWT authentication service (will be used in startServer)
-	_, err = setupJWTService(cfg)
-	if err != nil {
-		return nil, err
-	}
-	slog.Info("JWT authentication service initialized",
-		"token_lifetime_minutes", cfg.Auth.TokenLifetimeMinutes)
-
-	// These services will be initialized in future tasks:
-	// - Initializing LLM client with LLM.GeminiAPIKey
-
-	return cfg, nil
 }
 
 // slogGooseLogger adapts slog for goose's logger interface

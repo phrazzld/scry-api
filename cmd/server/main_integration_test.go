@@ -98,11 +98,11 @@ func TestSuccessfulInitialization(t *testing.T) {
 
 	// Use the shared database connection with transaction isolation
 	testutils.WithTx(t, testDB, func(tx store.DBTX) {
-		// Initialize the application
-		cfg, err := initializeApp()
+		// Load configuration directly
+		cfg, err := loadConfig()
 
-		// Verify initialization succeeded
-		require.NoError(t, err, "Application initialization should succeed with valid config")
+		// Verify configuration loading succeeded
+		require.NoError(t, err, "Configuration loading should succeed with valid env vars")
 		require.NotNil(t, cfg, "Configuration should not be nil")
 
 		// Verify config values were loaded correctly

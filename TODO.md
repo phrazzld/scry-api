@@ -104,7 +104,7 @@
     - **Files:** `/cmd/server/main.go`
     - **Complexity:** Low
 
-- [ ] **T046:** Write JWT Service Unit Tests - GenerateRefreshToken
+- [x] **T046:** Write JWT Service Unit Tests - GenerateRefreshToken
     - **Action:** Add unit tests for the `GenerateRefreshToken` method in `/internal/service/auth/jwt_service_impl_test.go` to verify token generation and claims.
     - **Depends On:** [T036, T039]
     - **Files:** `/internal/service/auth/jwt_service_impl_test.go`

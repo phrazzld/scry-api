@@ -138,3 +138,59 @@ func TestValidateToken(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	// Setup
+	fixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	accessTokenLifetime := 60 * time.Minute
+	refreshTokenLifetime := 7 * 24 * time.Hour // 7 days
+	secret := "test-secret-that-is-long-enough-for-testing"
+	userID := uuid.New()
+
+	// Create service with fixed time function for predictable testing
+	svc := NewTestJWTService(
+		secret,
+		accessTokenLifetime,
+		func() time.Time {
+			return fixedTime
+		},
+		refreshTokenLifetime,
+	)
+
+	// Test refresh token generation
+	t.Run("generates valid refresh token", func(t *testing.T) {
+		t.Parallel()
+		// Generate refresh token
+		refreshToken, err := svc.GenerateRefreshToken(context.Background(), userID)
+		require.NoError(t, err)
+		require.NotEmpty(t, refreshToken)
+
+		// Validate refresh token
+		claims, err := svc.ValidateRefreshToken(context.Background(), refreshToken)
+		require.NoError(t, err)
+
+		// Verify claims
+		assert.Equal(t, userID, claims.UserID)
+		assert.Equal(t, userID.String(), claims.Subject)
+		assert.Equal(t, "refresh", claims.TokenType)
+		assert.Equal(t, fixedTime.Unix(), claims.IssuedAt.Unix())
+		assert.Equal(t, fixedTime.Add(refreshTokenLifetime).Unix(), claims.ExpiresAt.Unix())
+		assert.NotEmpty(t, claims.ID)
+	})
+
+	// Test that refresh token is rejected by access token validator
+	t.Run("refresh token is rejected by access token validator", func(t *testing.T) {
+		t.Parallel()
+		// Generate refresh token
+		refreshToken, err := svc.GenerateRefreshToken(context.Background(), userID)
+		require.NoError(t, err)
+		require.NotEmpty(t, refreshToken)
+
+		// Try to validate as access token (should fail)
+		claims, err := svc.ValidateToken(context.Background(), refreshToken)
+		assert.ErrorIs(t, err, ErrWrongTokenType)
+		assert.Nil(t, claims)
+	})
+}

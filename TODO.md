@@ -59,15 +59,17 @@
   - **Complexity:** Medium
   - **Note:** Implemented in `internal/task/worker_pool.go` with a test suite in `internal/task/worker_pool_test.go`. The implementation includes a configurable worker count with validation, context for cancellation, and a settable error handler.
 
-- [ ] **T104:** Implement worker loop with error handling
+- [x] **T104:** Implement worker loop with error handling
   - **Action:** Implement the worker goroutines that consume tasks from the queue. Add proper error handling, context cancellation, and panic recovery. Ensure clean shutdown.
   - **Depends On:** [T102, T103]
   - **Complexity:** High
+  - **Note:** Implemented in `internal/task/worker_pool.go` with `runWorker` and `processTask` methods. Includes panic recovery, context cancellation, and proper error handling with comprehensive test coverage. Worker loop separates concurrency control from task execution logic for improved clarity and maintainability.
 
-- [ ] **T105:** Implement `WorkerPool.Start()` and `WorkerPool.Stop()` methods
+- [x] **T105:** Implement `WorkerPool.Start()` and `WorkerPool.Stop()` methods
   - **Action:** Implement methods to start worker goroutines and gracefully stop them, handling proper synchronization via WaitGroup.
   - **Depends On:** [T104]
   - **Complexity:** Medium
+  - **Note:** Implemented in `internal/task/worker_pool.go` alongside task T104. The `Start()` method launches worker goroutines and logs the start, while `Stop()` cancels the context, waits for all workers to finish via `WaitGroup`, and logs the completion. Both methods have comprehensive test coverage.
 
 - [ ] **T106:** Create `MemoGenerationTask` struct
   - **Action:** Implement the struct with fields for `memoID`, `memoRepo`, `generator`, and `logger`. Add constructor method.

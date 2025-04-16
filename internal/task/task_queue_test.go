@@ -17,6 +17,7 @@ type mockTask struct {
 	taskType string
 	payload  []byte
 	status   TaskStatus
+	execFn   func(ctx context.Context) error
 }
 
 func (m *mockTask) ID() uuid.UUID {
@@ -36,6 +37,9 @@ func (m *mockTask) Status() TaskStatus {
 }
 
 func (m *mockTask) Execute(ctx context.Context) error {
+	if m.execFn != nil {
+		return m.execFn(ctx)
+	}
 	return nil
 }
 
@@ -45,6 +49,7 @@ func newMockTask() *mockTask {
 		taskType: "mock",
 		payload:  []byte("test payload"),
 		status:   TaskStatusPending,
+		execFn:   nil,
 	}
 }
 

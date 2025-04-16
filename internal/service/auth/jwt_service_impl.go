@@ -180,10 +180,71 @@ func (s *hmacJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.U
 }
 
 // ValidateRefreshToken validates a JWT refresh token and returns the claims if valid.
-// Will be fully implemented in T038.
+// It verifies the token has type "refresh" and returns ErrWrongTokenType if not.
+// Returns appropriate errors for expiration and invalid signatures.
 func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString string) (*Claims, error) {
-	// This is a placeholder implementation that will be replaced in T038
-	return nil, fmt.Errorf("not implemented")
+	log := logger.FromContext(ctx)
+
+	// Parse and validate the token
+	now := s.timeFunc()
+
+	// Configure parser options
+	parserOpts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
+		jwt.WithLeeway(s.clockSkew), // Allow for clock skew when validating time claims
+		jwt.WithTimeFunc(func() time.Time {
+			return now // Use our injected time function for validation
+		}),
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &jwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		// Validate the signing method is what we expect
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.signingKey, nil
+	}, parserOpts...)
+
+	// Handle parsing errors
+	if err != nil {
+		// Check for specific JWT validation errors
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			log.Debug("refresh token validation failed: expired", "error", err)
+			return nil, ErrExpiredRefreshToken
+		} else if errors.Is(err, jwt.ErrTokenNotValidYet) {
+			log.Debug("refresh token validation failed: not yet valid", "error", err)
+			return nil, ErrInvalidRefreshToken
+		} else {
+			log.Debug("refresh token validation failed: other validation error", "error", err)
+		}
+
+		log.Debug("refresh token validation failed", "error", err)
+		return nil, ErrInvalidRefreshToken
+	}
+
+	// Extract claims from valid token
+	if claims, ok := token.Claims.(*jwtCustomClaims); ok && token.Valid {
+		// Verify this is a refresh token
+		if claims.TokenType != "refresh" {
+			log.Debug("refresh token validation failed: wrong token type",
+				"expected", "refresh",
+				"actual", claims.TokenType)
+			return nil, ErrWrongTokenType
+		}
+
+		customClaims := &Claims{
+			UserID:    claims.UserID,
+			TokenType: claims.TokenType,
+			Subject:   claims.Subject,
+			IssuedAt:  claims.IssuedAt.Time,
+			ExpiresAt: claims.ExpiresAt.Time,
+			ID:        claims.ID,
+		}
+		return customClaims, nil
+	}
+
+	log.Debug("refresh token validation failed: invalid claims")
+	return nil, ErrInvalidRefreshToken
 }
 
 // NewTestJWTService creates a JWT service with adjustable time and token lifetimes for testing.

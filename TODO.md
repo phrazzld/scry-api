@@ -56,7 +56,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** Medium
 
-- [ ] **T038:** Implement ValidateRefreshToken Method
+- [x] **T038:** Implement ValidateRefreshToken Method
     - **Action:** Implement the `ValidateRefreshToken` method in `/internal/service/auth/jwt_service_impl.go` following the implementation plan. Verify type "refresh" and handle appropriate errors.
     - **Depends On:** [T030, T032, T033, T034]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

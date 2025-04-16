@@ -44,7 +44,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** Low
 
-- [ ] **T036:** Implement GenerateRefreshToken Method
+- [x] **T036:** Implement GenerateRefreshToken Method
     - **Action:** Implement the `GenerateRefreshToken` method in `/internal/service/auth/jwt_service_impl.go` to create refresh tokens with longer lifetime and "refresh" token type.
     - **Depends On:** [T032, T033, T034]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

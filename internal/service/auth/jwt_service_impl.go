@@ -140,10 +140,34 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 }
 
 // GenerateRefreshToken creates a signed JWT refresh token with user claims.
-// Will be fully implemented in T036.
+// Refresh tokens have longer lifetime than access tokens and are used to obtain new token pairs.
 func (s *hmacJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
-	// This is a placeholder implementation that will be replaced in T036
-	return "", fmt.Errorf("not implemented")
+	log := logger.FromContext(ctx)
+	now := s.timeFunc()
+
+	// Create the claims with user ID, token type, and standard JWT claims
+	claims := jwtCustomClaims{
+		UserID:    userID,
+		TokenType: "refresh", // Specify this is a refresh token
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID.String(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.refreshTokenLifetime)),
+			ID:        uuid.New().String(), // Unique token ID
+		},
+	}
+
+	// Create the token with the claims and sign it with HMAC-SHA256
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString(s.signingKey)
+	if err != nil {
+		log.Error("failed to sign JWT refresh token",
+			"error", err,
+			"userID", userID)
+		return "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return signedToken, nil
 }
 
 // ValidateRefreshToken validates a JWT refresh token and returns the claims if valid.

@@ -18,6 +18,12 @@ const (
 	TaskStatusFailed     TaskStatus = "failed"
 )
 
+// Task type constants
+const (
+	// TaskTypeMemoGeneration represents the task type for generating flashcards from memos
+	TaskTypeMemoGeneration = "memo_generation"
+)
+
 // Task represents a unit of background work to be processed
 type Task interface {
 	// ID returns the task's unique identifier

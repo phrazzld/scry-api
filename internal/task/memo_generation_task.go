@@ -11,12 +11,9 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 )
 
-// Task type and status constants
+// Status constants for MemoGenerationTask
+// These match the TaskStatus values defined in task.go
 const (
-	TaskTypeMemoGeneration = "memo_generation"
-
-	// Status constants for MemoGenerationTask
-	// These match the TaskStatus values defined in task.go
 	statusPending    = "pending"
 	statusProcessing = "processing"
 	statusCompleted  = "completed"

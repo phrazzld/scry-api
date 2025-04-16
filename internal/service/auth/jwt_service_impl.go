@@ -186,12 +186,24 @@ func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString s
 	return nil, fmt.Errorf("not implemented")
 }
 
-// NewTestJWTService creates a JWT service with adjustable time for testing
-func NewTestJWTService(secret string, lifetime time.Duration, timeFunc func() time.Time) JWTService {
+// NewTestJWTService creates a JWT service with adjustable time and token lifetimes for testing.
+// If refreshLifetime is 0, it defaults to 7x the access token lifetime.
+func NewTestJWTService(
+	secret string,
+	lifetime time.Duration,
+	timeFunc func() time.Time,
+	refreshLifetime ...time.Duration,
+) JWTService {
+	// Set default refresh token lifetime if not provided
+	refreshTokenLifetime := lifetime * 7 // Default is 7x access token lifetime
+	if len(refreshLifetime) > 0 && refreshLifetime[0] > 0 {
+		refreshTokenLifetime = refreshLifetime[0]
+	}
+
 	return &hmacJWTService{
 		signingKey:           []byte(secret),
 		tokenLifetime:        lifetime,
-		refreshTokenLifetime: lifetime * 7, // Default refresh token lifetime is 7x access token for testing
+		refreshTokenLifetime: refreshTokenLifetime,
 		timeFunc:             timeFunc,
 		clockSkew:            0, // No clock skew for tests to make them deterministic
 	}

@@ -62,7 +62,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** High
 
-- [ ] **T039:** Update NewTestJWTService Function
+- [x] **T039:** Update NewTestJWTService Function
     - **Action:** Modify the `NewTestJWTService` function in `/internal/service/auth/jwt_service_impl.go` to accept and set the refresh token lifetime for testing.
     - **Depends On:** [T033, T034]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

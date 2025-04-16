@@ -8,7 +8,7 @@
     - **Files:** `/internal/config/config.go`
     - **Complexity:** Low
 
-- [ ] **T030:** Define Refresh Token Errors
+- [x] **T030:** Define Refresh Token Errors
     - **Action:** Add specific error variables for refresh token operations in `/internal/service/auth/errors.go`: `ErrInvalidRefreshToken`, `ErrExpiredRefreshToken`, and `ErrWrongTokenType`.
     - **Depends On:** None
     - **Files:** `/internal/service/auth/errors.go`

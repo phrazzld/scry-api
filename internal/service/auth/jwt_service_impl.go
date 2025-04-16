@@ -81,7 +81,8 @@ func (s *hmacJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (s
 	return signedToken, nil
 }
 
-// ValidateToken validates a JWT token and returns the claims if valid.
+// ValidateToken validates a JWT access token and returns the claims if valid.
+// It verifies the token has type "access" and returns ErrWrongTokenType if not.
 func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) (*Claims, error) {
 	log := logger.FromContext(ctx)
 
@@ -124,6 +125,14 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 
 	// Extract claims from valid token
 	if claims, ok := token.Claims.(*jwtCustomClaims); ok && token.Valid {
+		// Verify this is an access token
+		if claims.TokenType != "access" {
+			log.Debug("token validation failed: wrong token type",
+				"expected", "access",
+				"actual", claims.TokenType)
+			return nil, ErrWrongTokenType
+		}
+
 		customClaims := &Claims{
 			UserID:    claims.UserID,
 			TokenType: claims.TokenType,

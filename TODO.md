@@ -50,7 +50,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** Medium
 
-- [ ] **T037:** Update ValidateToken Method
+- [x] **T037:** Update ValidateToken Method
     - **Action:** Modify the `ValidateToken` method in `/internal/service/auth/jwt_service_impl.go` to verify the token has type "access" and return `ErrWrongTokenType` if not.
     - **Depends On:** [T030, T033, T034]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

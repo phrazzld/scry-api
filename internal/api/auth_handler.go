@@ -138,24 +138,33 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate token
-	token, err := h.jwtService.GenerateToken(r.Context(), user.ID)
+	// Generate access token
+	accessToken, err := h.jwtService.GenerateToken(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to generate token", "error", err, "user_id", user.ID)
+		slog.Error("failed to generate access token", "error", err, "user_id", user.ID)
 		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication token")
 		return
 	}
 
-	// Calculate token expiration time
+	// Generate refresh token
+	refreshToken, err := h.jwtService.GenerateRefreshToken(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to generate refresh token", "error", err, "user_id", user.ID)
+		RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate refresh token")
+		return
+	}
+
+	// Calculate access token expiration time
 	expiresAt := time.Now().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
 
 	// Format expiration time in RFC3339 format (standard for JSON API responses)
 	expiresAtFormatted := expiresAt.Format(time.RFC3339)
 
-	// Return success response with expiration time
+	// Return success response with both tokens and expiration time
 	RespondWithJSON(w, r, http.StatusOK, AuthResponse{
-		UserID:      user.ID,
-		AccessToken: token,
-		ExpiresAt:   expiresAtFormatted,
+		UserID:       user.ID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAtFormatted,
 	})
 }

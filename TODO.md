@@ -86,7 +86,7 @@
     - **Files:** `/internal/api/auth_handler.go`
     - **Complexity:** Medium
 
-- [ ] **T043:** Update Login Handler
+- [x] **T043:** Update Login Handler
     - **Action:** Modify the `Login` method in `/internal/api/auth_handler.go` to generate both token types and return them in the updated `AuthResponse`.
     - **Depends On:** [T036, T040]
     - **Files:** `/internal/api/auth_handler.go`

@@ -46,8 +46,11 @@ func setupTestServer(t *testing.T, db *sql.DB) *httptest.Server {
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
 
-	// Create API handlers
-	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier)
+	// Create API handlers with test config
+	testAuthConfig := &config.AuthConfig{
+		TokenLifetimeMinutes: 60, // 1 hour for tests
+	}
+	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, testAuthConfig)
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 
 	// Create a test handler for protected routes

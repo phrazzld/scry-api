@@ -4,9 +4,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 
+	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -18,6 +20,7 @@ type AuthHandler struct {
 	jwtService       auth.JWTService
 	passwordVerifier auth.PasswordVerifier
 	validator        *validator.Validate
+	authConfig       *config.AuthConfig // For accessing token lifetime and other auth settings
 }
 
 // NewAuthHandler creates a new AuthHandler with the given dependencies.
@@ -25,12 +28,14 @@ func NewAuthHandler(
 	userStore store.UserStore,
 	jwtService auth.JWTService,
 	passwordVerifier auth.PasswordVerifier,
+	authConfig *config.AuthConfig,
 ) *AuthHandler {
 	return &AuthHandler{
 		userStore:        userStore,
 		jwtService:       jwtService,
 		passwordVerifier: passwordVerifier,
 		validator:        validator.New(),
+		authConfig:       authConfig,
 	}
 }
 
@@ -76,10 +81,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response
+	// Calculate token expiration time
+	expiresAt := time.Now().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
+
+	// Format expiration time in RFC3339 format (standard for JSON API responses)
+	expiresAtFormatted := expiresAt.Format(time.RFC3339)
+
+	// Return success response with expiration time
 	RespondWithJSON(w, r, http.StatusCreated, AuthResponse{
-		UserID: user.ID,
-		Token:  token,
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: expiresAtFormatted,
 	})
 }
 

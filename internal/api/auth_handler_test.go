@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -150,8 +151,13 @@ func TestRegister(t *testing.T) {
 	jwtService := &MockJWTService{token: "test-token", err: nil}
 	passwordVerifier := &MockPasswordVerifier{ShouldSucceed: true}
 
+	// Create test auth config
+	authConfig := &config.AuthConfig{
+		TokenLifetimeMinutes: 60, // 1 hour token lifetime for tests
+	}
+
 	// Create handler
-	handler := NewAuthHandler(userStore, jwtService, passwordVerifier)
+	handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
 
 	// Test cases
 	tests := []struct {
@@ -230,6 +236,7 @@ func TestRegister(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotEqual(t, uuid.Nil, authResp.UserID)
 				assert.Equal(t, "test-token", authResp.Token)
+				assert.NotEmpty(t, authResp.ExpiresAt, "ExpiresAt should be populated")
 			}
 		})
 	}
@@ -291,7 +298,12 @@ func TestLogin(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create handler with appropriate password verifier
-			handler := NewAuthHandler(userStore, jwtService, tt.passwordVerifier)
+			// Create test auth config
+			authConfig := &config.AuthConfig{
+				TokenLifetimeMinutes: 60, // 1 hour token lifetime for tests
+			}
+
+			handler := NewAuthHandler(userStore, jwtService, tt.passwordVerifier, authConfig)
 
 			// Create request
 			payloadBytes, err := json.Marshal(tt.payload)
@@ -316,6 +328,7 @@ func TestLogin(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, userID, authResp.UserID)
 				assert.Equal(t, "test-token", authResp.Token)
+				// We haven't implemented ExpiresAt in Login yet, so we don't check it here
 			}
 		})
 	}

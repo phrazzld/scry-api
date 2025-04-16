@@ -183,7 +183,7 @@ func startServer(cfg *config.Config) {
 	passwordVerifier := auth.NewBcryptVerifier()
 
 	// Create API handlers
-	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier)
+	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &cfg.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 
 	// Register routes

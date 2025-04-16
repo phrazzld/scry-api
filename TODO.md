@@ -61,10 +61,11 @@
     - **Note:** Updated both `Create` and `Update` methods to explicitly validate password format using `domain.ValidatePassword()` before hashing. Moved the persistence validation (`User.Validate()`) to occur after password hashing to ensure the user object is in the correct state for validation.
 
 ## 4. Address Unused AuthResponse Field (Low Risk)
-- [ ] **T011:** Update AuthHandler.Register to populate ExpiresAt
+- [x] **T011:** Update AuthHandler.Register to populate ExpiresAt
     - **Action:** Modify the `Register` method in `internal/api/auth_handler.go`. After generating the JWT token, calculate the expiration time using `cfg.Auth.TokenLifetimeMinutes`. Populate the `ExpiresAt` field in the `AuthResponse` struct before sending the JSON response. Ensure `ExpiresAt` is formatted appropriately (e.g., RFC3339).
     - **Depends On:** None
     - **AC Ref:** PLAN.md Section 6
+    - **Note:** Updated `AuthHandler` to include `authConfig`, allowing access to token lifetime settings. Added expiration time calculation to the `Register` method and included it in the response. Used RFC3339 format for the expiration timestamp.
 
 - [ ] **T012:** Update AuthHandler.Login to populate ExpiresAt
     - **Action:** Modify the `Login` method in `internal/api/auth_handler.go`. After generating the JWT token, calculate the expiration time using `cfg.Auth.TokenLifetimeMinutes`. Populate the `ExpiresAt` field in the `AuthResponse` struct before sending the JSON response. Ensure `ExpiresAt` is formatted appropriately (e.g., RFC3339).

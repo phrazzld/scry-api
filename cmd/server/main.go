@@ -151,7 +151,7 @@ func startServer(cfg *config.Config) {
 
 	// Initialize dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-	jwtService, err := auth.NewJWTService(cfg.Auth)
+	jwtService, err := setupJWTService(cfg)
 	if err != nil {
 		slog.Error("Failed to initialize JWT service", "error", err)
 		os.Exit(1)
@@ -271,6 +271,17 @@ func setupLogger(cfg *config.Config) (*slog.Logger, error) {
 	return l, nil
 }
 
+// setupJWTService initializes the JWT authentication service with the provided configuration.
+// Returns the configured service or an error if initialization fails.
+func setupJWTService(cfg *config.Config) (auth.JWTService, error) {
+	jwtService, err := auth.NewJWTService(cfg.Auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize JWT authentication service: %w", err)
+	}
+
+	return jwtService, nil
+}
+
 // setupDatabase establishes a connection to the database using the configuration settings.
 // It configures the connection pool and verifies connectivity through a ping test.
 // Returns the database connection or an error if setup fails.
@@ -344,9 +355,9 @@ func initializeApp() (*config.Config, error) {
 	slog.Info("User store initialized")
 
 	// Initialize JWT authentication service (will be used in startServer)
-	_, err = auth.NewJWTService(cfg.Auth)
+	_, err = setupJWTService(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize JWT authentication service: %w", err)
+		return nil, err
 	}
 	slog.Info("JWT authentication service initialized",
 		"token_lifetime_minutes", cfg.Auth.TokenLifetimeMinutes)

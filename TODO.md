@@ -98,10 +98,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `setupDatabase` function that encapsulates database initialization, connection pool configuration, and connectivity validation. Updated both the `initializeApp` and `startServer` functions to use this function, eliminating code duplication and ensuring consistent database setup across the application.
 
-- [ ] **T017:** Extract setupJWTService function
+- [x] **T017:** Extract setupJWTService function
     - **Action:** Create a new function `setupJWTService(cfg *config.Config) (auth.JWTService, error)` in `cmd/server/main.go`. Move the JWT service initialization logic (using `auth.NewJWTService()`) from `initializeApp` into this function.
     - **Depends On:** [T014]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `setupJWTService` function that encapsulates JWT service initialization. Updated both the `initializeApp` and `startServer` functions to use this function, ensuring consistent JWT service setup and reducing code duplication.
 
 - [ ] **T018:** Extract setupRouter function
     - **Action:** Create a new function `setupRouter(deps *appDependencies) *chi.Mux` in `cmd/server/main.go`. Move the router creation (`chi.NewRouter()`), middleware setup, and route registration logic from `startServer` into this function. The function should accept the `appDependencies` struct to access handlers and services.

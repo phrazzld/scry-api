@@ -110,10 +110,11 @@
     - **AC Ref:** PLAN.md Section 2
     - **Note:** Created the `setupRouter` function that centralizes router creation, middleware configuration, and route registration. The function accepts the `appDependencies` struct to access necessary handlers and services, and returns the configured router. Updated the `startServer` function to use this function, improving code organization and maintainability.
 
-- [ ] **T019:** Extract setupTaskRunner function
+- [x] **T019:** Extract setupTaskRunner function
     - **Action:** Create a new function `setupTaskRunner(deps *appDependencies) (*task.Runner, error)` in `cmd/server/main.go`. Move the task runner initialization logic (including creating the task store and runner) from `startServer` into this function. Accept `appDependencies` for necessary components like DB, Config, Logger.
     - **Depends On:** [T013]
     - **AC Ref:** PLAN.md Section 2
+    - **Note:** Created the `setupTaskRunner` function that encapsulates task runner initialization, configuration, and startup. The function accepts the `appDependencies` struct to access necessary components like DB, Config, and Logger. Updated the `startServer` function to use this function, improving code organization and making dependency flow more explicit with the two-stage approach (create deps, then create task runner, then update deps with the runner).
 
 - [ ] **T020:** Remove initializeApp function
     - **Action:** Delete the `initializeApp` function from `cmd/server/main.go` as its logic has been extracted into smaller functions. Update the `main` function to call the new helper functions directly for initial setup before `startServer`.

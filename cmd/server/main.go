@@ -202,22 +202,8 @@ func startServer(cfg *config.Config) {
 		os.Exit(1)
 	}
 
-	// Initialize task store and runner
+	// Initialize task store
 	taskStore := postgres.NewPostgresTaskStore(db)
-	taskRunner := task.NewTaskRunner(taskStore, task.TaskRunnerConfig{
-		WorkerCount:  cfg.Task.WorkerCount,
-		QueueSize:    cfg.Task.QueueSize,
-		StuckTaskAge: time.Duration(cfg.Task.StuckTaskAgeMinutes) * time.Minute,
-	}, slog.Default())
-
-	// Start the task runner
-	if err := taskRunner.Start(); err != nil {
-		slog.Error("Failed to start task runner", "error", err)
-		os.Exit(1)
-	}
-
-	// Ensure task runner is stopped on server shutdown
-	defer taskRunner.Stop()
 
 	// Initialize application dependencies
 	deps := &appDependencies{
@@ -228,8 +214,20 @@ func startServer(cfg *config.Config) {
 		TaskStore:        taskStore,
 		JWTService:       jwtService,
 		PasswordVerifier: auth.NewBcryptVerifier(),
-		TaskRunner:       taskRunner,
 	}
+
+	// Set up task runner
+	taskRunner, err := setupTaskRunner(deps)
+	if err != nil {
+		slog.Error("Failed to setup task runner", "error", err)
+		os.Exit(1)
+	}
+
+	// Update dependencies with task runner
+	deps.TaskRunner = taskRunner
+
+	// Ensure task runner is stopped on server shutdown
+	defer taskRunner.Stop()
 
 	// Create router using setupRouter function
 	r := setupRouter(deps)
@@ -334,6 +332,29 @@ func setupDatabase(cfg *config.Config, logger *slog.Logger) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+// setupTaskRunner initializes and configures the asynchronous task runner.
+// It uses the provided dependencies to create the task store and initialize
+// the runner with the appropriate configuration.
+// Returns the configured task runner and any initialization error.
+func setupTaskRunner(deps *appDependencies) (*task.TaskRunner, error) {
+	// Initialize task store
+	taskStore := postgres.NewPostgresTaskStore(deps.DB)
+
+	// Configure and create task runner
+	taskRunner := task.NewTaskRunner(taskStore, task.TaskRunnerConfig{
+		WorkerCount:  deps.Config.Task.WorkerCount,
+		QueueSize:    deps.Config.Task.QueueSize,
+		StuckTaskAge: time.Duration(deps.Config.Task.StuckTaskAgeMinutes) * time.Minute,
+	}, deps.Logger)
+
+	// Start the task runner
+	if err := taskRunner.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start task runner: %w", err)
+	}
+
+	return taskRunner, nil
 }
 
 // initializeApp loads configuration and sets up application components.

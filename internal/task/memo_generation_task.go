@@ -140,9 +140,120 @@ func (t *MemoGenerationTask) Status() TaskStatus {
 	return TaskStatus(t.status)
 }
 
-// Execute implements the Task interface but does nothing yet
-// This will be implemented in T107
+// Execute runs the memo generation task, handling the complete lifecycle
+// from fetching the memo, updating status, generating cards, saving them,
+// and finalizing the process. It handles errors at each step and ensures
+// appropriate status updates.
 func (t *MemoGenerationTask) Execute(ctx context.Context) error {
-	// Implementation will be added in T107
-	return fmt.Errorf("not implemented")
+	// Update task status to processing
+	t.status = statusProcessing
+	t.logger.Info("starting memo generation task")
+
+	// Check for context cancellation
+	if err := ctx.Err(); err != nil {
+		t.status = statusFailed
+		t.logger.Error("task cancelled by context", "error", err)
+		return fmt.Errorf("task cancelled by context: %w", err)
+	}
+
+	// 1. Retrieve the memo
+	memo, err := t.memoRepo.GetByID(ctx, t.memoID)
+	if err != nil {
+		t.status = statusFailed
+		t.logger.Error("failed to retrieve memo", "error", err)
+		return fmt.Errorf("failed to retrieve memo: %w", err)
+	}
+
+	t.logger.Info("retrieved memo", "user_id", memo.UserID, "memo_status", memo.Status)
+
+	// 2. Update memo status to processing
+	err = memo.UpdateStatus(domain.MemoStatusProcessing)
+	if err != nil {
+		t.status = statusFailed
+		t.logger.Error("failed to update memo status to processing", "error", err)
+		return fmt.Errorf("failed to update memo status to processing: %w", err)
+	}
+
+	// Save the updated status
+	err = t.memoRepo.Update(ctx, memo)
+	if err != nil {
+		t.status = statusFailed
+		t.logger.Error("failed to save memo processing status", "error", err)
+		return fmt.Errorf("failed to save memo processing status: %w", err)
+	}
+
+	// 3. Generate cards
+	t.logger.Info("generating cards from memo text")
+	cards, err := t.generator.GenerateCards(ctx, memo.Text, memo.UserID)
+	if err != nil {
+		// Update memo status to failed on generation error
+		_ = updateMemoStatusWithLogging(ctx, memo, domain.MemoStatusFailed, t.memoRepo, t.logger)
+		t.status = statusFailed
+		t.logger.Error("failed to generate cards", "error", err)
+		return fmt.Errorf("failed to generate cards: %w", err)
+	}
+
+	// Log the number of cards generated
+	t.logger.Info("cards generated", "count", len(cards))
+
+	// 4. Save the generated cards (if any)
+	if len(cards) > 0 {
+		err = t.cardRepo.CreateMultiple(ctx, cards)
+		if err != nil {
+			// Update memo status to failed if we couldn't save the cards
+			_ = updateMemoStatusWithLogging(ctx, memo, domain.MemoStatusFailed, t.memoRepo, t.logger)
+			t.status = statusFailed
+			t.logger.Error("failed to save generated cards", "error", err)
+			return fmt.Errorf("failed to save generated cards: %w", err)
+		}
+		t.logger.Info("saved generated cards to database")
+	} else {
+		t.logger.Info("no cards were generated for this memo")
+	}
+
+	// 5. Update memo status to completed
+	finalStatus := domain.MemoStatusCompleted
+	if len(cards) == 0 {
+		// If no cards were generated but no errors occurred, consider it completed but note in logs
+		t.logger.Warn("memo processing completed but no cards were generated")
+	}
+
+	// Attempt to update the final status
+	err = updateMemoStatusWithLogging(ctx, memo, finalStatus, t.memoRepo, t.logger)
+	if err != nil {
+		// Log the error but don't fail the task - the important work is done
+		t.logger.Error("failed to update memo final status, but cards were generated and saved",
+			"error", err,
+			"cards_generated", len(cards))
+	}
+
+	// Update task status to completed
+	t.status = statusCompleted
+	t.logger.Info("memo generation task completed successfully", "cards_generated", len(cards))
+	return nil
+}
+
+// updateMemoStatusWithLogging updates a memo's status and logs the outcome
+// It's a helper function used by Execute to reduce code duplication
+func updateMemoStatusWithLogging(
+	ctx context.Context,
+	memo *domain.Memo,
+	status domain.MemoStatus,
+	repo MemoRepository,
+	logger *slog.Logger,
+) error {
+	err := memo.UpdateStatus(status)
+	if err != nil {
+		logger.Error("failed to set memo status", "status", status, "error", err)
+		return fmt.Errorf("failed to set memo status to %s: %w", status, err)
+	}
+
+	err = repo.Update(ctx, memo)
+	if err != nil {
+		logger.Error("failed to save memo status", "status", status, "error", err)
+		return fmt.Errorf("failed to save memo status %s: %w", status, err)
+	}
+
+	logger.Info("updated memo status", "status", status)
+	return nil
 }

@@ -41,10 +41,11 @@
   - **Depends On:** None
   - **Complexity:** Low
 
-- [ ] **T101:** Define task status constants
+- [x] **T101:** Define task status constants
   - **Action:** Define constants for task and memo statuses (e.g., `TaskStatusPending`, `TaskStatusProcessing`, `TaskStatusCompleted`, `TaskStatusFailed`, `MemoStatusPending`, etc.) in the appropriate locations.
   - **Depends On:** None
   - **Complexity:** Low
+  - **Note:** Verified that all required status constants are already defined in the codebase: task statuses in `internal/task/task.go`, memo statuses in `internal/domain/memo.go`, and review outcomes in `internal/domain/user_card_stats.go`.
 
 - [ ] **T102:** Implement `TaskQueue` struct and methods
   - **Action:** Create the `TaskQueue` struct with a buffered channel for tasks and a logger. Implement `NewTaskQueue` constructor, `Enqueue(task Task) error`, `Close()`, and `GetChannel() <-chan Task` methods. Handle errors for full queues and closed channels.

@@ -164,11 +164,19 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 }
 
 // GetTestDB returns a database connection for testing.
-// It reads the database URL from the SCRY_TEST_DB_URL environment variable.
-// If the environment variable is not set, it uses a default local database URL.
+// It first checks for DATABASE_URL environment variable (used by integration tests)
+// Then falls back to SCRY_TEST_DB_URL if specific test database is configured
+// If neither are set, it uses a default local database URL.
 func GetTestDB() (*sql.DB, error) {
-	// Get database URL from environment variable
-	dbURL := os.Getenv("SCRY_TEST_DB_URL")
+	// First check for DATABASE_URL from integration tests
+	dbURL := os.Getenv("DATABASE_URL")
+
+	// Fall back to SCRY_TEST_DB_URL if DATABASE_URL is not set
+	if dbURL == "" {
+		dbURL = os.Getenv("SCRY_TEST_DB_URL")
+	}
+
+	// If neither environment variable is set, use default
 	if dbURL == "" {
 		// Use default local database URL
 		dbURL = "postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable"

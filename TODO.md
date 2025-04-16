@@ -9,6 +9,66 @@ This file contains detailed, atomic tasks that need to be addressed in the codeb
 
 ## New Tasks
 
+### Critical Issues
+
+- [x] **Fix Import Cycle in Config and Logger Packages**:
+  - **Files**: `/internal/config/load_test.go`, `/internal/platform/logger/logger.go`, `/internal/platform/logger/logger_test.go`
+  - **Issue**: Import cycle detected between config and logger packages
+  - **Description**: There's a circular dependency where `config` imports `testutils`, which imports `platform/postgres`, which imports `platform/logger`, which imports `config`.
+  - **Acceptance Criteria**:
+    - Break the circular dependency by restructuring the imports
+    - Consider creating a separate configuration type for logger that doesn't require the full config package
+    - Ensure tests pass without import cycle errors
+    - Maintain the same functionality after the restructuring
+  - **Dependencies**: None
+  - **Estimated Complexity**: Moderate
+
+- [x] **Remove Unused Task Creation Function**:
+  - **File**: `/internal/platform/postgres/task_store.go`
+  - **Issue**: Function `createTaskFromDatabaseTask` is flagged as unused by linter
+  - **Description**: The function is defined but never used, causing a linter warning.
+  - **Acceptance Criteria**:
+    - Either implement proper usage of the function
+    - Or remove it and document why it's not needed
+    - Or mark it appropriately to indicate it's for future use
+    - Ensure linter passes without this warning
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Fix Test DB Connection in Integration Tests**:
+  - **File**: `/cmd/server/main_integration_test.go`
+  - **Issue**: Integration test fails with connection refused error
+  - **Description**: Tests are unable to connect to the test database, possibly due to incorrect connection parameters or missing test database setup.
+  - **Acceptance Criteria**:
+    - Fix the database connection in tests
+    - Ensure integration tests can run successfully
+    - Update documentation on how to set up test database if needed
+    - Consider adding a flag to skip integration tests when database is not available
+  - **Dependencies**: None
+  - **Estimated Complexity**: Moderate
+
+- [x] **Update Deprecated Test Setup in Task Tests**:
+  - **File**: `/cmd/server/main_task_test.go`
+  - **Issue**: Still using deprecated `setupTestDB` and `teardownTestDB` functions
+  - **Description**: Test uses old pattern for database setup and teardown that should be updated to use transaction-based approach.
+  - **Acceptance Criteria**:
+    - Refactor test to use `testutils.WithTx` instead of direct setup/teardown
+    - Enable parallel testing if appropriate
+    - Ensure tests still pass after refactoring
+    - Remove unused functions
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
+- [x] **Fix Code Formatting Issues**:
+  - **Files**: Multiple files in `internal/platform/postgres/` package
+  - **Issue**: Files are not properly formatted according to gofmt
+  - **Description**: The linter shows formatting errors in task_store.go, user_store_get_test.go, user_store_test.go, and user_store_update_delete_test.go.
+  - **Acceptance Criteria**:
+    - Run gofmt on all affected files
+    - Ensure there are no formatting errors when running golangci-lint
+  - **Dependencies**: None
+  - **Estimated Complexity**: Simple
+
 ### Core Functionality Tasks
 
 - [x] **Implement Asynchronous Task Runner**:

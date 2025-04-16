@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -30,8 +31,35 @@ func TestMigrationFlow(t *testing.T) {
 		},
 	}
 
+	// Get the project root directory for migrations
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("Failed to get current file path from runtime.Caller")
+	}
+
+	// Get the directory containing this file (cmd/server)
+	thisDir := filepath.Dir(thisFile)
+
+	// Go up two levels: from cmd/server to project root
+	projectRoot := filepath.Dir(filepath.Dir(thisDir))
+
+	// Change working directory to project root so that the relative path in migrationsDir works
+	origWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origWD); err != nil {
+			t.Logf("Warning: Failed to restore working directory: %v", err)
+		}
+	}()
+
+	if err := os.Chdir(projectRoot); err != nil {
+		t.Fatalf("Failed to change working directory to project root: %v", err)
+	}
+
 	// Run the migration up
-	err := runMigrations(cfg, "up")
+	err = runMigrations(cfg, "up")
 	if err != nil {
 		t.Fatalf("Failed to run migrations up: %v", err)
 	}
@@ -80,10 +108,18 @@ func TestMigrationFlow(t *testing.T) {
 		t.Errorf("memo_status enum type does not exist after running migrations")
 	}
 
-	// Run migrations down to clean up
-	err = runMigrations(cfg, "down")
-	if err != nil {
-		t.Fatalf("Failed to run migrations down: %v", err)
+	// Run migrations down to clean up - need to run multiple times to go all the way down
+	// Since runMigrations("down") only goes down one version at a time
+	for i := 0; i < 10; i++ { // 10 iterations should be more than enough for all migrations
+		err = runMigrations(cfg, "down")
+		if err != nil {
+			// If we get the "no migrations" error, we've gone all the way down
+			if err.Error() == "migration down failed: no migrations to run. current version: 0" ||
+				err.Error() == "migration down failed: migration 0: no current version found" {
+				break
+			}
+			t.Fatalf("Failed to run migrations down: %v", err)
+		}
 	}
 
 	// Verify all tables are dropped

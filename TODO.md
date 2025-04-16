@@ -80,7 +80,7 @@
     - **Files:** `/internal/api/models.go`
     - **Complexity:** Low
 
-- [ ] **T042:** Update Register Handler
+- [x] **T042:** Update Register Handler
     - **Action:** Modify the `Register` method in `/internal/api/auth_handler.go` to generate both token types and return them in the updated `AuthResponse`.
     - **Depends On:** [T036, T040]
     - **Files:** `/internal/api/auth_handler.go`

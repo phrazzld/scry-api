@@ -110,7 +110,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl_test.go`
     - **Complexity:** Medium
 
-- [ ] **T047:** Write JWT Service Unit Tests - ValidateRefreshToken
+- [x] **T047:** Write JWT Service Unit Tests - ValidateRefreshToken
     - **Action:** Add unit tests for the `ValidateRefreshToken` method in `/internal/service/auth/jwt_service_impl_test.go` with cases for valid, expired, invalid signature, and wrong token type.
     - **Depends On:** [T037, T038, T039]
     - **Files:** `/internal/service/auth/jwt_service_impl_test.go`

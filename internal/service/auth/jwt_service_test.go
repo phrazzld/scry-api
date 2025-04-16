@@ -139,6 +139,148 @@ func TestValidateToken(t *testing.T) {
 	}
 }
 
+func TestValidateRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	// Setup
+	fixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	accessTokenLifetime := 60 * time.Minute
+	refreshTokenLifetime := 7 * 24 * time.Hour // 7 days
+	secret := "test-secret-that-is-long-enough-for-testing"
+	wrongSecret := "wrong-secret-that-is-long-enough-for-testing"
+	userID := uuid.New()
+
+	// Test cases
+	tests := []struct {
+		name      string
+		setupFunc func() (JWTService, string)
+		wantErr   error
+	}{
+		{
+			name: "valid refresh token",
+			setupFunc: func() (JWTService, string) {
+				svc := NewTestJWTService(
+					secret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime
+					},
+					refreshTokenLifetime,
+				)
+				token, _ := svc.GenerateRefreshToken(context.Background(), userID)
+				return svc, token
+			},
+			wantErr: nil,
+		},
+		{
+			name: "expired refresh token",
+			setupFunc: func() (JWTService, string) {
+				// Create token at fixed time
+				genSvc := NewTestJWTService(
+					secret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime
+					},
+					refreshTokenLifetime,
+				)
+				token, _ := genSvc.GenerateRefreshToken(context.Background(), userID)
+
+				// Validate token at a later time (after expiry)
+				valSvc := NewTestJWTService(
+					secret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime.Add(refreshTokenLifetime + time.Hour)
+					},
+					refreshTokenLifetime,
+				)
+				return valSvc, token
+			},
+			wantErr: ErrExpiredRefreshToken,
+		},
+		{
+			name: "invalid signature",
+			setupFunc: func() (JWTService, string) {
+				// Generate with one secret
+				genSvc := NewTestJWTService(
+					secret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime
+					},
+					refreshTokenLifetime,
+				)
+				token, _ := genSvc.GenerateRefreshToken(context.Background(), userID)
+
+				// Validate with different secret
+				valSvc := NewTestJWTService(
+					wrongSecret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime
+					},
+					refreshTokenLifetime,
+				)
+				return valSvc, token
+			},
+			wantErr: ErrInvalidRefreshToken,
+		},
+		{
+			name: "malformed token",
+			setupFunc: func() (JWTService, string) {
+				svc := NewTestJWTService(
+					secret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime
+					},
+					refreshTokenLifetime,
+				)
+				return svc, "this.is.not.a.valid.jwt.token"
+			},
+			wantErr: ErrInvalidRefreshToken,
+		},
+		{
+			name: "wrong token type (access token)",
+			setupFunc: func() (JWTService, string) {
+				svc := NewTestJWTService(
+					secret,
+					accessTokenLifetime,
+					func() time.Time {
+						return fixedTime
+					},
+					refreshTokenLifetime,
+				)
+				// Generate an access token, not a refresh token
+				token, _ := svc.GenerateToken(context.Background(), userID)
+				return svc, token
+			},
+			wantErr: ErrWrongTokenType,
+		},
+	}
+
+	// Run tests
+	for _, tt := range tests {
+		// Capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc, token := tt.setupFunc()
+			claims, err := svc.ValidateRefreshToken(context.Background(), token)
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, claims)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, claims)
+				assert.Equal(t, userID, claims.UserID)
+				assert.Equal(t, "refresh", claims.TokenType)
+			}
+		})
+	}
+}
+
 func TestGenerateRefreshToken(t *testing.T) {
 	t.Parallel()
 

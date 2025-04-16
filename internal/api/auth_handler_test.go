@@ -12,27 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// MockJWTService implements auth.JWTService for testing
-type MockJWTService struct {
-	token       string
-	err         error
-	validateErr error
-	claims      *auth.Claims
-}
-
-func (m *MockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
-	return m.token, m.err
-}
-
-func (m *MockJWTService) ValidateToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
-	return m.claims, m.validateErr
-}
 
 // MockPasswordVerifier implements auth.PasswordVerifier for testing
 type MockPasswordVerifier struct {
@@ -148,7 +132,7 @@ func TestRegister(t *testing.T) {
 
 	// Create dependencies
 	userStore := NewMockUserStore()
-	jwtService := &MockJWTService{token: "test-token", err: nil}
+	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
 	passwordVerifier := &MockPasswordVerifier{ShouldSucceed: true}
 
 	// Create test auth config
@@ -252,7 +236,7 @@ func TestLogin(t *testing.T) {
 	dummyHash := "dummy-hash" // The actual hash value doesn't matter anymore
 
 	// Create common dependencies
-	jwtService := &MockJWTService{token: "test-token", err: nil}
+	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
 	userStore := NewLoginMockUserStore(userID, testEmail, dummyHash)
 
 	// Test cases

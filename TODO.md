@@ -141,10 +141,11 @@
     - **AC Ref:** PLAN.md Section 5
     - **Note:** Created the `internal/mocks` directory and added a comprehensive `doc.go` file that explains the purpose of the package, key features, usage examples, and guidelines for adding new mocks. This establishes a foundation for centralizing mock implementations that will be moved from individual test files in subsequent tasks.
 
-- [ ] **T023:** Move MockJWTService to internal/mocks
+- [x] **T023:** Move MockJWTService to internal/mocks
     - **Action:** Move the `MockJWTService` struct and its methods from `internal/api/auth_handler_test.go` (and potentially `internal/api/middleware/auth_test.go`) to a new file `internal/mocks/jwt_service.go`. Ensure the package declaration is `package mocks`. Update imports as needed.
     - **Depends On:** [T022]
     - **AC Ref:** PLAN.md Section 5
+    - **Note:** Created `internal/mocks/jwt_service.go` with a centralized `MockJWTService` implementation that replaces the duplicated mocks in both test files. Updated the implementation to use exported fields (Token, Err, ValidateErr, Claims) for easier test configuration. Added function field options (GenerateTokenFn, ValidateTokenFn) for more flexible test behavior customization. Updated all test files to use the new centralized mock.
 
 - [ ] **T024:** Move MockUserStore to internal/mocks
     - **Action:** Move the `MockUserStore` struct and its methods from `internal/api/auth_handler_test.go` to a new file `internal/mocks/user_store.go`. Ensure the package declaration is `package mocks`. Update imports as needed.

@@ -7,24 +7,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// MockJWTService implements auth.JWTService for testing
-type MockJWTService struct {
-	validateErr error
-	claims      *auth.Claims
-}
-
-func (m *MockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
-	return "test-token", nil
-}
-
-func (m *MockJWTService) ValidateToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
-	return m.claims, m.validateErr
-}
 
 func TestAuthMiddleware_Authenticate(t *testing.T) {
 	t.Parallel()
@@ -80,9 +67,9 @@ func TestAuthMiddleware_Authenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock JWT service
-			jwtService := &MockJWTService{
-				validateErr: tt.validateErr,
-				claims:      tt.claims,
+			jwtService := &mocks.MockJWTService{
+				ValidateErr: tt.validateErr,
+				Claims:      tt.claims,
 			}
 
 			// Create middleware

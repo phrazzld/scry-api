@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,9 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/mocks"
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,108 +27,11 @@ func (m *MockPasswordVerifier) Compare(hashedPassword, password string) error {
 	return errors.New("password mismatch") // Failed comparison
 }
 
-// MockUserStore implements store.UserStore for testing
-type MockUserStore struct {
-	users           map[string]*domain.User
-	lastUserID      uuid.UUID
-	createError     error
-	getByEmailError error
-}
-
-func NewMockUserStore() *MockUserStore {
-	return &MockUserStore{
-		users: make(map[string]*domain.User),
-	}
-}
-
-func (m *MockUserStore) Create(ctx context.Context, user *domain.User) error {
-	if m.createError != nil {
-		return m.createError
-	}
-	if _, exists := m.users[user.Email]; exists {
-		return store.ErrEmailExists
-	}
-	m.users[user.Email] = user
-	m.lastUserID = user.ID
-	return nil
-}
-
-func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	if m.getByEmailError != nil {
-		return nil, m.getByEmailError
-	}
-	user, exists := m.users[email]
-	if !exists {
-		return nil, store.ErrUserNotFound
-	}
-	return user, nil
-}
-
-func (m *MockUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	return nil, nil
-}
-
-func (m *MockUserStore) Update(ctx context.Context, user *domain.User) error {
-	return nil
-}
-
-func (m *MockUserStore) Delete(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
-
-// LoginMockUserStore is a specialized mock for login tests
-type LoginMockUserStore struct {
-	getByEmailError error
-	userID          uuid.UUID
-	userEmail       string
-	hashedPassword  string
-}
-
-func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *LoginMockUserStore {
-	return &LoginMockUserStore{
-		userID:         userID,
-		userEmail:      email,
-		hashedPassword: hashedPassword,
-	}
-}
-
-func (m *LoginMockUserStore) Create(ctx context.Context, user *domain.User) error {
-	return nil
-}
-
-func (m *LoginMockUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	if m.getByEmailError != nil {
-		return nil, m.getByEmailError
-	}
-
-	if email != m.userEmail {
-		return nil, store.ErrUserNotFound
-	}
-
-	return &domain.User{
-		ID:             m.userID,
-		Email:          m.userEmail,
-		HashedPassword: m.hashedPassword,
-	}, nil
-}
-
-func (m *LoginMockUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	return nil, nil
-}
-
-func (m *LoginMockUserStore) Update(ctx context.Context, user *domain.User) error {
-	return nil
-}
-
-func (m *LoginMockUserStore) Delete(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
-
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	// Create dependencies
-	userStore := NewMockUserStore()
+	userStore := mocks.NewMockUserStore()
 	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
 	passwordVerifier := &MockPasswordVerifier{ShouldSucceed: true}
 
@@ -237,7 +137,7 @@ func TestLogin(t *testing.T) {
 
 	// Create common dependencies
 	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
-	userStore := NewLoginMockUserStore(userID, testEmail, dummyHash)
+	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
 
 	// Test cases
 	tests := []struct {

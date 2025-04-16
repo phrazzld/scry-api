@@ -25,6 +25,10 @@ type Claims struct {
 	// UserID is the unique identifier of the user the token was issued for.
 	UserID uuid.UUID `json:"uid,omitempty"`
 
+	// TokenType indicates the purpose of the token ("access" or "refresh").
+	// Used to prevent token misuse across different contexts.
+	TokenType string `json:"type,omitempty"`
+
 	// Standard registered JWT claims
 	Subject   string    `json:"sub,omitempty"`
 	IssuedAt  time.Time `json:"iat,omitempty"`

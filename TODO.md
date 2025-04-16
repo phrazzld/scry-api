@@ -14,7 +14,7 @@
     - **Files:** `/internal/service/auth/errors.go`
     - **Complexity:** Low
 
-- [ ] **T031:** Add TokenType to Claims Struct
+- [x] **T031:** Add TokenType to Claims Struct
     - **Action:** Add a `TokenType` string field to the `Claims` struct in `/internal/service/auth/jwt_service.go` to differentiate between access and refresh tokens.
     - **Depends On:** None
     - **Files:** `/internal/service/auth/jwt_service.go`

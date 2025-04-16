@@ -51,14 +51,15 @@ func NewJWTService(cfg config.AuthConfig) (JWTService, error) {
 	}, nil
 }
 
-// GenerateToken creates a signed JWT token with user claims.
+// GenerateToken creates a signed JWT access token with user claims.
 func (s *hmacJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	log := logger.FromContext(ctx)
 	now := s.timeFunc()
 
-	// Create the claims with user ID and standard JWT claims
+	// Create the claims with user ID, token type, and standard JWT claims
 	claims := jwtCustomClaims{
-		UserID: userID,
+		UserID:    userID,
+		TokenType: "access", // Specify this is an access token
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),

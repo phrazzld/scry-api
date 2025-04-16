@@ -38,7 +38,7 @@
     - **Files:** `/internal/service/auth/jwt_service_impl.go`
     - **Complexity:** Medium
 
-- [ ] **T035:** Update GenerateToken Method
+- [x] **T035:** Update GenerateToken Method
     - **Action:** Modify the `GenerateToken` method in `/internal/service/auth/jwt_service_impl.go` to include the token type "access" in the claims.
     - **Depends On:** [T033, T034]
     - **Files:** `/internal/service/auth/jwt_service_impl.go`

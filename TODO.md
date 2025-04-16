@@ -165,10 +165,11 @@
     - **AC Ref:** PLAN.md Section 5
     - **Note:** This task has been completed as part of the implementations of tasks T023, T024, and T025. All mock definitions have been removed from `auth_handler_test.go` and replaced with imports and usages of centralized mocks from the `mocks` package. Tests are working correctly with the centralized implementations.
 
-- [ ] **T027:** Update middleware/auth_test.go to use centralized mocks
+- [x] **T027:** Update middleware/auth_test.go to use centralized mocks
     - **Action:** Modify `internal/api/middleware/auth_test.go`. Remove the local mock definition for `MockJWTService`. Update the import statements to use `github.com/phrazzld/scry-api/internal/mocks`. Ensure tests still instantiate and use the `MockJWTService` correctly from the new package.
     - **Depends On:** [T023]
     - **AC Ref:** PLAN.md Section 5
+    - **Note:** This task has been completed as part of the implementation of task T023. The `middleware/auth_test.go` file is already importing the centralized mocks package (`github.com/phrazzld/scry-api/internal/mocks`) and using the centralized `MockJWTService` implementation. The local mock definition was removed and the tests are working correctly with the centralized implementation.
 
 ## 7. Improve Email Validation (Low Risk)
 - [ ] **T028:** Add TODO comment to validateEmailFormat

@@ -67,10 +67,11 @@
     - **AC Ref:** PLAN.md Section 6
     - **Note:** Updated `AuthHandler` to include `authConfig`, allowing access to token lifetime settings. Added expiration time calculation to the `Register` method and included it in the response. Used RFC3339 format for the expiration timestamp.
 
-- [ ] **T012:** Update AuthHandler.Login to populate ExpiresAt
+- [x] **T012:** Update AuthHandler.Login to populate ExpiresAt
     - **Action:** Modify the `Login` method in `internal/api/auth_handler.go`. After generating the JWT token, calculate the expiration time using `cfg.Auth.TokenLifetimeMinutes`. Populate the `ExpiresAt` field in the `AuthResponse` struct before sending the JSON response. Ensure `ExpiresAt` is formatted appropriately (e.g., RFC3339).
     - **Depends On:** None
     - **AC Ref:** PLAN.md Section 6
+    - **Note:** Updated `Login` method to calculate token expiration time based on `authConfig.TokenLifetimeMinutes` and included it in the response using RFC3339 format, consistent with the `Register` method's implementation.
 
 ## 5. Improve Server Initialization Structure (Low Risk)
 - [ ] **T013:** Create appDependencies struct

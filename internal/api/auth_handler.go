@@ -137,9 +137,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response
+	// Calculate token expiration time
+	expiresAt := time.Now().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
+
+	// Format expiration time in RFC3339 format (standard for JSON API responses)
+	expiresAtFormatted := expiresAt.Format(time.RFC3339)
+
+	// Return success response with expiration time
 	RespondWithJSON(w, r, http.StatusOK, AuthResponse{
-		UserID: user.ID,
-		Token:  token,
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: expiresAtFormatted,
 	})
 }

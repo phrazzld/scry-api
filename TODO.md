@@ -83,10 +83,11 @@
   - **Complexity:** High
   - **Note:** Implemented in `internal/task/memo_generation_task.go` with comprehensive error handling and proper status transitions. The implementation follows the complete lifecycle for memo generation: retrieve memo, update status to processing, generate cards, save to database, and finalize with appropriate status based on outcome. Includes structured logging throughout and handles edge cases like context cancellation, empty card generation results, and partial failures. Test coverage in `internal/task/memo_generation_task_test.go` includes happy path and various error cases.
 
-- [ ] **T108:** Create database migration for `tasks` table (if needed)
+- [x] **T108:** Create database migration for `tasks` table (if needed)
   - **Action:** Create SQL migration file to define the `tasks` table schema with fields for ID, type, payload, status, error messages, timestamps, etc.
   - **Depends On:** None
   - **Complexity:** Low
+  - **Note:** The migration file already exists at `internal/platform/postgres/migrations/20250415000005_create_tasks_table.sql` with a complete schema including id, type, payload, status, error_message, and timestamps. The PostgreSQL task store implementation is also complete in `internal/platform/postgres/task_store.go` with comprehensive tests. The existing implementation fully meets the requirements of the TaskStore interface defined in `internal/task/task.go`.
 
 - [ ] **T109:** Create task store interface
   - **Action:** Define the `TaskStore` interface with methods for saving, updating, and retrieving tasks from the database.

@@ -166,7 +166,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (30 minutes)
 - **Depends On:** None
 
-### T013: Investigate Unused Code
+### T013: Investigate Unused Code [x]
 
 - **Description:** Search the codebase for usages of the `databaseTask` struct and `NewDatabaseTask` function to determine if they're used.
 - **Acceptance Criteria:**

@@ -44,7 +44,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -v -race -coverprofile=coverage.out -tags=test_without_external_deps ./...
 
   build:
     name: Build

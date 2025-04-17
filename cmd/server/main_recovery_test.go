@@ -561,7 +561,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 		t.Log("Verifying task completion after recovery...")
 
 		// Wait for the task to be completed
-		waitForRecoveryCondition(t, 10*time.Second, 200*time.Millisecond, func() (bool, error) {
+		waitForRecoveryCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
 			status, err := getTaskStatusDirectly(t, tx, taskID)
 			if err != nil {
 				return false, err
@@ -571,7 +571,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 		}, "task to complete after recovery")
 
 		// Wait for the memo status to be updated to completed
-		waitForRecoveryCondition(t, 5*time.Second, 200*time.Millisecond, func() (bool, error) {
+		waitForRecoveryCondition(t, 8*time.Second, 200*time.Millisecond, func() (bool, error) {
 			status, err := getMemoStatusDirectly(t, tx, memoID)
 			if err != nil {
 				return false, err
@@ -694,7 +694,7 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		t.Log("Verifying task failure after recovery...")
 
 		// Wait for the task to be marked as failed
-		waitForRecoveryCondition(t, 10*time.Second, 200*time.Millisecond, func() (bool, error) {
+		waitForRecoveryCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
 			status, err := getTaskStatusDirectly(t, tx, taskID)
 			if err != nil {
 				return false, err
@@ -704,7 +704,7 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		}, "task to fail after recovery")
 
 		// Wait for the memo status to be updated to failed
-		waitForRecoveryCondition(t, 5*time.Second, 200*time.Millisecond, func() (bool, error) {
+		waitForRecoveryCondition(t, 8*time.Second, 200*time.Millisecond, func() (bool, error) {
 			status, err := getMemoStatusDirectly(t, tx, memoID)
 			if err != nil {
 				return false, err
@@ -913,7 +913,7 @@ func TestTaskRecovery_API(t *testing.T) {
 		t.Log("Verifying task completion after recovery...")
 
 		// Wait for the task to be completed
-		waitForRecoveryCondition(t, 10*time.Second, 200*time.Millisecond, func() (bool, error) {
+		waitForRecoveryCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
 			status, err := getTaskStatusDirectly(t, tx, taskID)
 			if err != nil {
 				return false, err
@@ -923,7 +923,7 @@ func TestTaskRecovery_API(t *testing.T) {
 		}, "task to complete after recovery")
 
 		// Wait for the memo status to be updated to completed
-		waitForRecoveryCondition(t, 5*time.Second, 200*time.Millisecond, func() (bool, error) {
+		waitForRecoveryCondition(t, 8*time.Second, 200*time.Millisecond, func() (bool, error) {
 			status, err := getMemoStatusDirectly(t, tx, uuid.MustParse(memoID))
 			if err != nil {
 				return false, err

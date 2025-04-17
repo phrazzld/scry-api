@@ -190,7 +190,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** T013
 
-### T015: Adjust Timeout Values
+### T015: Adjust Timeout Values [x]
 
 - **Description:** Increase the timeout values in calls to `waitForRecoveryCondition` to improve test reliability in CI environments.
 - **Acceptance Criteria:**

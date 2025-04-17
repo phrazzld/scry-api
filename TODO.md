@@ -26,57 +26,57 @@
     - **Depends On:** None
     - **AC Ref:** N/A
 
-- [ ] **T006:** Add gemini platform package
+- [x] **T006:** Add gemini platform package
     - **Action:** Create `internal/platform/gemini` package with package documentation in `doc.go`.
     - **Depends On:** None
     - **AC Ref:** N/A
 
-- [ ] **T007:** Implement GeminiGenerator struct and constructor
+- [x] **T007:** Implement GeminiGenerator struct and constructor
     - **Action:** Create `internal/platform/gemini/gemini_generator.go` with the struct definition and NewGeminiGenerator constructor.
     - **Depends On:** [T001, T003, T006]
     - **AC Ref:** N/A
 
-- [ ] **T008:** Implement prompt creation function
+- [x] **T008:** Implement prompt creation function
     - **Action:** Add createPrompt method to geminiGenerator to generate the prompt string from the template.
     - **Depends On:** [T007]
     - **AC Ref:** N/A
 
-- [ ] **T009:** Implement Gemini API call with retry logic
+- [x] **T009:** Implement Gemini API call with retry logic
     - **Action:** Add callGeminiWithRetry method to handle API calls with exponential backoff retry.
     - **Depends On:** [T002, T007]
     - **AC Ref:** N/A
 
-- [ ] **T010:** Implement response parsing logic
+- [x] **T010:** Implement response parsing logic
     - **Action:** Add parseResponse method to convert API response JSON into domain.Card objects.
     - **Depends On:** [T007]
     - **AC Ref:** N/A
 
-- [ ] **T011:** Implement GenerateCards method
+- [x] **T011:** Implement GenerateCards method
     - **Action:** Implement the GenerateCards method to fulfill the Generator interface, using the helper methods.
     - **Depends On:** [T008, T009, T010]
     - **AC Ref:** N/A
 
-- [ ] **T012:** Add required dependencies to go.mod
+- [x] **T012:** Add required dependencies to go.mod
     - **Action:** Update go.mod to include Google's generative-ai-go/genai and related dependencies.
     - **Depends On:** None
     - **AC Ref:** N/A
 
-- [ ] **T013:** Update server initialization code
+- [x] **T013:** Update server initialization code
     - **Action:** Modify `cmd/server/main.go` to initialize the gemini generator and inject it into the dependency chain.
     - **Depends On:** [T007, T012]
     - **AC Ref:** N/A
 
-- [ ] **T014:** Create tests for Generator interface
+- [x] **T014:** Create tests for Generator interface
     - **Action:** Create `internal/generation/generation_test.go` to test documentation and error types.
     - **Depends On:** [T001, T002]
     - **AC Ref:** N/A
 
-- [ ] **T015:** Create tests for GeminiGenerator implementation
+- [x] **T015:** Create tests for GeminiGenerator implementation
     - **Action:** Create `internal/platform/gemini/gemini_generator_test.go` to test prompt template parsing, error handling, retry logic, and response parsing.
     - **Depends On:** [T007, T008, T009, T010, T011]
     - **AC Ref:** N/A
 
-- [ ] **T016:** Create mock generator for integration tests
+- [x] **T016:** Create mock generator for integration tests
     - **Action:** Create `internal/mocks/generator.go` with a mock implementation of the Generator interface.
     - **Depends On:** [T001]
     - **AC Ref:** N/A
@@ -99,6 +99,11 @@
 - [ ] **T020:** Perform final validation and testing
     - **Action:** Ensure all tests pass, code adheres to project standards, and validation criteria are met.
     - **Depends On:** [T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011, T012, T013, T014, T015, T016, T017, T018, T019]
+    - **AC Ref:** N/A
+
+- [ ] **T021:** Switch from generative-ai-go to genai library
+    - **Action:** Update dependencies and code to use the new genai library instead of generative-ai-go.
+    - **Depends On:** [T012, T013]
     - **AC Ref:** N/A
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS

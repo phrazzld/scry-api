@@ -115,7 +115,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** T007
 
-### T009: Identify Logical Blocks for Setup Function
+### T009: Identify Logical Blocks for Setup Function [x]
 
 - **Description:** Analyze the `setupRecoveryTestInstance` function and identify logical blocks that can be extracted into separate helper functions.
 - **Acceptance Criteria:**

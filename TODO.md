@@ -16,7 +16,7 @@
     - **Depends On:** None
     - **AC Ref:** N/A
 
-- [ ] **T004:** Set default values for LLM configuration
+- [x] **T004:** Set default values for LLM configuration
     - **Action:** Update `internal/config/load.go` to set default values for max retries and retry delay.
     - **Depends On:** [T003]
     - **AC Ref:** N/A

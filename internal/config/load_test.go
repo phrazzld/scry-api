@@ -55,9 +55,13 @@ func TestLoadDefaults(t *testing.T) {
 		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES":         "60",    // Add token lifetime
 		"SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES": "10080", // Add refresh token lifetime
 		"SCRY_LLM_GEMINI_API_KEY":                  "test-api-key",
+		"SCRY_LLM_MODEL_NAME":                      "test-model",
+		"SCRY_LLM_PROMPT_TEMPLATE_PATH":            "/path/to/template.txt",
 		// Explicitly unset the ones we want to test defaults for
-		"SCRY_SERVER_PORT":      "",
-		"SCRY_SERVER_LOG_LEVEL": "",
+		"SCRY_SERVER_PORT":             "",
+		"SCRY_SERVER_LOG_LEVEL":        "",
+		"SCRY_LLM_MAX_RETRIES":         "",
+		"SCRY_LLM_RETRY_DELAY_SECONDS": "",
 	})
 	defer cleanup()
 
@@ -71,6 +75,9 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, "info", cfg.Server.LogLevel, "Default log level should be 'info'")
 	assert.Equal(t, 10, cfg.Auth.BCryptCost, "Default bcrypt cost should be 10")
 	assert.Equal(t, 60, cfg.Auth.TokenLifetimeMinutes, "Token lifetime minutes should be set to 60")
+	assert.Equal(t, 3, cfg.LLM.MaxRetries, "Default max retries should be 3")
+	assert.Equal(t, 2, cfg.LLM.RetryDelaySeconds, "Default retry delay seconds should be 2")
+	assert.Equal(t, "test-model", cfg.LLM.ModelName, "Model name should match the test value")
 }
 
 // TestLoadFromEnv verifies that the Load function correctly reads values from environment variables.
@@ -85,6 +92,10 @@ func TestLoadFromEnv(t *testing.T) {
 		"SCRY_AUTH_TOKEN_LIFETIME_MINUTES":         "120",   // 2 hours
 		"SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES": "20160", // 2 weeks
 		"SCRY_LLM_GEMINI_API_KEY":                  "test-api-key",
+		"SCRY_LLM_MODEL_NAME":                      "gemini-1.5-pro",
+		"SCRY_LLM_PROMPT_TEMPLATE_PATH":            "/path/to/custom-template.txt",
+		"SCRY_LLM_MAX_RETRIES":                     "4",
+		"SCRY_LLM_RETRY_DELAY_SECONDS":             "5",
 	})
 	defer cleanup()
 
@@ -117,6 +128,15 @@ func TestLoadFromEnv(t *testing.T) {
 		"Refresh token lifetime should be loaded from environment variables",
 	)
 	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
+	assert.Equal(t, "gemini-1.5-pro", cfg.LLM.ModelName, "Model name should be loaded from environment variables")
+	assert.Equal(
+		t,
+		"/path/to/custom-template.txt",
+		cfg.LLM.PromptTemplatePath,
+		"Prompt template path should be loaded from environment variables",
+	)
+	assert.Equal(t, 4, cfg.LLM.MaxRetries, "Max retries should be loaded from environment variables")
+	assert.Equal(t, 5, cfg.LLM.RetryDelaySeconds, "Retry delay should be loaded from environment variables")
 }
 
 // TestLoadValidationErrors verifies that the Load function correctly validates the configuration.

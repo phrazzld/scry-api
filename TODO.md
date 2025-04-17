@@ -127,7 +127,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T010: Create Helper Functions for Setup Blocks
+### T010: Create Helper Functions for Setup Blocks [x]
 
 - **Description:** Create private helper functions for each logical block identified in T009.
 - **Acceptance Criteria:**

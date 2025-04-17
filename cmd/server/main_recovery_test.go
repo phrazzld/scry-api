@@ -76,8 +76,12 @@ func (g *RecoveryMockGenerator) GenerateCards(
 	}
 
 	// Create test card content
-	cardContent1 := []byte(`{"front":"Question 1 from text: '` + memoText + `'", "back":"Answer 1"}`)
-	cardContent2 := []byte(`{"front":"Question 2 from text: '` + memoText + `'", "back":"Answer 2"}`)
+	cardContent1 := []byte(
+		`{"front":"Question 1 from text: '` + memoText + `'", "back":"Answer 1"}`,
+	)
+	cardContent2 := []byte(
+		`{"front":"Question 2 from text: '` + memoText + `'", "back":"Answer 2"}`,
+	)
 
 	// Create two test cards for the memo
 	memoID := uuid.New() // This will be overwritten by the task with the actual memo ID
@@ -105,7 +109,10 @@ func NewRecoveryMockCardRepository(logger *slog.Logger) *RecoveryMockCardReposit
 }
 
 // CreateMultiple logs card creation for testing and stores them in memory
-func (r *RecoveryMockCardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
+func (r *RecoveryMockCardRepository) CreateMultiple(
+	ctx context.Context,
+	cards []*domain.Card,
+) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -137,26 +144,29 @@ func (g *RecoveryMockGenerator) GetExecutionCount() int {
 	return g.executionCount
 }
 
-// setupRecoveryTestInstance creates a test instance for recovery testing
-// It returns the server, task runner, and any error
-func setupRecoveryTestInstance(
+// setupTestLogger creates and configures a logger for testing
+func setupTestLogger() *slog.Logger {
+	return slog.Default()
+}
+
+// setupTestStores initializes database repositories
+func setupTestStores(
 	t *testing.T,
 	dbtx store.DBTX,
-	mockGenerator *RecoveryMockGenerator,
-	mockCardRepo *RecoveryMockCardRepository,
-	taskConfig task.TaskRunnerConfig,
-) (*httptest.Server, *task.TaskRunner, error) {
+	logger *slog.Logger,
+) (*postgres.PostgresUserStore, *postgres.PostgresTaskStore, *postgres.PostgresMemoStore) {
 	t.Helper()
-
-	// Set up logger
-	logger := slog.Default()
-
-	// Initialize database repositories using the transaction
 	userStore := postgres.NewPostgresUserStore(dbtx, 10) // BCrypt cost = 10 for faster tests
 	taskStore := postgres.NewPostgresTaskStore(dbtx)
 	memoStore := postgres.NewPostgresMemoStore(dbtx, logger)
+	return userStore, taskStore, memoStore
+}
 
-	// Create authentication components
+// setupTestAuthComponents creates auth config and initializes auth services
+func setupTestAuthComponents(
+	t *testing.T,
+) (config.AuthConfig, auth.JWTService, auth.PasswordVerifier, error) {
+	t.Helper()
 	authConfig := config.AuthConfig{
 		JWTSecret:                   "test-jwt-secret-thatis32characterslong",
 		TokenLifetimeMinutes:        60,
@@ -164,10 +174,23 @@ func setupRecoveryTestInstance(
 	}
 	jwtService, err := auth.NewJWTService(authConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create JWT service: %w", err)
+		return authConfig, nil, nil, fmt.Errorf("failed to create JWT service: %w", err)
 	}
 	passwordVerifier := auth.NewBcryptVerifier()
+	return authConfig, jwtService, passwordVerifier, nil
+}
 
+// setupTestTaskProcessing sets up task runner, task factory, memo repository adapter, and memo service
+func setupTestTaskProcessing(
+	t *testing.T,
+	taskStore *postgres.PostgresTaskStore,
+	memoStore *postgres.PostgresMemoStore,
+	mockGenerator *RecoveryMockGenerator,
+	mockCardRepo *RecoveryMockCardRepository,
+	taskConfig task.TaskRunnerConfig,
+	logger *slog.Logger,
+) (*task.TaskRunner, service.MemoService) {
+	t.Helper()
 	// Configure task runner
 	taskRunner := task.NewTaskRunner(taskStore, taskConfig, logger)
 
@@ -180,19 +203,44 @@ func setupRecoveryTestInstance(
 	)
 
 	// Create the memo service adapter
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, func(ctx context.Context, memo *domain.Memo) error {
-		// For test simplicity, use direct database access
-		return memoStore.Create(ctx, memo)
-	})
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(
+		memoStore,
+		func(ctx context.Context, memo *domain.Memo) error {
+			// For test simplicity, use direct database access
+			return memoStore.Create(ctx, memo)
+		},
+	)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)
 
-	// Create the API handlers
+	return taskRunner, memoService
+}
+
+// setupTestAPIHandlers creates API handlers and middleware
+func setupTestAPIHandlers(
+	t *testing.T,
+	userStore *postgres.PostgresUserStore,
+	jwtService auth.JWTService,
+	passwordVerifier auth.PasswordVerifier,
+	authConfig config.AuthConfig,
+	memoService service.MemoService,
+) (*api.AuthHandler, *api.MemoHandler, *authmiddleware.AuthMiddleware) {
+	t.Helper()
 	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &authConfig)
 	memoHandler := api.NewMemoHandler(memoService)
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
+	return authHandler, memoHandler, authMiddleware
+}
 
+// setupRecoveryTestRouter creates router, applies middleware, registers routes for recovery tests
+func setupRecoveryTestRouter(
+	t *testing.T,
+	authHandler *api.AuthHandler,
+	memoHandler *api.MemoHandler,
+	authMiddleware *authmiddleware.AuthMiddleware,
+) *httptest.Server {
+	t.Helper()
 	// Create router and set up routes
 	r := chi.NewRouter()
 
@@ -216,7 +264,44 @@ func setupRecoveryTestInstance(
 	})
 
 	// Create the test server
-	testServer := httptest.NewServer(r)
+	return httptest.NewServer(r)
+}
+
+// setupRecoveryTestInstance creates a test instance for recovery testing
+// It returns the server, task runner, and any error
+func setupRecoveryTestInstance(
+	t *testing.T,
+	dbtx store.DBTX,
+	mockGenerator *RecoveryMockGenerator,
+	mockCardRepo *RecoveryMockCardRepository,
+	taskConfig task.TaskRunnerConfig,
+) (*httptest.Server, *task.TaskRunner, error) {
+	t.Helper()
+
+	// Set up logger
+	logger := setupTestLogger()
+
+	// Initialize database repositories using the transaction
+	userStore, taskStore, memoStore := setupTestStores(t, dbtx, logger)
+
+	// Create authentication components
+	authConfig, jwtService, passwordVerifier, err := setupTestAuthComponents(t)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Setup task processing components
+	taskRunner, memoService := setupTestTaskProcessing(
+		t, taskStore, memoStore, mockGenerator, mockCardRepo, taskConfig, logger,
+	)
+
+	// Create the API handlers
+	authHandler, memoHandler, authMiddleware := setupTestAPIHandlers(
+		t, userStore, jwtService, passwordVerifier, authConfig, memoService,
+	)
+
+	// Create the test server
+	testServer := setupRecoveryTestRouter(t, authHandler, memoHandler, authMiddleware)
 
 	// Note: We intentionally don't start the task runner here
 	// The caller will decide when to start it, simulating application startup
@@ -225,7 +310,11 @@ func setupRecoveryTestInstance(
 }
 
 // Helper function to get task status directly from DB
-func getTaskStatusDirectly(t *testing.T, dbtx store.DBTX, taskID uuid.UUID) (task.TaskStatus, error) {
+func getTaskStatusDirectly(
+	t *testing.T,
+	dbtx store.DBTX,
+	taskID uuid.UUID,
+) (task.TaskStatus, error) {
 	t.Helper()
 	var status string
 
@@ -265,7 +354,11 @@ func getTaskIDForMemo(t *testing.T, dbtx store.DBTX, memoID uuid.UUID) (uuid.UUI
 }
 
 // Helper function to get memo status directly from DB
-func getMemoStatusDirectly(t *testing.T, dbtx store.DBTX, memoID uuid.UUID) (domain.MemoStatus, error) {
+func getMemoStatusDirectly(
+	t *testing.T,
+	dbtx store.DBTX,
+	memoID uuid.UUID,
+) (domain.MemoStatus, error) {
 	t.Helper()
 	var status string
 
@@ -382,7 +475,12 @@ func waitForRecoveryCondition(
 	}
 
 	if lastErr != nil {
-		t.Fatalf("Timeout waiting for condition: %s (waited %v). Last error: %v", message, timeout, lastErr)
+		t.Fatalf(
+			"Timeout waiting for condition: %s (waited %v). Last error: %v",
+			message,
+			timeout,
+			lastErr,
+		)
 	} else {
 		t.Fatalf("Timeout waiting for condition: %s (waited %v)", message, timeout)
 	}
@@ -453,7 +551,12 @@ func TestTaskRecovery_Success(t *testing.T) {
 		now := time.Now().UTC()
 		_, err = tx.Exec(
 			"INSERT INTO tasks (id, type, payload, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-			taskID, task.TaskTypeMemoGeneration, payloadBytes, string(task.TaskStatusProcessing), now, now,
+			taskID,
+			task.TaskTypeMemoGeneration,
+			payloadBytes,
+			string(task.TaskStatusProcessing),
+			now,
+			now,
 		)
 		require.NoError(t, err, "Failed to insert task with processing status")
 
@@ -467,11 +570,21 @@ func TestTaskRecovery_Success(t *testing.T) {
 		// Verify initial state
 		initialTaskStatus, err := getTaskStatusDirectly(t, tx, taskID)
 		require.NoError(t, err, "Failed to get initial task status")
-		assert.Equal(t, task.TaskStatusProcessing, initialTaskStatus, "Task should start in processing state")
+		assert.Equal(
+			t,
+			task.TaskStatusProcessing,
+			initialTaskStatus,
+			"Task should start in processing state",
+		)
 
 		initialMemoStatus, err := getMemoStatusDirectly(t, tx, memoID)
 		require.NoError(t, err, "Failed to get initial memo status")
-		assert.Equal(t, domain.MemoStatusProcessing, initialMemoStatus, "Memo should start in processing state")
+		assert.Equal(
+			t,
+			domain.MemoStatusProcessing,
+			initialMemoStatus,
+			"Memo should start in processing state",
+		)
 
 		// --- Recovery Phase ---
 		t.Log("Setting up second application instance to trigger recovery...")
@@ -486,7 +599,13 @@ func TestTaskRecovery_Success(t *testing.T) {
 		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
 		// Setup second app instance
-		_, taskRunner2, err := setupRecoveryTestInstance(t, tx, mockGenerator2, mockCardRepo2, taskConfig2)
+		_, taskRunner2, err := setupRecoveryTestInstance(
+			t,
+			tx,
+			mockGenerator2,
+			mockCardRepo2,
+			taskConfig2,
+		)
 		require.NoError(t, err, "Failed to set up second app instance")
 
 		// Start the runner - this triggers recovery
@@ -519,7 +638,12 @@ func TestTaskRecovery_Success(t *testing.T) {
 		}, "memo to complete after recovery")
 
 		// Verify execution count of the generator
-		assert.Equal(t, 1, mockGenerator2.GetExecutionCount(), "Generator should be executed exactly once")
+		assert.Equal(
+			t,
+			1,
+			mockGenerator2.GetExecutionCount(),
+			"Generator should be executed exactly once",
+		)
 
 		// Verify cards were created
 		createdCards := mockCardRepo2.GetCreatedCards(memoID.String())
@@ -579,7 +703,12 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		now := time.Now().UTC()
 		_, err = tx.Exec(
 			"INSERT INTO tasks (id, type, payload, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-			taskID, task.TaskTypeMemoGeneration, payloadBytes, string(task.TaskStatusProcessing), now, now,
+			taskID,
+			task.TaskTypeMemoGeneration,
+			payloadBytes,
+			string(task.TaskStatusProcessing),
+			now,
+			now,
 		)
 		require.NoError(t, err, "Failed to insert task with processing status")
 
@@ -603,7 +732,13 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		taskConfig := getDefaultTestTaskConfig()
 
 		// Setup app instance
-		_, taskRunner, err := setupRecoveryTestInstance(t, tx, mockGenerator, mockCardRepo, taskConfig)
+		_, taskRunner, err := setupRecoveryTestInstance(
+			t,
+			tx,
+			mockGenerator,
+			mockCardRepo,
+			taskConfig,
+		)
 		require.NoError(t, err, "Failed to set up app instance")
 
 		// Start the runner to trigger recovery
@@ -636,7 +771,12 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		}, "memo to fail after recovery")
 
 		// Verify execution count
-		assert.Equal(t, 1, mockGenerator.GetExecutionCount(), "Generator should be executed exactly once")
+		assert.Equal(
+			t,
+			1,
+			mockGenerator.GetExecutionCount(),
+			"Generator should be executed exactly once",
+		)
 
 		// Verify no cards were created
 		createdCards := mockCardRepo.GetCreatedCards(memoID.String())
@@ -674,7 +814,13 @@ func TestTaskRecovery_API(t *testing.T) {
 		taskConfig1 := getDefaultTestTaskConfig()
 
 		// Setup first app instance
-		server1, _, err := setupRecoveryTestInstance(t, tx, mockGenerator1, mockCardRepo1, taskConfig1)
+		server1, _, err := setupRecoveryTestInstance(
+			t,
+			tx,
+			mockGenerator1,
+			mockCardRepo1,
+			taskConfig1,
+		)
 		require.NoError(t, err, "Failed to set up first app instance")
 		defer server1.Close()
 
@@ -746,7 +892,12 @@ func TestTaskRecovery_API(t *testing.T) {
 		}()
 
 		// Verify response
-		require.Equal(t, http.StatusAccepted, memoResp.StatusCode, "Memo creation should be accepted")
+		require.Equal(
+			t,
+			http.StatusAccepted,
+			memoResp.StatusCode,
+			"Memo creation should be accepted",
+		)
 
 		// Parse memo response
 		var memoData api.MemoResponse
@@ -755,7 +906,12 @@ func TestTaskRecovery_API(t *testing.T) {
 
 		memoID := memoData.ID
 		require.NotEmpty(t, memoID, "Memo ID should be returned")
-		assert.Equal(t, string(domain.MemoStatusPending), memoData.Status, "Initial status should be pending")
+		assert.Equal(
+			t,
+			string(domain.MemoStatusPending),
+			memoData.Status,
+			"Initial status should be pending",
+		)
 
 		// Simulate server shutdown by closing the resources
 		server1.Close()
@@ -790,7 +946,13 @@ func TestTaskRecovery_API(t *testing.T) {
 		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
 		// Setup second app instance
-		server2, taskRunner2, err := setupRecoveryTestInstance(t, tx, mockGenerator2, mockCardRepo2, taskConfig2)
+		server2, taskRunner2, err := setupRecoveryTestInstance(
+			t,
+			tx,
+			mockGenerator2,
+			mockCardRepo2,
+			taskConfig2,
+		)
 		require.NoError(t, err, "Failed to set up second app instance")
 		defer server2.Close()
 
@@ -824,7 +986,12 @@ func TestTaskRecovery_API(t *testing.T) {
 		}, "memo to complete after recovery")
 
 		// Verify execution count
-		assert.Equal(t, 1, mockGenerator2.GetExecutionCount(), "Generator should be executed exactly once")
+		assert.Equal(
+			t,
+			1,
+			mockGenerator2.GetExecutionCount(),
+			"Generator should be executed exactly once",
+		)
 
 		// Verify cards were created
 		createdCards := mockCardRepo2.GetCreatedCards(memoID)

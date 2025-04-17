@@ -21,7 +21,7 @@
     - **Depends On:** [T003]
     - **AC Ref:** N/A
 
-- [ ] **T005:** Create prompt template for flashcard generation
+- [x] **T005:** Create prompt template for flashcard generation
     - **Action:** Create a prompt template file at an appropriate location (e.g., `prompts/flashcard_template.txt`) with instructions for the LLM.
     - **Depends On:** None
     - **AC Ref:** N/A

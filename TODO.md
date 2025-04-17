@@ -177,7 +177,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T014: Remove Unused Code
+### T014: Remove Unused Code [x]
 
 - **Description:** If confirmed unused in T013, remove the `databaseTask` struct and `NewDatabaseTask` function from the test file.
 - **Acceptance Criteria:**

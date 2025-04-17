@@ -377,63 +377,6 @@ func getMemoStatusDirectly(
 	return domain.MemoStatus(status), nil
 }
 
-// NewDatabaseTask creates a new database task for testing
-func NewDatabaseTask(
-	id uuid.UUID,
-	taskType string,
-	payload []byte,
-	status task.TaskStatus,
-	errorMessage string,
-	createdAt time.Time,
-	updatedAt time.Time,
-) task.Task {
-	return &databaseTask{
-		id:           id,
-		taskType:     taskType,
-		payload:      payload,
-		status:       status,
-		errorMessage: errorMessage,
-		createdAt:    createdAt,
-		updatedAt:    updatedAt,
-	}
-}
-
-// databaseTask implements the task.Task interface for tests
-type databaseTask struct {
-	id           uuid.UUID
-	taskType     string
-	payload      []byte
-	status       task.TaskStatus
-	errorMessage string
-	createdAt    time.Time
-	updatedAt    time.Time
-}
-
-// ID returns the task's unique identifier
-func (t *databaseTask) ID() uuid.UUID {
-	return t.id
-}
-
-// Type returns the task type identifier
-func (t *databaseTask) Type() string {
-	return t.taskType
-}
-
-// Payload returns the task data as a byte slice
-func (t *databaseTask) Payload() []byte {
-	return t.payload
-}
-
-// Status returns the current task status
-func (t *databaseTask) Status() task.TaskStatus {
-	return t.status
-}
-
-// Execute is a stub that fails since this is a test task
-func (t *databaseTask) Execute(ctx context.Context) error {
-	return fmt.Errorf("not implemented for test database task")
-}
-
 // getDefaultTestTaskConfig returns a default TaskRunnerConfig with common test values
 func getDefaultTestTaskConfig() task.TaskRunnerConfig {
 	return task.TaskRunnerConfig{

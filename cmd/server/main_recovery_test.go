@@ -350,6 +350,13 @@ func getDefaultTestTaskConfig() task.TaskRunnerConfig {
 	}
 }
 
+// getTestTaskConfigWithWorkers returns a TaskRunnerConfig with a specific worker count
+func getTestTaskConfigWithWorkers(workerCount int) task.TaskRunnerConfig {
+	config := getDefaultTestTaskConfig()
+	config.WorkerCount = workerCount
+	return config
+}
+
 // waitForCondition polls until the condition function returns true or timeout is reached
 func waitForRecoveryCondition(
 	t *testing.T,
@@ -402,11 +409,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 			executionDelay:    0,
 		}
 		mockCardRepo1 := NewRecoveryMockCardRepository(logger)
-		taskConfig1 := task.TaskRunnerConfig{
-			WorkerCount:  1, // Use 1 worker for predictable state
-			QueueSize:    10,
-			StuckTaskAge: 30 * time.Minute,
-		}
+		taskConfig1 := getDefaultTestTaskConfig()
 
 		// Setup first app instance (doesn't need a running server)
 		_, _, err := setupRecoveryTestInstance(t, tx, mockGenerator1, mockCardRepo1, taskConfig1)
@@ -480,11 +483,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 			executionDelay:    200 * time.Millisecond, // Add small delay to make test more realistic
 		}
 		mockCardRepo2 := NewRecoveryMockCardRepository(logger)
-		taskConfig2 := task.TaskRunnerConfig{
-			WorkerCount:  2,
-			QueueSize:    10,
-			StuckTaskAge: 30 * time.Minute,
-		}
+		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
 		// Setup second app instance
 		_, taskRunner2, err := setupRecoveryTestInstance(t, tx, mockGenerator2, mockCardRepo2, taskConfig2)
@@ -601,11 +600,7 @@ func TestTaskRecovery_Failure(t *testing.T) {
 			executionDelay:    100 * time.Millisecond,
 		}
 		mockCardRepo := NewRecoveryMockCardRepository(logger)
-		taskConfig := task.TaskRunnerConfig{
-			WorkerCount:  1,
-			QueueSize:    10,
-			StuckTaskAge: 30 * time.Minute,
-		}
+		taskConfig := getDefaultTestTaskConfig()
 
 		// Setup app instance
 		_, taskRunner, err := setupRecoveryTestInstance(t, tx, mockGenerator, mockCardRepo, taskConfig)
@@ -676,11 +671,7 @@ func TestTaskRecovery_API(t *testing.T) {
 			executionDelay:    0,
 		}
 		mockCardRepo1 := NewRecoveryMockCardRepository(logger)
-		taskConfig1 := task.TaskRunnerConfig{
-			WorkerCount:  1,
-			QueueSize:    10,
-			StuckTaskAge: 30 * time.Minute,
-		}
+		taskConfig1 := getDefaultTestTaskConfig()
 
 		// Setup first app instance
 		server1, _, err := setupRecoveryTestInstance(t, tx, mockGenerator1, mockCardRepo1, taskConfig1)
@@ -796,11 +787,7 @@ func TestTaskRecovery_API(t *testing.T) {
 			executionDelay:    200 * time.Millisecond,
 		}
 		mockCardRepo2 := NewRecoveryMockCardRepository(logger)
-		taskConfig2 := task.TaskRunnerConfig{
-			WorkerCount:  2,
-			QueueSize:    10,
-			StuckTaskAge: 30 * time.Minute,
-		}
+		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
 		// Setup second app instance
 		server2, taskRunner2, err := setupRecoveryTestInstance(t, tx, mockGenerator2, mockCardRepo2, taskConfig2)

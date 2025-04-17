@@ -103,7 +103,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T008: Use Config Helper in Tests
+### T008: Use Config Helper in Tests [x]
 
 - **Description:** Replace duplicated `task.TaskRunnerConfig` struct literals in the test functions with calls to the `getDefaultTestTaskConfig` helper.
 - **Acceptance Criteria:**

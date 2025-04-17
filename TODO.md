@@ -96,7 +96,7 @@
     - **Depends On:** [T004]
     - **AC Ref:** N/A
 
-- [ ] **T020:** Perform final validation and testing
+- [x] **T020:** Perform final validation and testing
     - **Action:** Ensure all tests pass, code adheres to project standards, and validation criteria are met.
     - **Depends On:** [T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011, T012, T013, T014, T015, T016, T017, T018, T019]
     - **AC Ref:** N/A

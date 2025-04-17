@@ -17,7 +17,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/generation"
-	"google.golang.org/api/ai/generativelanguage/v1beta"
+	generativelanguage "google.golang.org/api/ai/generativelanguage/v1beta"
 	"google.golang.org/api/option"
 )
 

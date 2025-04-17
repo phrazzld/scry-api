@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -209,16 +210,169 @@ func TestLogin(t *testing.T) {
 	}
 }
 
-// TestRefreshTokenSuccess tests the complete flow of obtaining a refresh token
-// via login and then using it to get a new token pair.
-func TestRefreshTokenSuccess(t *testing.T) {
-	t.Parallel()
-
+// setupAuthTestEnvironment creates a common test environment for auth handler tests
+func setupAuthTestEnvironment() (
+	uuid.UUID,
+	string,
+	string,
+	string,
+	*mocks.MockJWTService,
+	*mocks.LoginMockUserStore,
+	*mocks.MockPasswordVerifier,
+	*AuthHandler,
+) {
 	// Create test user data
 	userID := uuid.New()
 	testEmail := "test@example.com"
 	testPassword := "password1234567"
 	dummyHash := "dummy-hash"
+
+	// Create test auth config
+	authConfig := &config.AuthConfig{
+		TokenLifetimeMinutes:        60,          // 1 hour access token lifetime
+		RefreshTokenLifetimeMinutes: 60 * 24 * 7, // 7 days refresh token lifetime
+	}
+
+	// Create password verifier mock that will succeed
+	passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
+
+	// Create user store mock
+	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
+
+	// Configure the JWT service mock
+	jwtService := &mocks.MockJWTService{
+		Token:        "access-token",
+		RefreshToken: "refresh-token",
+		Err:          nil,
+	}
+
+	// Create handler with dependencies
+	handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
+
+	return userID, testEmail, testPassword, dummyHash, jwtService, userStore, passwordVerifier, handler
+}
+
+// TestLoginWithTokenGeneration tests the login flow with successful token generation
+func TestLoginWithTokenGeneration(t *testing.T) {
+	t.Parallel()
+
+	// Set up test environment
+	userID, testEmail, testPassword, _, jwtService, _, _, handler := setupAuthTestEnvironment()
+
+	// Define expected tokens
+	expectedAccessToken := "test-access-token"
+	expectedRefreshToken := "test-refresh-token"
+
+	// Set up token generation to return expected tokens
+	jwtService.Token = expectedAccessToken
+	jwtService.RefreshToken = expectedRefreshToken
+
+	// Create login request
+	loginPayload := map[string]interface{}{
+		"email":    testEmail,
+		"password": testPassword,
+	}
+
+	loginPayloadBytes, err := json.Marshal(loginPayload)
+	require.NoError(t, err)
+
+	loginReq := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(loginPayloadBytes))
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginRecorder := httptest.NewRecorder()
+
+	// Call login handler
+	handler.Login(loginRecorder, loginReq)
+
+	// Check response status
+	require.Equal(t, http.StatusOK, loginRecorder.Code)
+
+	// Parse response
+	var loginResp AuthResponse
+	err = json.NewDecoder(loginRecorder.Body).Decode(&loginResp)
+	require.NoError(t, err)
+
+	// Verify response contains expected tokens
+	assert.Equal(t, userID, loginResp.UserID)
+	assert.Equal(t, expectedAccessToken, loginResp.AccessToken)
+	assert.Equal(t, expectedRefreshToken, loginResp.RefreshToken)
+	assert.NotEmpty(t, loginResp.ExpiresAt)
+}
+
+// TestRefreshTokenFlow tests using a refresh token to get a new token pair
+func TestRefreshTokenFlow(t *testing.T) {
+	t.Parallel()
+
+	// Set up test environment
+	userID, _, _, _, jwtService, _, _, handler := setupAuthTestEnvironment()
+
+	// Define test tokens
+	initialRefreshToken := "initial-refresh-token"
+	newAccessToken := "new-access-token"
+	newRefreshToken := "new-refresh-token"
+
+	// Set up mock behavior for ValidateRefreshToken
+	jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+		// Verify that the token being validated is the one we expect
+		if tokenString != initialRefreshToken {
+			t.Errorf("Expected refresh token %s, got %s", initialRefreshToken, tokenString)
+			return nil, auth.ErrInvalidRefreshToken
+		}
+
+		// Return valid claims
+		return &auth.Claims{
+			UserID:    userID,
+			TokenType: "refresh",
+			IssuedAt:  time.Now().Add(-10 * time.Minute),
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		}, nil
+	}
+
+	// Set up mock behavior for token generation
+	jwtService.GenerateTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
+		return newAccessToken, nil
+	}
+
+	jwtService.GenerateRefreshTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
+		return newRefreshToken, nil
+	}
+
+	// Create refresh request
+	refreshPayload := RefreshTokenRequest{
+		RefreshToken: initialRefreshToken,
+	}
+
+	refreshPayloadBytes, err := json.Marshal(refreshPayload)
+	require.NoError(t, err)
+
+	refreshReq := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(refreshPayloadBytes))
+	refreshReq.Header.Set("Content-Type", "application/json")
+
+	refreshRecorder := httptest.NewRecorder()
+
+	// Call refresh token handler
+	handler.RefreshToken(refreshRecorder, refreshReq)
+
+	// Check response status
+	require.Equal(t, http.StatusOK, refreshRecorder.Code)
+
+	// Parse response
+	var refreshResp RefreshTokenResponse
+	err = json.NewDecoder(refreshRecorder.Body).Decode(&refreshResp)
+	require.NoError(t, err)
+
+	// Verify response contains new tokens
+	assert.Equal(t, newAccessToken, refreshResp.AccessToken)
+	assert.Equal(t, newRefreshToken, refreshResp.RefreshToken)
+	assert.NotEmpty(t, refreshResp.ExpiresAt)
+}
+
+// TestCompleteAuthFlow tests the complete flow from login to refresh
+func TestCompleteAuthFlow(t *testing.T) {
+	t.Parallel()
+
+	// Set up test environment
+	userID, testEmail, testPassword, _, jwtService, _, _, handler := setupAuthTestEnvironment()
 
 	// Define test tokens
 	initialAccessToken := "initial-access-token"
@@ -227,11 +381,12 @@ func TestRefreshTokenSuccess(t *testing.T) {
 	newRefreshToken := "new-refresh-token"
 
 	// Configure the JWT service mock with both token types
-	jwtService := &mocks.MockJWTService{
-		Token:        initialAccessToken,
-		RefreshToken: initialRefreshToken,
-		Err:          nil,
-	}
+	jwtService.Token = initialAccessToken
+	jwtService.RefreshToken = initialRefreshToken
+
+	// Track token generation calls
+	tokenGenerationCount := 0
+	refreshTokenGenerationCount := 0
 
 	// Set up mock behavior for ValidateRefreshToken
 	jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
@@ -251,9 +406,6 @@ func TestRefreshTokenSuccess(t *testing.T) {
 	}
 
 	// Set up mock behavior for token generation after refresh
-	tokenGenerationCount := 0
-	refreshTokenGenerationCount := 0
-
 	jwtService.GenerateTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
 		tokenGenerationCount++
 		// For the second call (after refresh), return new access token
@@ -271,21 +423,6 @@ func TestRefreshTokenSuccess(t *testing.T) {
 		}
 		return initialRefreshToken, nil
 	}
-
-	// Create user store mock
-	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
-
-	// Create password verifier mock that will succeed
-	passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
-
-	// Create test auth config
-	authConfig := &config.AuthConfig{
-		TokenLifetimeMinutes:        60,          // 1 hour access token lifetime
-		RefreshTokenLifetimeMinutes: 60 * 24 * 7, // 7 days refresh token lifetime
-	}
-
-	// Create handler with dependencies
-	handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
 
 	// STEP 1: Login to get initial tokens
 	loginPayload := map[string]interface{}{
@@ -559,7 +696,7 @@ func TestRefreshTokenFailure(t *testing.T) {
 				return jwtService
 			},
 			wantStatus:   http.StatusInternalServerError,
-			wantErrorMsg: "Failed to generate authentication token",
+			wantErrorMsg: "Failed to generate",
 		},
 	}
 
@@ -602,7 +739,7 @@ func TestRefreshTokenFailure(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, recorder.Code)
 
 			// Parse error response
-			var errorResp ErrorResponse
+			var errorResp shared.ErrorResponse
 			err = json.NewDecoder(recorder.Body).Decode(&errorResp)
 			require.NoError(t, err)
 

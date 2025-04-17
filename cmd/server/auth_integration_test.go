@@ -9,9 +9,10 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -38,10 +39,10 @@ func setupTestServer(t *testing.T, db *sql.DB) *httptest.Server {
 	r := chi.NewRouter()
 
 	// Apply standard middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
 
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
@@ -57,10 +58,10 @@ func setupTestServer(t *testing.T, db *sql.DB) *httptest.Server {
 	profileHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := authmiddleware.GetUserID(r)
 		if !ok {
-			api.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found in context")
+			shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found in context")
 			return
 		}
-		api.RespondWithJSON(w, r, http.StatusOK, map[string]interface{}{
+		shared.RespondWithJSON(w, r, http.StatusOK, map[string]interface{}{
 			"user_id": userID,
 			"message": "Profile data",
 		})

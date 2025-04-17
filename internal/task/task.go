@@ -18,6 +18,12 @@ const (
 	TaskStatusFailed     TaskStatus = "failed"
 )
 
+// Task type constants
+const (
+	// TaskTypeMemoGeneration represents the task type for generating flashcards from memos
+	TaskTypeMemoGeneration = "memo_generation"
+)
+
 // Task represents a unit of background work to be processed
 type Task interface {
 	// ID returns the task's unique identifier
@@ -34,6 +40,24 @@ type Task interface {
 
 	// Execute runs the task logic
 	Execute(ctx context.Context) error
+}
+
+// TaskQueueReader provides read-only access to the task channel
+// allowing workers to consume tasks without the ability to enqueue
+type TaskQueueReader interface {
+	// GetChannel returns a read-only channel for consuming tasks
+	GetChannel() <-chan Task
+}
+
+// TaskQueueWriter provides write access to the task queue
+// allowing services to enqueue tasks for processing
+type TaskQueueWriter interface {
+	// Enqueue adds a task to the queue for processing
+	// Returns an error if the queue is full or closed
+	Enqueue(task Task) error
+
+	// Close closes the task queue, preventing further task submission
+	Close()
 }
 
 // TaskStore defines the interface for persisting tasks

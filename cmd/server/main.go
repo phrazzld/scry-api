@@ -1,6 +1,3 @@
-// Package main implements the entry point for the Scry API server
-// which handles users' spaced repetition flashcards and provides
-// LLM integration for card generation.
 package main
 
 import (
@@ -14,19 +11,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgconn"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
+	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
@@ -40,7 +37,7 @@ const migrationsDir = "internal/platform/postgres/migrations"
 
 // appDependencies holds all the shared application dependencies
 // to simplify passing them around between functions.
-type appDependencies struct { //nolint:unused // Will be used in subsequent tasks
+type appDependencies struct {
 	// Configuration
 	Config *config.Config
 
@@ -49,12 +46,15 @@ type appDependencies struct { //nolint:unused // Will be used in subsequent task
 	DB     *sql.DB
 
 	// Stores
-	UserStore *postgres.PostgresUserStore
-	TaskStore *postgres.PostgresTaskStore
+	UserStore      *postgres.PostgresUserStore
+	TaskStore      *postgres.PostgresTaskStore
+	MemoRepository task.MemoRepository // Interface for memo operations
+	CardRepository task.CardRepository // Interface for card operations
 
 	// Services
 	JWTService       auth.JWTService
 	PasswordVerifier auth.PasswordVerifier
+	Generator        task.Generator // Interface for card generation
 
 	// Task handling
 	TaskRunner *task.TaskRunner
@@ -68,9 +68,7 @@ func main() {
 	// Define migration-related command-line flags
 	// These will be used in a future task to implement the migration functionality
 	migrateCmd := flag.String("migrate", "", "Run database migrations (up|down|create|status|version)")
-	migrationName := flag.String("name", "", "Name for new migration file (used with -migrate=create)")
-
-	// Parse command-line flags
+	migrationName := flag.String("name", "", "Name for the new migration (only used with 'create')")
 	flag.Parse()
 
 	// If a migration command was specified, execute it and exit
@@ -189,6 +187,26 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
+	// Create memo task factory and service
+	memoTaskFactory := task.NewMemoGenerationTaskFactory(
+		deps.MemoRepository,
+		deps.Generator,
+		deps.CardRepository,
+		deps.Logger,
+	)
+
+	// Create an adapter to make task.MemoRepository compatible with service.MemoRepository
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoRepository,
+		func(ctx context.Context, memo *domain.Memo) error {
+			// For now, just output a log message
+			deps.Logger.Info("Creating memo through adapter", "memo_id", memo.ID)
+			// In a real implementation, this would call the actual store
+			return nil
+		})
+
+	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, memoTaskFactory, deps.Logger)
+	memoHandler := api.NewMemoHandler(memoService)
+
 	// Register routes
 	r.Route("/api", func(r chi.Router) {
 		// Authentication endpoints (public)
@@ -199,7 +217,8 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.Authenticate)
-			// Add protected routes here
+			// Memo endpoints
+			r.Post("/memos", memoHandler.CreateMemo)
 		})
 	})
 
@@ -208,25 +227,29 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("OK"))
 		if err != nil {
-			slog.Error("Error writing health check response", "error", err)
+			deps.Logger.Error("Failed to write health check response", "error", err)
 		}
 	})
 
 	return r
 }
 
-// startServer initializes application dependencies, configures and starts the HTTP server.
-// It also handles graceful shutdown when the application receives a termination signal.
+// startServer starts the HTTP server with graceful shutdown.
+// It's split from main() to improve readability and testability.
 func startServer(cfg *config.Config) {
-	// Initialize core services and dependencies
-	logger := slog.Default()
+	// Step 1: Set up database connection and logger
+	logger, err := setupLogger(cfg)
+	if err != nil {
+		slog.Error("Failed to set up logger", "error", err)
+		os.Exit(1)
+	}
 
-	// Step 1: Set up database connection
 	db, err := setupDatabase(cfg, logger)
 	if err != nil {
 		logger.Error("Failed to setup database", "error", err)
 		os.Exit(1)
 	}
+
 	// Ensure database connection is closed when the server shuts down
 	defer func() {
 		if err := db.Close(); err != nil {
@@ -244,7 +267,11 @@ func startServer(cfg *config.Config) {
 	// Step 3: Initialize stores and other dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
 	taskStore := postgres.NewPostgresTaskStore(db)
+	memoStore := postgres.NewPostgresMemoStore(db, logger)
 	passwordVerifier := auth.NewBcryptVerifier()
+
+	// Create a mock generator service for card generation (will be replaced later)
+	mockGenerator := &mockGenerator{logger: logger}
 
 	// Step 4: Populate the application dependencies struct
 	deps := &appDependencies{
@@ -253,6 +280,9 @@ func startServer(cfg *config.Config) {
 		DB:               db,
 		UserStore:        userStore,
 		TaskStore:        taskStore,
+		MemoRepository:   memoStore,
+		CardRepository:   &mockCardRepository{logger: logger}, // Temporary mock implementation
+		Generator:        mockGenerator,
 		JWTService:       jwtService,
 		PasswordVerifier: passwordVerifier,
 	}
@@ -332,61 +362,54 @@ func setupLogger(cfg *config.Config) (*slog.Logger, error) {
 	return l, nil
 }
 
-// setupJWTService initializes the JWT authentication service with the provided configuration.
-// Returns the configured service or an error if initialization fails.
-func setupJWTService(cfg *config.Config) (auth.JWTService, error) {
-	jwtService, err := auth.NewJWTService(cfg.Auth)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize JWT authentication service: %w", err)
-	}
-
-	return jwtService, nil
-}
-
-// setupDatabase establishes a connection to the database using the configuration settings.
-// It configures the connection pool and verifies connectivity through a ping test.
-// Returns the database connection or an error if setup fails.
+// setupDatabase establishes a connection to the database and configures connection pools.
+// Returns the database connection if successful, or an error if the connection fails.
 func setupDatabase(cfg *config.Config, logger *slog.Logger) (*sql.DB, error) {
-	// Establish database connection
+	// Open database connection
 	db, err := sql.Open("pgx", cfg.Database.URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize database connection: %w", err)
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
 
-	// Configure connection pool settings
-	db.SetMaxOpenConns(25)
+	// Configure connection pool with reasonable defaults
+	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	// Verify database connection
+	// Test the connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		// Close the database connection if ping fails to avoid resource leaks
-		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	if logger != nil {
-		logger.Info("Database connection established")
 	}
 
 	return db, nil
 }
 
-// setupTaskRunner initializes and configures the asynchronous task runner.
-// It uses the provided dependencies to create the task store and initialize
-// the runner with the appropriate configuration.
-// Returns the configured task runner and any initialization error.
-func setupTaskRunner(deps *appDependencies) (*task.TaskRunner, error) {
-	// Initialize task store
-	taskStore := postgres.NewPostgresTaskStore(deps.DB)
+// setupJWTService initializes and configures the JWT authentication service.
+// Returns the configured service or an error if setup fails.
+func setupJWTService(cfg *config.Config) (auth.JWTService, error) {
+	if cfg.Auth.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT secret cannot be empty")
+	}
 
-	// Configure and create task runner
-	taskRunner := task.NewTaskRunner(taskStore, task.TaskRunnerConfig{
-		WorkerCount:  deps.Config.Task.WorkerCount,
+	// Initialize the JWT service with configuration
+	jwtService, err := auth.NewJWTService(cfg.Auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create JWT service: %w", err)
+	}
+
+	return jwtService, nil
+}
+
+// setupTaskRunner initializes and starts the background task processor.
+// Takes a fully populated appDependencies struct and returns a started TaskRunner.
+func setupTaskRunner(deps *appDependencies) (*task.TaskRunner, error) {
+	// Create the task runner with the configured dependencies
+	taskRunner := task.NewTaskRunner(deps.TaskStore, task.TaskRunnerConfig{
 		QueueSize:    deps.Config.Task.QueueSize,
+		WorkerCount:  deps.Config.Task.WorkerCount,
 		StuckTaskAge: time.Duration(deps.Config.Task.StuckTaskAgeMinutes) * time.Minute,
 	}, deps.Logger)
 
@@ -486,127 +509,100 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 					err,
 				)
 			}
-
 			return fmt.Errorf(
-				"network error connecting to database: %w (check network connectivity and DNS resolution)",
+				"network error connecting to database: %w (check hostname, port, and network connectivity)",
 				err,
 			)
 		}
 
-		// PostgreSQL-specific errors
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			switch pgErr.Code {
-			case "28P01": // ERRCODE_INVALID_PASSWORD
-				return fmt.Errorf(
-					"database authentication failed: %w (check username and password in connection string)",
-					err,
-				)
-			case "3D000": // ERRCODE_INVALID_CATALOG_NAME
-				return fmt.Errorf(
-					"database does not exist: %w (check database name in connection string or create the database)",
-					err,
-				)
-			case "42501": // ERRCODE_INSUFFICIENT_PRIVILEGE
-				return fmt.Errorf(
-					"insufficient privileges to connect to database: %w (check user permissions)",
-					err,
-				)
-			default:
-				return fmt.Errorf(
-					"PostgreSQL error: %s (code: %s): %w (check PostgreSQL logs for details)",
-					pgErr.Message, pgErr.Code, err,
-				)
-			}
-		}
-
-		// Fallback to string-based error detection for errors not caught above
-		switch {
-		case strings.Contains(err.Error(), "connect: connection refused"):
-			return fmt.Errorf(
-				"database server refused connection: %w (check if database server is running and accessible)",
-				err,
-			)
-		case strings.Contains(err.Error(), "no such host"):
-			return fmt.Errorf(
-				"database host not found: %w (check hostname in connection URL and DNS resolution)",
-				err,
-			)
-		case strings.Contains(err.Error(), "authentication failed"):
-			return fmt.Errorf(
-				"database authentication failed: %w (check username and password in connection string)",
-				err,
-			)
-		case strings.Contains(err.Error(), "database"):
-			return fmt.Errorf(
-				"database not found: %w (check database name in connection URL)",
-				err,
-			)
-		default:
-			// Log the detailed error type for debugging
-			slog.Debug("Unhandled database connection error",
-				"error_type", fmt.Sprintf("%T", err),
-				"error", err.Error(),
-			)
-			return fmt.Errorf("failed to ping database: %w (type: %T)", err, err)
-		}
+		// Return a generic error message if no specific error type was matched
+		return fmt.Errorf(
+			"failed to connect to database: %w (check connection string, credentials, and database availability)",
+			err,
+		)
 	}
 
-	// Database connection is established and verified
-	slog.Info("Database connection established successfully")
-
-	// Set migrations directory
-	slog.Debug("Setting migrations directory", "dir", migrationsDir)
+	// Set the migration directory
+	slog.Debug("Setting up migration directory", "dir", migrationsDir)
 	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("failed to set goose dialect: %w", err)
+		return fmt.Errorf("failed to set dialect: %w", err)
 	}
 
-	// Execute the migration command based on input
+	// Execute the requested migration command
+	slog.Info("Executing migration command", "command", command)
+
 	switch command {
 	case "up":
-		// Run all available migrations
-		slog.Info("Running migrations up", "dir", migrationsDir)
-		if err := goose.Up(db, migrationsDir); err != nil {
-			return fmt.Errorf("migration up failed: %w", err)
-		}
-
+		err = goose.Up(db, migrationsDir)
 	case "down":
-		// Rollback the last migration
-		slog.Info("Running migrations down (rollback last migration)", "dir", migrationsDir)
-		if err := goose.Down(db, migrationsDir); err != nil {
-			return fmt.Errorf("migration down failed: %w", err)
-		}
-
+		err = goose.Down(db, migrationsDir)
+	case "reset":
+		err = goose.Reset(db, migrationsDir)
 	case "status":
-		// Show migration status
-		slog.Info("Checking migration status", "dir", migrationsDir)
-		if err := goose.Status(db, migrationsDir); err != nil {
-			return fmt.Errorf("migration status check failed: %w", err)
-		}
-
-	case "create":
-		// Validate migration name argument
-		if len(args) == 0 || args[0] == "" {
-			return fmt.Errorf("migration name is required for create command (use -name flag)")
-		}
-
-		name := args[0]
-		// Create a new migration file
-		slog.Info("Creating new migration", "name", name, "dir", migrationsDir)
-		if err := goose.Create(db, migrationsDir, name, "sql"); err != nil {
-			return fmt.Errorf("migration creation failed: %w", err)
-		}
-
+		err = goose.Status(db, migrationsDir)
 	case "version":
-		// Show current migration version
-		slog.Info("Checking current migration version", "dir", migrationsDir)
-		if err := goose.Version(db, migrationsDir); err != nil {
-			return fmt.Errorf("getting migration version failed: %w", err)
+		err = goose.Version(db, migrationsDir)
+	case "create":
+		// The migration name is required when creating a new migration
+		if len(args) == 0 || args[0] == "" {
+			return fmt.Errorf("migration name is required for 'create' command")
 		}
 
+		// Define the migration type (SQL by default)
+		migrationName := args[0]
+		err = goose.Create(db, migrationsDir, migrationName, "sql")
 	default:
-		return fmt.Errorf("unknown migration command: %s (valid commands: up, down, status, create, version)", command)
+		return fmt.Errorf(
+			"unknown migration command: %s (expected up, down, reset, status, version, or create)",
+			command,
+		)
 	}
 
+	if err != nil {
+		return fmt.Errorf("migration command '%s' failed: %w", command, err)
+	}
+
+	return nil
+}
+
+// mockGenerator is a temporary implementation of the Generator interface
+// that will be replaced in a future task with a real implementation
+type mockGenerator struct {
+	logger *slog.Logger
+}
+
+// GenerateCards creates placeholder flashcards from the given memo text
+func (g *mockGenerator) GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error) {
+	g.logger.Info("Mock generator creating cards", "memo_text_length", len(memoText), "user_id", userID)
+
+	// Create placeholder content
+	content := []byte(`{
+		"front": "What is this?",
+		"back": "This is a placeholder card generated by the mock generator."
+	}`)
+
+	// Create a single placeholder card
+	memoID := uuid.New() // Use a random UUID for testing
+	card, err := domain.NewCard(
+		userID,
+		memoID,
+		content,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*domain.Card{card}, nil
+}
+
+// mockCardRepository is a temporary implementation of the CardRepository interface
+// that will be replaced in a future task with a real implementation
+type mockCardRepository struct {
+	logger *slog.Logger
+}
+
+// CreateMultiple logs card creation but doesn't actually persist them
+func (r *mockCardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
+	r.logger.Info("Mock card repository storing cards", "count", len(cards))
 	return nil
 }

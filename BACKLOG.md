@@ -7,9 +7,7 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 
-* **Asynchronous Task Runner Setup:**
-    * Implement basic in-memory background task queue & worker pool (`internal/task`) using goroutines/channels.
-    * Implement recovery mechanism: On application startup, query `memos` table for entries with `status = 'processing'`, enqueue generation tasks for these Memos to handle potential restarts during processing. Define clear locking or timestamp logic if needed to prevent duplicate processing in multi-instance scenarios (though MVP likely single instance).
+* Implement semantic versioning (ideally automatically managed somehow ... conventional commits?)
 
 * **Generation Service Implementation (`llm` -> `generation`):**
     * Define `generation.Generator` interface (e.g., `GenerateCardsFromMemo(...)`) within the core application layer.
@@ -70,6 +68,12 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Define a basic health check endpoint (`/healthz`).
 
 ## Completed Items
+
+* **Asynchronous Task Runner Setup (Completed):**
+    * ✅ Implement basic in-memory background task queue & worker pool (`internal/task`) using goroutines/channels.
+    * ✅ Implement recovery mechanism: On application startup, query `memos` table for entries with `status = 'processing'`, enqueue generation tasks for these Memos to handle potential restarts during processing.
+    * ✅ Implement comprehensive integration tests for task recovery and lifecycle.
+    * ✅ Add pre-commit hook to fail on extremely long files while keeping warnings for moderately long files.
 
 * **Set Up Database Migration Framework (Completed):**
     * ✅ Research and select a suitable database migration tool for the project (chosen: `pressly/goose`).

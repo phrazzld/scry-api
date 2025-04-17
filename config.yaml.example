@@ -62,8 +62,8 @@ llm:
   gemini_api_key: your-gemini-api-key
 
   # Gemini model to use for flashcard generation
-  # Examples: gemini-1.5-flash, gemini-1.5-pro
-  model_name: gemini-1.5-flash
+  # Examples: gemini-2.0-flash, gemini-1.5-pro
+  model_name: gemini-2.0-flash
 
   # Path to the prompt template file for flashcard generation
   # Must be a valid file path accessible to the application

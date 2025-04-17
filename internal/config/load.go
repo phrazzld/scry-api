@@ -45,7 +45,7 @@ func Load() (*Config, error) {
 	v.SetDefault("auth.bcrypt_cost", 10)                       // Default bcrypt cost (same as bcrypt.DefaultCost)
 	v.SetDefault("auth.token_lifetime_minutes", 60)            // Default access token lifetime (1 hour)
 	v.SetDefault("auth.refresh_token_lifetime_minutes", 10080) // Default refresh token lifetime (7 days)
-	v.SetDefault("llm.model_name", "gemini-1.5-flash")         // Default Gemini model
+	v.SetDefault("llm.model_name", "gemini-2.0-flash")         // Default Gemini model
 	v.SetDefault("llm.max_retries", 3)                         // Default number of retries for transient errors
 	v.SetDefault("llm.retry_delay_seconds", 2)                 // Default base delay between retries
 	v.SetDefault("task.worker_count", 2)                       // Default worker count

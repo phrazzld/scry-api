@@ -6,9 +6,6 @@
 
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
-
-* Implement semantic versioning (ideally automatically managed somehow ... conventional commits?)
-
 * **Generation Service Implementation (`llm` -> `generation`):**
     * Define `generation.Generator` interface (e.g., `GenerateCardsFromMemo(...)`) within the core application layer.
     * Implement `geminiGenerator` struct implementing the `Generator` interface (`internal/platform/gemini` or similar).
@@ -16,7 +13,8 @@ This backlog outlines the major work items required to build the Minimum Viable 
         * Implement logic to call Gemini API using the configured model(s).
         * Implement error handling & basic retry logic for transient Gemini API errors.
         * Securely load and manage the Gemini API key via configuration.
-    * Design service to be swappable per `ARCHITECTURE_GUIDELINES.md` Section 3 (Dependency Inversion).
+        * Note: Comprehensive Gemini API documentation is already available in `docs/gemini/` directory.
+    * Design service to be swappable per architecture guidelines in `DEVELOPMENT_PHILOSOPHY.md`
 
 * **Memo & Card Generation Implementation:**
     * Implement `store.MemoStore` and `store.CardStore` interfaces and Postgres implementations for Memo/Card/Stats persistence and status updates.
@@ -51,8 +49,10 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Integrate standard middleware: Logging (request logging), Recovery (panic recovery), Auth (JWT validation), CORS.
     * Implement basic request body validation.
 
+* Implement semantic versioning (ideally automatically managed somehow ... conventional commits?)
+
 * **Testing:**
-    * Adhere strictly to `TESTING_STRATEGY.md`.
+    * Adhere strictly to `DEVELOPMENT_PHILOSOPHY.md`.
     * Implement unit tests for `srs` service, utility functions, domain logic.
     * Implement integration tests for critical API flows (Auth register/login, Memo submission & generation trigger, Card review cycle: get next -> answer -> get next). Mock only at external boundaries (define `Generator` interface mock, potentially `Store` interface mock *if not* using test containers). Consider `testcontainers-go` for PostgreSQL integration tests.
 
@@ -88,7 +88,7 @@ This backlog outlines the major work items required to build the Minimum Viable 
 
 * **Define Core Domain Models (Completed):**
     * ✅ Define core domain models/structs in Go (`internal/domain`: `User`, `Memo`, `Card`, `UserCardStats`).
-    * ✅ Implement strong typing following type standards (`CODING_STANDARDS.md` Section 2).
+    * ✅ Implement strong typing following type standards (`DEVELOPMENT_PHILOSOPHY.md`).
     * ✅ Ensure models include necessary validation methods.
     * ✅ Document the domain model relationships and purpose.
 
@@ -113,7 +113,7 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Define `srs.Service` interface within the core domain/application layer.
     * ✅ Implement basic SRS algorithm logic (SM-2 variant) within the `srs` service.
     * ✅ Define precise MVP parameters (initial intervals, ease factors, lapse handling) in a separate design doc.
-    * ✅ Adhere to pure function principles as specified in `CODING_STANDARDS.md` Section 4.
+    * ✅ Adhere to pure function principles as specified in `DEVELOPMENT_PHILOSOPHY.md`
 
 * **Pre-commit Hook Enhancement (Completed):**
     * ✅ Added pre-commit hook to warn (but not fail) when files are too long.
@@ -138,7 +138,7 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Initialize Go module (`scry-api`) and standard project structure (e.g., `/cmd/server`, `/internal/domain`, `/internal/service`, `/internal/store`, `/internal/api`, `/internal/generation`, `/internal/task`, `/internal/config`, `/internal/platform/postgres`).
 
 * **Configuration Management Implementation (Completed):**
-    * ✅ Implement configuration loading (env vars primary, config files for local dev via Viper) adhering to `ARCHITECTURE_GUIDELINES.md` Section 6.
+    * ✅ Implement configuration loading (env vars primary, config files for local dev via Viper) adhering to `DEVELOPMENT_PHILOSOPHY.md`
     * ✅ Create a strongly-typed configuration structure containing all application settings.
     * ✅ Implement validation logic to ensure all required configuration values are present and valid.
 

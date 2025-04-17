@@ -269,13 +269,9 @@ func getMemoStatusDirectly(t *testing.T, dbtx store.DBTX, memoID uuid.UUID) (dom
 	t.Helper()
 	var status string
 
-	// Cast to *sql.Tx to use QueryRow
-	tx, ok := dbtx.(*sql.Tx)
-	if !ok {
-		return "", fmt.Errorf("failed to cast DBTX to *sql.Tx")
-	}
-
-	err := tx.QueryRow(
+	// Use dbtx directly without casting, using QueryRowContext from the DBTX interface
+	err := dbtx.QueryRowContext(
+		context.Background(),
 		"SELECT status FROM memos WHERE id = $1",
 		memoID,
 	).Scan(&status)

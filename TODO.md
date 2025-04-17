@@ -62,7 +62,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T005: Refactor `getMemoStatusDirectly` Helper
+### T005: Refactor `getMemoStatusDirectly` Helper [x]
 
 - **Description:** Modify the `getMemoStatusDirectly` helper function to accept `store.DBTX` instead of casting it to `*sql.Tx`.
 - **Acceptance Criteria:**

@@ -1,175 +1,435 @@
-# PLAN.MD: Code Review Remediation Plan - Task Recovery Integration Tests
+# PLAN.MD - Generation Service Implementation
 
-## Executive Summary
+## Task Description
 
-This plan outlines the remediation strategy for addressing feedback from the code review of the Task Recovery Integration Tests. The review rated the tests as **EXCELLENT** overall, highlighting correct logic, good architecture, and comprehensive testing. The identified areas for improvement primarily relate to minor code quality issues, maintainability, and adherence to architectural principles.
+Implement the Generation Service that defines the `Generator` interface and implements a Gemini-based generator to create flashcards from user memos. The implementation should adhere to the architecture guidelines with a focus on separation of concerns, testability, and proper error handling.
 
-The remediation plan focuses on:
-1. Decoupling test helpers from specific SQL implementations (`*sql.Tx`)
-2. Improving code clarity and maintainability by using constants, removing duplication, and adding comments
-3. Refining test setup structure for better readability
-4. Performing minor code cleanup
+This task involves:
+1. Defining the `generation.Generator` interface in the core application layer
+2. Implementing a `geminiGenerator` struct in the platform layer
+3. Loading prompt templates from external configuration
+4. Implementing logic to call the Gemini API
+5. Implementing error handling and retry logic for transient errors
+6. Securely managing API keys via configuration
+7. Ensuring the service is swappable via dependency inversion
 
-These changes will enhance the robustness and maintainability of the tests while ensuring alignment with the project's development philosophy of simplicity, modularity, testability, and explicit code.
+## Recommended Approach: Interface-First with Platform Abstraction
 
-## Prioritized Remediation Tasks
+This approach prioritizes **Simplicity** while strictly adhering to the project's **Separation of Concerns** and **Testability** principles. We'll define the `Generator` interface in the core application layer (`internal/generation`) and implement a concrete `geminiGenerator` in the platform layer (`internal/platform/gemini`). This ensures the core application logic depends only on the abstraction, making it easily testable and allowing for future swapping of LLM providers.
 
-The following tasks are listed in the recommended implementation order:
+### Alignment with Project Standards
 
-### 1. Add Constant for Task Type String Literal
+1. **Simplicity/Clarity:** This approach introduces the minimum necessary components (an interface and an implementation), avoiding unnecessary abstraction layers.
+2. **Separation of Concerns:** The interface (`generation.Generator`) is correctly placed in the core layer and the concrete implementation (`geminiGenerator`) in the platform layer, ensuring the core depends only on the abstraction.
+3. **Testability (Minimal Mocking):** The `generation.Generator` interface serves as the mockable boundary for tests, aligning with the "Mock ONLY True External System Boundaries" principle.
+4. **Coding Conventions:** The plan follows Go conventions and the established project structure.
+5. **Documentability:** The clear separation makes documenting the purpose of each package straightforward.
 
-- **Issue:** Use of magic string `"memo_generation"` for task type
-- **Severity:** High (Impact on Maintainability/Consistency)
-- **Problem:** Using string literals for task types is prone to typos and makes it harder to manage task types consistently across the codebase
-- **Proposed Solution:** Define a constant for the task type within the `task` package
-- **Implementation Steps:**
-  1. In `internal/task/task.go` (or a relevant constants file within the package), define: `const TaskTypeMemoGeneration = "memo_generation"`
-  2. Replace all occurrences of the string literal `"memo_generation"` in the test files with `task.TaskTypeMemoGeneration`
-- **Estimated Effort:** Small (1 hour)
-- **Standards Alignment:**
-  - `Simplicity First`: Reduces potential for errors from typos
-  - `Explicit is Better than Implicit`: Makes the task type explicit and centrally defined
-  - `Coding Standards`: Promotes use of constants over magic strings
-- **Validation:**
-  - Code compiles successfully
-  - Tests pass
-  - Search codebase for `"memo_generation"` literal; none should remain in relevant contexts
+## Detailed Implementation Steps
 
-### 2. Refactor Database Helpers to Avoid `DBTX` Casting
+### 1. Define `generation.Generator` Interface (`internal/generation/generator.go`)
 
-- **Issue:** Helper functions cast `store.DBTX` to `*sql.Tx`, tightly coupling to SQL implementation
-- **Severity:** High (Architectural Coupling)
-- **Problem:** Casting the `store.DBTX` interface violates the abstraction principle and makes the helpers dependent on the specific `*sql.Tx` type
-- **Proposed Solution:** Leverage `store.DBTX` interface methods directly without casting
-- **Implementation Steps:**
-  1. Modify helper function signatures (e.g., `getTaskStatusDirectly(t *testing.T, dbtx store.DBTX, taskID uuid.UUID)`) to accept `store.DBTX`
-  2. Inside the helpers, remove the casting logic (`tx, ok := dbtx.(*sql.Tx)`)
-  3. Call the required database methods directly on the `dbtx` argument (e.g., `err := dbtx.QueryRowContext(...)`)
-  4. Ensure all calls to these helpers pass the `dbtx` provided by `testutils.WithTx`
-- **Estimated Effort:** Medium (3-4 hours)
-- **Standards Alignment:**
-  - `Modularity & Strict Separation of Concerns`: Respects the database abstraction layer
-  - `Design for Testability`: Keeps helpers testable with any `DBTX` implementation
-  - `Simplicity First`: Removes unnecessary casting logic
-- **Validation:**
-  - Code compiles successfully
-  - All recovery tests pass
-  - Verify no casting of `store.DBTX` to `*sql.Tx` remains within the refactored helper functions
+```go
+package generation
 
-### 3. Extract Common Task Runner Configuration
+import (
+    "context"
+    "github.com/google/uuid"
+    "github.com/phrazzld/scry-api/internal/domain"
+)
 
-- **Issue:** Task runner configuration is duplicated across test cases
-- **Severity:** Medium (Maintainability/DRY)
-- **Problem:** Duplication makes configuration changes tedious and error-prone
-- **Proposed Solution:** Create a helper function that returns a default `task.TaskRunnerConfig`
-- **Implementation Steps:**
-  1. In `cmd/server/main_recovery_test.go`, define a helper function like `func getDefaultTestTaskConfig() task.TaskRunnerConfig`
-  2. Inside this function, return a `task.TaskRunnerConfig` with the standard test values
-  3. Replace the duplicated struct literals with calls to `getDefaultTestTaskConfig()`
-- **Estimated Effort:** Small (1-2 hours)
-- **Standards Alignment:**
-  - `Simplicity First`: Centralizes configuration logic
-  - `Maintainability Over Premature Optimization`: Improves maintainability by reducing duplication
-- **Validation:**
-  - Code compiles successfully
-  - All recovery tests pass
-  - Verify that `task.TaskRunnerConfig` struct literals are replaced by calls to the helper function
+// Generator defines the interface for generating flashcards from text.
+type Generator interface {
+    // GenerateCards creates flashcards based on the provided memo text and user ID.
+    // It returns a slice of Card domain objects or an error if generation fails.
+    GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error)
+}
+```
 
-### 4. Refactor Setup Function (`setupRecoveryTestInstance`)
+Also create `errors.go` to define specific error types:
 
-- **Issue:** The setup function is long (~80 lines), reducing readability and maintainability
-- **Severity:** Medium (Readability/Maintainability)
-- **Problem:** Long functions are harder to read, understand, and maintain
-- **Proposed Solution:** Break down the function into smaller, logically grouped helper functions
-- **Implementation Steps:**
-  1. Identify logical blocks within `setupRecoveryTestInstance` (e.g., auth setup, store setup, service setup)
-  2. Create private helper functions within the test file for each block
-  3. Refactor `setupRecoveryTestInstance` to call these helper functions
-- **Estimated Effort:** Medium (2-3 hours)
-- **Standards Alignment:**
-  - `Simplicity First`: Improves readability by breaking down complexity
-  - `Modularity is Mandatory`: Creates smaller, more focused setup units
-- **Validation:**
-  - Code compiles successfully
-  - All recovery tests pass
-  - Verify `setupRecoveryTestInstance` is significantly shorter and calls the new helper functions
+```go
+package generation
 
-### 5. Add Clarifying Comments for Manual State Updates
+import "errors"
 
-- **Issue:** The purpose of manual status updates in `TestTaskRecovery_API` is unclear
-- **Severity:** Medium (Clarity/Maintainability)
-- **Problem:** Code that manipulates state directly for testing should explain *why* it's doing so
-- **Proposed Solution:** Add a brief comment explaining the state manipulation
-- **Implementation Steps:**
-  1. Locate the lines in `TestTaskRecovery_API` where task and memo statuses are manually updated
-  2. Add a comment similar to: `// Simulate crash during processing: Manually update task and memo status to 'processing' before starting the recovery instance.`
-- **Estimated Effort:** Small (30 minutes)
-- **Standards Alignment:**
-  - `Document Decisions, Not Mechanics`: Explains the *why* behind the state manipulation
-- **Validation:**
-  - Verify the clarifying comment has been added in the correct location
+// Common errors returned by the generation package
+var (
+    ErrGenerationFailed   = errors.New("failed to generate cards from text")
+    ErrInvalidResponse    = errors.New("invalid response from language model")
+    ErrContentBlocked     = errors.New("content blocked by language model safety filters")
+    ErrTransientFailure   = errors.New("transient error during card generation")
+    ErrInvalidConfig      = errors.New("invalid generator configuration")
+)
+```
 
-### 6. Investigate and Remove Potential Dead Code
+### 2. Update Configuration (`internal/config/config.go`)
 
-- **Issue:** `databaseTask` struct and `NewDatabaseTask` function may be unused
-- **Severity:** Low (Code Cleanup)
-- **Problem:** Unused code adds clutter and potential confusion
-- **Proposed Solution:** Verify if the struct and function are used. If not, remove them
-- **Implementation Steps:**
-  1. Search the codebase for usages of `databaseTask` and `NewDatabaseTask`
-  2. If no usages are found, delete the struct and function definitions
-- **Estimated Effort:** Small (1 hour)
-- **Standards Alignment:**
-  - `Simplicity First`: Removes unnecessary code
-- **Validation:**
-  - Code compiles successfully after removal
-  - All tests pass
+Add or update the LLM configuration section:
 
-### 7. Adjust Fixed Timeouts
+```go
+// LLMConfig defines settings for Language Model integration.
+type LLMConfig struct {
+    // GeminiAPIKey is the API key for accessing Google's Gemini AI service.
+    GeminiAPIKey string `mapstructure:"gemini_api_key" validate:"required"`
+    // ModelName specifies the Gemini model to use (e.g., "gemini-1.5-flash").
+    ModelName string `mapstructure:"model_name" validate:"required"`
+    // PromptTemplatePath is the path to the prompt template file.
+    PromptTemplatePath string `mapstructure:"prompt_template_path" validate:"required"`
+    // MaxRetries specifies the maximum number of retries for transient API errors.
+    MaxRetries int `mapstructure:"max_retries" validate:"omitempty,gte=0,lte=5"`
+    // RetryDelaySeconds specifies the base delay between retries in seconds.
+    RetryDelaySeconds int `mapstructure:"retry_delay_seconds" validate:"omitempty,gte=1,lte=60"`
+}
+```
 
-- **Issue:** Fixed timeout values might need adjustment for CI environments
-- **Severity:** Low (Test Robustness)
-- **Problem:** Timeouts that are too short can cause flaky test failures in slower CI environments
-- **Proposed Solution:** Slightly increase the timeout values used in the recovery tests
-- **Implementation Steps:**
-  1. Review the calls to `waitForRecoveryCondition` in `main_recovery_test.go`
-  2. Increase the `timeout` duration moderately (e.g., change `10*time.Second` to `15*time.Second`)
-- **Estimated Effort:** Small (30 minutes)
-- **Standards Alignment:**
-  - `Design for Testability`: Improves test reliability
-- **Validation:**
-  - Tests pass locally
-  - Monitor CI runs for improved stability
+Update `internal/config/load.go` to set defaults (e.g., `MaxRetries: 3`, `RetryDelaySeconds: 2`).
 
-## Alignment with Development Philosophy
+Update `config.yaml.example` with the new configuration entries.
 
-This remediation plan aligns with the project's development philosophy as follows:
+### 3. Create Prompt Template
 
-1. **Simplicity First:** Removing magic strings, configuration duplication, potential dead code, and breaking down long functions simplifies the codebase, making it easier to understand and maintain.
+Create a sample flashcard prompt template file at a location like `prompts/flashcard_template.txt`:
 
-2. **Modularity & Strict Separation of Concerns:** Refactoring database helpers to respect the `store.DBTX` interface strengthens the separation between test logic and specific database implementations. Breaking down the setup function improves modularity within the test suite.
+```
+You are an expert flashcard creator. Your task is to create effective, concise flashcards from the provided text.
 
-3. **Design for Testability:** Fixing the `DBTX` casting issue enhances the test helpers' adherence to abstractions. Adjusting timeouts improves test reliability in different environments.
+Text: {{.MemoText}}
 
-4. **Coding Standards:** Using constants instead of magic strings, removing duplication (DRY), and adding necessary comments directly address coding standards and maintainability.
+Create flashcards in JSON format. Each card should have a "front" (question) and "back" (answer) field.
+Example:
+[
+  {"front": "Question 1?", "back": "Answer 1"},
+  {"front": "Question 2?", "back": "Answer 2"}
+]
 
-5. **Security Considerations:** While not directly addressing security vulnerabilities, cleaner and more maintainable code indirectly supports security by making the codebase easier to audit and reason about.
+Guidelines:
+- Create 3-5 flashcards covering key concepts
+- Make questions specific and clear
+- Ensure answers are concise and complete
+- Include only information present in the text
+- Output in valid JSON format only
+```
+
+### 4. Implement `geminiGenerator` (`internal/platform/gemini/gemini_generator.go`)
+
+```go
+package gemini
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "log/slog"
+    "os"
+    "text/template"
+    "time"
+
+    "github.com/google/generative-ai-go/genai"
+    "github.com/google/uuid"
+    "github.com/phrazzld/scry-api/internal/config"
+    "github.com/phrazzld/scry-api/internal/domain"
+    "github.com/phrazzld/scry-api/internal/generation"
+    "google.golang.org/api/option"
+)
+
+type promptData struct {
+    MemoText string
+}
+
+type cardData struct {
+    Front string `json:"front"`
+    Back  string `json:"back"`
+}
+
+type geminiGenerator struct {
+    apiKey       string
+    modelName    string
+    promptTmpl   *template.Template
+    maxRetries   int
+    initialDelay time.Duration
+    logger       *slog.Logger
+}
+
+// NewGeminiGenerator creates a new instance of a Generator using the Gemini API.
+func NewGeminiGenerator(cfg config.LLMConfig, logger *slog.Logger) (generation.Generator, error) {
+    // Load and parse prompt template
+    tmplContent, err := os.ReadFile(cfg.PromptTemplatePath)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read prompt template: %w", err)
+    }
+
+    tmpl, err := template.New("flashcard").Parse(string(tmplContent))
+    if err != nil {
+        return nil, fmt.Errorf("failed to parse prompt template: %w", err)
+    }
+
+    return &geminiGenerator{
+        apiKey:       cfg.GeminiAPIKey,
+        modelName:    cfg.ModelName,
+        promptTmpl:   tmpl,
+        maxRetries:   cfg.MaxRetries,
+        initialDelay: time.Duration(cfg.RetryDelaySeconds) * time.Second,
+        logger:       logger.With("component", "gemini_generator"),
+    }, nil
+}
+
+// GenerateCards implements the generation.Generator interface.
+func (g *geminiGenerator) GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error) {
+    // Create prompt from template
+    prompt, err := g.createPrompt(memoText)
+    if err != nil {
+        g.logger.Error("Failed to create prompt", "error", err)
+        return nil, fmt.Errorf("failed to create prompt: %w", err)
+    }
+
+    // Call Gemini API with retry logic
+    result, err := g.callGeminiWithRetry(ctx, prompt)
+    if err != nil {
+        g.logger.Error("Failed to generate cards", "error", err)
+        return nil, err
+    }
+
+    // Parse response
+    cards, err := g.parseResponse(result, userID)
+    if err != nil {
+        g.logger.Error("Failed to parse response", "error", err)
+        return nil, err
+    }
+
+    g.logger.Info("Successfully generated cards", "count", len(cards))
+    return cards, nil
+}
+
+// createPrompt generates the prompt string from the template
+func (g *geminiGenerator) createPrompt(memoText string) (string, error) {
+    var buf bytes.Buffer
+    data := promptData{MemoText: memoText}
+
+    if err := g.promptTmpl.Execute(&buf, data); err != nil {
+        return "", fmt.Errorf("failed to execute prompt template: %w", err)
+    }
+
+    return buf.String(), nil
+}
+
+// callGeminiWithRetry calls the Gemini API with exponential backoff retry
+func (g *geminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string) (string, error) {
+    var lastErr error
+    var result string
+
+    for attempt := 0; attempt <= g.maxRetries; attempt++ {
+        // Check if context is cancelled
+        if ctx.Err() != nil {
+            return "", ctx.Err()
+        }
+
+        // If not the first attempt, wait with exponential backoff
+        if attempt > 0 {
+            delay := g.initialDelay * (1 << (attempt - 1))
+            g.logger.Warn("Retrying API call after delay",
+                "attempt", attempt,
+                "delay", delay.String(),
+                "error", lastErr)
+
+            select {
+            case <-time.After(delay):
+                // Wait completed
+            case <-ctx.Done():
+                return "", ctx.Err()
+            }
+        }
+
+        // Create new client for each attempt
+        client, err := genai.NewClient(ctx, option.WithAPIKey(g.apiKey))
+        if err != nil {
+            lastErr = fmt.Errorf("failed to create Gemini client: %w", err)
+            continue
+        }
+        defer client.Close()
+
+        // Get model and configure it for JSON output
+        model := client.GenerativeModel(g.modelName)
+        model.ResponseMIMEType = "application/json"
+
+        // Define expected JSON schema for structured output
+        schema := &genai.Schema{
+            Type: genai.TypeArray,
+            Items: &genai.Schema{
+                Type: genai.TypeObject,
+                Properties: map[string]*genai.Schema{
+                    "front": {Type: genai.TypeString},
+                    "back":  {Type: genai.TypeString},
+                },
+                Required: []string{"front", "back"},
+            },
+        }
+        model.ResponseSchema = schema
+
+        // Call API
+        resp, err := model.GenerateContent(ctx, genai.Text(prompt))
+
+        // Handle different error types
+        if err != nil {
+            statusErr, ok := err.(*genai.StatusError)
+            if ok {
+                // Handle specific error types based on status code
+                switch statusErr.Status.Code {
+                case 400: // Invalid request
+                    return "", generation.ErrInvalidConfig
+                case 403: // Content blocked
+                    return "", generation.ErrContentBlocked
+                }
+            }
+
+            // Store error for potential retry
+            lastErr = err
+            continue
+        }
+
+        // Check for empty response
+        if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+            lastErr = generation.ErrInvalidResponse
+            continue
+        }
+
+        // Extract text from response
+        text, ok := resp.Candidates[0].Content.Parts[0].(genai.Text)
+        if !ok {
+            lastErr = generation.ErrInvalidResponse
+            continue
+        }
+
+        // Success - return the result
+        result = string(text)
+        return result, nil
+    }
+
+    // If we get here, all attempts failed
+    return "", fmt.Errorf("%w: %v", generation.ErrTransientFailure, lastErr)
+}
+
+// parseResponse converts the API response into domain.Card objects
+func (g *geminiGenerator) parseResponse(jsonStr string, userID uuid.UUID) ([]*domain.Card, error) {
+    var cardDataList []cardData
+    if err := json.Unmarshal([]byte(jsonStr), &cardDataList); err != nil {
+        return nil, fmt.Errorf("%w: failed to parse JSON: %v",
+            generation.ErrInvalidResponse, err)
+    }
+
+    // Validate response
+    if len(cardDataList) == 0 {
+        return nil, generation.ErrInvalidResponse
+    }
+
+    // Convert to domain.Card objects
+    cards := make([]*domain.Card, 0, len(cardDataList))
+    for _, data := range cardDataList {
+        // Validate card data
+        if data.Front == "" || data.Back == "" {
+            g.logger.Warn("Skipping invalid card with empty fields",
+                "front_empty", data.Front == "",
+                "back_empty", data.Back == "")
+            continue
+        }
+
+        // Create card content
+        content := domain.CardContent{
+            Front: data.Front,
+            Back:  data.Back,
+        }
+
+        // Marshal content to JSON
+        contentBytes, err := json.Marshal(content)
+        if err != nil {
+            g.logger.Error("Failed to marshal card content", "error", err)
+            continue
+        }
+
+        // Create new card (memo ID will be set by the caller)
+        card, err := domain.NewCard(userID, uuid.Nil, contentBytes)
+        if err != nil {
+            g.logger.Error("Failed to create card", "error", err)
+            continue
+        }
+
+        cards = append(cards, card)
+    }
+
+    if len(cards) == 0 {
+        return nil, generation.ErrGenerationFailed
+    }
+
+    return cards, nil
+}
+```
+
+Add package documentation in `internal/platform/gemini/doc.go`:
+
+```go
+// Package gemini provides an implementation of the generation.Generator interface
+// using Google's Gemini API. It handles API key management, prompt templating,
+// retries for transient errors, and response parsing to convert API results into
+// domain objects.
+package gemini
+```
+
+### 5. Update Dependencies and Integration
+
+1. Add required dependencies to `go.mod`:
+   - `github.com/google/generative-ai-go/genai`
+   - `google.golang.org/api`
+
+2. Update `cmd/server/main.go` to initialize the generator and inject it:
+
+```go
+// In the setupDependencies function or similar
+geminiGenerator, err := gemini.NewGeminiGenerator(config.LLM, logger)
+if err != nil {
+    return nil, fmt.Errorf("failed to create Gemini generator: %w", err)
+}
+
+// Store in dependencies struct
+deps.Generator = geminiGenerator
+
+// Pass to the memo generation task factory
+memoTaskFactory := task.NewMemoGenerationTaskFactory(
+    memoStore,
+    deps.Generator, // Instead of mockGenerator
+    cardStore,
+    logger,
+)
+```
+
+### 6. Implement Tests
+
+1. **Unit Tests for Generator Interface** (`internal/generation/generation_test.go`):
+   - Test that documentation contains key terms
+   - Add tests for custom error types
+
+2. **Unit Tests for Gemini Implementation** (`internal/platform/gemini/gemini_generator_test.go`):
+   - Test prompt template parsing
+   - Test error handling and retry logic
+   - Test response parsing
+   - Use mocks to simulate the Gemini API responses
+
+3. **Integration Tests**:
+   - Modify existing integration tests to use a mock implementation of `generation.Generator`
+   - Create a mock generator in `internal/mocks/generator.go`
+
+### 7. Testing Strategy
+
+- **Unit Tests**: Test the `geminiGenerator` implementation thoroughly, mocking only the external Gemini API
+- **Integration Tests**: Test the components using the `generation.Generator` interface via mocks
+- **Manual Testing**: Test the full flow with a valid Gemini API key (optional)
 
 ## Validation Criteria
 
-Successful remediation will be confirmed by:
+Before marking this task as complete:
 
-1. **All tests passing:** The entire test suite (`go test ./...`) must pass after all changes are implemented.
-2. **Code Review:** A follow-up review confirms that the identified issues have been addressed according to the plan.
-3. **Static Analysis:** Linters (`golangci-lint run`) pass without new warnings related to the changes.
-4. **Specific Checks:**
-   - No `(*sql.Tx)` casts remain in generic test helpers (Task #2)
-   - The `"memo_generation"` literal is replaced by `task.TaskTypeMemoGeneration` (Task #1)
-   - `setupRecoveryTestInstance` is shorter and uses helper functions (Task #4)
-   - `task.TaskRunnerConfig` is defined centrally (Task #3)
-   - Explanatory comment exists in `TestTaskRecovery_API` (Task #5)
-   - `databaseTask` and `NewDatabaseTask` are removed if confirmed unused (Task #6)
-   - Timeouts in `waitForRecoveryCondition` are increased (Task #7)
-   - CI test runs are consistently green
-
-This plan provides a clear and actionable roadmap for addressing the code review feedback and improving the quality of the Task Recovery Integration Tests. By implementing these changes, the tests will be more robust, maintainable, and better aligned with the project's architectural principles and development standards.
+1. All unit tests for `generation.Generator` interface and `geminiGenerator` implementation pass
+2. All integration tests for components using the generator pass
+3. The code adheres to the project's development philosophy
+4. The API key is securely loaded via configuration
+5. Error handling is robust, including retries for transient errors
+6. Implementation is properly documented

@@ -249,14 +249,9 @@ func getTaskIDForMemo(t *testing.T, dbtx store.DBTX, memoID uuid.UUID) (uuid.UUI
 	t.Helper()
 	var taskID uuid.UUID
 
-	// Cast to *sql.Tx to use QueryRow
-	tx, ok := dbtx.(*sql.Tx)
-	if !ok {
-		return uuid.Nil, fmt.Errorf("failed to cast DBTX to *sql.Tx")
-	}
-
-	// This assumes the payload structure has a 'memo_id' field
-	err := tx.QueryRow(
+	// Use dbtx directly without casting, using QueryRowContext from the DBTX interface
+	err := dbtx.QueryRowContext(
+		context.Background(),
 		"SELECT id FROM tasks WHERE payload->>'memo_id' = $1 ORDER BY created_at DESC LIMIT 1",
 		memoID.String(),
 	).Scan(&taskID)

@@ -47,7 +47,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T004: Refactor `getTaskIDForMemo` Helper
+### T004: Refactor `getTaskIDForMemo` Helper [x]
 
 - **Description:** Modify the `getTaskIDForMemo` helper function to accept `store.DBTX` instead of casting it to `*sql.Tx`.
 - **Acceptance Criteria:**

@@ -101,7 +101,7 @@
     - **Depends On:** [T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011, T012, T013, T014, T015, T016, T017, T018, T019]
     - **AC Ref:** N/A
 
-- [ ] **T021:** Switch from generative-ai-go to genai library
+- [x] **T021:** Switch from generative-ai-go to genai library
     - **Action:** Update dependencies and code to use the new genai library instead of generative-ai-go.
     - **Depends On:** [T012, T013]
     - **AC Ref:** N/A

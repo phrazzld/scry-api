@@ -13,11 +13,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/generation"
+	"google.golang.org/api/ai/generativelanguage/v1beta"
 	"google.golang.org/api/option"
 )
 
@@ -34,27 +34,24 @@ type GeminiGenerator struct {
 	promptTemplate *template.Template
 
 	// client is the Gemini API client for making requests
-	client *genai.Client
+	client *generativelanguage.Service
+
+	// model is the name of the Gemini model to use
+	model string
 }
 
 // promptData represents the data passed to the prompt template
-//
-//nolint:unused // Will be used in implementation of GenerateCards in T011
 type promptData struct {
 	MemoText string
 }
 
 // ResponseSchema represents the expected structure of a card from the Gemini API
-//
-//nolint:unused // Will be used in T010 and T011
 type ResponseSchema struct {
 	// Cards is the array of flashcards generated from the memo text
 	Cards []CardSchema `json:"cards"`
 }
 
 // CardSchema represents a single flashcard in the API response
-//
-//nolint:unused // Will be used in T010 and T011
 type CardSchema struct {
 	// Front is the question or prompt side of the flashcard
 	Front string `json:"front"`
@@ -68,6 +65,8 @@ type CardSchema struct {
 	// Tags are optional categories or labels for the flashcard
 	Tags []string `json:"tags,omitempty"`
 }
+
+// We use ErrEmptyMemoText from errors.go
 
 // NewGeminiGenerator creates a new instance of GeminiGenerator with the provided dependencies.
 //
@@ -110,7 +109,7 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 	}
 
 	// Initialize the Gemini client
-	client, err := genai.NewClient(ctx, option.WithAPIKey(config.GeminiAPIKey))
+	client, err := generativelanguage.NewService(ctx, option.WithAPIKey(config.GeminiAPIKey))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create Gemini client: %v",
 			generation.ErrInvalidConfig, err)
@@ -121,6 +120,7 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 		config:         config,
 		promptTemplate: promptTemplate,
 		client:         client,
+		model:          config.ModelName,
 	}
 
 	return generator, nil
@@ -138,12 +138,10 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 // Returns:
 //   - The generated prompt string
 //   - An error if the memo text is empty or the template execution fails
-//
-//nolint:unused // Will be used in implementation of GenerateCards in T011
 func (g *GeminiGenerator) createPrompt(ctx context.Context, memoText string) (string, error) {
 	// Validate input
 	if memoText == "" {
-		return "", errors.New("memo text cannot be empty")
+		return "", ErrEmptyMemoText
 	}
 
 	// Create data for template
@@ -181,11 +179,9 @@ func (g *GeminiGenerator) createPrompt(ctx context.Context, memoText string) (st
 // Returns:
 //   - The response from the Gemini API, mapped to the ResponseSchema structure
 //   - An error if all retries fail or if a permanent error occurs
-//
-//nolint:unused // Will be used in implementation of GenerateCards in T011
 func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string) (*ResponseSchema, error) {
 	if prompt == "" {
-		return nil, errors.New("prompt cannot be empty")
+		return nil, ErrEmptyMemoText
 	}
 
 	// Initialize retry variables
@@ -211,16 +207,62 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			"attempt", attemptNum,
 			"max_attempts", maxRetries+1)
 
-		// TODO: In T012, replace this with actual Gemini API call
-		// This is a placeholder until we implement the actual API call in T012
+		// Prepare the API request
+		req := &generativelanguage.GenerateContentRequest{
+			Contents: []*generativelanguage.Content{
+				{
+					Parts: []*generativelanguage.Part{
+						{
+							Text: prompt,
+						},
+					},
+				},
+			},
+		}
+
+		// Call the Gemini API
 		var response *ResponseSchema
 		var err error
 		var isTransientError bool
 
-		// Simulate API call result for now
-		mockErr := errors.New("API client not implemented yet")
-		err = fmt.Errorf("%w: %v", generation.ErrTransientFailure, mockErr)
-		isTransientError = true
+		// This is a production implementation
+		resp, err := g.client.Models.GenerateContent(g.model, req).Context(ctx).Do()
+		if err != nil {
+			// Handle API errors
+			isTransientError = true // Assume transient error by default
+			g.logger.ErrorContext(ctx, "Gemini API call error",
+				"error", err,
+				"attempt", attemptNum)
+		} else if resp.Candidates == nil || len(resp.Candidates) == 0 {
+			// No candidates in response
+			err = fmt.Errorf("%w: no content generated", generation.ErrInvalidResponse)
+			isTransientError = false
+		} else if resp.Candidates[0].Content == nil || len(resp.Candidates[0].Content.Parts) == 0 {
+			// No content in candidate
+			err = fmt.Errorf("%w: empty content in response", generation.ErrInvalidResponse)
+			isTransientError = false
+		} else if resp.Candidates[0].FinishReason == "SAFETY" {
+			// Content blocked by safety filters
+			err = fmt.Errorf("%w: content blocked by safety filters", generation.ErrContentBlocked)
+			isTransientError = false
+		} else {
+			// Extract the response text
+			text := ""
+			for _, part := range resp.Candidates[0].Content.Parts {
+				if part.Text != "" {
+					text += part.Text
+				}
+			}
+
+			// Parse the JSON response
+			var parsedResponse ResponseSchema
+			if err = json.Unmarshal([]byte(text), &parsedResponse); err != nil {
+				err = fmt.Errorf("%w: failed to parse JSON response: %v", generation.ErrInvalidResponse, err)
+				isTransientError = false
+			} else {
+				response = &parsedResponse
+			}
+		}
 
 		// If successful, return the response
 		if err == nil {
@@ -235,15 +277,10 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			"error", err)
 
 		// Determine if the error is transient or permanent
-		if errors.Is(err, generation.ErrContentBlocked) {
-			// Content blocked by safety filters - permanent error, return immediately
-			g.logger.WarnContext(ctx, "Content blocked by Gemini safety filters, not retrying")
-			return nil, err
-		}
-
-		if errors.Is(err, generation.ErrInvalidResponse) {
-			// Invalid response from LLM - permanent error, return immediately
-			g.logger.WarnContext(ctx, "Invalid response from Gemini API, not retrying")
+		if errors.Is(err, generation.ErrContentBlocked) || errors.Is(err, generation.ErrInvalidResponse) {
+			// Permanent error, return immediately
+			g.logger.WarnContext(ctx, "Permanent error occurred, not retrying",
+				"error_type", err)
 			return nil, err
 		}
 
@@ -308,8 +345,6 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 // Returns:
 //   - A slice of domain.Card pointers
 //   - An error if the response is invalid or card creation fails
-//
-//nolint:unused // Will be used in implementation of GenerateCards in T011
 func (g *GeminiGenerator) parseResponse(
 	ctx context.Context,
 	response *ResponseSchema,
@@ -405,7 +440,7 @@ func (g *GeminiGenerator) GenerateCards(
 ) ([]*domain.Card, error) {
 	// Validate inputs
 	if memoText == "" {
-		return nil, errors.New("memo text cannot be empty")
+		return nil, ErrEmptyMemoText
 	}
 
 	if userID == uuid.Nil {

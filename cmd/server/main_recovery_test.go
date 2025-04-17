@@ -918,6 +918,10 @@ func TestTaskRecovery_API(t *testing.T) {
 
 		// But before the second instance, manually update task status to 'processing'
 		// to simulate a crash during processing
+		// Simulate crash during processing: Manually update task and memo status to 'processing'
+		// before starting the recovery instance. This simulates a situation where the server crashed
+		// or was shut down while tasks were in the middle of being processed, leaving them in an
+		// inconsistent state that should be recovered by the task recovery mechanism.
 		taskID, err := getTaskIDForMemo(t, tx, uuid.MustParse(memoID))
 		require.NoError(t, err, "Failed to get task ID for memo")
 

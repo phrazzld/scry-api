@@ -155,7 +155,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** T010
 
-### T012: Add Clarifying Comment for Manual State Updates
+### T012: Add Clarifying Comment for Manual State Updates [x]
 
 - **Description:** Add a comment in `TestTaskRecovery_API` explaining the purpose of manually updating the task and memo status.
 - **Acceptance Criteria:**

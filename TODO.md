@@ -77,7 +77,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** None
 
-### T006: Verify DB Helper Refactoring
+### T006: Verify DB Helper Refactoring [x]
 
 - **Description:** Ensure all callsites for the refactored DB helpers correctly pass the `store.DBTX` and run the test suite to confirm no regressions.
 - **Acceptance Criteria:**

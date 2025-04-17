@@ -59,3 +59,13 @@ repos:
         types: [text]  # Run on all text files
         pass_filenames: true  # Pass each file to the script
         verbose: true  # Ensure warnings are visible
+
+      # Fail on extremely long files to enforce codebase quality
+      - id: fail-extremely-long-files
+        name: Fail on extremely long files
+        description: Fails the commit if any file exceeds 1000 lines
+        language: python
+        entry: .pre-commit-hooks/fail_extremely_long_files.py
+        types: [text]  # Run on all text files
+        pass_filenames: true  # Pass each file to the script
+        verbose: true  # Ensure errors are visible

@@ -217,7 +217,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** T002, T006, T008, T011, T012, T014, T015
 
-### T017: Configure Pre-commit Hook to Fail on Extremely Long Files
+### T017: Configure Pre-commit Hook to Fail on Extremely Long Files [x]
 
 - **Description:** Update the pre-commit configuration to make files longer than 1000 lines cause an error, while keeping the warning for files over 500 lines.
 - **Acceptance Criteria:**

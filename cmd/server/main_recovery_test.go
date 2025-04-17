@@ -341,6 +341,15 @@ func (t *databaseTask) Execute(ctx context.Context) error {
 	return fmt.Errorf("not implemented for test database task")
 }
 
+// getDefaultTestTaskConfig returns a default TaskRunnerConfig with common test values
+func getDefaultTestTaskConfig() task.TaskRunnerConfig {
+	return task.TaskRunnerConfig{
+		WorkerCount:  1, // Use 1 worker for more predictable test execution
+		QueueSize:    10,
+		StuckTaskAge: 30 * time.Minute,
+	}
+}
+
 // waitForCondition polls until the condition function returns true or timeout is reached
 func waitForRecoveryCondition(
 	t *testing.T,

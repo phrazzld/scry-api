@@ -90,7 +90,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Small (1 hour)
 - **Depends On:** T003, T004, T005
 
-### T007: Create Default Task Runner Config Helper
+### T007: Create Default Task Runner Config Helper [x]
 
 - **Description:** Create a helper function in `cmd/server/main_recovery_test.go` that returns a default `task.TaskRunnerConfig` struct.
 - **Acceptance Criteria:**

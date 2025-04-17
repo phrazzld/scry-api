@@ -107,11 +107,11 @@
     - **AC Ref:** N/A
 
 ## [!] CLARIFICATIONS NEEDED / ASSUMPTIONS
-- [ ] **Assumption:** CardContent structure exists in the domain package
-    - **Context:** The implementation assumes there's a domain.CardContent struct with Front and Back fields, but this isn't explicitly confirmed in the PLAN.md.
+- [x] **Assumption:** CardContent structure exists in the domain package
+    - **Context:** Verified - The domain.CardContent struct exists in internal/domain/card.go with Front, Back, Hint, Tags, and ImageURL fields.
 
-- [ ] **Assumption:** The domain.NewCard function exists and accepts userID, memoID, and content
-    - **Context:** The implementation assumes the domain.NewCard constructor exists with the specified parameters.
+- [x] **Assumption:** The domain.NewCard function exists and accepts userID, memoID, and content
+    - **Context:** Verified - The domain.NewCard constructor exists in internal/domain/card.go with the exact signature expected.
 
-- [ ] **Assumption:** The API key will be stored in the environment/configuration
-    - **Context:** The implementation assumes the API key will be provided via the configuration system, but exact security measures aren't specified.
+- [x] **Assumption:** The API key will be stored in the environment/configuration
+    - **Context:** Verified - The config.yaml.example and load.go both handle the API key via configuration with environment variable override (SCRY_LLM_GEMINI_API_KEY).

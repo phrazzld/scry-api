@@ -11,7 +11,7 @@
     - **Depends On:** [T001]
     - **AC Ref:** N/A
 
-- [ ] **T003:** Update configuration structure for LLM settings
+- [x] **T003:** Update configuration structure for LLM settings
     - **Action:** Add LLMConfig struct to `internal/config/config.go` with fields for API key, model name, prompt template path, max retries, and retry delay.
     - **Depends On:** None
     - **AC Ref:** N/A

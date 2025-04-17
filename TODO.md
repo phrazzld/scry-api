@@ -81,12 +81,12 @@
     - **Depends On:** [T001]
     - **AC Ref:** N/A
 
-- [ ] **T017:** Update existing integration tests to use mock generator
+- [x] **T017:** Update existing integration tests to use mock generator
     - **Action:** Modify relevant integration tests to use the new mock generator.
     - **Depends On:** [T016]
     - **AC Ref:** N/A
 
-- [ ] **T018:** Update config.yaml.example with LLM configuration
+- [x] **T018:** Update config.yaml.example with LLM configuration
     - **Action:** Add the LLM configuration section to the example configuration file.
     - **Depends On:** [T003]
     - **AC Ref:** N/A

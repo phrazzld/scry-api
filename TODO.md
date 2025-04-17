@@ -141,7 +141,7 @@ This document lists the concrete tasks to implement the remediation plan for the
 - **Estimated Effort:** Medium (2 hours)
 - **Depends On:** T009
 
-### T011: Refactor Main Setup Function
+### T011: Refactor Main Setup Function [x]
 
 - **Description:** Modify the `setupRecoveryTestInstance` function to call the newly created helper functions.
 - **Acceptance Criteria:**

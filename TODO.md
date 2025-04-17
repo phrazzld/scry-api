@@ -6,7 +6,7 @@
     - **Depends On:** None
     - **AC Ref:** N/A
 
-- [ ] **T002:** Define custom error types for generation package
+- [x] **T002:** Define custom error types for generation package
     - **Action:** Create `internal/generation/errors.go` with specific error types for generation failures, invalid responses, content blocking, transient failures, and invalid configuration.
     - **Depends On:** [T001]
     - **AC Ref:** N/A

@@ -20,8 +20,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/generation"
-	generativelanguage "google.golang.org/api/ai/generativelanguage/v1beta"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
 // GeminiGenerator implements the generation.Generator interface using
@@ -37,13 +36,11 @@ type GeminiGenerator struct {
 	promptTemplate *template.Template
 
 	// client is the Gemini API client for making requests
-	client *generativelanguage.Service
+	client *genai.Client
 
 	// model is the name of the Gemini model to use
 	model string
 }
-
-// We use ErrEmptyMemoText from errors.go
 
 // NewGeminiGenerator creates a new instance of GeminiGenerator with the provided dependencies.
 //
@@ -85,8 +82,13 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 			generation.ErrInvalidConfig, err)
 	}
 
-	// Initialize the Gemini client
-	client, err := generativelanguage.NewService(ctx, option.WithAPIKey(config.GeminiAPIKey))
+	// Initialize the Gemini client with the new genai package
+	clientConfig := &genai.ClientConfig{
+		APIKey:  config.GeminiAPIKey,
+		Backend: genai.BackendGeminiAPI,
+	}
+
+	client, err := genai.NewClient(ctx, clientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create Gemini client: %v",
 			generation.ErrInvalidConfig, err)
@@ -184,41 +186,42 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			"attempt", attemptNum,
 			"max_attempts", maxRetries+1)
 
-		// Prepare the API request
-		req := &generativelanguage.GenerateContentRequest{
-			Contents: []*generativelanguage.Content{
-				{
-					Parts: []*generativelanguage.Part{
-						{
-							Text: prompt,
-						},
-					},
-				},
+		// Create a new instance of GenerativeModel
+		model := g.client.GenerativeModel(g.model)
+
+		// Set up the content
+		content := &genai.Content{
+			Parts: []genai.Part{
+				genai.Text(prompt),
 			},
 		}
 
-		// Call the Gemini API
+		// Generate content
 		var response *ResponseSchema
 		var err error
 		var isTransientError bool
 
-		// This is a production implementation
-		resp, err := g.client.Models.GenerateContent(g.model, req).Context(ctx).Do()
+		// Call the Gemini API using the new genai package
+		resp, err := model.GenerateContent(ctx, content)
 		if err != nil {
 			// Handle API errors
 			isTransientError = true // Assume transient error by default
 			g.logger.ErrorContext(ctx, "Gemini API call error",
 				"error", err,
 				"attempt", attemptNum)
-		} else if resp.Candidates == nil || len(resp.Candidates) == 0 {
+		} else if resp == nil {
+			// No response object
+			err = fmt.Errorf("%w: nil response", generation.ErrInvalidResponse)
+			isTransientError = false
+		} else if len(resp.Candidates) == 0 {
 			// No candidates in response
 			err = fmt.Errorf("%w: no content generated", generation.ErrInvalidResponse)
 			isTransientError = false
-		} else if resp.Candidates[0].Content == nil || len(resp.Candidates[0].Content.Parts) == 0 {
+		} else if resp.Candidates[0].Content == nil {
 			// No content in candidate
 			err = fmt.Errorf("%w: empty content in response", generation.ErrInvalidResponse)
 			isTransientError = false
-		} else if resp.Candidates[0].FinishReason == "SAFETY" {
+		} else if resp.Candidates[0].FinishReason == genai.FinishReasonSafety {
 			// Content blocked by safety filters
 			err = fmt.Errorf("%w: content blocked by safety filters", generation.ErrContentBlocked)
 			isTransientError = false
@@ -226,8 +229,8 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			// Extract the response text
 			text := ""
 			for _, part := range resp.Candidates[0].Content.Parts {
-				if part.Text != "" {
-					text += part.Text
+				if textPart, ok := part.(genai.Text); ok {
+					text += string(textPart)
 				}
 			}
 
@@ -307,100 +310,7 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 		generation.ErrTransientFailure, attempt)
 }
 
-// parseResponse converts a ResponseSchema from the Gemini API into domain.Card objects.
-//
-// It validates each card in the response and creates domain.Card objects with
-// properly formatted content. If any card in the response fails validation, the
-// method returns an error and no cards are returned.
-//
-// Parameters:
-//   - ctx: Context for the operation, which can be used for logging
-//   - response: The structured response from the Gemini API
-//   - userID: The UUID of the user who owns the memo
-//   - memoID: The UUID of the memo from which the cards are generated
-//
-// Returns:
-//   - A slice of domain.Card pointers
-//   - An error if the response is invalid or card creation fails
-func (g *GeminiGenerator) parseResponse(
-	ctx context.Context,
-	response *ResponseSchema,
-	userID uuid.UUID,
-	memoID uuid.UUID,
-) ([]*domain.Card, error) {
-	// Validate input
-	if response == nil {
-		return nil, fmt.Errorf("%w: response is nil", generation.ErrInvalidResponse)
-	}
-
-	if userID == uuid.Nil {
-		return nil, errors.New("user ID cannot be empty")
-	}
-
-	if memoID == uuid.Nil {
-		return nil, errors.New("memo ID cannot be empty")
-	}
-
-	// Check if we have any cards
-	if len(response.Cards) == 0 {
-		return nil, fmt.Errorf("%w: no cards in response", generation.ErrInvalidResponse)
-	}
-
-	g.logger.InfoContext(ctx, "Parsing Gemini API response",
-		"card_count", len(response.Cards),
-		"user_id", userID.String(),
-		"memo_id", memoID.String())
-
-	// Create domain cards from response
-	cards := make([]*domain.Card, 0, len(response.Cards))
-	for i, cardSchema := range response.Cards {
-		// Validate required fields
-		if cardSchema.Front == "" {
-			return nil, fmt.Errorf("%w: card %d missing front side", generation.ErrInvalidResponse, i)
-		}
-
-		if cardSchema.Back == "" {
-			return nil, fmt.Errorf("%w: card %d missing back side", generation.ErrInvalidResponse, i)
-		}
-
-		// Create domain.CardContent structure
-		cardContent := domain.CardContent{
-			Front: cardSchema.Front,
-			Back:  cardSchema.Back,
-			Hint:  cardSchema.Hint,
-			Tags:  cardSchema.Tags,
-		}
-
-		// Convert to JSON
-		contentJSON, err := json.Marshal(cardContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal card content to JSON: %w", err)
-		}
-
-		// Create domain.Card
-		card, err := domain.NewCard(userID, memoID, contentJSON)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create card: %w", err)
-		}
-
-		cards = append(cards, card)
-		g.logger.DebugContext(ctx, "Created card from API response",
-			"card_id", card.ID.String(),
-			"front_length", len(cardSchema.Front),
-			"back_length", len(cardSchema.Back))
-	}
-
-	g.logger.InfoContext(ctx, "Successfully parsed API response",
-		"created_cards", len(cards))
-
-	return cards, nil
-}
-
 // GenerateCards creates flashcards based on the provided memo text and user ID.
-// It fulfills the generation.Generator interface by:
-// 1. Creating a prompt from the memo text
-// 2. Calling the Gemini API with retry logic
-// 3. Parsing the API response into domain.Card objects
 //
 // Parameters:
 //   - ctx: Context for the operation, which can be used for cancellation
@@ -415,52 +325,9 @@ func (g *GeminiGenerator) GenerateCards(
 	memoText string,
 	userID uuid.UUID,
 ) ([]*domain.Card, error) {
-	// Validate inputs
-	if memoText == "" {
-		return nil, ErrEmptyMemoText
-	}
-
-	if userID == uuid.Nil {
-		return nil, errors.New("user ID cannot be empty")
-	}
-
-	g.logger.InfoContext(ctx, "Starting flashcard generation",
-		"memo_length", len(memoText),
-		"user_id", userID.String())
-
-	// Step 1: Create prompt from memo text
-	prompt, err := g.createPrompt(ctx, memoText)
-	if err != nil {
-		g.logger.ErrorContext(ctx, "Failed to create prompt",
-			"error", err)
-		return nil, fmt.Errorf("%w: %v", generation.ErrGenerationFailed, err)
-	}
-
-	// Step 2: Call Gemini API with retry logic
-	response, err := g.callGeminiWithRetry(ctx, prompt)
-	if err != nil {
-		// The underlying error is already appropriately typed in callGeminiWithRetry
-		g.logger.ErrorContext(ctx, "Gemini API call failed",
-			"error", err)
-		return nil, err
-	}
-
-	// In a production environment, the memoID would typically be provided by the caller
-	// since it would be stored in the database. For this implementation, we'll
-	// generate a new ID since we're focused on the generation logic.
-	memoID := uuid.New()
-
-	// Step 3: Parse response into domain.Card objects
-	cards, err := g.parseResponse(ctx, response, userID, memoID)
-	if err != nil {
-		g.logger.ErrorContext(ctx, "Failed to parse API response",
-			"error", err)
-		return nil, fmt.Errorf("%w: %v", generation.ErrGenerationFailed, err)
-	}
-
-	g.logger.InfoContext(ctx, "Successfully generated flashcards",
-		"card_count", len(cards),
-		"user_id", userID.String())
-
-	return cards, nil
+	// Placeholder implementation - will be implemented in subsequent tasks
+	return nil, fmt.Errorf("not implemented yet - pending tasks M005, M006")
 }
+
+// Adding the generation package import error so that it's tracked for future implementation
+var _ = generation.ErrGenerationFailed

@@ -2,29 +2,33 @@
 
 ## Implementation Plan
 
-- [ ] **M001:** Research modern Google AI APIs
+- [x] **M001:** Research modern Google AI APIs
     - **Action:** Thoroughly investigate `google.golang.org/genai` and `cloud.google.com/go/ai/generativelanguage/apiv1` to determine the most appropriate replacement for `google.golang.org/api/ai/generativelanguage/v1beta`
     - **Deliverable:** Evaluation document with pros/cons of each option and recommendation
     - **Depends On:** None
     - **AC Ref:** None
+    - **Result:** DECISION: We will use `google.golang.org/genai` for its simplified API, reduced boilerplate, and better developer experience. See research-modern-google-ai-apis-RESULT.md for details.
 
-- [ ] **M002:** Update dependency management
+- [x] **M002:** Update dependency management
     - **Action:** Update go.mod to use the selected modern package and ensure all dependencies are compatible
     - **Deliverable:** Updated go.mod and go.sum files with correct dependencies
     - **Depends On:** [M001]
     - **AC Ref:** None
+    - **Result:** Updated `google.golang.org/genai` to v1.1.0, removed dependency on deprecated `google.golang.org/api/ai/generativelanguage/v1beta`, and created transitional implementation to ensure clean build.
 
-- [ ] **M003:** Refactor GeminiGenerator client initialization
+- [x] **M003:** Refactor GeminiGenerator client initialization
     - **Action:** Modify the NewGeminiGenerator function in gemini_generator.go to use the new client initialization methods
     - **Deliverable:** Updated initialization code with proper error handling and configuration
     - **Depends On:** [M002]
     - **AC Ref:** None
+    - **Result:** Updated `NewGeminiGenerator` to use the new `genai.NewClient()` method with appropriate configuration, maintaining similar error handling and validation as before.
 
-- [ ] **M004:** Refactor API call methods
+- [x] **M004:** Refactor API call methods
     - **Action:** Replace `callGeminiWithRetry` method implementation to use new API call patterns
     - **Deliverable:** Updated implementation that maintains the same retry and error handling logic but uses new API methods
     - **Depends On:** [M003]
     - **AC Ref:** None
+    - **Result:** Updated `callGeminiWithRetry` method to work with the new `genai` API patterns, preserving the retry logic and error handling while adapting to the new client structure. Also added the `createPrompt` helper function for prompt generation.
 
 - [ ] **M005:** Update response parsing
     - **Action:** Modify `parseResponse` method to handle the new response format from the modern API

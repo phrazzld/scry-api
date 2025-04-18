@@ -267,7 +267,7 @@
         2. Tests cover mapping behavior
     - **depends‑on:** [t104]
 
-- [ ] **t125 · chore · p2: verify database indexes for performance**
+- [x] **t125 · chore · p2: verify database indexes for performance**
     - **context:** risk matrix (Missing indexes)
     - **action:**
         1. Review schema for appropriate indexes on IDs, foreign keys, status fields

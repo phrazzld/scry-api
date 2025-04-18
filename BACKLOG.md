@@ -6,16 +6,6 @@
 
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
-* **Generation Service Implementation (`llm` -> `generation`):**
-    * Define `generation.Generator` interface (e.g., `GenerateCardsFromMemo(...)`) within the core application layer.
-    * Implement `geminiGenerator` struct implementing the `Generator` interface (`internal/platform/gemini` or similar).
-        * Load prompt templates from external configuration (not hardcoded).
-        * Implement logic to call Gemini API using the configured model(s).
-        * Implement error handling & basic retry logic for transient Gemini API errors.
-        * Securely load and manage the Gemini API key via configuration.
-        * Note: Comprehensive Gemini API documentation is already available in `docs/gemini/` directory.
-    * Design service to be swappable per architecture guidelines in `DEVELOPMENT_PHILOSOPHY.md`
-
 * **Memo & Card Generation Implementation:**
     * Implement `store.MemoStore` and `store.CardStore` interfaces and Postgres implementations for Memo/Card/Stats persistence and status updates.
     * Implement Background Job logic (`internal/task/processor.go` or similar): `GenerateCardsFromMemo(memoID, userID, memoText)`:
@@ -179,3 +169,12 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * ✅ Implement JWT validation middleware for protecting API routes.
     * ✅ Integrate middleware with the router.
     * ✅ Add tests for middleware functionality.
+
+* **Generation Service Implementation (Completed):**
+    * ✅ Define `generation.Generator` interface (e.g., `GenerateCardsFromMemo(...)`) within the core application layer.
+    * ✅ Implement `geminiGenerator` struct implementing the `Generator` interface (`internal/platform/gemini` or similar).
+        * ✅ Load prompt templates from external configuration (not hardcoded).
+        * ✅ Implement logic to call Gemini API using the configured model(s).
+        * ✅ Implement error handling & basic retry logic for transient Gemini API errors.
+        * ✅ Securely load and manage the Gemini API key via configuration.
+    * ✅ Design service to be swappable per architecture guidelines in `DEVELOPMENT_PHILOSOPHY.md`

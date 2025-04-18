@@ -123,14 +123,14 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]
 
-- [ ] **t112 · feature · p2: implement CardStore GetByID method**
+- [x] **t112 · feature · p2: implement CardStore GetByID method**
     - **context:** detailed build steps #3
     - **action:**
         1. Implement `GetByID` using parameterized SQL SELECT
         2. Handle JSONB content field properly
-        3. Map `sql.ErrNoRows` to `store.ErrNotFound`
+        3. Map `sql.ErrNoRows` to `store.ErrCardNotFound`
     - **done‑when:**
-        1. Method retrieves cards or returns ErrNotFound
+        1. Method retrieves cards or returns ErrCardNotFound
         2. JSONB content is correctly mapped
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]

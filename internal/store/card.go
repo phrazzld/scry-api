@@ -2,9 +2,16 @@ package store
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+)
+
+// Common card store errors
+var (
+	// ErrCardNotFound indicates that the requested card does not exist in the store.
+	ErrCardNotFound = errors.New("card not found")
 )
 
 // CardStore defines the interface for card data persistence.
@@ -18,18 +25,18 @@ type CardStore interface {
 	CreateMultiple(ctx context.Context, cards []*domain.Card) error
 
 	// GetByID retrieves a card by its unique ID.
-	// Returns ErrNotFound if the card does not exist.
+	// Returns ErrCardNotFound if the card does not exist.
 	// The returned card will have its Content field properly populated from JSONB.
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error)
 
 	// UpdateContent modifies an existing card's content field.
-	// Returns ErrNotFound if the card does not exist.
+	// Returns ErrCardNotFound if the card does not exist.
 	// Returns validation errors if the content is invalid JSON.
 	// Implementations should validate the content before updating.
 	UpdateContent(ctx context.Context, id uuid.UUID, content []byte) error
 
 	// Delete removes a card from the store by its ID.
-	// Returns ErrNotFound if the card does not exist.
+	// Returns ErrCardNotFound if the card does not exist.
 	// Depending on the implementation, this may also delete associated
 	// UserCardStats entries via cascade delete in the database.
 	Delete(ctx context.Context, id uuid.UUID) error

@@ -2,10 +2,13 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
 )
 
@@ -51,11 +54,46 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 
 // GetByID implements store.CardStore.GetByID
 // It retrieves a card by its unique ID.
-// Returns store.ErrNotFound if the card does not exist.
+// Returns store.ErrCardNotFound if the card does not exist.
 func (s *PostgresCardStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error) {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return nil, store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("retrieving card by ID", slog.String("card_id", id.String()))
+
+	query := `
+		SELECT id, user_id, memo_id, content, created_at, updated_at
+		FROM cards
+		WHERE id = $1
+	`
+
+	var card domain.Card
+
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&card.ID,
+		&card.UserID,
+		&card.MemoID,
+		&card.Content,
+		&card.CreatedAt,
+		&card.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Debug("card not found", slog.String("card_id", id.String()))
+			return nil, store.ErrCardNotFound
+		}
+		log.Error("failed to get card by ID",
+			slog.String("error", err.Error()),
+			slog.String("card_id", id.String()))
+		return nil, err
+	}
+
+	log.Debug("card retrieved successfully",
+		slog.String("card_id", id.String()),
+		slog.String("user_id", card.UserID.String()),
+		slog.String("memo_id", card.MemoID.String()))
+	return &card, nil
 }
 
 // UpdateContent implements store.CardStore.UpdateContent

@@ -257,7 +257,7 @@
     - **depends‑on:** [t117, t118, t119, t120]
 
 ## cross-cutting concerns
-- [ ] **t124 · feature · p1: implement common error mapping utilities**
+- [x] **t124 · feature · p1: implement common error mapping utilities**
     - **context:** error & edge-case strategy, build step #5
     - **action:**
         1. Create helpers in `errors.go` to map SQL/Postgres errors to domain errors

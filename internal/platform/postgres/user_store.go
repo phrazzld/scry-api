@@ -8,15 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// PostgreSQL error codes
-const uniqueViolationCode = "23505" // PostgreSQL unique violation error code
+// No need to define error codes here, they are in errors.go
 
 // PostgresUserStore implements the store.UserStore interface
 // using a PostgreSQL database as the storage backend.
@@ -48,16 +46,7 @@ func NewPostgresUserStore(db store.DBTX, bcryptCost int) *PostgresUserStore {
 	}
 }
 
-// isUniqueViolation checks if the given error is a PostgreSQL unique constraint violation.
-// This is used to detect when an operation fails due to a unique constraint,
-// such as duplicate email addresses.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolationCode {
-		return true
-	}
-	return false
-}
+// Using IsUniqueViolation from errors.go
 
 // Ensure PostgresUserStore implements store.UserStore interface
 var _ store.UserStore = (*PostgresUserStore)(nil)
@@ -108,7 +97,7 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 
 	if err != nil {
 		// Check for unique constraint violation (duplicate email)
-		if isUniqueViolation(err) {
+		if IsUniqueViolation(err) {
 			log.Warn("attempt to create user with existing email",
 				slog.String("email", user.Email))
 			return store.ErrEmailExists
@@ -282,7 +271,7 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 
 	if err != nil {
 		// Check for unique constraint violation (duplicate email)
-		if isUniqueViolation(err) {
+		if IsUniqueViolation(err) {
 			log.Warn("email already exists",
 				slog.String("email", user.Email),
 				slog.String("user_id", user.ID.String()))

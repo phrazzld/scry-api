@@ -310,6 +310,95 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 		generation.ErrTransientFailure, attempt)
 }
 
+// parseResponse converts a ResponseSchema from the Gemini API into domain.Card objects.
+//
+// It validates each card in the response and creates domain.Card objects with
+// properly formatted content. If any card in the response fails validation, the
+// method returns an error and no cards are returned.
+//
+// Parameters:
+//   - ctx: Context for the operation, which can be used for logging
+//   - response: The structured response from the Gemini API
+//   - userID: The UUID of the user who owns the memo
+//   - memoID: The UUID of the memo from which the cards are generated
+//
+// Returns:
+//   - A slice of domain.Card pointers
+//   - An error if the response is invalid or card creation fails
+func (g *GeminiGenerator) parseResponse(
+	ctx context.Context,
+	response *ResponseSchema,
+	userID uuid.UUID,
+	memoID uuid.UUID,
+) ([]*domain.Card, error) {
+	// Validate input
+	if response == nil {
+		return nil, fmt.Errorf("%w: response is nil", generation.ErrInvalidResponse)
+	}
+
+	if userID == uuid.Nil {
+		return nil, errors.New("user ID cannot be empty")
+	}
+
+	if memoID == uuid.Nil {
+		return nil, errors.New("memo ID cannot be empty")
+	}
+
+	// Check if we have any cards
+	if len(response.Cards) == 0 {
+		return nil, fmt.Errorf("%w: no cards in response", generation.ErrInvalidResponse)
+	}
+
+	g.logger.InfoContext(ctx, "Parsing Gemini API response",
+		"card_count", len(response.Cards),
+		"user_id", userID.String(),
+		"memo_id", memoID.String())
+
+	// Create domain cards from response
+	cards := make([]*domain.Card, 0, len(response.Cards))
+	for i, cardSchema := range response.Cards {
+		// Validate required fields
+		if cardSchema.Front == "" {
+			return nil, fmt.Errorf("%w: card %d missing front side", generation.ErrInvalidResponse, i)
+		}
+
+		if cardSchema.Back == "" {
+			return nil, fmt.Errorf("%w: card %d missing back side", generation.ErrInvalidResponse, i)
+		}
+
+		// Create domain.CardContent structure
+		cardContent := domain.CardContent{
+			Front: cardSchema.Front,
+			Back:  cardSchema.Back,
+			Hint:  cardSchema.Hint,
+			Tags:  cardSchema.Tags,
+		}
+
+		// Convert to JSON
+		contentJSON, err := json.Marshal(cardContent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal card content to JSON: %w", err)
+		}
+
+		// Create domain.Card
+		card, err := domain.NewCard(userID, memoID, contentJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create card: %w", err)
+		}
+
+		cards = append(cards, card)
+		g.logger.DebugContext(ctx, "Created card from API response",
+			"card_id", card.ID.String(),
+			"front_length", len(cardSchema.Front),
+			"back_length", len(cardSchema.Back))
+	}
+
+	g.logger.InfoContext(ctx, "Successfully parsed API response",
+		"created_cards", len(cards))
+
+	return cards, nil
+}
+
 // GenerateCards creates flashcards based on the provided memo text and user ID.
 //
 // Parameters:
@@ -325,8 +414,8 @@ func (g *GeminiGenerator) GenerateCards(
 	memoText string,
 	userID uuid.UUID,
 ) ([]*domain.Card, error) {
-	// Placeholder implementation - will be implemented in subsequent tasks
-	return nil, fmt.Errorf("not implemented yet - pending tasks M005, M006")
+	// Placeholder implementation - will be implemented in task M006
+	return nil, fmt.Errorf("not implemented yet - pending task M006")
 }
 
 // Adding the generation package import error so that it's tracked for future implementation

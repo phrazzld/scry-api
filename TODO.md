@@ -30,11 +30,12 @@
     - **AC Ref:** None
     - **Result:** Updated `callGeminiWithRetry` method to work with the new `genai` API patterns, preserving the retry logic and error handling while adapting to the new client structure. Also added the `createPrompt` helper function for prompt generation.
 
-- [ ] **M005:** Update response parsing
+- [x] **M005:** Update response parsing
     - **Action:** Modify `parseResponse` method to handle the new response format from the modern API
     - **Deliverable:** Updated parser that correctly extracts card data from the new response structure
     - **Depends On:** [M004]
     - **AC Ref:** None
+    - **Result:** Implemented the `parseResponse` method that properly converts the Gemini API response into domain.Card objects with appropriate validation and error handling.
 
 - [ ] **M006:** Update GenerateCards implementation
     - **Action:** Update the main interface method to use the new underlying implementations
@@ -59,6 +60,17 @@
     - **Deliverable:** Passing tests, updated documentation, and successful lint checks
     - **Depends On:** [M007, M008]
     - **AC Ref:** None
+
+# DevOps Improvements
+
+## Implementation Plan
+
+- [ ] **D001:** Relax file length pre-commit check for generated files
+    - **Action:** Update `.pre-commit-hooks/fail_extremely_long_files.py` to exclude certain generated files like go.sum from the length check
+    - **Deliverable:** Modified script that skips checking files like go.sum, package-lock.json, etc.
+    - **Depends On:** None
+    - **AC Ref:** None
+    - **Notes:** Currently go.sum exceeds the 1000 line maximum and requires using --no-verify to commit, which is not ideal
 
 # CI Fix Tasks
 

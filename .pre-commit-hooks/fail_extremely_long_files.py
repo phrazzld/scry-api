@@ -1,15 +1,47 @@
 #!/usr/bin/env python3
 import sys
 import os
+import fnmatch
 
 # Configuration
 FAIL_LINES_THRESHOLD = 1000  # Fail the commit if file exceeds this length
+
+# Files to exclude from length check (common generated files)
+EXCLUDED_PATTERNS = [
+    'go.sum',                   # Go dependency checksum file
+    'package-lock.json',        # NPM lock file
+    'yarn.lock',                # Yarn lock file
+    'Cargo.lock',               # Rust lock file
+    'poetry.lock',              # Python Poetry lock file
+    'pnpm-lock.yaml',           # PNPM lock file
+    'Pipfile.lock',             # Pipenv lock file
+    '*.pb.go',                  # Generated protobuf code
+    '*.swagger.json',           # Generated Swagger/OpenAPI specs
+    '*.generated.go',           # Other generated Go code
+    'vendor/**',                # Vendored dependencies
+    'node_modules/**',          # Node.js dependencies
+    '.swagger-codegen/**',      # Swagger generated code
+    '**/*.min.js',              # Minified JavaScript
+    '**/*.min.css',             # Minified CSS
+]
+
+def is_excluded(filename):
+    """Check if a file matches any excluded pattern."""
+    basename = os.path.basename(filename)
+    for pattern in EXCLUDED_PATTERNS:
+        if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(basename, pattern):
+            return True
+    return False
 
 # Process each file
 exit_code = 0  # Start with success, will be set to 1 if any files exceed limit
 
 for filename in sys.argv[1:]:
     try:
+        # Skip excluded files
+        if is_excluded(filename):
+            continue
+
         # Skip binary files - quick check if file appears to be binary
         try:
             with open(filename, 'rb') as f:

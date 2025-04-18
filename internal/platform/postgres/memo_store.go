@@ -4,14 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
 )
+
+// PostgreSQL error codes
+const pgForeignKeyViolationCode = "23503"
 
 // PostgresMemoStore implements the store.MemoStore interface
 // using a PostgreSQL database as the storage backend.
@@ -46,6 +51,7 @@ var _ store.MemoStore = (*PostgresMemoStore)(nil)
 // Create implements store.MemoStore.Create
 // It saves a new memo to the database, handling domain validation.
 // Returns validation errors from the domain Memo if data is invalid.
+// Returns store.ErrInvalidEntity if the user ID doesn't exist (foreign key violation).
 func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
@@ -74,10 +80,24 @@ func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error
 	)
 
 	if err != nil {
+		// Check for foreign key violation
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolationCode {
+			log.Warn("foreign key violation during memo creation",
+				slog.String("error", err.Error()),
+				slog.String("memo_id", memo.ID.String()),
+				slog.String("user_id", memo.UserID.String()))
+			return fmt.Errorf("%w: user with ID %s not found",
+				store.ErrInvalidEntity, memo.UserID)
+		}
+
+		// Log the error
 		log.Error("failed to create memo",
 			slog.String("error", err.Error()),
 			slog.String("memo_id", memo.ID.String()),
 			slog.String("user_id", memo.UserID.String()))
+
+		// Return the original error
 		return err
 	}
 

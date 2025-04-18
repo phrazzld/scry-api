@@ -52,7 +52,7 @@
         2. Code compiles
     - **depends‑on:** [t101, t104]
 
-- [ ] **t106 · feature · p2: implement MemoStore Create method**
+- [x] **t106 · feature · p2: implement MemoStore Create method**
     - **context:** detailed build steps #2
     - **action:**
         1. Implement `Create` using parameterized SQL INSERT

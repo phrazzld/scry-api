@@ -101,7 +101,7 @@
     - **depends‑on:** [t105]
 
 ## postgres card store
-- [ ] **t110 · feature · p1: implement PostgresCardStore struct and constructor**
+- [x] **t110 · feature · p1: implement PostgresCardStore struct and constructor**
     - **context:** detailed build steps #3, architecture blueprint
     - **action:**
         1. Create `PostgresCardStore` struct with `db store.DBTX` and `logger *slog.Logger`

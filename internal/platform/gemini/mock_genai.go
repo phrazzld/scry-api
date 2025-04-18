@@ -12,6 +12,7 @@ import (
 type MockGenAIClient struct {
 	ShouldFail    bool
 	ResponseCards []CardSchema
+	ErrorToReturn error // Specific error to return when ShouldFail is true
 }
 
 // NewMockGenAIClient creates a new instance of MockGenAIClient with default values
@@ -45,6 +46,10 @@ func (m *MockGenAIClient) MockGenerateContent(
 	prompt string,
 ) (*ResponseSchema, error) {
 	if m.ShouldFail {
+		// Return the specific error if configured, otherwise a generic error
+		if m.ErrorToReturn != nil {
+			return nil, m.ErrorToReturn
+		}
 		return nil, fmt.Errorf("mock API error")
 	}
 
@@ -67,4 +72,13 @@ func (m *MockGenAIClient) SetResponseCards(cards []CardSchema) {
 // SetShouldFail configures the mock to fail
 func (m *MockGenAIClient) SetShouldFail(shouldFail bool) {
 	m.ShouldFail = shouldFail
+}
+
+// SetErrorToReturn configures the specific error that should be returned when ShouldFail is true
+func (m *MockGenAIClient) SetErrorToReturn(err error) {
+	m.ErrorToReturn = err
+	// If we're setting an error, we also want to fail
+	if err != nil {
+		m.ShouldFail = true
+	}
 }

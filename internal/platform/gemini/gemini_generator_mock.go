@@ -166,6 +166,7 @@ func (g *GeminiGenerator) GenerateCards(
 	if err != nil {
 		g.logger.ErrorContext(ctx, "Mock API call failed",
 			"error", err)
+		// Just pass through the error without wrapping it to test error propagation
 		return nil, err
 	}
 

@@ -19,6 +19,7 @@ type TestableGeminiGenerator struct {
 	Logger         *slog.Logger
 	Config         config.LLMConfig
 	PromptTemplate *template.Template
+	mockClient     *gemini.MockGenAIClient
 }
 
 // NewTestableGenerator creates a new GeminiGenerator for testing
@@ -27,11 +28,18 @@ func NewTestableGenerator(
 	config config.LLMConfig,
 	tmpl *template.Template,
 ) *TestableGeminiGenerator {
+	mockClient := gemini.NewMockGenAIClient()
 	return &TestableGeminiGenerator{
 		Logger:         logger,
 		Config:         config,
 		PromptTemplate: tmpl,
+		mockClient:     mockClient,
 	}
+}
+
+// Client returns the mock client for testing
+func (g *TestableGeminiGenerator) Client() *gemini.MockGenAIClient {
+	return g.mockClient
 }
 
 // CreatePromptForTest is a helper to test the createPrompt functionality

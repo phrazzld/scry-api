@@ -208,6 +208,69 @@ func TestGenerateCards_EmptyUserID(t *testing.T) {
 	assert.Nil(t, cards, "Cards should be nil")
 }
 
+// Test GenerateCards error propagation for specific error types
+func TestGenerateCards_ErrorPropagation(t *testing.T) {
+	// Define test cases for each error type
+	testCases := []struct {
+		name          string
+		mockError     error
+		expectedError error
+	}{
+		{
+			name:          "content blocked error",
+			mockError:     generation.ErrContentBlocked,
+			expectedError: generation.ErrContentBlocked,
+		},
+		{
+			name:          "invalid response error",
+			mockError:     generation.ErrInvalidResponse,
+			expectedError: generation.ErrInvalidResponse,
+		},
+		{
+			name:          "transient failure error",
+			mockError:     generation.ErrTransientFailure,
+			expectedError: generation.ErrTransientFailure,
+		},
+		{
+			name:          "wrapped content blocked error",
+			mockError:     fmt.Errorf("%w: content blocked by safety filters", generation.ErrContentBlocked),
+			expectedError: generation.ErrContentBlocked,
+		},
+		{
+			name:          "wrapped invalid response error",
+			mockError:     fmt.Errorf("%w: malformed response", generation.ErrInvalidResponse),
+			expectedError: generation.ErrInvalidResponse,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup test environment
+			ctx := context.Background()
+			logger := newTestLogger()
+			tmpl := newTestTemplate()
+			testConfig := newTestConfig()
+
+			generator := gemini.NewTestableGenerator(logger, testConfig, tmpl)
+
+			// Configure the mock client to return the specific error
+			mockClient := generator.Client()
+			mockClient.SetErrorToReturn(tc.mockError)
+
+			// Call GenerateCards
+			userID := uuid.New()
+			memoText := "This is a test memo for error propagation."
+			cards, err := generator.GenerateCards(ctx, memoText, userID)
+
+			// Verify the error is of the expected type
+			assert.Error(t, err, "GenerateCards should fail with the configured error")
+			assert.True(t, errors.Is(err, tc.expectedError),
+				"Error should be or wrap %v, got %v", tc.expectedError, err)
+			assert.Nil(t, cards, "Cards should be nil when an error occurs")
+		})
+	}
+}
+
 // Test error wrapping in the generation package
 func TestErrorWrapping(t *testing.T) {
 	// Test wrapping ErrGenerationFailed

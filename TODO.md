@@ -14,7 +14,7 @@
         3. all tests pass with and without the `test_without_external_deps` build tag.
     - **depends-on:** none
 
-- [ ] **T109 · test · p2: add error propagation tests for generateCards**
+- [x] **T109 · test · p2: add error propagation tests for generateCards**
     - **context:** plan.md · 2. test coverage for error propagation
     - **action:**
         1. identify key error types (`ErrContentBlocked`, etc.) that `GenerateCards` should propagate.

@@ -64,7 +64,7 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t105]
 
-- [ ] **t107 · feature · p2: implement MemoStore GetByID method**
+- [x] **t107 · feature · p2: implement MemoStore GetByID method**
     - **context:** detailed build steps #2
     - **action:**
         1. Implement `GetByID` using parameterized SQL SELECT

@@ -168,7 +168,7 @@
     - **depends‑on:** [t110]
 
 ## postgres user card stats store
-- [ ] **t116 · feature · p1: implement PostgresUserCardStatsStore struct and constructor**
+- [x] **t116 · feature · p1: implement PostgresUserCardStatsStore struct and constructor**
     - **context:** detailed build steps #4, architecture blueprint
     - **action:**
         1. Create `PostgresUserCardStatsStore` struct with `db store.DBTX` and `logger *slog.Logger`

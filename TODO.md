@@ -47,7 +47,7 @@
     - **depends-on:** none
 
 ## CI
-- [ ] **T112 · chore · p3: add optional CI job for real Gemini API tests**
+- [x] **T112 · chore · p3: add optional CI job for real Gemini API tests**
     - **context:** plan.md · 5. (optional) CI test path for real API
     - **action:**
         1. add a new job in `.github/workflows/ci.yml` (e.g., `test-integration-gemini`).

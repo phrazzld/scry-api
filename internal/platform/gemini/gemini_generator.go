@@ -23,6 +23,12 @@ import (
 	"google.golang.org/genai"
 )
 
+// Default values for retry logic when configuration is invalid
+const (
+	defaultMaxRetries       = 3
+	defaultBaseDelaySeconds = 2
+)
+
 // GeminiGenerator implements the generation.Generator interface using
 // Google's Gemini API to generate flashcards from memo text.
 type GeminiGenerator struct {
@@ -171,13 +177,18 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 
 	// Validate retry configuration
 	if maxRetries < 0 {
-		g.logger.WarnContext(ctx, "Invalid max retries value, using default", "max_retries", 3)
-		maxRetries = 3
+		g.logger.WarnContext(ctx, "Invalid max retries value, using default", "max_retries", defaultMaxRetries)
+		maxRetries = defaultMaxRetries
 	}
 
 	if baseDelaySeconds < 1 {
-		g.logger.WarnContext(ctx, "Invalid retry delay value, using default", "base_delay_seconds", 2)
-		baseDelaySeconds = 2
+		g.logger.WarnContext(
+			ctx,
+			"Invalid retry delay value, using default",
+			"base_delay_seconds",
+			defaultBaseDelaySeconds,
+		)
+		baseDelaySeconds = defaultBaseDelaySeconds
 	}
 
 	for attempt <= maxRetries {
@@ -186,14 +197,9 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			"attempt", attemptNum,
 			"max_attempts", maxRetries+1)
 
-		// Create a new instance of GenerativeModel
-		model := g.client.GenerativeModel(g.model)
-
 		// Set up the content
-		content := &genai.Content{
-			Parts: []genai.Part{
-				genai.Text(prompt),
-			},
+		content := []*genai.Content{
+			genai.NewContentFromText(prompt, genai.RoleUser),
 		}
 
 		// Generate content
@@ -202,7 +208,7 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 		var isTransientError bool
 
 		// Call the Gemini API using the new genai package
-		resp, err := model.GenerateContent(ctx, content)
+		resp, err := g.client.Models.GenerateContent(ctx, g.model, content, nil)
 		if err != nil {
 			// Handle API errors
 			isTransientError = true // Assume transient error by default
@@ -229,8 +235,8 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			// Extract the response text
 			text := ""
 			for _, part := range resp.Candidates[0].Content.Parts {
-				if textPart, ok := part.(genai.Text); ok {
-					text += string(textPart)
+				if part.Text != "" {
+					text += part.Text
 				}
 			}
 
@@ -468,5 +474,7 @@ func (g *GeminiGenerator) GenerateCards(
 	return cards, nil
 }
 
-// Adding the generation package import error so that it's tracked for future implementation
+// Ensure the generation package is imported so its error types can be used
+// and wrapped by this package, even if not explicitly referenced elsewhere.
+// This prevents potential "unused import" errors during compilation or linting.
 var _ = generation.ErrGenerationFailed

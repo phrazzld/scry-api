@@ -11,7 +11,7 @@
         2. Code compiles
     - **depends‑on:** none
 
-- [ ] **t102 · feature · p1: define CardStore interface**
+- [x] **t102 · feature · p1: define CardStore interface**
     - **context:** detailed build steps #1, architecture blueprint
     - **action:**
         1. Define `CardStore` interface in `internal/store/card.go` with methods: `CreateMultiple`, `GetByID`, `UpdateContent`, `Delete`, `GetNextReviewCard`

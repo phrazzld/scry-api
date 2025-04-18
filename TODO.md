@@ -159,7 +159,7 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]
 
-- [ ] **t115 · feature · p3: implement CardStore GetNextReviewCard stub**
+- [x] **t115 · feature · p3: implement CardStore GetNextReviewCard stub**
     - **context:** detailed build steps #3
     - **action:**
         1. Implement stub that returns `nil, store.ErrNotImplemented`

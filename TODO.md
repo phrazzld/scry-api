@@ -88,7 +88,7 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t105]
 
-- [ ] **t109 · feature · p2: implement MemoStore FindMemosByStatus method**
+- [x] **t109 · feature · p2: implement MemoStore FindMemosByStatus method**
     - **context:** detailed build steps #2
     - **action:**
         1. Implement `FindMemosByStatus` using parameterized SQL SELECT

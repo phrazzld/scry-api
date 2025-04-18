@@ -42,6 +42,8 @@ func (r *MockCardRepository) CreateMultiple(ctx context.Context, cards []*domain
 }
 
 // Helper function to create a new card, panicking on error (for test setup only)
+// Intentionally disabled as it's currently unused but may be needed in future tests
+// nolint:unused
 func mustCreateCard(userID, memoID uuid.UUID, content []byte) *domain.Card {
 	card, err := domain.NewCard(userID, memoID, content)
 	if err != nil {

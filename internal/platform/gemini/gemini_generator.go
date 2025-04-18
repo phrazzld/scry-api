@@ -400,6 +400,10 @@ func (g *GeminiGenerator) parseResponse(
 }
 
 // GenerateCards creates flashcards based on the provided memo text and user ID.
+// It fulfills the generation.Generator interface by:
+// 1. Creating a prompt from the memo text
+// 2. Calling the Gemini API with retry logic
+// 3. Parsing the API response into domain.Card objects
 //
 // Parameters:
 //   - ctx: Context for the operation, which can be used for cancellation
@@ -414,8 +418,54 @@ func (g *GeminiGenerator) GenerateCards(
 	memoText string,
 	userID uuid.UUID,
 ) ([]*domain.Card, error) {
-	// Placeholder implementation - will be implemented in task M006
-	return nil, fmt.Errorf("not implemented yet - pending task M006")
+	// Validate inputs
+	if memoText == "" {
+		return nil, ErrEmptyMemoText
+	}
+
+	if userID == uuid.Nil {
+		return nil, errors.New("user ID cannot be empty")
+	}
+
+	g.logger.InfoContext(ctx, "Starting flashcard generation",
+		"memo_length", len(memoText),
+		"user_id", userID.String())
+
+	// Step 1: Create prompt from memo text
+	prompt, err := g.createPrompt(ctx, memoText)
+	if err != nil {
+		g.logger.ErrorContext(ctx, "Failed to create prompt",
+			"error", err)
+		return nil, fmt.Errorf("%w: %v", generation.ErrGenerationFailed, err)
+	}
+
+	// Step 2: Call Gemini API with retry logic
+	response, err := g.callGeminiWithRetry(ctx, prompt)
+	if err != nil {
+		// The underlying error is already appropriately typed in callGeminiWithRetry
+		g.logger.ErrorContext(ctx, "Gemini API call failed",
+			"error", err)
+		return nil, err
+	}
+
+	// In a production environment, the memoID would typically be provided by the caller
+	// since it would be stored in the database. For this implementation, we'll
+	// generate a new ID since we're focused on the generation logic.
+	memoID := uuid.New()
+
+	// Step 3: Parse response into domain.Card objects
+	cards, err := g.parseResponse(ctx, response, userID, memoID)
+	if err != nil {
+		g.logger.ErrorContext(ctx, "Failed to parse API response",
+			"error", err)
+		return nil, fmt.Errorf("%w: %v", generation.ErrGenerationFailed, err)
+	}
+
+	g.logger.InfoContext(ctx, "Successfully generated flashcards",
+		"card_count", len(cards),
+		"user_id", userID.String())
+
+	return cards, nil
 }
 
 // Adding the generation package import error so that it's tracked for future implementation

@@ -24,7 +24,7 @@ type MockGenerateContentResponse struct {
 
 // MockCandidate mocks generativelanguage.Candidate for testing
 type MockCandidate struct {
-	Content     *MockContent
+	Content      *MockContent
 	FinishReason string
 }
 

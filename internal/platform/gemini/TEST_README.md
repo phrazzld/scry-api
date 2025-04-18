@@ -8,15 +8,34 @@ This directory contains tests for the `GeminiGenerator` implementation. The test
 4. Response parsing logic (`parseResponse` method)
 5. The main `GenerateCards` method implementing the Generator interface
 
-## Important Note
+## Dual Implementation Approach
 
-Due to dependency issues with the Google Gemini API client libraries, the tests are currently skipped in the test file. The tests are fully implemented and ready to run once the dependency issues are resolved.
+This package contains two implementations of the `GeminiGenerator`:
+
+1. **Real Implementation** (default): Uses the actual Gemini API
+2. **Mock Implementation** (with build tag): Uses a mock implementation for testing without external dependencies
+
+The package is structured to use build tags to select the appropriate implementation:
+
+- `gemini_generator.go`: Contains the real implementation (active when `test_without_external_deps` tag is NOT set)
+- `gemini_generator_mock.go`: Contains the mock implementation (active when `test_without_external_deps` tag IS set)
+- `types.go`: Contains shared type definitions used by both implementations
+
+### Shared Types
+
+To prevent type declaration conflicts between implementations, common types are defined in `types.go`:
+
+- `promptData`: The data structure passed to the prompt template
+- `ResponseSchema`: The JSON response structure from the Gemini API
+- `CardSchema`: Represents a single flashcard in the API response
 
 ## Test Dependencies
 
-The tests require the following dependencies:
+The real implementation tests require the following dependencies:
 - `github.com/google/generative-ai-go/genai`
 - `google.golang.org/api/option`
+
+The mock implementation has minimal dependencies and can be tested without these external libraries.
 
 ## Test Structure
 
@@ -25,25 +44,29 @@ The tests are organized into the following files:
 - `gemini_generator_test.go`: Contains the main test functions
 - `gemini_generator_test_helpers.go`: Contains helper functions that expose unexported methods for testing
 
-The test helper file uses a build tag `//go:build testing` to ensure it's only included in test builds.
-
-## Testing Approach
-
-1. **Constructor Tests**: Verify that the constructor properly validates configuration and initializes the generator.
-2. **Prompt Creation Tests**: Verify that the prompt template is correctly rendered with the provided memo text.
-3. **API Call Tests**: Verify that the retry logic works correctly with exponential backoff and properly handles errors.
-4. **Response Parsing Tests**: Verify that API responses are correctly parsed into domain cards and that validation is properly enforced.
-5. **Generate Cards Tests**: Verify that the main method correctly orchestrates the other components and properly handles errors.
+Some test helper files use build tags to ensure they're only included in appropriate test builds.
 
 ## Running the Tests
 
-Once the dependency issues are resolved, the tests can be run with:
+### With Mock Implementation (no external dependencies)
 
 ```bash
-go test -v -tags=testing ./internal/platform/gemini
+go test -v -tags=test_without_external_deps ./internal/platform/gemini
 ```
 
-The `-tags=testing` flag is required to include the test helper file.
+### With Real Implementation (requires API access)
+
+```bash
+go test -v ./internal/platform/gemini
+```
+
+## Usage in Project
+
+By default, the real implementation is used. For testing environments or CI/CD pipelines where external dependencies should be avoided, you can build with the `test_without_external_deps` tag:
+
+```bash
+go build -tags=test_without_external_deps ./...
+```
 
 ## Future Improvements
 

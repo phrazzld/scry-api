@@ -16,7 +16,7 @@
     - **Depends On:** None
     - **AC Ref:** None
 
-- [ ] **T103:** Update CI workflow lint job to use build tags
+- [x] **T103:** Update CI workflow lint job to use build tags
     - **Action:** Modify the lint action in `.github/workflows/ci.yml` to include build tags:
       ```yaml
       - name: Run golangci-lint
@@ -28,7 +28,7 @@
     - **Depends On:** None
     - **AC Ref:** None
 
-- [ ] **T104:** Add dependency information to go.mod and go.sum
+- [x] **T104:** Add dependency information to go.mod and go.sum
     - **Action:** Run `go mod tidy` locally and commit the changes to `go.mod` and `go.sum` to ensure proper dependency tracking
     - **Depends On:** None
     - **AC Ref:** None
@@ -47,4 +47,3 @@
     - **Action:** Review all changes, make any necessary adjustments, and mark task F001 as completed
     - **Depends On:** [T101, T102, T103, T104, T105, T106]
     - **AC Ref:** None
-

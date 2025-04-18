@@ -29,7 +29,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.1 # Match pre-commit hook version
-          args: --verbose
+          args: --verbose --build-tags=test_without_external_deps
         # Note: This includes gofmt and goimports checks, making a separate format job unnecessary
 
   test:

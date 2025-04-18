@@ -129,6 +129,95 @@ func (g *GeminiGenerator) createPrompt(ctx context.Context, memoText string) (st
 	return prompt, nil
 }
 
+// parseResponse converts a ResponseSchema from the mock API into domain.Card objects.
+//
+// It validates each card in the response and creates domain.Card objects with
+// properly formatted content. If any card in the response fails validation, the
+// method returns an error and no cards are returned.
+//
+// Parameters:
+//   - ctx: Context for the operation, which can be used for logging
+//   - response: The structured response from the mock API
+//   - userID: The UUID of the user who owns the memo
+//   - memoID: The UUID of the memo from which the cards are generated
+//
+// Returns:
+//   - A slice of domain.Card pointers
+//   - An error if the response is invalid or card creation fails
+func (g *GeminiGenerator) parseResponse(
+	ctx context.Context,
+	response *ResponseSchema,
+	userID uuid.UUID,
+	memoID uuid.UUID,
+) ([]*domain.Card, error) {
+	// Validate input
+	if response == nil {
+		return nil, fmt.Errorf("%w: response is nil", generation.ErrInvalidResponse)
+	}
+
+	if userID == uuid.Nil {
+		return nil, errors.New("user ID cannot be empty")
+	}
+
+	if memoID == uuid.Nil {
+		return nil, errors.New("memo ID cannot be empty")
+	}
+
+	// Check if we have any cards
+	if len(response.Cards) == 0 {
+		return nil, fmt.Errorf("%w: no cards in response", generation.ErrInvalidResponse)
+	}
+
+	g.logger.InfoContext(ctx, "Parsing mock API response",
+		"card_count", len(response.Cards),
+		"user_id", userID.String(),
+		"memo_id", memoID.String())
+
+	// Create domain cards from response
+	cards := make([]*domain.Card, 0, len(response.Cards))
+	for i, cardSchema := range response.Cards {
+		// Validate required fields
+		if cardSchema.Front == "" {
+			return nil, fmt.Errorf("%w: card %d missing front side", generation.ErrInvalidResponse, i)
+		}
+
+		if cardSchema.Back == "" {
+			return nil, fmt.Errorf("%w: card %d missing back side", generation.ErrInvalidResponse, i)
+		}
+
+		// Create domain.CardContent structure
+		cardContent := domain.CardContent{
+			Front: cardSchema.Front,
+			Back:  cardSchema.Back,
+			Hint:  cardSchema.Hint,
+			Tags:  cardSchema.Tags,
+		}
+
+		// Convert to JSON
+		contentJSON, err := json.Marshal(cardContent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal card content to JSON: %w", err)
+		}
+
+		// Create domain.Card
+		card, err := domain.NewCard(userID, memoID, contentJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create card: %w", err)
+		}
+
+		cards = append(cards, card)
+		g.logger.DebugContext(ctx, "Created card from mock API response",
+			"card_id", card.ID.String(),
+			"front_length", len(cardSchema.Front),
+			"back_length", len(cardSchema.Back))
+	}
+
+	g.logger.InfoContext(ctx, "Successfully parsed mock API response",
+		"created_cards", len(cards))
+
+	return cards, nil
+}
+
 // GenerateCards creates mock flashcards based on the provided memo text and user ID.
 // This is a test implementation that doesn't require external API access.
 //
@@ -174,36 +263,17 @@ func (g *GeminiGenerator) GenerateCards(
 		return nil, err
 	}
 
-	// Step 3: Generate a mock memo ID
+	// In a production environment, the memoID would typically be provided by the caller
+	// since it would be stored in the database. For this implementation, we'll
+	// generate a new ID since we're focused on the generation logic.
 	memoID := uuid.New()
 
-	// Step 4: Create domain cards from the mock response
-	var cards []*domain.Card
-	for i, cardSchema := range response.Cards {
-		// Create domain.CardContent structure
-		cardContent := domain.CardContent{
-			Front: cardSchema.Front,
-			Back:  cardSchema.Back,
-			Hint:  cardSchema.Hint,
-			Tags:  cardSchema.Tags,
-		}
-
-		// Convert to JSON
-		contentJSON, err := json.Marshal(cardContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal card content to JSON: %w", err)
-		}
-
-		// Create domain.Card
-		card, err := domain.NewCard(userID, memoID, contentJSON)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create card: %w", err)
-		}
-
-		cards = append(cards, card)
-		g.logger.DebugContext(ctx, "Created mock card",
-			"card_id", card.ID.String(),
-			"card_index", i)
+	// Step 3: Parse response into domain.Card objects
+	cards, err := g.parseResponse(ctx, response, userID, memoID)
+	if err != nil {
+		g.logger.ErrorContext(ctx, "Failed to parse mock API response",
+			"error", err)
+		return nil, fmt.Errorf("%w: %v", generation.ErrGenerationFailed, err)
 	}
 
 	g.logger.InfoContext(ctx, "Successfully generated mock flashcards",

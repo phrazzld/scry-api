@@ -51,11 +51,12 @@
     - **AC Ref:** None
     - **Result:** Implemented comprehensive tests for the Gemini generator, including mocks for the new API client, helper functions for testing prompt generation, and various test cases for card generation and error handling.
 
-- [ ] **M008:** Update mock implementation for testing
+- [x] **M008:** Update mock implementation for testing
     - **Action:** Ensure the mock implementation in gemini_generator_mock.go is compatible with the new real implementation
     - **Deliverable:** Updated mock implementation that provides consistent test behavior
     - **Depends On:** [M007]
     - **AC Ref:** None
+    - **Result:** Improved the mock implementation by adding the parseResponse method to match the real implementation's structure and error handling. Both implementations now share the same interface and behavior patterns, providing consistent test results.
 
 - [ ] **M009:** Complete verification and documentation
     - **Action:** Ensure all tests pass with both real and mock implementations, update all relevant documentation

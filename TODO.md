@@ -135,14 +135,14 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]
 
-- [ ] **t113 · feature · p2: implement CardStore UpdateContent method**
+- [x] **t113 · feature · p2: implement CardStore UpdateContent method**
     - **context:** detailed build steps #3
     - **action:**
         1. Implement `UpdateContent` using parameterized SQL UPDATE
         2. Validate JSON content
         3. Check rows affected for not found case
     - **done‑when:**
-        1. Method updates card content or returns ErrNotFound
+        1. Method updates card content or returns ErrCardNotFound
         2. JSON content is validated
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]

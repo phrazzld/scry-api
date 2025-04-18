@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -98,17 +100,70 @@ func (s *PostgresCardStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 
 // UpdateContent implements store.CardStore.UpdateContent
 // It modifies an existing card's content field.
-// Returns store.ErrNotFound if the card does not exist.
+// Returns store.ErrCardNotFound if the card does not exist.
 // Returns validation errors if the content is invalid JSON.
 func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, content []byte) error {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("updating card content",
+		slog.String("card_id", id.String()))
+
+	// Validate JSON content before updating
+	if !json.Valid(content) {
+		log.Warn("invalid JSON content for card update",
+			slog.String("card_id", id.String()))
+		return domain.ErrInvalidCardContent
+	}
+
+	// Set update timestamp
+	updatedAt := time.Now().UTC()
+
+	query := `
+		UPDATE cards
+		SET content = $1, updated_at = $2
+		WHERE id = $3
+	`
+
+	result, err := s.db.ExecContext(
+		ctx,
+		query,
+		content,
+		updatedAt,
+		id,
+	)
+
+	if err != nil {
+		log.Error("failed to update card content",
+			slog.String("error", err.Error()),
+			slog.String("card_id", id.String()))
+		return err
+	}
+
+	// Check if a row was actually updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get rows affected",
+			slog.String("error", err.Error()),
+			slog.String("card_id", id.String()))
+		return err
+	}
+
+	// If no rows were affected, the card didn't exist
+	if rowsAffected == 0 {
+		log.Debug("card not found for content update",
+			slog.String("card_id", id.String()))
+		return store.ErrCardNotFound
+	}
+
+	log.Info("card content updated successfully",
+		slog.String("card_id", id.String()))
+	return nil
 }
 
 // Delete implements store.CardStore.Delete
 // It removes a card from the store by its ID.
-// Returns store.ErrNotFound if the card does not exist.
+// Returns store.ErrCardNotFound if the card does not exist.
 func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 	// This is a stub implementation to satisfy the interface.
 	// The actual implementation will be done in a separate ticket.

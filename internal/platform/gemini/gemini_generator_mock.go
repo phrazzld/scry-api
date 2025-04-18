@@ -4,9 +4,7 @@
 package gemini
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -91,8 +89,7 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 
 // createPrompt generates a prompt string from the template with the provided memo text.
 //
-// It executes the template with the memo text and returns the resulting string.
-// If the memo text is empty or the template execution fails, it returns an error.
+// It uses the shared createPromptFromTemplate function to generate the prompt.
 //
 // Parameters:
 //   - ctx: Context for the operation, which can be used for logging
@@ -102,38 +99,12 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 //   - The generated prompt string
 //   - An error if the memo text is empty or the template execution fails
 func (g *GeminiGenerator) createPrompt(ctx context.Context, memoText string) (string, error) {
-	// Validate input
-	if memoText == "" {
-		return "", ErrEmptyMemoText
-	}
-
-	// Create data for template
-	data := promptData{
-		MemoText: memoText,
-	}
-
-	g.logger.DebugContext(ctx, "Generating prompt from template",
-		"memo_length", len(memoText),
-		"template_name", g.promptTemplate.Name())
-
-	// Execute template
-	var promptBuffer bytes.Buffer
-	if err := g.promptTemplate.Execute(&promptBuffer, data); err != nil {
-		return "", fmt.Errorf("failed to execute prompt template: %w", err)
-	}
-
-	prompt := promptBuffer.String()
-	g.logger.DebugContext(ctx, "Prompt generated successfully",
-		"prompt_length", len(prompt))
-
-	return prompt, nil
+	return createPromptFromTemplate(ctx, g.logger, g.promptTemplate, memoText)
 }
 
 // parseResponse converts a ResponseSchema from the mock API into domain.Card objects.
 //
-// It validates each card in the response and creates domain.Card objects with
-// properly formatted content. If any card in the response fails validation, the
-// method returns an error and no cards are returned.
+// It uses the shared parseResponseToCards function to parse the response.
 //
 // Parameters:
 //   - ctx: Context for the operation, which can be used for logging
@@ -150,72 +121,7 @@ func (g *GeminiGenerator) parseResponse(
 	userID uuid.UUID,
 	memoID uuid.UUID,
 ) ([]*domain.Card, error) {
-	// Validate input
-	if response == nil {
-		return nil, fmt.Errorf("%w: response is nil", generation.ErrInvalidResponse)
-	}
-
-	if userID == uuid.Nil {
-		return nil, errors.New("user ID cannot be empty")
-	}
-
-	if memoID == uuid.Nil {
-		return nil, errors.New("memo ID cannot be empty")
-	}
-
-	// Check if we have any cards
-	if len(response.Cards) == 0 {
-		return nil, fmt.Errorf("%w: no cards in response", generation.ErrInvalidResponse)
-	}
-
-	g.logger.InfoContext(ctx, "Parsing mock API response",
-		"card_count", len(response.Cards),
-		"user_id", userID.String(),
-		"memo_id", memoID.String())
-
-	// Create domain cards from response
-	cards := make([]*domain.Card, 0, len(response.Cards))
-	for i, cardSchema := range response.Cards {
-		// Validate required fields
-		if cardSchema.Front == "" {
-			return nil, fmt.Errorf("%w: card %d missing front side", generation.ErrInvalidResponse, i)
-		}
-
-		if cardSchema.Back == "" {
-			return nil, fmt.Errorf("%w: card %d missing back side", generation.ErrInvalidResponse, i)
-		}
-
-		// Create domain.CardContent structure
-		cardContent := domain.CardContent{
-			Front: cardSchema.Front,
-			Back:  cardSchema.Back,
-			Hint:  cardSchema.Hint,
-			Tags:  cardSchema.Tags,
-		}
-
-		// Convert to JSON
-		contentJSON, err := json.Marshal(cardContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal card content to JSON: %w", err)
-		}
-
-		// Create domain.Card
-		card, err := domain.NewCard(userID, memoID, contentJSON)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create card: %w", err)
-		}
-
-		cards = append(cards, card)
-		g.logger.DebugContext(ctx, "Created card from mock API response",
-			"card_id", card.ID.String(),
-			"front_length", len(cardSchema.Front),
-			"back_length", len(cardSchema.Back))
-	}
-
-	g.logger.InfoContext(ctx, "Successfully parsed mock API response",
-		"created_cards", len(cards))
-
-	return cards, nil
+	return parseResponseToCards(ctx, g.logger, response, userID, memoID, false)
 }
 
 // GenerateCards creates mock flashcards based on the provided memo text and user ID.

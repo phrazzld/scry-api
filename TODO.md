@@ -1,7 +1,7 @@
 # TODO
 
 ## Gemini Generator
-- [ ] **T108 · refactor · p1: refactor shared logic into gemini_utils.go**
+- [x] **T108 · refactor · p1: refactor shared logic into gemini_utils.go**
     - **context:** plan.md · 1. potential code duplication in gemini generator implementations
     - **action:**
         1. analyze `createPrompt` and `parseResponse` in `gemini_generator.go` and `gemini_generator_mock.go` to confirm identical logic.
@@ -26,7 +26,7 @@
         2. code coverage includes error propagation paths.
     - **depends-on:** none
 
-- [ ] **T110 · refactor · p2: define and use default retry constants**
+- [x] **T110 · refactor · p2: define and use default retry constants**
     - **context:** plan.md · 3. default retry constants
     - **action:**
         1. define `defaultMaxRetries = 3` and `defaultBaseDelaySeconds = 2` constants at the top of `gemini_generator.go`.
@@ -38,7 +38,7 @@
         3. tests and linter pass.
     - **depends-on:** none
 
-- [ ] **T111 · chore · p2: document purpose of var _ = generation.ErrGenerationFailed**
+- [x] **T111 · chore · p2: document purpose of var _ = generation.ErrGenerationFailed**
     - **context:** plan.md · 4. unclear `var _ = ...` usage
     - **action:**
         1. add a comment above `var _ = generation.ErrGenerationFailed` in `gemini_generator.go` explaining its purpose (ensuring package import for error types).

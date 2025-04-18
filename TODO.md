@@ -147,14 +147,14 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]
 
-- [ ] **t114 · feature · p2: implement CardStore Delete method**
+- [x] **t114 · feature · p2: implement CardStore Delete method**
     - **context:** detailed build steps #3
     - **action:**
         1. Implement `Delete` using parameterized SQL DELETE
         2. Check rows affected for not found case
         3. Rely on cascade delete for associated stats
     - **done‑when:**
-        1. Method deletes card or returns ErrNotFound
+        1. Method deletes card or returns ErrCardNotFound
         2. Associated stats are also deleted (cascade)
         3. Logs success/failure appropriately
     - **depends‑on:** [t110]

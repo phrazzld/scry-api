@@ -164,10 +164,45 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 // Delete implements store.CardStore.Delete
 // It removes a card from the store by its ID.
 // Returns store.ErrCardNotFound if the card does not exist.
+// Associated user_card_stats entries are also deleted via cascade delete.
 func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("deleting card", slog.String("card_id", id.String()))
+
+	query := `
+		DELETE FROM cards
+		WHERE id = $1
+	`
+
+	result, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		log.Error("failed to delete card",
+			slog.String("error", err.Error()),
+			slog.String("card_id", id.String()))
+		return err
+	}
+
+	// Check if a row was actually deleted
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get rows affected",
+			slog.String("error", err.Error()),
+			slog.String("card_id", id.String()))
+		return err
+	}
+
+	// If no rows were affected, the card didn't exist
+	if rowsAffected == 0 {
+		log.Debug("card not found for deletion",
+			slog.String("card_id", id.String()))
+		return store.ErrCardNotFound
+	}
+
+	log.Info("card deleted successfully",
+		slog.String("card_id", id.String()))
+	return nil
 }
 
 // GetNextReviewCard implements store.CardStore.GetNextReviewCard

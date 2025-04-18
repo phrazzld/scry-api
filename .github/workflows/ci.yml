@@ -1,10 +1,41 @@
 name: CI Checks
 
+# This workflow handles the complete CI pipeline for the Scry API including:
+# - Linting (via golangci-lint)
+# - Standard Testing (with test_without_external_deps tag to avoid external API calls)
+# - Building
+# - Optional Gemini API Integration Testing (without the test_without_external_deps tag)
+#
+# IMPORTANT NOTES ABOUT GEMINI API INTEGRATION TESTS:
+# 1. These tests require a valid Gemini API key stored as a GitHub Secret named GEMINI_API_KEY
+# 2. The tests connect to the real Gemini API and may incur costs
+# 3. Tests can be affected by API rate limits, service outages, or API changes
+# 4. They are configured to run:
+#    - When manually triggered via the GitHub Actions UI (workflow_dispatch)
+#    - On a weekly schedule (Monday at 2:00 AM UTC)
+# 5. Consider reviewing test results after API version updates or when investigating potential
+#    API integration issues
+#
+# For local testing with the real Gemini API, see instructions in:
+# /internal/platform/gemini/TEST_README.md
+
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  # Manual trigger for the Gemini integration tests
+  workflow_dispatch:
+    inputs:
+      run-gemini-tests:
+        description: 'Run Gemini API integration tests'
+        type: boolean
+        default: true
+        required: true
+  # Weekly schedule for Gemini integration tests
+  schedule:
+    # Run at 2:00 AM UTC every Monday
+    - cron: '0 2 * * 1'
 
 # Centralized Go version - update this single value to change version across all jobs
 env:
@@ -29,7 +60,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.1 # Match pre-commit hook version
-          args: --verbose
+          args: --verbose --build-tags=test_without_external_deps
         # Note: This includes gofmt and goimports checks, making a separate format job unnecessary
 
   test:
@@ -44,7 +75,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -v -race -coverprofile=coverage.out -tags=test_without_external_deps ./...
 
   build:
     name: Build
@@ -59,3 +90,84 @@ jobs:
           cache: true
       - name: Build application
         run: go build -v ./cmd/server/...
+
+  # Optional job that runs tests with the real Gemini API (without the test_without_external_deps build tag)
+  # This job is triggered manually via workflow_dispatch or on a weekly schedule
+  #
+  # PURPOSE:
+  # - Verify real-world integration with the Gemini API
+  # - Catch breaking changes in the API that mocks might miss
+  # - Ensure prompt templates work as expected with the actual API
+  #
+  # COSTS & CONSIDERATIONS:
+  # - Each test run will make multiple API calls that may incur costs
+  # - API calls may be subject to rate limits (adjust test timeout if needed)
+  # - Tests might become flaky due to API availability or changes
+  # - Weekly scheduled runs help catch issues proactively
+  #
+  # SECURITY:
+  # - API key is stored as a GitHub Secret (GEMINI_API_KEY)
+  # - The job will fail if the secret is not available
+  # - No API key information should appear in logs
+  test-gemini-integration:
+    name: Test Gemini Integration
+    # Run only when explicitly requested via workflow_dispatch or weekly schedule
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.run-gemini-tests ||
+      github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    # Set a timeout to prevent excessive usage in case of API issues
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # Check for required secret before continuing
+      - name: Verify Gemini API key is available
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "::error::GEMINI_API_KEY secret is not configured."
+            echo "::error::Please add the GEMINI_API_KEY secret in your repository settings."
+            echo "::error::This is required for running tests with the real Gemini API."
+            exit 1
+          else
+            echo "::notice::GEMINI_API_KEY secret is available. Proceeding with tests."
+          fi
+
+      # Configure any specific test environment variables
+      - name: Configure test environment
+        run: |
+          echo "::notice::Preparing to run Gemini integration tests with actual API"
+          echo "::notice::Tests will be run without the test_without_external_deps build tag"
+          echo "::notice::Timeout set to 5 minutes to account for API latency and potential retries"
+
+      # Run tests specifically for the Gemini package without the test_without_external_deps tag
+      - name: Run Gemini integration tests
+        id: tests
+        run: |
+          echo "Running tests against real Gemini API at $(date)"
+          go test -v -timeout 5m ./internal/platform/gemini/...
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Add any other environment variables needed for tests here
+          GO_TEST_TIMEOUT: 5m
+
+      # Add a summary of the test run
+      - name: Gemini integration test summary
+        if: always() # Run even if tests fail
+        run: |
+          if [ "${{ steps.tests.outcome }}" == "success" ]; then
+            echo "::notice::✅ Gemini API integration tests completed successfully at $(date)"
+          else
+            echo "::warning::⚠️ Gemini API integration tests failed at $(date)"
+            echo "::warning::This could be due to API changes, rate limits, or temporary service issues."
+            echo "::warning::Review logs for detailed failure information."
+          fi
+          echo "::notice::These tests run with the actual Gemini API and may be affected by external factors."
+          echo "::notice::Consider checking the Gemini API status if tests fail unexpectedly."

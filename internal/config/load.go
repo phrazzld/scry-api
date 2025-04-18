@@ -45,6 +45,9 @@ func Load() (*Config, error) {
 	v.SetDefault("auth.bcrypt_cost", 10)                       // Default bcrypt cost (same as bcrypt.DefaultCost)
 	v.SetDefault("auth.token_lifetime_minutes", 60)            // Default access token lifetime (1 hour)
 	v.SetDefault("auth.refresh_token_lifetime_minutes", 10080) // Default refresh token lifetime (7 days)
+	v.SetDefault("llm.model_name", "gemini-2.0-flash")         // Default Gemini model
+	v.SetDefault("llm.max_retries", 3)                         // Default number of retries for transient errors
+	v.SetDefault("llm.retry_delay_seconds", 2)                 // Default base delay between retries
 	v.SetDefault("task.worker_count", 2)                       // Default worker count
 	v.SetDefault("task.queue_size", 100)                       // Default queue size
 	v.SetDefault("task.stuck_task_age_minutes", 30)            // Default stuck task age (30 minutes)
@@ -86,6 +89,10 @@ func Load() (*Config, error) {
 		{"auth.token_lifetime_minutes", "SCRY_AUTH_TOKEN_LIFETIME_MINUTES"},
 		{"auth.refresh_token_lifetime_minutes", "SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES"},
 		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
+		{"llm.model_name", "SCRY_LLM_MODEL_NAME"},
+		{"llm.prompt_template_path", "SCRY_LLM_PROMPT_TEMPLATE_PATH"},
+		{"llm.max_retries", "SCRY_LLM_MAX_RETRIES"},
+		{"llm.retry_delay_seconds", "SCRY_LLM_RETRY_DELAY_SECONDS"},
 		{"server.port", "SCRY_SERVER_PORT"},
 		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},
 		{"task.worker_count", "SCRY_TASK_WORKER_COUNT"},

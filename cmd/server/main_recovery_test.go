@@ -20,6 +20,8 @@ import (
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/generation"
+	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -31,13 +33,34 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// RecoveryMockGenerator implements the task.Generator interface with customizable behavior
+// RecoveryMockGenerator wraps the standardized mock generator with recovery-specific functionality
 type RecoveryMockGenerator struct {
 	logger            *slog.Logger
 	shouldReturnError bool
-	executionDelay    time.Duration // Add delay to simulate processing time
-	executionCount    int           // Track number of executions
-	mu                sync.Mutex    // Protect execution count
+	executionDelay    time.Duration        // Add delay to simulate processing time
+	executionCount    int                  // Track number of executions
+	mu                sync.Mutex           // Protect execution count
+	mockGenerator     *mocks.MockGenerator // The underlying mock generator
+}
+
+// NewRecoveryMockGenerator creates a new recovery mock generator with specified configuration
+func NewRecoveryMockGenerator(logger *slog.Logger, shouldFail bool, delay time.Duration) *RecoveryMockGenerator {
+	var mockGen *mocks.MockGenerator
+
+	if shouldFail {
+		mockGen = mocks.MockGeneratorThatFails()
+	} else {
+		// Use default cards with placeholder IDs that will be replaced during task execution
+		mockGen = mocks.NewMockGeneratorWithDefaultCards(uuid.Nil, uuid.Nil)
+	}
+
+	return &RecoveryMockGenerator{
+		logger:            logger,
+		shouldReturnError: shouldFail,
+		executionDelay:    delay,
+		executionCount:    0,
+		mockGenerator:     mockGen,
+	}
 }
 
 // GenerateCards creates test flashcards or returns an error based on configuration
@@ -71,26 +94,13 @@ func (g *RecoveryMockGenerator) GenerateCards(
 		}
 	}
 
+	// If configured to return error, return early without calling underlying mock
 	if g.shouldReturnError {
-		return nil, fmt.Errorf("mock generator error: simulated card generation failure")
+		return nil, generation.ErrGenerationFailed
 	}
 
-	// Create test card content
-	cardContent1 := []byte(
-		`{"front":"Question 1 from text: '` + memoText + `'", "back":"Answer 1"}`,
-	)
-	cardContent2 := []byte(
-		`{"front":"Question 2 from text: '` + memoText + `'", "back":"Answer 2"}`,
-	)
-
-	// Create two test cards for the memo
-	memoID := uuid.New() // This will be overwritten by the task with the actual memo ID
-	cards := []*domain.Card{
-		mustCreateCard(userID, memoID, cardContent1),
-		mustCreateCard(userID, memoID, cardContent2),
-	}
-
-	return cards, nil
+	// Delegate to the underlying standardized mock generator
+	return g.mockGenerator.GenerateCards(ctx, memoText, userID)
 }
 
 // RecoveryMockCardRepository tracks created cards for verification
@@ -444,11 +454,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 		t.Log("Setting up initial application instance...")
 
 		// Create mocks for the first instance
-		mockGenerator1 := &RecoveryMockGenerator{
-			logger:            logger,
-			shouldReturnError: false,
-			executionDelay:    0,
-		}
+		mockGenerator1 := NewRecoveryMockGenerator(logger, false, 0)
 		mockCardRepo1 := NewRecoveryMockCardRepository(logger)
 		taskConfig1 := getDefaultTestTaskConfig()
 
@@ -533,11 +539,7 @@ func TestTaskRecovery_Success(t *testing.T) {
 		t.Log("Setting up second application instance to trigger recovery...")
 
 		// Create mocks for the second instance
-		mockGenerator2 := &RecoveryMockGenerator{
-			logger:            logger,
-			shouldReturnError: false,
-			executionDelay:    200 * time.Millisecond, // Add small delay to make test more realistic
-		}
+		mockGenerator2 := NewRecoveryMockGenerator(logger, false, 200*time.Millisecond)
 		mockCardRepo2 := NewRecoveryMockCardRepository(logger)
 		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
@@ -666,11 +668,7 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		t.Log("Setting up application instance to trigger recovery with error...")
 
 		// Create mocks configured to fail
-		mockGenerator := &RecoveryMockGenerator{
-			logger:            logger,
-			shouldReturnError: true, // Mock generator will fail
-			executionDelay:    100 * time.Millisecond,
-		}
+		mockGenerator := NewRecoveryMockGenerator(logger, true, 100*time.Millisecond)
 		mockCardRepo := NewRecoveryMockCardRepository(logger)
 		taskConfig := getDefaultTestTaskConfig()
 
@@ -729,7 +727,7 @@ func TestTaskRecovery_Failure(t *testing.T) {
 		var errorMsg string
 		err = tx.QueryRow("SELECT error_message FROM tasks WHERE id = $1", taskID).Scan(&errorMsg)
 		require.NoError(t, err, "Failed to query error message")
-		assert.Contains(t, errorMsg, "mock generator error", "Task should have error message set")
+		assert.Contains(t, errorMsg, "generation failed", "Task should have error message set")
 	})
 }
 
@@ -748,11 +746,7 @@ func TestTaskRecovery_API(t *testing.T) {
 		t.Log("Setting up initial API instance...")
 
 		// Create mocks for the first instance
-		mockGenerator1 := &RecoveryMockGenerator{
-			logger:            logger,
-			shouldReturnError: false,
-			executionDelay:    0,
-		}
+		mockGenerator1 := NewRecoveryMockGenerator(logger, false, 0)
 		mockCardRepo1 := NewRecoveryMockCardRepository(logger)
 		taskConfig1 := getDefaultTestTaskConfig()
 
@@ -884,11 +878,7 @@ func TestTaskRecovery_API(t *testing.T) {
 		t.Log("Setting up second API instance to trigger recovery...")
 
 		// Create mocks for the second instance
-		mockGenerator2 := &RecoveryMockGenerator{
-			logger:            logger,
-			shouldReturnError: false,
-			executionDelay:    200 * time.Millisecond,
-		}
+		mockGenerator2 := NewRecoveryMockGenerator(logger, false, 200*time.Millisecond)
 		mockCardRepo2 := NewRecoveryMockCardRepository(logger)
 		taskConfig2 := getTestTaskConfigWithWorkers(2)
 

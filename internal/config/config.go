@@ -79,13 +79,33 @@ type AuthConfig struct {
 }
 
 // LLMConfig defines settings for Language Model integration.
-// These settings control how the application interacts with LLM services.
+// These settings control how the application interacts with LLM services
+// for generating flashcards from user memos.
 type LLMConfig struct {
 	// GeminiAPIKey is the API key for accessing Google's Gemini AI service.
 	// Required for making requests to the Gemini API endpoints.
 	// This value should be kept secret and never committed to source control.
 	GeminiAPIKey string `mapstructure:"gemini_api_key" validate:"required"`
-	// Add other LLM settings as needed (e.g., model name, request timeout, rate limiting)
+
+	// ModelName specifies the Gemini model to use (e.g., "gemini-1.5-flash").
+	// Different models offer varying capabilities, latency, and cost profiles.
+	// Default is "gemini-1.5-flash" if not specified.
+	ModelName string `mapstructure:"model_name" validate:"required"`
+
+	// PromptTemplatePath is the path to the prompt template file.
+	// The template file contains instructions for the LLM to generate flashcards.
+	// Must be a valid file path accessible to the application.
+	PromptTemplatePath string `mapstructure:"prompt_template_path" validate:"required"`
+
+	// MaxRetries specifies the maximum number of retries for transient API errors.
+	// Higher values improve reliability but may increase latency in error cases.
+	// Default is 3 if not specified.
+	MaxRetries int `mapstructure:"max_retries" validate:"omitempty,gte=0,lte=5"`
+
+	// RetryDelaySeconds specifies the base delay between retries in seconds.
+	// The actual delay uses exponential backoff: delay = base_delay * (2^attempt).
+	// Default is 2 seconds if not specified.
+	RetryDelaySeconds int `mapstructure:"retry_delay_seconds" validate:"omitempty,gte=1,lte=60"`
 }
 
 // TaskConfig defines settings for the asynchronous task runner.

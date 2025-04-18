@@ -74,6 +74,47 @@ Create a `config.yaml` file in the project root:
 
 ### Development Setup
 
+#### Build Tags for Testing
+
+This project uses Go build tags to enable different implementation paths for testing with and without external dependencies. This is particularly important for the Gemini API integration.
+
+##### Available Build Tags
+
+- `test_without_external_deps`: Enables mock implementations instead of real external API clients
+
+##### Using Build Tags
+
+For running tests without external dependencies (e.g., in CI environments):
+
+```bash
+# Run all tests with mock implementations
+go test -v -tags=test_without_external_deps ./...
+
+# Run specific tests with mock implementations
+go test -v -tags=test_without_external_deps ./internal/platform/gemini
+```
+
+For running tests with real implementations (requires API keys and external access):
+
+```bash
+# Run all tests with real implementations
+go test -v ./...
+```
+
+For building the application with mock implementations:
+
+```bash
+# Build with mock implementations
+go build -tags=test_without_external_deps ./...
+```
+
+For linting with mock implementations:
+
+```bash
+# Lint with mock implementations
+golangci-lint run --build-tags=test_without_external_deps
+```
+
 #### Pre-commit Hooks
 
 This project uses pre-commit hooks to ensure code quality and consistency across the codebase. Pre-commit hooks run automatically when you commit changes, catching issues early in the development cycle.

@@ -19,6 +19,7 @@ import (
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -28,42 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// MockGenerator implements the task.Generator interface for testing
-type MockGenerator struct {
-	logger            *slog.Logger
-	shouldReturnError bool
-}
-
-// GenerateCards creates test flashcards for the given memo text
-func (g *MockGenerator) GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error) {
-	g.logger.Info(
-		"Mock generator creating cards",
-		"memo_text_length",
-		len(memoText),
-		"user_id",
-		userID,
-		"should_error",
-		g.shouldReturnError,
-	)
-
-	if g.shouldReturnError {
-		return nil, fmt.Errorf("mock generator error: simulated card generation failure")
-	}
-
-	// Create test card content
-	cardContent1 := []byte(`{"front":"Question 1 from text: '` + memoText + `'", "back":"Answer 1"}`)
-	cardContent2 := []byte(`{"front":"Question 2 from text: '` + memoText + `'", "back":"Answer 2"}`)
-
-	// Create two test cards for the memo
-	memoID := uuid.New() // This will be overwritten by the task with the actual memo ID
-	cards := []*domain.Card{
-		mustCreateCard(userID, memoID, cardContent1),
-		mustCreateCard(userID, memoID, cardContent2),
-	}
-
-	return cards, nil
-}
 
 // MockCardRepository is a temporary implementation for testing
 type MockCardRepository struct {
@@ -76,20 +41,11 @@ func (r *MockCardRepository) CreateMultiple(ctx context.Context, cards []*domain
 	return nil
 }
 
-// Helper function to create a new card, panicking on error (for test setup only)
-func mustCreateCard(userID, memoID uuid.UUID, content []byte) *domain.Card {
-	card, err := domain.NewCard(userID, memoID, content)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create test card: %v", err))
-	}
-	return card
-}
-
 // setupTaskLifecycleTestServer sets up a test server with all required dependencies
 func setupTaskLifecycleTestServer(
 	t *testing.T,
 	tx store.DBTX,
-	mockGenerator *MockGenerator,
+	mockGenerator *mocks.MockGenerator,
 ) (*httptest.Server, *task.TaskRunner, error) {
 	t.Helper()
 
@@ -211,10 +167,7 @@ func TestMemoTaskLifecycleSuccess(t *testing.T) {
 		// Cast to *sql.Tx for direct DB access
 		tx := dbtx.(*sql.Tx)
 		// Create mock generator configured for success
-		mockGenerator := &MockGenerator{
-			logger:            slog.Default(),
-			shouldReturnError: false,
-		}
+		mockGenerator := mocks.NewMockGeneratorWithDefaultCards(uuid.Nil, uuid.Nil)
 
 		// Set up test server
 		testServer, taskRunner, err := setupTaskLifecycleTestServer(t, tx, mockGenerator)
@@ -386,7 +339,7 @@ func TestMemoTaskLifecycleSuccess(t *testing.T) {
 			memoID,
 		).Scan(&cardFront)
 		require.NoError(t, err, "Should be able to fetch card content")
-		assert.Contains(t, cardFront, memoText, "Card front should contain memo text")
+		assert.Contains(t, cardFront, "architecture", "Card front should contain expected text")
 	})
 }
 
@@ -401,10 +354,7 @@ func TestMemoTaskLifecycleFailure(t *testing.T) {
 		// Cast to *sql.Tx for direct DB access
 		tx := dbtx.(*sql.Tx)
 		// Create mock generator configured to return an error
-		mockGenerator := &MockGenerator{
-			logger:            slog.Default(),
-			shouldReturnError: true, // Force an error during card generation
-		}
+		mockGenerator := mocks.MockGeneratorThatFails()
 
 		// Set up test server
 		testServer, taskRunner, err := setupTaskLifecycleTestServer(t, tx, mockGenerator)
@@ -574,7 +524,7 @@ func TestMemoTaskLifecycleFailure(t *testing.T) {
 			memoID,
 		).Scan(&errorMsg)
 		if err == nil { // Only check if the query succeeded (some implementations might not store the error)
-			assert.Contains(t, errorMsg, "mock generator error", "Task should contain the error message")
+			assert.Contains(t, errorMsg, "generation failed", "Task should contain the error message")
 		}
 	})
 }

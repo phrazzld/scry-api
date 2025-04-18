@@ -61,6 +61,23 @@ llm:
   # API key for Google Gemini services
   gemini_api_key: your-gemini-api-key
 
+  # Gemini model to use for flashcard generation
+  # Examples: gemini-2.0-flash, gemini-1.5-pro
+  model_name: gemini-2.0-flash
+
+  # Path to the prompt template file for flashcard generation
+  # Must be a valid file path accessible to the application
+  prompt_template_path: prompts/flashcard_template.txt
+
+  # Maximum number of retries for transient API errors (0-5)
+  # Default: 3
+  max_retries: 3
+
+  # Base delay between retries in seconds (1-60)
+  # Actual delay uses exponential backoff: delay = base_delay * (2^attempt)
+  # Default: 2
+  retry_delay_seconds: 2
+
 # Task processing settings
 task:
   # Number of worker goroutines for processing background tasks (default: 2)

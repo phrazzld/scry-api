@@ -76,7 +76,7 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t105]
 
-- [ ] **t108 · feature · p2: implement MemoStore UpdateStatus method**
+- [x] **t108 · feature · p2: implement MemoStore UpdateStatus method**
     - **context:** detailed build steps #2
     - **action:**
         1. Implement `UpdateStatus` using parameterized SQL UPDATE

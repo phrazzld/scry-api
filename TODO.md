@@ -21,7 +21,7 @@
         2. Code compiles
     - **depends‑on:** none
 
-- [ ] **t103 · feature · p1: define UserCardStatsStore interface**
+- [x] **t103 · feature · p1: define UserCardStatsStore interface**
     - **context:** detailed build steps #1, architecture blueprint
     - **action:**
         1. Define `UserCardStatsStore` interface in `internal/store/stats.go` with methods: `Get`, `Update`, `Delete`

@@ -31,7 +31,7 @@
         2. Code compiles
     - **depends‑on:** none
 
-- [ ] **t104 · feature · p1: define common store errors**
+- [x] **t104 · feature · p1: define common store errors**
     - **context:** error & edge-case strategy
     - **action:**
         1. Define common errors (`ErrNotFound`, `ErrDuplicate`, `ErrNotImplemented`) in `internal/store/errors.go`

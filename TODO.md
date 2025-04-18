@@ -96,13 +96,12 @@
     - **Depends On:** [T102, T103]
     - **AC Ref:** None
 
-- [ ] **T106:** Test the updated CI workflow
+- [x] **T106:** Test the updated CI workflow
     - **Action:** Create a test PR to verify that the CI workflow succeeds with the updated configuration
     - **Depends On:** [T102, T103, T104]
     - **AC Ref:** None
 
-- [ ] **T107:** Complete the implementation and mark original task as done
+- [x] **T107:** Complete the implementation and mark original task as done
     - **Action:** Review all changes, make any necessary adjustments, and mark task F001 as completed
     - **Depends On:** [T101, T102, T103, T104, T105, T106]
     - **AC Ref:** None
-

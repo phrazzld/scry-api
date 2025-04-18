@@ -42,7 +42,7 @@
     - **depends‑on:** none
 
 ## postgres memo store
-- [ ] **t105 · feature · p1: implement PostgresMemoStore struct and constructor**
+- [x] **t105 · feature · p1: implement PostgresMemoStore struct and constructor**
     - **context:** detailed build steps #2, architecture blueprint
     - **action:**
         1. Create `PostgresMemoStore` struct with `db store.DBTX` and `logger *slog.Logger`

@@ -178,13 +178,13 @@
         2. Code compiles
     - **depends‑on:** [t103, t104]
 
-- [ ] **t117 · feature · p2: implement UserCardStatsStore Get method**
+- [x] **t117 · feature · p2: implement UserCardStatsStore Get method**
     - **context:** detailed build steps #4
     - **action:**
         1. Implement `Get` using parameterized SQL SELECT
-        2. Map `sql.ErrNoRows` to `store.ErrNotFound`
+        2. Map `sql.ErrNoRows` to `store.ErrUserCardStatsNotFound`
     - **done‑when:**
-        1. Method retrieves stats or returns ErrNotFound
+        1. Method retrieves stats or returns ErrUserCardStatsNotFound
         2. Uses parameterized queries for security
         3. Logs success/failure appropriately
     - **depends‑on:** [t116]

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
-	"math/rand"
 	"os"
 
 	"github.com/google/uuid"
@@ -31,6 +30,17 @@ type GeminiGenerator struct {
 
 	// promptTemplate is the parsed template for creating prompts
 	promptTemplate *template.Template
+
+	// client is the mock client for the Gemini API
+	client *MockGenAIClient
+
+	// modelName is the name of the Gemini model to use
+	modelName string
+}
+
+// Client returns the mock client for testing
+func (g *GeminiGenerator) Client() *MockGenAIClient {
+	return g.client
 }
 
 // NewGeminiGenerator creates a new instance of GeminiGenerator with the provided dependencies.
@@ -48,9 +58,7 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 		return nil, errors.New("logger cannot be nil")
 	}
 
-	// In test mode, we don't validate API key requirements
-	// Instead we just check that the prompt template path is valid
-
+	// In test mode, we still validate the prompt template path
 	if config.PromptTemplatePath == "" {
 		return nil, fmt.Errorf("%w: prompt template path cannot be empty", generation.ErrInvalidConfig)
 	}
@@ -68,10 +76,14 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 			generation.ErrInvalidConfig, err)
 	}
 
+	mockClient := NewMockGenAIClient()
+
 	generator := &GeminiGenerator{
 		logger:         logger,
 		config:         config,
 		promptTemplate: promptTemplate,
+		client:         mockClient,
+		modelName:      config.ModelName,
 	}
 
 	return generator, nil
@@ -146,43 +158,34 @@ func (g *GeminiGenerator) GenerateCards(
 		"memo_length", len(memoText),
 		"user_id", userID.String())
 
-	// Create a prompt just for logging purposes
-	_, err := g.createPrompt(ctx, memoText)
+	// Step 1: Create prompt from memo text
+	prompt, err := g.createPrompt(ctx, memoText)
 	if err != nil {
-		g.logger.ErrorContext(ctx, "Failed to create prompt", "error", err)
+		g.logger.ErrorContext(ctx, "Failed to create prompt",
+			"error", err)
 		return nil, fmt.Errorf("%w: %v", generation.ErrGenerationFailed, err)
 	}
 
-	// Generate deterministic but random-looking cards
-	// This uses the content of the memo to seed the random generator
-	// to ensure consistent outputs for the same input
-	seed := int64(len(memoText))
-	for i := 0; i < len(memoText) && i < 20; i++ {
-		seed += int64(memoText[i])
+	// Step 2: Use our simplified mock client to simulate API call
+	response, err := g.client.MockGenerateContent(ctx, prompt)
+	if err != nil {
+		g.logger.ErrorContext(ctx, "Mock API call failed",
+			"error", err)
+		return nil, err
 	}
-	rng := rand.New(rand.NewSource(seed))
 
-	// Extract words from the memo to use in the cards
-	words := extractKeywords(memoText)
+	// Step 3: Generate a mock memo ID
+	memoID := uuid.New()
 
-	// Create mock card data
+	// Step 4: Create domain cards from the mock response
 	var cards []*domain.Card
-	cardCount := 1 + rng.Intn(3) // Generate 1-3 cards
-
-	for i := 0; i < cardCount && i < len(words); i++ {
-		// Create a mock card with content using words from the memo
+	for i, cardSchema := range response.Cards {
+		// Create domain.CardContent structure
 		cardContent := domain.CardContent{
-			Front: fmt.Sprintf("What is the definition of '%s'?", words[i]),
-			Back:  fmt.Sprintf("This is a mock definition of '%s' generated for testing purposes.", words[i]),
-		}
-
-		// Add optional fields occasionally
-		if rng.Intn(2) == 0 {
-			cardContent.Hint = "This is a mock hint."
-		}
-
-		if rng.Intn(2) == 0 {
-			cardContent.Tags = []string{"mock", "test", "flashcard"}
+			Front: cardSchema.Front,
+			Back:  cardSchema.Back,
+			Hint:  cardSchema.Hint,
+			Tags:  cardSchema.Tags,
 		}
 
 		// Convert to JSON
@@ -191,9 +194,6 @@ func (g *GeminiGenerator) GenerateCards(
 			return nil, fmt.Errorf("failed to marshal card content to JSON: %w", err)
 		}
 
-		// Create mock memo ID (in real implementation this would be provided)
-		memoID := uuid.New()
-
 		// Create domain.Card
 		card, err := domain.NewCard(userID, memoID, contentJSON)
 		if err != nil {
@@ -201,6 +201,9 @@ func (g *GeminiGenerator) GenerateCards(
 		}
 
 		cards = append(cards, card)
+		g.logger.DebugContext(ctx, "Created mock card",
+			"card_id", card.ID.String(),
+			"card_index", i)
 	}
 
 	g.logger.InfoContext(ctx, "Successfully generated mock flashcards",
@@ -208,40 +211,4 @@ func (g *GeminiGenerator) GenerateCards(
 		"user_id", userID.String())
 
 	return cards, nil
-}
-
-// extractKeywords is a helper function that extracts words from the memo text
-// for use in mock flashcards.
-func extractKeywords(text string) []string {
-	// This is a simple implementation for testing - in a real application
-	// you might want to implement actual keyword extraction
-	words := []string{"test", "mock", "implementation", "flashcard", "gemini"}
-
-	// If we have actual text, use some words from it
-	if len(text) > 10 {
-		// Pick a few words from the text as "keywords"
-		// This is extremely simplified and just for testing
-		customWords := []string{}
-		start := 0
-
-		for i := 0; i < len(text); i++ {
-			if text[i] == ' ' || text[i] == '.' || text[i] == ',' || text[i] == '\n' {
-				if i-start > 4 { // Only use words longer than 4 characters
-					word := text[start:i]
-					customWords = append(customWords, word)
-				}
-				start = i + 1
-			}
-
-			if len(customWords) >= 5 {
-				break
-			}
-		}
-
-		if len(customWords) > 0 {
-			return customWords
-		}
-	}
-
-	return words
 }

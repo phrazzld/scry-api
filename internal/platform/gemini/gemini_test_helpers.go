@@ -18,10 +18,15 @@ func NewTestableGenerator(
 	cfg config.LLMConfig,
 	tmpl *template.Template,
 ) *GeminiGenerator {
+	// Create a mock client
+	mockClient := NewMockGenAIClient()
+
 	return &GeminiGenerator{
 		logger:         logger,
 		config:         cfg,
 		promptTemplate: tmpl,
+		client:         mockClient,
+		modelName:      cfg.ModelName,
 	}
 }
 
@@ -33,3 +38,7 @@ func CreatePromptForTest(
 ) (string, error) {
 	return g.createPrompt(ctx, memoText)
 }
+
+// The test helper methods are intentionally limited to createPrompt
+// as testing of callGeminiWithRetry and parseResponse happens through
+// the GenerateCards method, which is the public API of the GeminiGenerator

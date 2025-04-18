@@ -11,8 +11,8 @@ import (
 	"html/template"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/config"
@@ -25,19 +25,26 @@ import (
 
 // Test utilities
 
-// createTempTemplateFile creates a temporary template file for testing
-func createTempTemplateFile(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "test-prompt.tmpl")
-	err := os.WriteFile(path, []byte(content), 0600)
-	require.NoError(t, err, "Failed to create temp template file")
-	return path
-}
-
 // newTestLogger creates a logger for testing
 func newTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
+
+// newTestTemplate creates a template for testing
+func newTestTemplate() *template.Template {
+	tmpl, _ := template.New("test").Parse("Generate flashcards for: {{.MemoText}}")
+	return tmpl
+}
+
+// newTestConfig creates a configuration for testing
+func newTestConfig() config.LLMConfig {
+	return config.LLMConfig{
+		GeminiAPIKey:       "test-api-key",
+		ModelName:          "test-model",
+		PromptTemplatePath: "test-prompt-template.txt",
+		MaxRetries:         3,
+		RetryDelaySeconds:  1,
+	}
 }
 
 // Basic test to verify minimal functionality
@@ -100,7 +107,7 @@ func TestCardCreation(t *testing.T) {
 	assert.Equal(t, cardContent.Back, parsedContent.Back, "Back should match")
 }
 
-// Test template execution (similar to createPrompt functionality)
+// Test createPrompt functionality
 func TestCreatePrompt(t *testing.T) {
 	ctx := context.Background()
 	logger := newTestLogger()
@@ -109,27 +116,96 @@ func TestCreatePrompt(t *testing.T) {
 	tmpl, err := template.New("test").Parse(templateContent)
 	require.NoError(t, err, "Failed to parse template")
 
-	testConfig := config.LLMConfig{
-		GeminiAPIKey:       "test-api-key",
-		ModelName:          "test-model",
-		PromptTemplatePath: "test-template.txt",
-		MaxRetries:         3,
-		RetryDelaySeconds:  2,
-	}
+	testConfig := newTestConfig()
 
-	generator := NewTestableGenerator(logger, testConfig, tmpl)
+	generator := gemini.NewTestableGenerator(logger, testConfig, tmpl)
 
 	// Test valid memo text
 	memoText := "This is a test memo."
-	prompt, err := CreatePromptForTest(generator, ctx, memoText)
+	prompt, err := gemini.CreatePromptForTest(generator, ctx, memoText)
 	require.NoError(t, err, "Failed to create prompt")
-	assert.Equal(t, "Generate flashcards for: This is a test memo.", prompt, "Prompt should match expected output")
+	assert.Equal(
+		t,
+		"Generate flashcards for: This is a test memo.",
+		prompt,
+		"Prompt should match expected output",
+	)
 
 	// Test empty memo text
-	prompt, err = CreatePromptForTest(generator, ctx, "")
+	prompt, err = gemini.CreatePromptForTest(generator, ctx, "")
 	assert.Error(t, err, "Should error with empty memo text")
 	assert.Equal(t, gemini.ErrEmptyMemoText, err, "Should return ErrEmptyMemoText for empty memo")
 	assert.Empty(t, prompt, "Prompt should be empty on error")
+}
+
+// Test GenerateCards functionality with the mock implementation
+func TestGenerateCards_HappyPath(t *testing.T) {
+	ctx := context.Background()
+	logger := newTestLogger()
+	tmpl := newTestTemplate()
+	testConfig := newTestConfig()
+
+	generator := gemini.NewTestableGenerator(logger, testConfig, tmpl)
+
+	// Test with valid inputs
+	memoText := "This is a test memo about Go programming language."
+	userID := uuid.New()
+
+	cards, err := generator.GenerateCards(ctx, memoText, userID)
+	require.NoError(t, err, "GenerateCards should not fail with valid inputs")
+	require.NotNil(t, cards, "Cards should not be nil")
+	require.NotEmpty(t, cards, "Cards should not be empty")
+
+	// Verify card structure
+	for _, card := range cards {
+		assert.NotEqual(t, uuid.Nil, card.ID, "Card ID should not be nil")
+		assert.Equal(t, userID, card.UserID, "Card should have correct user ID")
+		assert.NotEqual(t, uuid.Nil, card.MemoID, "Card memo ID should not be nil")
+
+		// Check card content
+		var content domain.CardContent
+		err := json.Unmarshal(card.Content, &content)
+		require.NoError(t, err, "Should be able to unmarshal card content")
+
+		assert.NotEmpty(t, content.Front, "Card front should not be empty")
+		assert.NotEmpty(t, content.Back, "Card back should not be empty")
+	}
+}
+
+// Test GenerateCards with empty memo text
+func TestGenerateCards_EmptyMemoText(t *testing.T) {
+	ctx := context.Background()
+	logger := newTestLogger()
+	tmpl := newTestTemplate()
+	testConfig := newTestConfig()
+
+	generator := gemini.NewTestableGenerator(logger, testConfig, tmpl)
+
+	// Test with empty memo text
+	userID := uuid.New()
+
+	cards, err := generator.GenerateCards(ctx, "", userID)
+	assert.Error(t, err, "GenerateCards should fail with empty memo text")
+	assert.Equal(t, gemini.ErrEmptyMemoText, err, "Error should be ErrEmptyMemoText")
+	assert.Nil(t, cards, "Cards should be nil")
+}
+
+// Test GenerateCards with nil user ID
+func TestGenerateCards_EmptyUserID(t *testing.T) {
+	ctx := context.Background()
+	logger := newTestLogger()
+	tmpl := newTestTemplate()
+	testConfig := newTestConfig()
+
+	generator := gemini.NewTestableGenerator(logger, testConfig, tmpl)
+
+	// Test with nil user ID
+	memoText := "This is a test memo."
+
+	cards, err := generator.GenerateCards(ctx, memoText, uuid.Nil)
+	assert.Error(t, err, "GenerateCards should fail with nil user ID")
+	assert.Contains(t, err.Error(), "user ID cannot be empty")
+	assert.Nil(t, cards, "Cards should be nil")
 }
 
 // Test error wrapping in the generation package
@@ -138,14 +214,109 @@ func TestErrorWrapping(t *testing.T) {
 	origErr := errors.New("some underlying error")
 	wrappedErr := fmt.Errorf("%w: %v", generation.ErrGenerationFailed, origErr)
 
-	assert.True(t, errors.Is(wrappedErr, generation.ErrGenerationFailed), "Wrapped error should be ErrGenerationFailed")
-	assert.Contains(t, wrappedErr.Error(), origErr.Error(), "Wrapped error should contain the original error")
+	assert.True(
+		t,
+		errors.Is(wrappedErr, generation.ErrGenerationFailed),
+		"Wrapped error should be ErrGenerationFailed",
+	)
+	assert.Contains(
+		t,
+		wrappedErr.Error(),
+		origErr.Error(),
+		"Wrapped error should contain the original error",
+	)
 }
 
-// Note: The remaining tests that require the actual Gemini API client
-// will be implemented once all dependencies are properly resolved
-// These include:
-// - TestNewGeminiGenerator
-// - TestCallGeminiWithRetry
-// - TestParseResponse
-// - TestGenerateCards
+// Test card content with various fields
+func TestCardContent_AllFields(t *testing.T) {
+	// Create card content with all fields
+	expected := domain.CardContent{
+		Front:    "What is Go?",
+		Back:     "A programming language",
+		Hint:     "Created by Google",
+		Tags:     []string{"programming", "languages"},
+		ImageURL: "https://example.com/go.png",
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(expected)
+	require.NoError(t, err, "Failed to marshal card content")
+
+	// Unmarshal back
+	var actual domain.CardContent
+	err = json.Unmarshal(jsonData, &actual)
+	require.NoError(t, err, "Failed to unmarshal card content")
+
+	// Verify fields
+	assert.Equal(t, expected.Front, actual.Front, "Front should match")
+	assert.Equal(t, expected.Back, actual.Back, "Back should match")
+	assert.Equal(t, expected.Hint, actual.Hint, "Hint should match")
+	assert.Equal(t, expected.Tags, actual.Tags, "Tags should match")
+	assert.Equal(t, expected.ImageURL, actual.ImageURL, "ImageURL should match")
+}
+
+// Test card timestamps
+func TestCard_Timestamps(t *testing.T) {
+	userID := uuid.New()
+	memoID := uuid.New()
+	content := []byte(`{"front":"test","back":"test"}`)
+
+	before := time.Now().UTC().Add(-time.Second)
+	card, err := domain.NewCard(userID, memoID, content)
+	require.NoError(t, err, "Failed to create card")
+	after := time.Now().UTC().Add(time.Second)
+
+	// Timestamps should be between before and after
+	assert.True(t, (card.CreatedAt.After(before) || card.CreatedAt.Equal(before)) &&
+		(card.CreatedAt.Before(after) || card.CreatedAt.Equal(after)),
+		"CreatedAt should be around now")
+
+	assert.True(t, (card.UpdatedAt.After(before) || card.UpdatedAt.Equal(before)) &&
+		(card.UpdatedAt.Before(after) || card.UpdatedAt.Equal(after)),
+		"UpdatedAt should be around now")
+}
+
+// Test card validation failures
+func TestCard_ValidationFailures(t *testing.T) {
+	// Test nil user ID
+	_, err := domain.NewCard(uuid.Nil, uuid.New(), []byte(`{"front":"test","back":"test"}`))
+	assert.Error(t, err, "Should error with nil user ID")
+	assert.Equal(t, domain.ErrEmptyCardUserID, err, "Error should be ErrEmptyCardUserID")
+
+	// Test nil memo ID
+	_, err = domain.NewCard(uuid.New(), uuid.Nil, []byte(`{"front":"test","back":"test"}`))
+	assert.Error(t, err, "Should error with nil memo ID")
+	assert.Equal(t, domain.ErrEmptyCardMemoID, err, "Error should be ErrEmptyCardMemoID")
+
+	// Test empty content
+	_, err = domain.NewCard(uuid.New(), uuid.New(), []byte{})
+	assert.Error(t, err, "Should error with empty content")
+	assert.Equal(t, domain.ErrEmptyCardContent, err, "Error should be ErrEmptyCardContent")
+
+	// Test invalid JSON content
+	_, err = domain.NewCard(uuid.New(), uuid.New(), []byte("not json"))
+	assert.Error(t, err, "Should error with invalid JSON content")
+	assert.Equal(t, domain.ErrInvalidCardContent, err, "Error should be ErrInvalidCardContent")
+}
+
+// Test error handling
+func TestErrorHandling(t *testing.T) {
+	// Test that generation.ErrContentBlocked is properly wrapped
+	contentBlockedErr := fmt.Errorf(
+		"%w: content blocked by safety filters",
+		generation.ErrContentBlocked,
+	)
+	assert.True(
+		t,
+		errors.Is(contentBlockedErr, generation.ErrContentBlocked),
+		"Error should be ErrContentBlocked",
+	)
+
+	// Test that generation.ErrGenerationFailed is properly wrapped
+	genFailedErr := fmt.Errorf("%w: some underlying error", generation.ErrGenerationFailed)
+	assert.True(
+		t,
+		errors.Is(genFailedErr, generation.ErrGenerationFailed),
+		"Error should be ErrGenerationFailed",
+	)
+}

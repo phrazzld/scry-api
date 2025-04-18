@@ -189,14 +189,14 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t116]
 
-- [ ] **t118 · feature · p2: implement UserCardStatsStore Update method**
+- [x] **t118 · feature · p2: implement UserCardStatsStore Update method**
     - **context:** detailed build steps #4
     - **action:**
         1. Implement `Update` using parameterized SQL UPDATE
         2. Validate stats before updating
         3. Check rows affected for not found case
     - **done‑when:**
-        1. Method updates stats or returns ErrNotFound
+        1. Method updates stats or returns ErrUserCardStatsNotFound
         2. Uses parameterized queries for security
         3. Logs success/failure appropriately
     - **depends‑on:** [t116]

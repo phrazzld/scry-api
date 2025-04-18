@@ -110,9 +110,89 @@ func (s *PostgresUserCardStatsStore) Get(ctx context.Context, userID, cardID uui
 // Returns store.ErrUserCardStatsNotFound if the statistics entry does not exist.
 // Returns validation errors from the domain UserCardStats if data is invalid.
 func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.UserCardStats) error {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("updating user card stats",
+		slog.String("user_id", stats.UserID.String()),
+		slog.String("card_id", stats.CardID.String()))
+
+	// Validate stats before updating
+	if err := stats.Validate(); err != nil {
+		log.Warn("user card stats validation failed during update",
+			slog.String("error", err.Error()),
+			slog.String("user_id", stats.UserID.String()),
+			slog.String("card_id", stats.CardID.String()))
+		return err
+	}
+
+	// Always update the UpdatedAt timestamp
+	stats.UpdatedAt = time.Now().UTC()
+	query := `
+		UPDATE user_card_stats
+		SET interval = $1,
+			ease_factor = $2,
+			consecutive_correct = $3,
+			last_reviewed_at = $4,
+			next_review_at = $5,
+			review_count = $6,
+			updated_at = $7
+		WHERE user_id = $8 AND card_id = $9
+	`
+
+	// Handling NULL value for LastReviewedAt
+	var lastReviewedAt interface{}
+	if stats.LastReviewedAt.IsZero() {
+		lastReviewedAt = nil
+	} else {
+		lastReviewedAt = stats.LastReviewedAt
+	}
+
+	result, err := s.db.ExecContext(
+		ctx,
+		query,
+		stats.Interval,
+		stats.EaseFactor,
+		stats.ConsecutiveCorrect,
+		lastReviewedAt,
+		stats.NextReviewAt,
+		stats.ReviewCount,
+		stats.UpdatedAt,
+		stats.UserID,
+		stats.CardID,
+	)
+
+	if err != nil {
+		log.Error("failed to update user card stats",
+			slog.String("error", err.Error()),
+			slog.String("user_id", stats.UserID.String()),
+			slog.String("card_id", stats.CardID.String()))
+		return err
+	}
+
+	// Check if a row was actually updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get rows affected",
+			slog.String("error", err.Error()),
+			slog.String("user_id", stats.UserID.String()),
+			slog.String("card_id", stats.CardID.String()))
+		return err
+	}
+
+	// If no rows were affected, the stats entry didn't exist
+	if rowsAffected == 0 {
+		log.Debug("user card stats not found for update",
+			slog.String("user_id", stats.UserID.String()),
+			slog.String("card_id", stats.CardID.String()))
+		return store.ErrUserCardStatsNotFound
+	}
+
+	log.Info("user card stats updated successfully",
+		slog.String("user_id", stats.UserID.String()),
+		slog.String("card_id", stats.CardID.String()),
+		slog.Time("next_review_at", stats.NextReviewAt))
+	return nil
 }
 
 // Delete implements store.UserCardStatsStore.Delete

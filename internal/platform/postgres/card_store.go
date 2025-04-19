@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -48,10 +51,223 @@ var _ store.CardStore = (*PostgresCardStore)(nil)
 // It saves multiple cards to the database in a single transaction.
 // The operation is atomic - either all cards are created or none.
 // Returns validation errors if any card data is invalid.
+// Also creates corresponding UserCardStats entries for each card.
 func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	// Empty list case
+	if len(cards) == 0 {
+		log.Debug("no cards to create")
+		return nil
+	}
+
+	// Validate all cards before proceeding
+	for i, card := range cards {
+		if err := card.Validate(); err != nil {
+			log.Warn("card validation failed",
+				slog.String("error", err.Error()),
+				slog.String("card_id", card.ID.String()),
+				slog.Int("card_index", i))
+			return err
+		}
+	}
+
+	// Determine if we need to start a transaction or use existing one
+	var tx = s.db
+	var txCreated bool
+
+	// Use type assertion to check if s.db is already a transaction
+	_, isTransaction := s.db.(interface {
+		Commit() error
+		Rollback() error
+	})
+
+	// Only create a new transaction if not already in one
+	if !isTransaction {
+		// Type assertion to get the underlying database connection
+		dbConn, ok := s.db.(interface {
+			BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+		})
+		if !ok {
+			log.Error("failed to create transaction - db doesn't support BeginTx")
+			return errors.New("database connection doesn't support transactions")
+		}
+
+		var err error
+		txObj, err := dbConn.BeginTx(ctx, nil)
+		if err != nil {
+			log.Error("failed to begin transaction", slog.String("error", err.Error()))
+			return err
+		}
+		tx = txObj
+		txCreated = true
+		log.Debug("transaction created for batch card insertion")
+	}
+
+	var txObj interface {
+		Commit() error
+		Rollback() error
+	}
+
+	// If we created a transaction, ensure it gets committed or rolled back
+	if txCreated {
+		// Use type assertion to get the actual transaction methods
+		var ok bool
+		txObj, ok = tx.(interface {
+			Commit() error
+			Rollback() error
+		})
+		if !ok {
+			log.Error("invalid transaction type")
+			return errors.New("invalid transaction type")
+		}
+
+		defer func() {
+			// If panic occurs, try to roll back
+			if r := recover(); r != nil {
+				_ = txObj.Rollback()
+				log.Error("panic during card creation", slog.Any("panic", r))
+				panic(r) // Re-throw the panic after cleanup
+			}
+		}()
+	}
+
+	// Insert cards
+	cardQuery := `
+		INSERT INTO cards (id, user_id, memo_id, content, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+
+	for _, card := range cards {
+		_, err := tx.ExecContext(
+			ctx,
+			cardQuery,
+			card.ID,
+			card.UserID,
+			card.MemoID,
+			card.Content,
+			card.CreatedAt,
+			card.UpdatedAt,
+		)
+
+		if err != nil {
+			// Check for foreign key violation
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolationCode {
+				if strings.Contains(pgErr.Message, "fk_cards_user") {
+					log.Warn("foreign key violation - user does not exist",
+						slog.String("error", err.Error()),
+						slog.String("card_id", card.ID.String()),
+						slog.String("user_id", card.UserID.String()))
+					if txCreated {
+						_ = txObj.Rollback()
+					}
+					return fmt.Errorf("%w: user with ID %s not found",
+						store.ErrInvalidEntity, card.UserID)
+				}
+				if strings.Contains(pgErr.Message, "fk_cards_memo") {
+					log.Warn("foreign key violation - memo does not exist",
+						slog.String("error", err.Error()),
+						slog.String("card_id", card.ID.String()),
+						slog.String("memo_id", card.MemoID.String()))
+					if txCreated {
+						_ = txObj.Rollback()
+					}
+					return fmt.Errorf("%w: memo with ID %s not found",
+						store.ErrInvalidEntity, card.MemoID)
+				}
+			}
+
+			log.Error("failed to insert card",
+				slog.String("error", err.Error()),
+				slog.String("card_id", card.ID.String()))
+			if txCreated {
+				_ = txObj.Rollback()
+			}
+			return err
+		}
+
+		log.Debug("card inserted successfully",
+			slog.String("card_id", card.ID.String()),
+			slog.String("user_id", card.UserID.String()),
+			slog.String("memo_id", card.MemoID.String()))
+	}
+
+	// Now create the corresponding UserCardStats entries
+	statsQuery := `
+		INSERT INTO user_card_stats
+		(user_id, card_id, interval, ease_factor, consecutive_correct,
+		 last_reviewed_at, next_review_at, review_count, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+
+	for _, card := range cards {
+		// Create default stats object
+		stats, err := domain.NewUserCardStats(card.UserID, card.ID)
+		if err != nil {
+			log.Error("failed to create default stats",
+				slog.String("error", err.Error()),
+				slog.String("card_id", card.ID.String()),
+				slog.String("user_id", card.UserID.String()))
+			if txCreated {
+				_ = txObj.Rollback()
+			}
+			return err
+		}
+
+		// Handle zero time for last_reviewed_at
+		var lastReviewedAt interface{}
+		if stats.LastReviewedAt.IsZero() {
+			lastReviewedAt = nil
+		} else {
+			lastReviewedAt = stats.LastReviewedAt
+		}
+
+		_, err = tx.ExecContext(
+			ctx,
+			statsQuery,
+			stats.UserID,
+			stats.CardID,
+			stats.Interval,
+			stats.EaseFactor,
+			stats.ConsecutiveCorrect,
+			lastReviewedAt,
+			stats.NextReviewAt,
+			stats.ReviewCount,
+			stats.CreatedAt,
+			stats.UpdatedAt,
+		)
+
+		if err != nil {
+			log.Error("failed to insert card stats",
+				slog.String("error", err.Error()),
+				slog.String("card_id", card.ID.String()),
+				slog.String("user_id", card.UserID.String()))
+			if txCreated {
+				_ = txObj.Rollback()
+			}
+			return err
+		}
+
+		log.Debug("card stats inserted successfully",
+			slog.String("card_id", card.ID.String()),
+			slog.String("user_id", card.UserID.String()))
+	}
+
+	// Commit the transaction if we created it
+	if txCreated {
+		if err := txObj.Commit(); err != nil {
+			log.Error("failed to commit transaction", slog.String("error", err.Error()))
+			_ = txObj.Rollback()
+			return err
+		}
+		log.Debug("transaction committed successfully")
+	}
+
+	log.Info("batch card creation completed successfully",
+		slog.Int("card_count", len(cards)))
+	return nil
 }
 
 // GetByID implements store.CardStore.GetByID

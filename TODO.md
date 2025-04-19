@@ -111,7 +111,7 @@
         2. Code compiles
     - **depends‑on:** [t102, t104]
 
-- [ ] **t111 · feature · p1: implement CardStore CreateMultiple method**
+- [x] **t111 · feature · p1: implement CardStore CreateMultiple method**
     - **context:** detailed build steps #3, error & edge-case strategy
     - **action:**
         1. Implement batch insert for cards and stats within single transaction
@@ -295,9 +295,10 @@
     - **depends‑on:** [t101, t102, t103, t105, t110, t116]
 
 ### clarifications & assumptions
-- [ ] **issue:** clarify if CreateMultiple should handle both cards and stats atomically
+- [x] **issue:** clarify if CreateMultiple should handle both cards and stats atomically
     - **context:** open question
     - **blocking?:** yes (for t111)
+    - **resolution:** Implemented CreateMultiple to handle both cards and stats atomically in a single transaction
 
 - [ ] **issue:** determine if additional reporting/filtering functionality is needed
     - **context:** open question

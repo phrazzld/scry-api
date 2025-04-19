@@ -199,7 +199,47 @@ func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.U
 // It removes user card statistics by the combination of user ID and card ID.
 // Returns store.ErrUserCardStatsNotFound if the statistics entry does not exist.
 func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID uuid.UUID) error {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("deleting user card stats",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+
+	query := `
+		DELETE FROM user_card_stats
+		WHERE user_id = $1 AND card_id = $2
+	`
+
+	result, err := s.db.ExecContext(ctx, query, userID, cardID)
+	if err != nil {
+		log.Error("failed to delete user card stats",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return err
+	}
+
+	// Check if a row was actually deleted
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get rows affected",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return err
+	}
+
+	// If no rows were affected, the stats entry didn't exist
+	if rowsAffected == 0 {
+		log.Debug("user card stats not found for deletion",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return store.ErrUserCardStatsNotFound
+	}
+
+	log.Info("user card stats deleted successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+	return nil
 }

@@ -201,7 +201,7 @@
         3. Logs success/failure appropriately
     - **depends‑on:** [t116]
 
-- [ ] **t119 · feature · p2: implement UserCardStatsStore Delete method**
+- [x] **t119 · feature · p2: implement UserCardStatsStore Delete method**
     - **context:** detailed build steps #4
     - **action:**
         1. Implement `Delete` using parameterized SQL DELETE

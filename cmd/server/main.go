@@ -49,7 +49,7 @@ type appDependencies struct {
 
 	// Stores (using interfaces for proper abstraction)
 	UserStore          store.UserStore
-	TaskStore          *postgres.PostgresTaskStore // Using concrete type as there's no TaskStore interface yet
+	TaskStore          task.TaskStore // Using the interface defined in task.TaskStore
 	MemoStore          store.MemoStore
 	CardStore          store.CardStore
 	UserCardStatsStore store.UserCardStatsStore
@@ -273,7 +273,7 @@ func startServer(cfg *config.Config) {
 
 	// Step 3: Initialize stores and other dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-	taskStore := postgres.NewPostgresTaskStore(db)
+	taskStore := postgres.NewPostgresTaskStore(db) // Concrete implementation that satisfies task.TaskStore
 	memoStore := postgres.NewPostgresMemoStore(db, logger)
 	cardStore := postgres.NewPostgresCardStore(db, logger)
 	userCardStatsStore := postgres.NewPostgresUserCardStatsStore(db, logger)

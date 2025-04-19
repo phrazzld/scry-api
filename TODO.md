@@ -122,7 +122,7 @@
         1. `internal/task/task.go` contains the `TaskStore` interface definition.
     - **Depends‑on:** none
 
-- [ ] **T013 · refactor · p1: update dependency injection to use task.TaskStore interface**
+- [x] **T013 · refactor · p1: update dependency injection to use task.TaskStore interface**
     - **Context:** cr‑05 Use TaskStore interface in dependency injection
     - **Action:**
         1. Update `appDependencies` in `cmd/server/main.go` to use interface type.

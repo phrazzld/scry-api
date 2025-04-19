@@ -2,16 +2,9 @@ package store
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-)
-
-// Common user card stats store errors
-var (
-	// ErrUserCardStatsNotFound indicates that the requested user card stats do not exist in the store.
-	ErrUserCardStatsNotFound = errors.New("user card stats not found")
 )
 
 // UserCardStatsStore defines the interface for user card statistics data persistence.

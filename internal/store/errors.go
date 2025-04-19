@@ -1,6 +1,9 @@
 package store
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Common store errors used across all store implementations.
 var (
@@ -32,4 +35,24 @@ var (
 	// ErrTransactionFailed is returned when a database transaction fails
 	// to commit or when an operation within a transaction fails.
 	ErrTransactionFailed = errors.New("transaction failed")
+
+	// Entity-specific "not found" errors
+
+	// ErrUserNotFound indicates that the requested user does not exist in the store.
+	ErrUserNotFound = fmt.Errorf("%w: user", ErrNotFound)
+
+	// ErrMemoNotFound indicates that the requested memo does not exist in the store.
+	ErrMemoNotFound = fmt.Errorf("%w: memo", ErrNotFound)
+
+	// ErrCardNotFound indicates that the requested card does not exist in the store.
+	ErrCardNotFound = fmt.Errorf("%w: card", ErrNotFound)
+
+	// ErrUserCardStatsNotFound indicates that the requested user card stats do not exist in the store.
+	ErrUserCardStatsNotFound = fmt.Errorf("%w: user card stats", ErrNotFound)
+
+	// Entity-specific "duplicate" errors
+
+	// ErrEmailExists indicates that a user with the given email already exists.
+	// This is returned when attempting to create a user with an email that's already in use.
+	ErrEmailExists = fmt.Errorf("%w: email", ErrDuplicate)
 )

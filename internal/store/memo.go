@@ -2,16 +2,9 @@ package store
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-)
-
-// Common memo store errors
-var (
-	// ErrMemoNotFound indicates that the requested memo does not exist in the store.
-	ErrMemoNotFound = errors.New("memo not found")
 )
 
 // MemoStore defines the interface for memo data persistence.

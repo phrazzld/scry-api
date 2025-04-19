@@ -34,8 +34,8 @@ func TestErrorDefinitions(t *testing.T) {
 		assert.True(t, errors.Is(err, store.ErrUserNotFound))
 		assert.False(t, errors.Is(err, store.ErrEmailExists))
 
-		// Verify the error message
-		assert.Equal(t, "user not found", err.Error())
+		// Verify the error can be unwrapped to ErrNotFound
+		assert.True(t, errors.Is(err, store.ErrNotFound))
 	})
 
 	// Test ErrEmailExists
@@ -49,8 +49,8 @@ func TestErrorDefinitions(t *testing.T) {
 		assert.True(t, errors.Is(err, store.ErrEmailExists))
 		assert.False(t, errors.Is(err, store.ErrUserNotFound))
 
-		// Verify the error message
-		assert.Equal(t, "email already exists", err.Error())
+		// Verify the error can be unwrapped to ErrDuplicate
+		assert.True(t, errors.Is(err, store.ErrDuplicate))
 	})
 }
 

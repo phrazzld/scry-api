@@ -2,16 +2,9 @@ package store
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-)
-
-// Common card store errors
-var (
-	// ErrCardNotFound indicates that the requested card does not exist in the store.
-	ErrCardNotFound = errors.New("card not found")
 )
 
 // CardStore defines the interface for card data persistence.

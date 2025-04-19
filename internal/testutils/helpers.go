@@ -186,3 +186,41 @@ func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
 func CreateTestUserStore(tx store.DBTX) store.UserStore {
 	return postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 }
+
+// Stores represents all database store implementations.
+// This struct provides a convenient way to access all stores
+// that share the same transaction for test isolation.
+type Stores struct {
+	UserStore          store.UserStore
+	MemoStore          store.MemoStore
+	CardStore          store.CardStore
+	UserCardStatsStore store.UserCardStatsStore
+}
+
+// CreateTestStores creates all store implementations using a single transaction.
+// This ensures that all changes made through these stores will be rolled back
+// when the test completes, providing proper test isolation.
+//
+// Usage:
+//
+//	testutils.WithTx(t, db, func(tx store.DBTX) {
+//	    stores := testutils.CreateTestStores(tx)
+//
+//	    // Use any of the stores
+//	    user, err := stores.UserStore.Create(ctx, testUser)
+//	    require.NoError(t, err)
+//
+//	    // Use another store with the same transaction
+//	    memo, err := stores.MemoStore.Create(ctx, testMemo)
+//	    require.NoError(t, err)
+//
+//	    // All changes will be rolled back automatically
+//	})
+func CreateTestStores(tx store.DBTX) Stores {
+	return Stores{
+		UserStore:          postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost),
+		MemoStore:          postgres.NewPostgresMemoStore(tx, nil),
+		CardStore:          postgres.NewPostgresCardStore(tx, nil),
+		UserCardStatsStore: postgres.NewPostgresUserCardStatsStore(tx, nil),
+	}
+}

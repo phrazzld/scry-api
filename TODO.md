@@ -213,7 +213,7 @@
     - **depends‑on:** [t116]
 
 ## testing
-- [ ] **t120 · test · p2: implement test utilities for transaction isolation**
+- [x] **t120 · test · p2: implement test utilities for transaction isolation**
     - **context:** testing strategy
     - **action:**
         1. Implement or verify `testutils.WithTx` helper for transaction-isolated tests

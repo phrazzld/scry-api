@@ -18,6 +18,9 @@ type PostgresTaskStore struct {
 	db store.DBTX
 }
 
+// Compile-time verification that PostgresTaskStore implements task.TaskStore
+var _ task.TaskStore = (*PostgresTaskStore)(nil)
+
 // NewPostgresTaskStore creates a new PostgresTaskStore
 func NewPostgresTaskStore(db store.DBTX) *PostgresTaskStore {
 	return &PostgresTaskStore{

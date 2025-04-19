@@ -113,7 +113,7 @@
     - **Depends‑on:** [T010]
 
 ## Dependency Injection & Modularity
-- [ ] **T012 · refactor · p1: define task.TaskStore interface**
+- [x] **T012 · refactor · p1: define task.TaskStore interface**
     - **Context:** cr‑05 Use TaskStore interface in dependency injection
     - **Action:**
         1. Define a `TaskStore` interface in `internal/task/task.go` with necessary methods.

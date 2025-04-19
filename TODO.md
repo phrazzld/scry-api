@@ -234,7 +234,7 @@
         2. Tests pass against real database
     - **depends‑on:** [t106, t107, t108, t109, t120]
 
-- [ ] **t122 · test · p2: write integration tests for CardStore**
+- [x] **t122 · test · p2: write integration tests for CardStore**
     - **context:** testing strategy, build step #7
     - **action:**
         1. Create `card_store_test.go` with tests for all methods

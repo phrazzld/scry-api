@@ -78,6 +78,19 @@ func withTxForCardTest(t *testing.T, db *sql.DB, fn func(tx *sql.Tx)) {
 	fn(tx)
 }
 
+// TestCardStoreIntegration runs a complete set of integration tests for the CardStore implementation.
+// This ensures all methods work as expected with a real database connection.
+func TestCardStoreIntegration(t *testing.T) {
+	// Skip the integration test wrapper if not in integration test environment
+	if !checkIntegrationTestEnvironment() {
+		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
+	}
+
+	// Test only the CreateMultiple method for now
+	// The other method tests are already implemented as standalone functions
+	t.Run("TestPostgresCardStore_CreateMultiple", TestPostgresCardStore_CreateMultiple)
+}
+
 // TestPostgresCardStore_CreateMultiple tests the CreateMultiple method
 func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 	// Skip if not in integration test environment

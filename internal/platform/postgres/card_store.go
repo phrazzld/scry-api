@@ -185,7 +185,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			if txCreated {
 				_ = txObj.Rollback()
 			}
-			return MapError(err)
+			return fmt.Errorf("failed to insert card: %w", MapError(err))
 		}
 
 		log.Debug("card inserted successfully",
@@ -247,7 +247,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			if txCreated {
 				_ = txObj.Rollback()
 			}
-			return MapError(err)
+			return fmt.Errorf("failed to insert card stats: %w", MapError(err))
 		}
 
 		log.Debug("card stats inserted successfully",
@@ -297,14 +297,14 @@ func (s *PostgresCardStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if IsNotFoundError(err) {
 			log.Debug("card not found", slog.String("card_id", id.String()))
 			return nil, store.ErrCardNotFound
 		}
 		log.Error("failed to get card by ID",
 			slog.String("error", err.Error()),
 			slog.String("card_id", id.String()))
-		return nil, MapError(err)
+		return nil, fmt.Errorf("failed to get card by ID: %w", MapError(err))
 	}
 
 	log.Debug("card retrieved successfully",
@@ -353,7 +353,7 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 		log.Error("failed to update card content",
 			slog.String("error", err.Error()),
 			slog.String("card_id", id.String()))
-		return MapError(err)
+		return fmt.Errorf("failed to update card content: %w", MapError(err))
 	}
 
 	// Check if a row was actually updated
@@ -362,7 +362,7 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 		if errors.Is(err, store.ErrNotFound) {
 			return store.ErrCardNotFound
 		}
-		return err
+		return fmt.Errorf("failed to update card content: %w", err)
 	}
 
 	log.Info("card content updated successfully",
@@ -390,7 +390,7 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 		log.Error("failed to delete card",
 			slog.String("error", err.Error()),
 			slog.String("card_id", id.String()))
-		return MapError(err)
+		return fmt.Errorf("failed to delete card: %w", MapError(err))
 	}
 
 	// Check if a row was actually deleted
@@ -399,7 +399,7 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 		if errors.Is(err, store.ErrNotFound) {
 			return store.ErrCardNotFound
 		}
-		return err
+		return fmt.Errorf("failed to delete card: %w", err)
 	}
 
 	log.Info("card deleted successfully",

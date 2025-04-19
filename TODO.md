@@ -71,7 +71,7 @@
         2. Tests pass verifying correct error mapping.
     - **Depends‑on:** [T001]
 
-- [ ] **T008 · refactor · p1: refactor CardStore to use error mapping helpers**
+- [x] **T008 · refactor · p1: refactor CardStore to use error mapping helpers**
     - **Context:** cr‑03 Consistent error mapping with helpers
     - **Action:**
         1. Replace direct database error checks in `internal/platform/postgres/card_store.go` with calls to helpers.

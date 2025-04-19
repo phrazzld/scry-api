@@ -175,7 +175,7 @@
     - **Depends‑on:** none
 
 ## User Store Simplification
-- [ ] **T018 · refactor · p1: simplify UserStore.Update logic to remove internal fetch**
+- [x] **T018 · refactor · p1: simplify UserStore.Update logic to remove internal fetch**
     - **Context:** cr‑08 Simplify user update logic
     - **Action:**
         1. Remove DB fetch in PostgresUserStore.Update.
@@ -184,7 +184,7 @@
         1. User update logic is straightforward and delegates completeness to caller.
     - **Depends‑on:** none
 
-- [ ] **T019 · refactor · p1: update service layer to provide complete user object for updates**
+- [x] **T019 · refactor · p1: update service layer to provide complete user object for updates**
     - **Context:** cr‑08 Simplify user update logic
     - **Action:**
         1. Change service code to always pass a fully-populated User object to Update.

@@ -10,7 +10,7 @@
         1. Centralized error definitions exist in `internal/store/errors.go`.
     - **Depends‑on:** none
 
-- [ ] **T002 · refactor · p1: update UserStore to use standardized errors**
+- [x] **T002 · refactor · p1: update UserStore to use standardized errors**
     - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
     - **Action:**
         1. Update `internal/platform/postgres/user_store.go` to return standardized errors from `internal/store/errors.go`.

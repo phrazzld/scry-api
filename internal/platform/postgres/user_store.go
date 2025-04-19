@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -195,6 +196,8 @@ func (s *PostgresUserStore) GetByEmail(ctx context.Context, email string) (*doma
 
 // Update implements store.UserStore.Update
 // It modifies an existing user's details in the database.
+// The caller MUST provide a complete user object including HashedPassword.
+// If a new plain text Password is provided, it will be hashed and the HashedPassword will be updated.
 // Returns store.ErrUserNotFound if the user does not exist.
 // Returns store.ErrEmailExists if updating to an email that already exists.
 // Returns validation errors from the domain User if data is invalid.
@@ -233,28 +236,14 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 		user.Password = "" // Clear plaintext password for security
 		user.HashedPassword = hashedPasswordToStore
 	} else if user.HashedPassword != "" {
-		// If no new password is provided but user already has a hashed password, use that
+		// If no new password is provided, use the existing hashed password provided by the caller
 		hashedPasswordToStore = user.HashedPassword
 		log.Debug("using provided hashed password", slog.String("user_id", user.ID.String()))
 	} else {
-		// Only fetch the existing password hash if we don't have a new password or existing hash
-		log.Debug("fetching existing hashed password", slog.String("user_id", user.ID.String()))
-		err := s.db.QueryRowContext(ctx, `
-			SELECT hashed_password FROM users WHERE id = $1
-		`, user.ID).Scan(&hashedPasswordToStore)
-
-		if err != nil {
-			if IsNotFoundError(err) {
-				log.Debug("user not found", slog.String("user_id", user.ID.String()))
-				return store.ErrUserNotFound
-			}
-			log.Error("failed to fetch existing user",
-				slog.String("error", err.Error()),
-				slog.String("user_id", user.ID.String()))
-			return fmt.Errorf("failed to get existing password: %w", MapError(err))
-		}
-		// Store the fetched hashed password in the user object
-		user.HashedPassword = hashedPasswordToStore
+		// Neither a new password nor a hashed password was provided
+		log.Warn("no password provided for update",
+			slog.String("user_id", user.ID.String()))
+		return fmt.Errorf("%w: missing hashed password", store.ErrInvalidEntity)
 	}
 
 	// Validate the user for persistence after any modifications
@@ -342,4 +331,14 @@ func (s *PostgresUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 
 	log.Info("user deleted successfully", slog.String("user_id", id.String()))
 	return nil
+}
+
+// WithTx implements store.UserStore.WithTx
+// It returns a new UserStore instance that uses the provided transaction.
+// This allows for multiple operations to be executed within a single transaction.
+func (s *PostgresUserStore) WithTx(tx *sql.Tx) store.UserStore {
+	return &PostgresUserStore{
+		db:         tx,
+		bcryptCost: s.bcryptCost,
+	}
 }

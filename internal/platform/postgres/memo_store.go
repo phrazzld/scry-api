@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -357,4 +358,14 @@ func (s *PostgresMemoStore) FindMemosByStatus(
 		slog.String("status", string(status)),
 		slog.Int("count", len(memos)))
 	return memos, nil
+}
+
+// WithTx implements store.MemoStore.WithTx
+// It returns a new MemoStore instance that uses the provided transaction.
+// This allows for multiple operations to be executed within a single transaction.
+func (s *PostgresMemoStore) WithTx(tx *sql.Tx) store.MemoStore {
+	return &PostgresMemoStore{
+		db:     tx,
+		logger: s.logger,
+	}
 }

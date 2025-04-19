@@ -2,9 +2,11 @@ package mocks
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -47,4 +49,13 @@ func (m *UserStore) Update(ctx context.Context, user *domain.User) error {
 func (m *UserStore) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
+}
+
+// WithTx is a mock implementation of store.UserStore.WithTx
+func (m *UserStore) WithTx(tx *sql.Tx) store.UserStore {
+	args := m.Called(tx)
+	if ret, ok := args.Get(0).(store.UserStore); ok {
+		return ret
+	}
+	return m
 }

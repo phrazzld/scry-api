@@ -125,6 +125,15 @@ func (s *PostgresTaskStore) GetProcessingTasks(ctx context.Context, olderThan ti
 	return s.getTasksByStatus(ctx, task.TaskStatusProcessing, olderThan)
 }
 
+// WithTx implements task.TaskStore.WithTx
+// It returns a new TaskStore instance that uses the provided transaction.
+// This allows for multiple operations to be executed within a single transaction.
+func (s *PostgresTaskStore) WithTx(tx *sql.Tx) task.TaskStore {
+	return &PostgresTaskStore{
+		db: tx,
+	}
+}
+
 // getTasksByStatus is a helper method to get tasks by status with optional age filter
 func (s *PostgresTaskStore) getTasksByStatus(
 	ctx context.Context,

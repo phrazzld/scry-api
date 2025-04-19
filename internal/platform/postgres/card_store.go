@@ -415,3 +415,13 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 	// The actual implementation will be done in a separate ticket.
 	return nil, store.ErrNotImplemented
 }
+
+// WithTx implements store.CardStore.WithTx
+// It returns a new CardStore instance that uses the provided transaction.
+// This allows for multiple operations to be executed within a single transaction.
+func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
+	return &PostgresCardStore{
+		db:     tx,
+		logger: s.logger,
+	}
+}

@@ -226,3 +226,13 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 		slog.String("card_id", cardID.String()))
 	return nil
 }
+
+// WithTx implements store.UserCardStatsStore.WithTx
+// It returns a new UserCardStatsStore instance that uses the provided transaction.
+// This allows for multiple operations to be executed within a single transaction.
+func (s *PostgresUserCardStatsStore) WithTx(tx *sql.Tx) store.UserCardStatsStore {
+	return &PostgresUserCardStatsStore{
+		db:     tx,
+		logger: s.logger,
+	}
+}

@@ -202,7 +202,7 @@
         1. All store interfaces define WithTx.
     - **Depends‑on:** none
 
-- [ ] **T021 · feature · p1: implement WithTx method in all store implementations**
+- [x] **T021 · feature · p1: implement WithTx method in all store implementations**
     - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
     - **Action:**
         1. Implement WithTx method in each Postgres store implementation.

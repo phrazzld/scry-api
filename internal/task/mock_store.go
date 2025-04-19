@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 	"time"
 
@@ -111,4 +112,10 @@ func (s *MockTaskStore) GetProcessingTasks(ctx context.Context, olderThan time.D
 	}
 
 	return processingTasks, nil
+}
+
+// WithTx implements TaskStore.WithTx for the mock store
+// In the mock implementation, we just return the same store instance
+func (s *MockTaskStore) WithTx(tx *sql.Tx) TaskStore {
+	return s
 }

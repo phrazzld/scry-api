@@ -276,7 +276,7 @@
         1. Required indexes are confirmed to exist
     - **depends‑on:** none
 
-- [ ] **t126 · chore · p2: update main.go for dependency injection**
+- [x] **t126 · chore · p2: update main.go for dependency injection**
     - **context:** build step #9
     - **action:**
         1. Update application setup code to wire in new store implementations

@@ -102,7 +102,7 @@
         1. All store methods log detailed internal errors but return only standardized, opaque errors.
     - **Depends‑on:** [T002, T003, T004, T005, T006, T007, T008, T009]
 
-- [ ] **T011 · test · p0: add tests verifying no internal details leak in store errors**
+- [x] **T011 · test · p0: add tests verifying no internal details leak in store errors**
     - **Context:** cr‑04 Prevent internal error detail leakage
     - **Action:**
         1. Add specific tests for each store implementation.

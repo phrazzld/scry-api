@@ -223,7 +223,7 @@
         2. Tests can run in isolated transactions
     - **depends‑on:** none
 
-- [ ] **t121 · test · p2: write integration tests for MemoStore**
+- [x] **t121 · test · p2: write integration tests for MemoStore**
     - **context:** testing strategy, build step #7
     - **action:**
         1. Create `memo_store_test.go` with tests for all methods

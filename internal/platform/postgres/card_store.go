@@ -69,7 +69,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 				slog.String("error", err.Error()),
 				slog.String("card_id", card.ID.String()),
 				slog.Int("card_index", i))
-			return err
+			return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 		}
 	}
 
@@ -91,14 +91,14 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 		})
 		if !ok {
 			log.Error("failed to create transaction - db doesn't support BeginTx")
-			return errors.New("database connection doesn't support transactions")
+			return fmt.Errorf("%w: database connection doesn't support transactions", store.ErrTransactionFailed)
 		}
 
 		var err error
 		txObj, err := dbConn.BeginTx(ctx, nil)
 		if err != nil {
 			log.Error("failed to begin transaction", slog.String("error", err.Error()))
-			return err
+			return fmt.Errorf("%w: failed to begin transaction: %v", store.ErrTransactionFailed, err)
 		}
 		tx = txObj
 		txCreated = true
@@ -120,7 +120,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 		})
 		if !ok {
 			log.Error("invalid transaction type")
-			return errors.New("invalid transaction type")
+			return fmt.Errorf("%w: invalid transaction type", store.ErrTransactionFailed)
 		}
 
 		defer func() {
@@ -154,7 +154,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 		if err != nil {
 			// Check for foreign key violation
 			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolationCode {
+			if errors.As(err, &pgErr) && pgErr.Code == foreignKeyViolationCode {
 				if strings.Contains(pgErr.Message, "fk_cards_user") {
 					log.Warn("foreign key violation - user does not exist",
 						slog.String("error", err.Error()),
@@ -185,7 +185,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			if txCreated {
 				_ = txObj.Rollback()
 			}
-			return err
+			return MapError(err)
 		}
 
 		log.Debug("card inserted successfully",
@@ -213,7 +213,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			if txCreated {
 				_ = txObj.Rollback()
 			}
-			return err
+			return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 		}
 
 		// Handle zero time for last_reviewed_at
@@ -247,7 +247,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			if txCreated {
 				_ = txObj.Rollback()
 			}
-			return err
+			return MapError(err)
 		}
 
 		log.Debug("card stats inserted successfully",
@@ -260,7 +260,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 		if err := txObj.Commit(); err != nil {
 			log.Error("failed to commit transaction", slog.String("error", err.Error()))
 			_ = txObj.Rollback()
-			return err
+			return fmt.Errorf("%w: failed to commit transaction: %v", store.ErrTransactionFailed, err)
 		}
 		log.Debug("transaction committed successfully")
 	}
@@ -304,7 +304,7 @@ func (s *PostgresCardStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		log.Error("failed to get card by ID",
 			slog.String("error", err.Error()),
 			slog.String("card_id", id.String()))
-		return nil, err
+		return nil, MapError(err)
 	}
 
 	log.Debug("card retrieved successfully",
@@ -329,7 +329,7 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 	if !json.Valid(content) {
 		log.Warn("invalid JSON content for card update",
 			slog.String("card_id", id.String()))
-		return domain.ErrInvalidCardContent
+		return fmt.Errorf("%w: %v", store.ErrInvalidEntity, domain.ErrInvalidCardContent)
 	}
 
 	// Set update timestamp
@@ -353,23 +353,16 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 		log.Error("failed to update card content",
 			slog.String("error", err.Error()),
 			slog.String("card_id", id.String()))
-		return err
+		return MapError(err)
 	}
 
 	// Check if a row was actually updated
-	rowsAffected, err := result.RowsAffected()
+	err = CheckRowsAffected(result, "card")
 	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("card_id", id.String()))
+		if errors.Is(err, store.ErrNotFound) {
+			return store.ErrCardNotFound
+		}
 		return err
-	}
-
-	// If no rows were affected, the card didn't exist
-	if rowsAffected == 0 {
-		log.Debug("card not found for content update",
-			slog.String("card_id", id.String()))
-		return store.ErrCardNotFound
 	}
 
 	log.Info("card content updated successfully",
@@ -397,23 +390,16 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 		log.Error("failed to delete card",
 			slog.String("error", err.Error()),
 			slog.String("card_id", id.String()))
-		return err
+		return MapError(err)
 	}
 
 	// Check if a row was actually deleted
-	rowsAffected, err := result.RowsAffected()
+	err = CheckRowsAffected(result, "card")
 	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("card_id", id.String()))
+		if errors.Is(err, store.ErrNotFound) {
+			return store.ErrCardNotFound
+		}
 		return err
-	}
-
-	// If no rows were affected, the card didn't exist
-	if rowsAffected == 0 {
-		log.Debug("card not found for deletion",
-			slog.String("card_id", id.String()))
-		return store.ErrCardNotFound
 	}
 
 	log.Info("card deleted successfully",

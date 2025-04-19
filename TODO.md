@@ -20,7 +20,7 @@
         2. Tests pass with new error assertions.
     - **Depends‑on:** [T001]
 
-- [ ] **T003 · refactor · p1: update MemoStore to use standardized errors**
+- [x] **T003 · refactor · p1: update MemoStore to use standardized errors**
     - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
     - **Action:**
         1. Update `internal/platform/postgres/memo_store.go` to return standardized errors.

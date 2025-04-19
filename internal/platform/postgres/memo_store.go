@@ -9,14 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
 )
-
-// PostgreSQL error codes
-const pgForeignKeyViolationCode = "23503"
 
 // PostgresMemoStore implements the store.MemoStore interface
 // using a PostgreSQL database as the storage backend.
@@ -61,7 +57,7 @@ func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error
 		log.Warn("memo validation failed during create",
 			slog.String("error", err.Error()),
 			slog.String("memo_id", memo.ID.String()))
-		return err
+		return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 	}
 
 	query := `
@@ -81,8 +77,7 @@ func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error
 
 	if err != nil {
 		// Check for foreign key violation
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolationCode {
+		if IsForeignKeyViolation(err) {
 			log.Warn("foreign key violation during memo creation",
 				slog.String("error", err.Error()),
 				slog.String("memo_id", memo.ID.String()),
@@ -97,8 +92,8 @@ func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error
 			slog.String("memo_id", memo.ID.String()),
 			slog.String("user_id", memo.UserID.String()))
 
-		// Return the original error
-		return err
+		// Use the error mapping helper
+		return MapError(err)
 	}
 
 	log.Info("memo created successfully",
@@ -143,7 +138,7 @@ func (s *PostgresMemoStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		log.Error("failed to get memo by ID",
 			slog.String("error", err.Error()),
 			slog.String("memo_id", id.String()))
-		return nil, err
+		return nil, MapError(err)
 	}
 
 	memo.Status = domain.MemoStatus(status)
@@ -181,7 +176,7 @@ func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 			slog.String("error", err.Error()),
 			slog.String("memo_id", id.String()),
 			slog.String("status", string(status)))
-		return err
+		return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 	}
 
 	updatedAt := time.Now().UTC()
@@ -205,23 +200,17 @@ func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 			slog.String("error", err.Error()),
 			slog.String("memo_id", id.String()),
 			slog.String("status", string(status)))
-		return err
+		return MapError(err)
 	}
 
-	// Check if a row was actually updated
-	rowsAffected, err := result.RowsAffected()
+	// Check if a row was actually updated using the helper
+	err = CheckRowsAffected(result, "memo")
 	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("memo_id", id.String()))
+		if errors.Is(err, store.ErrNotFound) {
+			// Convert to specific error
+			return store.ErrMemoNotFound
+		}
 		return err
-	}
-
-	// If no rows were affected, the memo didn't exist
-	if rowsAffected == 0 {
-		log.Debug("memo not found for status update",
-			slog.String("memo_id", id.String()))
-		return store.ErrMemoNotFound
 	}
 
 	log.Info("memo status updated successfully",
@@ -241,7 +230,7 @@ func (s *PostgresMemoStore) Update(ctx context.Context, memo *domain.Memo) error
 		log.Warn("memo validation failed during update",
 			slog.String("error", err.Error()),
 			slog.String("memo_id", memo.ID.String()))
-		return err
+		return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 	}
 
 	query := `
@@ -264,23 +253,17 @@ func (s *PostgresMemoStore) Update(ctx context.Context, memo *domain.Memo) error
 			slog.String("error", err.Error()),
 			slog.String("memo_id", memo.ID.String()),
 			slog.String("status", string(memo.Status)))
-		return err
+		return MapError(err)
 	}
 
-	// Check if a row was actually updated
-	rowsAffected, err := result.RowsAffected()
+	// Check if a row was actually updated using the helper
+	err = CheckRowsAffected(result, "memo")
 	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("memo_id", memo.ID.String()))
+		if errors.Is(err, store.ErrNotFound) {
+			// Convert to specific error
+			return store.ErrMemoNotFound
+		}
 		return err
-	}
-
-	// If no rows were affected, the memo didn't exist
-	if rowsAffected == 0 {
-		log.Debug("memo not found for update",
-			slog.String("memo_id", memo.ID.String()))
-		return store.ErrMemoNotFound
 	}
 
 	log.Info("memo updated successfully",
@@ -326,7 +309,7 @@ func (s *PostgresMemoStore) FindMemosByStatus(
 		log.Error("failed to query memos by status",
 			slog.String("error", err.Error()),
 			slog.String("status", string(status)))
-		return nil, err
+		return nil, MapError(err)
 	}
 	defer func() {
 		err := rows.Close()
@@ -351,7 +334,7 @@ func (s *PostgresMemoStore) FindMemosByStatus(
 		if err != nil {
 			log.Error("failed to scan memo row",
 				slog.String("error", err.Error()))
-			return nil, err
+			return nil, fmt.Errorf("failed to scan memo row: %w", err)
 		}
 
 		memo.Status = domain.MemoStatus(statusStr)
@@ -361,7 +344,7 @@ func (s *PostgresMemoStore) FindMemosByStatus(
 	if err := rows.Err(); err != nil {
 		log.Error("error after scanning rows",
 			slog.String("error", err.Error()))
-		return nil, err
+		return nil, fmt.Errorf("error after scanning rows: %w", err)
 	}
 
 	// Return empty slice instead of nil if no memos found

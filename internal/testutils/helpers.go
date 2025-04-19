@@ -45,34 +45,53 @@ func CreateTestUser(t *testing.T) *domain.User {
 // MustInsertUser inserts a user into the database for testing.
 // It requires a transaction obtained from WithTx to ensure test isolation.
 // The function will fail the test if the insert operation fails.
-func MustInsertUser(ctx context.Context, t *testing.T, db store.DBTX, email string) uuid.UUID {
+//
+// If hashedPassword is provided, it will be used directly. Otherwise, a UserStore will be created
+// to properly handle password hashing through the domain layer.
+func MustInsertUser(
+	ctx context.Context,
+	t *testing.T,
+	db store.DBTX,
+	email string,
+	hashedPassword ...string,
+) uuid.UUID {
 	t.Helper()
 
-	// Create a test password that meets validation requirements (12+ chars)
+	// Generate a unique user ID
+	userID := uuid.New()
+	now := time.Now().UTC()
+
+	// Set default test password
 	password := "TestPassword123!"
 
-	// Create a user with the provided email and test password
-	user := &domain.User{
-		ID:        uuid.New(),
-		Email:     email,
-		Password:  password,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
+	// If there are two approaches:
+	// 1. If a hashed password is provided, insert directly with SQL
+	// 2. If no hashed password is provided, use UserStore.Create to handle hashing properly
+	if len(hashedPassword) > 0 && hashedPassword[0] != "" {
+		// Direct SQL approach with pre-hashed password
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO users (id, email, hashed_password, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5)
+		`, userID, email, hashedPassword[0], now, now)
+		require.NoError(t, err, "Failed to insert test user with pre-hashed password")
+	} else {
+		// UserStore approach - let the store handle domain validation and password hashing
+		// Create a user with the provided email and test password
+		user := &domain.User{
+			ID:        userID,
+			Email:     email,
+			Password:  password, // Plain password - UserStore.Create will hash it
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		// Create a UserStore to handle the proper creation logic
+		userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
+		err := userStore.Create(ctx, user)
+		require.NoError(t, err, "Failed to create test user using UserStore")
 	}
 
-	// For simplicity in this implementation, directly hash the password
-	// In a real application, this would be handled by a service
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	require.NoError(t, err, "Failed to hash password")
-
-	// Execute the SQL directly to avoid circular dependencies with postgres package
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO users (id, email, hashed_password, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, user.ID, user.Email, string(hashedPassword), user.CreatedAt, user.UpdatedAt)
-	require.NoError(t, err, "Failed to insert test user")
-
-	return user.ID
+	return userID
 }
 
 // GetUserByID retrieves a user from the database by ID.

@@ -154,7 +154,7 @@
     - **Depends‑on:** [T014]
 
 ## Testing Utilities
-- [ ] **T016 · refactor · p1: remove password hashing logic from testutils.MustInsertUser**
+- [x] **T016 · refactor · p1: remove password hashing logic from testutils.MustInsertUser**
     - **Context:** cr‑07 Remove domain logic from test utilities
     - **Action:**
         1. Modify `MustInsertUser` to accept a pre-hashed password or use UserStore.Create.

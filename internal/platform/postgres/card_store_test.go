@@ -222,7 +222,8 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			// Insert should fail
 			err = cardStore.CreateMultiple(ctx, []*domain.Card{invalidCard})
 			assert.Error(t, err, "CreateMultiple should fail with invalid card")
-			assert.Equal(t, domain.ErrEmptyCardContent, err, "Error should indicate empty content")
+			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
+			assert.ErrorContains(t, err, "empty card content", "Error should mention empty content")
 		})
 
 		t.Run("non_existent_user", func(t *testing.T) {
@@ -275,7 +276,8 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			// Insert should fail
 			err = cardStore.CreateMultiple(ctx, []*domain.Card{card})
 			assert.Error(t, err, "CreateMultiple should fail with invalid JSON content")
-			assert.Equal(t, domain.ErrInvalidCardContent, err, "Error should indicate invalid content")
+			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
+			assert.ErrorContains(t, err, "invalid card content", "Error should mention invalid content")
 		})
 
 		t.Run("transaction_rollback", func(t *testing.T) {
@@ -312,7 +314,7 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			for _, cardID := range cardIDs {
 				_, err := cardStore.GetByID(ctx, cardID)
 				assert.Error(t, err, "Card should not exist after rollback")
-				assert.Equal(t, store.ErrCardNotFound, err, "Error should be ErrCardNotFound")
+				assert.ErrorIs(t, err, store.ErrCardNotFound, "Error should be ErrCardNotFound")
 			}
 		})
 	})

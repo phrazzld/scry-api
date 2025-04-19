@@ -245,7 +245,7 @@
         2. Tests pass against real database
     - **depends‑on:** [t111, t112, t113, t114, t115, t120]
 
-- [ ] **t123 · test · p2: write integration tests for UserCardStatsStore**
+- [x] **t123 · test · p2: write integration tests for UserCardStatsStore**
     - **context:** testing strategy, build step #7
     - **action:**
         1. Create `user_card_stats_store_test.go` with tests for all methods

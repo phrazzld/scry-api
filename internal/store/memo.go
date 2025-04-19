@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -32,4 +33,9 @@ type MemoStore interface {
 	// Returns an empty slice if no memos match the criteria.
 	// Can limit the number of results and paginate through offset.
 	FindMemosByStatus(ctx context.Context, status domain.MemoStatus, limit, offset int) ([]*domain.Memo, error)
+
+	// WithTx returns a new MemoStore instance that uses the provided transaction.
+	// This allows for multiple operations to be executed within a single transaction.
+	// The transaction should be created and managed by the caller (typically a service).
+	WithTx(tx *sql.Tx) MemoStore
 }

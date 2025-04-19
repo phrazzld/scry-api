@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -75,4 +76,9 @@ type TaskStore interface {
 	// If olderThan is non-zero, only returns tasks that have been in this state
 	// longer than the specified duration
 	GetProcessingTasks(ctx context.Context, olderThan time.Duration) ([]Task, error)
+
+	// WithTx returns a new TaskStore instance that uses the provided transaction.
+	// This allows for multiple operations to be executed within a single transaction.
+	// The transaction should be created and managed by the caller (typically a service).
+	WithTx(tx *sql.Tx) TaskStore
 }

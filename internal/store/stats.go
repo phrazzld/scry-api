@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -25,4 +26,9 @@ type UserCardStatsStore interface {
 	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.
 	// This operation is permanent and cannot be undone.
 	Delete(ctx context.Context, userID, cardID uuid.UUID) error
+
+	// WithTx returns a new UserCardStatsStore instance that uses the provided transaction.
+	// This allows for multiple operations to be executed within a single transaction.
+	// The transaction should be created and managed by the caller (typically a service).
+	WithTx(tx *sql.Tx) UserCardStatsStore
 }

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -40,4 +41,9 @@ type CardStore interface {
 	// Returns ErrNotFound if there are no cards due for review.
 	// This method may involve complex sorting/filtering logic based on SRS.
 	GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
+
+	// WithTx returns a new CardStore instance that uses the provided transaction.
+	// This allows for multiple operations to be executed within a single transaction.
+	// The transaction should be created and managed by the caller (typically a service).
+	WithTx(tx *sql.Tx) CardStore
 }

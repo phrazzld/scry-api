@@ -194,7 +194,7 @@
     - **Depends‑on:** [T018]
 
 ## Transaction Management
-- [ ] **T020 · feature · p1: implement WithTx method on all store interfaces**
+- [x] **T020 · feature · p1: implement WithTx method on all store interfaces**
     - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
     - **Action:**
         1. Add `WithTx(*sql.Tx)` methods to all store interfaces in `internal/store`.

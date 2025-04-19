@@ -92,7 +92,7 @@
     - **Depends‑on:** [T001]
 
 ## Store Security
-- [ ] **T010 · bugfix · p0: audit and update stores to prevent internal error detail leakage**
+- [x] **T010 · bugfix · p0: audit and update stores to prevent internal error detail leakage**
     - **Context:** cr‑04 Prevent internal error detail leakage
     - **Action:**
         1. Audit all error return points in store implementations.

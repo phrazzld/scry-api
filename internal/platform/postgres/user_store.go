@@ -69,7 +69,8 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 			log.Error("failed to hash password",
 				slog.String("error", err.Error()),
 				slog.Int("bcrypt_cost", s.bcryptCost))
-			return fmt.Errorf("failed to hash password: %w", err)
+			// Don't expose internal error details, return a generic error
+			return fmt.Errorf("%w: password hashing failed", store.ErrInvalidEntity)
 		}
 
 		// Store the hashed password and clear the plaintext password from memory
@@ -92,17 +93,22 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 	`, user.ID, user.Email, user.HashedPassword, user.CreatedAt, user.UpdatedAt)
 
 	if err != nil {
-		// Use MapUniqueViolation for more specific error details
-		if uniqueErr := MapUniqueViolation(err, "email", "users_email_key", store.ErrEmailExists); uniqueErr != store.ErrEmailExists {
+		// Check for uniqueness violation
+		if IsUniqueViolation(err) {
 			log.Warn("attempt to create user with existing email",
 				slog.String("email", user.Email))
+			// Log the original error for debugging but return standardized error
+			log.Debug("original database error", slog.String("error", err.Error()))
 			return store.ErrEmailExists
 		}
 		// Log other errors
 		log.Error("failed to insert user",
 			slog.String("error", err.Error()),
 			slog.String("email", user.Email))
-		return MapError(err)
+		// Map the error but don't expose internal details
+		mappedErr := MapError(err)
+		log.Debug("mapped database error", slog.String("mapped_error", mappedErr.Error()))
+		return fmt.Errorf("%w: user creation failed", store.ErrInvalidEntity)
 	}
 
 	log.Info("user created successfully",
@@ -220,7 +226,8 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 				slog.String("error", err.Error()),
 				slog.String("user_id", user.ID.String()),
 				slog.Int("bcrypt_cost", s.bcryptCost))
-			return fmt.Errorf("failed to hash password: %w", err)
+			// Don't expose internal error details, return a generic error
+			return fmt.Errorf("%w: password hashing failed", store.ErrInvalidEntity)
 		}
 		hashedPasswordToStore = string(hashedPassword)
 		user.Password = "" // Clear plaintext password for security
@@ -266,18 +273,23 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 	`, user.Email, hashedPasswordToStore, user.UpdatedAt, user.ID)
 
 	if err != nil {
-		// Use MapUniqueViolation for more specific error details
-		if uniqueErr := MapUniqueViolation(err, "email", "users_email_key", store.ErrEmailExists); uniqueErr != store.ErrEmailExists {
+		// Check for uniqueness violation
+		if IsUniqueViolation(err) {
 			log.Warn("email already exists",
 				slog.String("email", user.Email),
 				slog.String("user_id", user.ID.String()))
+			// Log the original error for debugging but return standardized error
+			log.Debug("original database error", slog.String("error", err.Error()))
 			return store.ErrEmailExists
 		}
 		// Log other errors
 		log.Error("failed to update user",
 			slog.String("error", err.Error()),
 			slog.String("user_id", user.ID.String()))
-		return fmt.Errorf("failed to update user in database: %w", MapError(err))
+		// Map the error but don't expose internal details
+		mappedErr := MapError(err)
+		log.Debug("mapped database error", slog.String("mapped_error", mappedErr.Error()))
+		return fmt.Errorf("%w: user update failed", store.ErrUpdateFailed)
 	}
 
 	// Use CheckRowsAffected to standardize row count checking
@@ -314,7 +326,10 @@ func (s *PostgresUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 		log.Error("failed to execute delete statement",
 			slog.String("user_id", id.String()),
 			slog.String("error", err.Error()))
-		return fmt.Errorf("failed to delete user in database: %w", MapError(err))
+		// Map the error but don't expose internal details
+		mappedErr := MapError(err)
+		log.Debug("mapped database error", slog.String("mapped_error", mappedErr.Error()))
+		return fmt.Errorf("%w: user deletion failed", store.ErrDeleteFailed)
 	}
 
 	// Use CheckRowsAffected to standardize row count checking

@@ -192,19 +192,30 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
-	// Create an adapter to make store.MemoStore compatible with task.MemoRepository for task execution
-	// This provides the task-specific interface while keeping store interfaces clean
+	// Create adapter for the store to be used in the service layer
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore)
 
-	// Create memo task factory and service using the adapter
+	// Create the memo service first
+	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, nil, deps.Logger)
+
+	// Create an adapter that makes the service usable in the task layer
+	// This breaks the circular dependency between service and task packages
+	memoServiceAdapter := task.NewMemoServiceAdapter(memoRepoAdapter)
+
+	// Create the task factory using the service adapter
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		memoRepoAdapter, // Use the adapter that implements task.MemoRepository
+		memoServiceAdapter, // Use the adapter that implements task.MemoService
 		deps.Generator,
 		deps.CardRepository,
 		deps.Logger,
 	)
 
-	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, memoTaskFactory, deps.Logger)
+	// Update the service with the task factory
+	// This is a slight hack to break the circular dependency
+	memoServiceImpl, ok := memoService.(*service.MemoServiceImpl)
+	if ok {
+		memoServiceImpl.SetTaskFactory(memoTaskFactory)
+	}
 	memoHandler := api.NewMemoHandler(memoService)
 
 	// Register routes

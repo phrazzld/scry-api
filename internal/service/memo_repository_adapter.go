@@ -2,11 +2,10 @@ package service
 
 import (
 	"github.com/phrazzld/scry-api/internal/store"
-	"github.com/phrazzld/scry-api/internal/task"
 )
 
-// MemoRepositoryAdapter adapts a store.MemoStore to task.MemoRepository
-// to decouple the task package from directly depending on store implementations
+// MemoRepositoryAdapter adapts a store.MemoStore to the service.MemoRepository interface
+// This enables proper dependency injection and separation of concerns
 type MemoRepositoryAdapter struct {
 	store.MemoStore
 }
@@ -21,8 +20,7 @@ func NewMemoRepositoryAdapter(
 	}
 }
 
-// Ensure MemoRepositoryAdapter implements task.MemoRepository
-var _ task.MemoRepository = (*MemoRepositoryAdapter)(nil)
+// Ensure MemoRepositoryAdapter implements interfaces properly
 
 // Verify that MemoRepositoryAdapter implements service.MemoRepository
 var _ MemoRepository = (*MemoRepositoryAdapter)(nil)

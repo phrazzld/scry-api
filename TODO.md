@@ -143,7 +143,7 @@
         2. Business logic resides in the service layer.
     - **Depends‑on:** none
 
-- [ ] **T015 · refactor · p1: update service layer to handle memo status transitions**
+- [x] **T015 · refactor · p1: update service layer to handle memo status transitions**
     - **Context:** cr‑06 Decouple MemoStore.Update from task package
     - **Action:**
         1. Move memo status transition logic to service layer.

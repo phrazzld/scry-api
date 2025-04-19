@@ -39,14 +39,27 @@ type MemoGenerationTaskFactory interface {
 type MemoService interface {
 	// CreateMemoAndEnqueueTask creates a new memo and enqueues it for processing
 	CreateMemoAndEnqueueTask(ctx context.Context, userID uuid.UUID, text string) (*domain.Memo, error)
+
+	// UpdateMemoStatus updates a memo's status and handles related business logic
+	UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error
+
+	// GetMemo retrieves a memo by its ID
+	GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error)
 }
 
-// memoServiceImpl implements the MemoService interface
-type memoServiceImpl struct {
+// MemoServiceImpl implements the MemoService interface
+// We're making this public so that main.go can set the task factory
+type MemoServiceImpl struct {
 	memoRepo    MemoRepository
 	taskRunner  TaskRunner
 	taskFactory MemoGenerationTaskFactory
 	logger      *slog.Logger
+}
+
+// SetTaskFactory allows setting the task factory after construction
+// This helps break the circular dependency between service and task packages
+func (s *MemoServiceImpl) SetTaskFactory(factory MemoGenerationTaskFactory) {
+	s.taskFactory = factory
 }
 
 // NewMemoService creates a new MemoService
@@ -56,7 +69,7 @@ func NewMemoService(
 	taskFactory MemoGenerationTaskFactory,
 	logger *slog.Logger,
 ) MemoService {
-	return &memoServiceImpl{
+	return &MemoServiceImpl{
 		memoRepo:    memoRepo,
 		taskRunner:  taskRunner,
 		taskFactory: taskFactory,
@@ -65,7 +78,7 @@ func NewMemoService(
 }
 
 // CreateMemoAndEnqueueTask creates a new memo with pending status and enqueues a generation task
-func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
+func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
 	ctx context.Context,
 	userID uuid.UUID,
 	text string,
@@ -120,4 +133,62 @@ func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
 		"task_id", genTask.ID())
 
 	return memo, nil
+}
+
+// GetMemo retrieves a memo by its ID
+func (s *MemoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
+	memo, err := s.memoRepo.GetByID(ctx, memoID)
+	if err != nil {
+		s.logger.Error("failed to retrieve memo",
+			"error", err,
+			"memo_id", memoID)
+		return nil, fmt.Errorf("failed to retrieve memo: %w", err)
+	}
+
+	s.logger.Debug("retrieved memo successfully",
+		"memo_id", memoID,
+		"user_id", memo.UserID,
+		"status", memo.Status)
+
+	return memo, nil
+}
+
+// UpdateMemoStatus updates a memo's status and handles related business logic
+// This centralizes all status transition logic in the service layer
+func (s *MemoServiceImpl) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
+	// Retrieve the memo first
+	memo, err := s.memoRepo.GetByID(ctx, memoID)
+	if err != nil {
+		s.logger.Error("failed to retrieve memo for status update",
+			"error", err,
+			"memo_id", memoID,
+			"target_status", status)
+		return fmt.Errorf("failed to retrieve memo for status update: %w", err)
+	}
+
+	// Update the memo's status
+	err = memo.UpdateStatus(status)
+	if err != nil {
+		s.logger.Error("failed to update memo status",
+			"error", err,
+			"memo_id", memoID,
+			"current_status", memo.Status,
+			"target_status", status)
+		return fmt.Errorf("failed to update memo status to %s: %w", status, err)
+	}
+
+	// Save the updated memo
+	err = s.memoRepo.Update(ctx, memo)
+	if err != nil {
+		s.logger.Error("failed to save updated memo status",
+			"error", err,
+			"memo_id", memoID,
+			"status", status)
+		return fmt.Errorf("failed to save memo status %s: %w", status, err)
+	}
+
+	s.logger.Info("memo status updated successfully",
+		"memo_id", memoID,
+		"status", status)
+	return nil
 }

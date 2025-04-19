@@ -77,11 +77,14 @@ func setupTaskLifecycleTestServer(
 	}
 	taskRunner := task.NewTaskRunner(taskStore, taskConfig, logger)
 
+	// Create a memo service adapter for the task package
+	memoServiceAdapter := task.NewMemoServiceAdapter(memoStore)
+
 	// Create the memo generation task factory
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		memoStore,
+		memoServiceAdapter,
 		mockGenerator,
-		&MockCardRepository{logger: logger}, // Use a real repository in integration tests
+		&MockCardRepository{logger: logger}, // Use a mock repository in integration tests
 		logger,
 	)
 

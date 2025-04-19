@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -92,8 +91,8 @@ func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error
 			slog.String("memo_id", memo.ID.String()),
 			slog.String("user_id", memo.UserID.String()))
 
-		// Use the error mapping helper
-		return MapError(err)
+		// Use the error mapping helper with proper context
+		return fmt.Errorf("failed to create memo: %w", MapError(err))
 	}
 
 	log.Info("memo created successfully",
@@ -131,14 +130,14 @@ func (s *PostgresMemoStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if IsNotFoundError(err) {
 			log.Debug("memo not found", slog.String("memo_id", id.String()))
 			return nil, store.ErrMemoNotFound
 		}
 		log.Error("failed to get memo by ID",
 			slog.String("error", err.Error()),
 			slog.String("memo_id", id.String()))
-		return nil, MapError(err)
+		return nil, fmt.Errorf("failed to get memo by ID: %w", MapError(err))
 	}
 
 	memo.Status = domain.MemoStatus(status)
@@ -200,7 +199,7 @@ func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 			slog.String("error", err.Error()),
 			slog.String("memo_id", id.String()),
 			slog.String("status", string(status)))
-		return MapError(err)
+		return fmt.Errorf("failed to update memo status: %w", MapError(err))
 	}
 
 	// Check if a row was actually updated using the helper
@@ -210,7 +209,7 @@ func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 			// Convert to specific error
 			return store.ErrMemoNotFound
 		}
-		return err
+		return fmt.Errorf("failed to update memo status: %w", err)
 	}
 
 	log.Info("memo status updated successfully",
@@ -253,7 +252,7 @@ func (s *PostgresMemoStore) Update(ctx context.Context, memo *domain.Memo) error
 			slog.String("error", err.Error()),
 			slog.String("memo_id", memo.ID.String()),
 			slog.String("status", string(memo.Status)))
-		return MapError(err)
+		return fmt.Errorf("failed to update memo: %w", MapError(err))
 	}
 
 	// Check if a row was actually updated using the helper
@@ -263,7 +262,7 @@ func (s *PostgresMemoStore) Update(ctx context.Context, memo *domain.Memo) error
 			// Convert to specific error
 			return store.ErrMemoNotFound
 		}
-		return err
+		return fmt.Errorf("failed to update memo: %w", err)
 	}
 
 	log.Info("memo updated successfully",
@@ -309,7 +308,7 @@ func (s *PostgresMemoStore) FindMemosByStatus(
 		log.Error("failed to query memos by status",
 			slog.String("error", err.Error()),
 			slog.String("status", string(status)))
-		return nil, MapError(err)
+		return nil, fmt.Errorf("failed to query memos by status: %w", MapError(err))
 	}
 	defer func() {
 		err := rows.Close()

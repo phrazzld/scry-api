@@ -51,7 +51,7 @@
     - **Depends‑on:** [T001]
 
 ## Store Error Mapping
-- [ ] **T006 · refactor · p1: refactor UserStore to use error mapping helpers**
+- [x] **T006 · refactor · p1: refactor UserStore to use error mapping helpers**
     - **Context:** cr‑03 Consistent error mapping with helpers
     - **Action:**
         1. Replace direct database error checks in `internal/platform/postgres/user_store.go` with calls to helpers.

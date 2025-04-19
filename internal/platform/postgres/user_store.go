@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -93,8 +92,8 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 	`, user.ID, user.Email, user.HashedPassword, user.CreatedAt, user.UpdatedAt)
 
 	if err != nil {
-		// Check for unique constraint violation (duplicate email)
-		if IsUniqueViolation(err) {
+		// Use MapUniqueViolation for more specific error details
+		if uniqueErr := MapUniqueViolation(err, "email", "users_email_key", store.ErrEmailExists); uniqueErr != store.ErrEmailExists {
 			log.Warn("attempt to create user with existing email",
 				slog.String("email", user.Email))
 			return store.ErrEmailExists
@@ -131,14 +130,14 @@ func (s *PostgresUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 
 	// Handle the result
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if IsNotFoundError(err) {
 			log.Debug("user not found", slog.String("user_id", id.String()))
 			return nil, store.ErrUserNotFound
 		}
 		log.Error("failed to query user by ID",
 			slog.String("user_id", id.String()),
 			slog.String("error", err.Error()))
-		return nil, MapError(err)
+		return nil, fmt.Errorf("failed to get user by ID: %w", MapError(err))
 	}
 
 	// Ensure the Password field is empty as it should never be populated from the database
@@ -169,14 +168,14 @@ func (s *PostgresUserStore) GetByEmail(ctx context.Context, email string) (*doma
 
 	// Handle the result
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if IsNotFoundError(err) {
 			log.Debug("user not found", slog.String("email", email))
 			return nil, store.ErrUserNotFound
 		}
 		log.Error("failed to query user by email",
 			slog.String("email", email),
 			slog.String("error", err.Error()))
-		return nil, MapError(err)
+		return nil, fmt.Errorf("failed to get user by email: %w", MapError(err))
 	}
 
 	// Ensure the Password field is empty as it should never be populated from the database
@@ -238,14 +237,14 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 		`, user.ID).Scan(&hashedPasswordToStore)
 
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			if IsNotFoundError(err) {
 				log.Debug("user not found", slog.String("user_id", user.ID.String()))
 				return store.ErrUserNotFound
 			}
 			log.Error("failed to fetch existing user",
 				slog.String("error", err.Error()),
 				slog.String("user_id", user.ID.String()))
-			return MapError(err)
+			return fmt.Errorf("failed to get existing password: %w", MapError(err))
 		}
 		// Store the fetched hashed password in the user object
 		user.HashedPassword = hashedPasswordToStore
@@ -267,8 +266,8 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 	`, user.Email, hashedPasswordToStore, user.UpdatedAt, user.ID)
 
 	if err != nil {
-		// Check for unique constraint violation (duplicate email)
-		if IsUniqueViolation(err) {
+		// Use MapUniqueViolation for more specific error details
+		if uniqueErr := MapUniqueViolation(err, "email", "users_email_key", store.ErrEmailExists); uniqueErr != store.ErrEmailExists {
 			log.Warn("email already exists",
 				slog.String("email", user.Email),
 				slog.String("user_id", user.ID.String()))
@@ -278,22 +277,15 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 		log.Error("failed to update user",
 			slog.String("error", err.Error()),
 			slog.String("user_id", user.ID.String()))
-		return MapError(err)
+		return fmt.Errorf("failed to update user in database: %w", MapError(err))
 	}
 
-	// Check if a row was actually updated
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("user_id", user.ID.String()))
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	// If no rows were affected, the user didn't exist
-	if rowsAffected == 0 {
-		log.Debug("user not found for update", slog.String("user_id", user.ID.String()))
-		return store.ErrUserNotFound
+	// Use CheckRowsAffected to standardize row count checking
+	if err := CheckRowsAffected(result, "user"); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return store.ErrUserNotFound
+		}
+		return fmt.Errorf("failed to update user: %w", err)
 	}
 
 	log.Info("user updated successfully",
@@ -322,22 +314,15 @@ func (s *PostgresUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 		log.Error("failed to execute delete statement",
 			slog.String("user_id", id.String()),
 			slog.String("error", err.Error()))
-		return MapError(err)
+		return fmt.Errorf("failed to delete user in database: %w", MapError(err))
 	}
 
-	// Check if a row was actually deleted
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("user_id", id.String()),
-			slog.String("error", err.Error()))
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	// If no rows were affected, the user didn't exist
-	if rowsAffected == 0 {
-		log.Debug("user not found for deletion", slog.String("user_id", id.String()))
-		return store.ErrUserNotFound
+	// Use CheckRowsAffected to standardize row count checking
+	if err := CheckRowsAffected(result, "user"); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return store.ErrUserNotFound
+		}
+		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
 	log.Info("user deleted successfully", slog.String("user_id", id.String()))

@@ -40,7 +40,7 @@
         2. Tests pass with new error assertions.
     - **Depends‑on:** [T001]
 
-- [ ] **T005 · refactor · p1: update UserCardStatsStore to use standardized errors**
+- [x] **T005 · refactor · p1: update UserCardStatsStore to use standardized errors**
     - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
     - **Action:**
         1. Update `internal/platform/postgres/stats_store.go` to return standardized errors.

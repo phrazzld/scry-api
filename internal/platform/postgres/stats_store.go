@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -88,7 +89,7 @@ func (s *PostgresUserCardStatsStore) Get(ctx context.Context, userID, cardID uui
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-		return nil, err
+		return nil, fmt.Errorf("failed to query user card stats: %w", MapError(err))
 	}
 
 	// Handle the nullable LastReviewedAt field
@@ -123,7 +124,7 @@ func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.U
 			slog.String("error", err.Error()),
 			slog.String("user_id", stats.UserID.String()),
 			slog.String("card_id", stats.CardID.String()))
-		return err
+		return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 	}
 
 	// Always update the UpdatedAt timestamp
@@ -167,7 +168,7 @@ func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.U
 			slog.String("error", err.Error()),
 			slog.String("user_id", stats.UserID.String()),
 			slog.String("card_id", stats.CardID.String()))
-		return err
+		return fmt.Errorf("failed to execute user card stats update: %w", MapError(err))
 	}
 
 	// Check if a row was actually updated
@@ -177,7 +178,7 @@ func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.U
 			slog.String("error", err.Error()),
 			slog.String("user_id", stats.UserID.String()),
 			slog.String("card_id", stats.CardID.String()))
-		return err
+		return fmt.Errorf("failed to get rows affected in user card stats update: %w", err)
 	}
 
 	// If no rows were affected, the stats entry didn't exist
@@ -217,7 +218,7 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-		return err
+		return fmt.Errorf("failed to execute user card stats deletion: %w", MapError(err))
 	}
 
 	// Check if a row was actually deleted
@@ -227,7 +228,7 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-		return err
+		return fmt.Errorf("failed to get rows affected in user card stats deletion: %w", err)
 	}
 
 	// If no rows were affected, the stats entry didn't exist

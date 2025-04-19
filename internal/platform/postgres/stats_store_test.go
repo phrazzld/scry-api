@@ -160,11 +160,13 @@ func TestPostgresUserCardStatsStore_Get(t *testing.T) {
 			// Try to retrieve non-existent stats
 			_, err := statsStore.Get(ctx, nonExistentUserID, card.ID)
 			assert.Error(t, err, "Get should return error for non-existent user ID")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 
 			_, err = statsStore.Get(ctx, testUser.ID, nonExistentCardID)
 			assert.Error(t, err, "Get should return error for non-existent card ID")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 		})
 	})
 }
@@ -319,11 +321,13 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 			// Try to update non-existent stats
 			err := statsStore.Update(ctx, statsNonexistentUser)
 			assert.Error(t, err, "Update should return error for non-existent user ID")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 
 			err = statsStore.Update(ctx, statsNonexistentCard)
 			assert.Error(t, err, "Update should return error for non-existent card ID")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 		})
 
 		t.Run("invalid_stats", func(t *testing.T) {
@@ -341,7 +345,8 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 			// Try to update with invalid stats
 			err = statsStore.Update(ctx, &statsInvalid)
 			assert.Error(t, err, "Update should return error for invalid stats")
-			assert.Equal(t, domain.ErrInvalidInterval, err, "Error should be ErrInvalidInterval")
+			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
+			assert.ErrorContains(t, err, "invalid interval", "Error should contain domain validation error")
 
 			// Create invalid stats with invalid ease factor
 			statsInvalid = *statsOriginal
@@ -350,7 +355,8 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 			// Try to update with invalid stats
 			err = statsStore.Update(ctx, &statsInvalid)
 			assert.Error(t, err, "Update should return error for invalid stats")
-			assert.Equal(t, domain.ErrInvalidEaseFactor, err, "Error should be ErrInvalidEaseFactor")
+			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
+			assert.ErrorContains(t, err, "invalid ease factor", "Error should contain domain validation error")
 		})
 	})
 }
@@ -411,7 +417,8 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			// Verify stats no longer exist
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.Error(t, err, "Stats should not exist after deletion")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 		})
 
 		t.Run("non_existent_stats", func(t *testing.T) {
@@ -425,7 +432,8 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			// Try to delete non-existent stats
 			err := statsStore.Delete(ctx, nonExistentUserID, nonExistentCardID)
 			assert.Error(t, err, "Delete should return error for non-existent stats")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 		})
 
 		t.Run("cascade_delete_through_card", func(t *testing.T) {
@@ -449,7 +457,8 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			// Verify stats no longer exist
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.Error(t, err, "Stats should not exist after card deletion")
-			assert.Equal(t, store.ErrUserCardStatsNotFound, err, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
 		})
 	})
 }

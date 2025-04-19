@@ -164,7 +164,7 @@
         2. All tests using `MustInsertUser` pass.
     - **Depends‑on:** none
 
-- [ ] **T017 · refactor · p2: centralize duplicate test helpers into internal/testutils**
+- [x] **T017 · refactor · p2: centralize duplicate test helpers into internal/testutils**
     - **Context:** cr‑11 Clean up duplicate test helpers
     - **Action:**
         1. Identify duplicated test helper functions across test files.

@@ -10,12 +10,17 @@ import (
 	"github.com/phrazzld/scry-api/internal/task"
 )
 
-// MemoRepository extends task.MemoRepository with additional operations
+// MemoRepository defines the repository interface for the service layer
+// This is now aligned with store.MemoStore to ensure proper separation of concerns
 type MemoRepository interface {
-	task.MemoRepository
-
 	// Create saves a new memo to the store
 	Create(ctx context.Context, memo *domain.Memo) error
+
+	// GetByID retrieves a memo by its unique ID
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Memo, error)
+
+	// Update saves changes to an existing memo
+	Update(ctx context.Context, memo *domain.Memo) error
 }
 
 // TaskRunner defines the interface for submitting background tasks

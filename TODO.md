@@ -132,7 +132,7 @@
         2. Application compiles and tests pass.
     - **Depends‑on:** [T012]
 
-- [ ] **T014 · refactor · p1: decouple MemoStore.Update from task package logic**
+- [x] **T014 · refactor · p1: decouple MemoStore.Update from task package logic**
     - **Context:** cr‑06 Decouple MemoStore.Update from task package
     - **Action:**
         1. Identify task-specific logic in `MemoStore.Update`.

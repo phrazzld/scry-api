@@ -213,13 +213,7 @@ func setupTestTaskProcessing(
 	)
 
 	// Create the memo service adapter
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(
-		memoStore,
-		func(ctx context.Context, memo *domain.Memo) error {
-			// For test simplicity, use direct database access
-			return memoStore.Create(ctx, memo)
-		},
-	)
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

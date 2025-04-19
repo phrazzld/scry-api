@@ -86,10 +86,7 @@ func setupTaskLifecycleTestServer(
 	)
 
 	// Create the memo service adapter
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, func(ctx context.Context, memo *domain.Memo) error {
-		logger.Info("Creating memo through adapter", "memo_id", memo.ID)
-		return nil
-	})
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

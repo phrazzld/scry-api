@@ -20,7 +20,6 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
@@ -54,8 +53,7 @@ type appDependencies struct {
 	CardStore          store.CardStore
 	UserCardStatsStore store.UserCardStatsStore
 
-	// Repository interfaces for task system
-	MemoRepository task.MemoRepository // Interface for memo operations
+	// Repository interfaces for card operations
 	CardRepository task.CardRepository // Interface for card operations
 
 	// Services
@@ -194,22 +192,17 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
-	// Create memo task factory and service
+	// Create an adapter to make store.MemoStore compatible with task.MemoRepository for task execution
+	// This provides the task-specific interface while keeping store interfaces clean
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore)
+
+	// Create memo task factory and service using the adapter
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		deps.MemoRepository,
+		memoRepoAdapter, // Use the adapter that implements task.MemoRepository
 		deps.Generator,
 		deps.CardRepository,
 		deps.Logger,
 	)
-
-	// Create an adapter to make task.MemoRepository compatible with service.MemoRepository
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoRepository,
-		func(ctx context.Context, memo *domain.Memo) error {
-			// For now, just output a log message
-			deps.Logger.Info("Creating memo through adapter", "memo_id", memo.ID)
-			// In a real implementation, this would call the actual store
-			return nil
-		})
 
 	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, memoTaskFactory, deps.Logger)
 	memoHandler := api.NewMemoHandler(memoService)
@@ -292,11 +285,11 @@ func startServer(cfg *config.Config) {
 		MemoStore:          memoStore,
 		CardStore:          cardStore,
 		UserCardStatsStore: userCardStatsStore,
-		MemoRepository:     memoStore,
-		CardRepository:     cardStore, // Now using the real CardStore implementation
-		Generator:          mockGenerator,
-		JWTService:         jwtService,
-		PasswordVerifier:   passwordVerifier,
+		// MemoRepository removed - using MemoStore with adapter instead
+		CardRepository:   cardStore, // Now using the real CardStore implementation
+		Generator:        mockGenerator,
+		JWTService:       jwtService,
+		PasswordVerifier: passwordVerifier,
 	}
 
 	// Step 5: Set up task runner using the new setup function

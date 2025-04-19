@@ -18,6 +18,11 @@ type MemoStore interface {
 	// Returns ErrMemoNotFound if the memo does not exist.
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Memo, error)
 
+	// Update saves changes to an existing memo.
+	// Returns ErrMemoNotFound if the memo does not exist.
+	// Returns validation errors if the memo data is invalid.
+	Update(ctx context.Context, memo *domain.Memo) error
+
 	// UpdateStatus updates the status of an existing memo.
 	// Returns ErrMemoNotFound if the memo does not exist.
 	// Returns validation errors if the status is invalid.

@@ -218,8 +218,10 @@ func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 	return nil
 }
 
-// Update saves changes to an existing memo
-// This method is maintained for compatibility with the task.MemoRepository interface.
+// Update implements store.MemoStore.Update
+// It saves changes to an existing memo.
+// Returns store.ErrMemoNotFound if the memo does not exist.
+// Returns validation errors if the memo data is invalid.
 func (s *PostgresMemoStore) Update(ctx context.Context, memo *domain.Memo) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)

@@ -204,22 +204,19 @@ func setupTestTaskProcessing(
 	// Configure task runner
 	taskRunner := task.NewTaskRunner(taskStore, taskConfig, logger)
 
-	// Create the memo generation task factory
+	// Create the memo service adapter for task package
+	memoServiceAdapter := task.NewMemoServiceAdapter(memoStore)
+
+	// Create the memo generation task factory with the adapter
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		memoStore,
+		memoServiceAdapter,
 		mockGenerator,
 		mockCardRepo,
 		logger,
 	)
 
-	// Create the memo service adapter
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(
-		memoStore,
-		func(ctx context.Context, memo *domain.Memo) error {
-			// For test simplicity, use direct database access
-			return memoStore.Create(ctx, memo)
-		},
-	)
+	// Create the memo repository adapter for service package
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

@@ -2,19 +2,9 @@ package store
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-)
-
-// Common store errors
-var (
-	// ErrUserNotFound indicates that the requested user does not exist in the store.
-	ErrUserNotFound = errors.New("user not found")
-
-	// ErrEmailExists indicates that a user with the given email already exists.
-	ErrEmailExists = errors.New("email already exists")
 )
 
 // UserStore defines the interface for user data persistence.

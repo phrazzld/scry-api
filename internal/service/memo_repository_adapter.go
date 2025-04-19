@@ -1,35 +1,26 @@
 package service
 
 import (
-	"context"
-
-	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/task"
+	"github.com/phrazzld/scry-api/internal/store"
 )
 
-// MemoRepositoryAdapter adapts a task.MemoRepository to service.MemoRepository
-// by adding the Create method
+// MemoRepositoryAdapter adapts a store.MemoStore to the service.MemoRepository interface
+// This enables proper dependency injection and separation of concerns
 type MemoRepositoryAdapter struct {
-	task.MemoRepository
-	createFn func(ctx context.Context, memo *domain.Memo) error
+	store.MemoStore
 }
 
-// NewMemoRepositoryAdapter creates a new adapter that implements service.MemoRepository
-// by combining a task.MemoRepository with a createFn function
+// NewMemoRepositoryAdapter creates a new adapter that implements task.MemoRepository
+// by delegating to a store.MemoStore implementation
 func NewMemoRepositoryAdapter(
-	repo task.MemoRepository,
-	createFn func(ctx context.Context, memo *domain.Memo) error,
+	memoStore store.MemoStore,
 ) *MemoRepositoryAdapter {
 	return &MemoRepositoryAdapter{
-		MemoRepository: repo,
-		createFn:       createFn,
+		MemoStore: memoStore,
 	}
 }
 
-// Create implements the service.MemoRepository.Create method by delegating to the createFn
-func (a *MemoRepositoryAdapter) Create(ctx context.Context, memo *domain.Memo) error {
-	return a.createFn(ctx, memo)
-}
+// Ensure MemoRepositoryAdapter implements interfaces properly
 
 // Verify that MemoRepositoryAdapter implements service.MemoRepository
 var _ MemoRepository = (*MemoRepositoryAdapter)(nil)

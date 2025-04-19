@@ -155,3 +155,23 @@ func FromContext(ctx context.Context) *slog.Logger {
 func LogWithContext(ctx context.Context, level slog.Level, msg string, args ...any) {
 	FromContext(ctx).Log(ctx, level, msg, args...)
 }
+
+// FromContextOrDefault retrieves a logger from the context, or returns the provided default logger
+// if no logger is found in the context.
+//
+// Parameters:
+//   - ctx: The context that may contain a logger
+//   - defaultLogger: The logger to return if no logger is found in the context
+//
+// Returns:
+//   - *slog.Logger: The logger from the context or the default logger if none is found
+//     or if ctx is nil
+func FromContextOrDefault(ctx context.Context, defaultLogger *slog.Logger) *slog.Logger {
+	if ctx == nil {
+		return defaultLogger
+	}
+	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok {
+		return logger
+	}
+	return defaultLogger
+}

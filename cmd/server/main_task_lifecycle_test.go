@@ -77,19 +77,19 @@ func setupTaskLifecycleTestServer(
 	}
 	taskRunner := task.NewTaskRunner(taskStore, taskConfig, logger)
 
+	// Create a memo service adapter for the task package
+	memoServiceAdapter := task.NewMemoServiceAdapter(memoStore)
+
 	// Create the memo generation task factory
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		memoStore,
+		memoServiceAdapter,
 		mockGenerator,
-		&MockCardRepository{logger: logger}, // Use a real repository in integration tests
+		&MockCardRepository{logger: logger}, // Use a mock repository in integration tests
 		logger,
 	)
 
 	// Create the memo service adapter
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, func(ctx context.Context, memo *domain.Memo) error {
-		logger.Info("Creating memo through adapter", "memo_id", memo.ID)
-		return nil
-	})
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

@@ -20,12 +20,12 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
@@ -46,10 +46,14 @@ type appDependencies struct {
 	Logger *slog.Logger
 	DB     *sql.DB
 
-	// Stores
-	UserStore      *postgres.PostgresUserStore
-	TaskStore      *postgres.PostgresTaskStore
-	MemoRepository task.MemoRepository // Interface for memo operations
+	// Stores (using interfaces for proper abstraction)
+	UserStore          store.UserStore
+	TaskStore          task.TaskStore // Using the interface defined in task.TaskStore
+	MemoStore          store.MemoStore
+	CardStore          store.CardStore
+	UserCardStatsStore store.UserCardStatsStore
+
+	// Repository interfaces for card operations
 	CardRepository task.CardRepository // Interface for card operations
 
 	// Services
@@ -188,24 +192,30 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
-	// Create memo task factory and service
+	// Create adapter for the store to be used in the service layer
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore)
+
+	// Create the memo service first
+	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, nil, deps.Logger)
+
+	// Create an adapter that makes the service usable in the task layer
+	// This breaks the circular dependency between service and task packages
+	memoServiceAdapter := task.NewMemoServiceAdapter(memoRepoAdapter)
+
+	// Create the task factory using the service adapter
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		deps.MemoRepository,
+		memoServiceAdapter, // Use the adapter that implements task.MemoService
 		deps.Generator,
 		deps.CardRepository,
 		deps.Logger,
 	)
 
-	// Create an adapter to make task.MemoRepository compatible with service.MemoRepository
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoRepository,
-		func(ctx context.Context, memo *domain.Memo) error {
-			// For now, just output a log message
-			deps.Logger.Info("Creating memo through adapter", "memo_id", memo.ID)
-			// In a real implementation, this would call the actual store
-			return nil
-		})
-
-	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, memoTaskFactory, deps.Logger)
+	// Update the service with the task factory
+	// This is a slight hack to break the circular dependency
+	memoServiceImpl, ok := memoService.(*service.MemoServiceImpl)
+	if ok {
+		memoServiceImpl.SetTaskFactory(memoTaskFactory)
+	}
 	memoHandler := api.NewMemoHandler(memoService)
 
 	// Register routes
@@ -267,8 +277,10 @@ func startServer(cfg *config.Config) {
 
 	// Step 3: Initialize stores and other dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-	taskStore := postgres.NewPostgresTaskStore(db)
+	taskStore := postgres.NewPostgresTaskStore(db) // Concrete implementation that satisfies task.TaskStore
 	memoStore := postgres.NewPostgresMemoStore(db, logger)
+	cardStore := postgres.NewPostgresCardStore(db, logger)
+	userCardStatsStore := postgres.NewPostgresUserCardStatsStore(db, logger)
 	passwordVerifier := auth.NewBcryptVerifier()
 
 	// Create a mock generator service for card generation
@@ -276,13 +288,16 @@ func startServer(cfg *config.Config) {
 
 	// Step 4: Populate the application dependencies struct
 	deps := &appDependencies{
-		Config:           cfg,
-		Logger:           logger,
-		DB:               db,
-		UserStore:        userStore,
-		TaskStore:        taskStore,
-		MemoRepository:   memoStore,
-		CardRepository:   &mockCardRepository{logger: logger}, // Temporary mock implementation
+		Config:             cfg,
+		Logger:             logger,
+		DB:                 db,
+		UserStore:          userStore,
+		TaskStore:          taskStore,
+		MemoStore:          memoStore,
+		CardStore:          cardStore,
+		UserCardStatsStore: userCardStatsStore,
+		// MemoRepository removed - using MemoStore with adapter instead
+		CardRepository:   cardStore, // Now using the real CardStore implementation
 		Generator:        mockGenerator,
 		JWTService:       jwtService,
 		PasswordVerifier: passwordVerifier,
@@ -563,19 +578,5 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 		return fmt.Errorf("migration command '%s' failed: %w", command, err)
 	}
 
-	return nil
-}
-
-// mockCardRepository implementation begins below
-
-// mockCardRepository is a temporary implementation of the CardRepository interface
-// that will be replaced in a future task with a real implementation
-type mockCardRepository struct {
-	logger *slog.Logger
-}
-
-// CreateMultiple logs card creation but doesn't actually persist them
-func (r *mockCardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
-	r.logger.Info("Mock card repository storing cards", "count", len(cards))
 	return nil
 }

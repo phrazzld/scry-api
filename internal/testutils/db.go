@@ -1,3 +1,45 @@
+// Package testutils provides testing utilities with a focus on database testing
+// with transaction isolation. This package enables writing isolated, parallel
+// integration tests that don't interfere with each other, even when they
+// manipulate the same database tables and entities.
+//
+// Transaction Isolation Pattern:
+//
+// The primary pattern implemented in this package is transaction-based isolation.
+// Each test runs in its own transaction, which is automatically rolled back
+// when the test completes. This provides several benefits:
+//
+// 1. Tests can run in parallel without interfering with each other (t.Parallel())
+// 2. No manual cleanup is needed - changes are rolled back automatically
+// 3. Tests see a consistent database state (the transaction's snapshot)
+// 4. Tests can operate on the same tables/data without conflicts
+// 5. Tests run faster since there's no need to truncate tables between tests
+//
+// Usage:
+//
+//	func TestMyFeature(t *testing.T) {
+//	    // Enable parallel testing safely
+//	    t.Parallel()
+//
+//	    // Get a DB connection
+//	    db, err := testutils.GetTestDB()
+//	    require.NoError(t, err)
+//	    defer testutils.AssertCloseNoError(t, db)
+//
+//	    // Run your test in a transaction
+//	    testutils.WithTx(t, db, func(tx store.DBTX) {
+//	        // Create test store instances with the transaction
+//	        stores := testutils.CreateTestStores(tx)
+//
+//	        // Use the stores to test your functionality
+//	        result, err := stores.UserStore.Create(ctx, testUser)
+//	        require.NoError(t, err)
+//
+//	        // No cleanup needed - transaction will be rolled back automatically
+//	    })
+//	}
+//
+// See transaction_example_test.go for complete examples.
 package testutils
 
 import (
@@ -9,6 +51,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/pressly/goose/v3"
@@ -75,6 +118,27 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 //
 // This enables parallel testing since each test runs in its own transaction
 // and changes are automatically rolled back, preventing interference between tests.
+//
+// Usage:
+//
+//	func TestSomething(t *testing.T) {
+//	    t.Parallel() // Safe with transaction isolation
+//
+//	    db, err := testutils.GetTestDB()
+//	    require.NoError(t, err)
+//	    defer testutils.AssertCloseNoError(t, db)
+//
+//	    testutils.WithTx(t, db, func(tx store.DBTX) {
+//	        // Create store instances with the transaction
+//	        userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
+//	        memoStore := postgres.NewPostgresMemoStore(tx, nil)
+//
+//	        // Test your store methods - changes are automatically rolled back
+//	        user, err := userStore.Create(ctx, testUser)
+//	        require.NoError(t, err)
+//	        // ... more test code
+//	    })
+//	}
 func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
 	t.Helper()
 
@@ -164,9 +228,23 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 }
 
 // GetTestDB returns a database connection for testing.
-// It first checks for DATABASE_URL environment variable (used by integration tests)
-// Then falls back to SCRY_TEST_DB_URL if specific test database is configured
-// If neither are set, it uses a default local database URL.
+// It automatically sets up the database schema using migrations, making it ready for tests.
+// The function uses the following order of precedence for the database URL:
+//
+// 1. DATABASE_URL environment variable (used by CI/CD and integration tests)
+// 2. SCRY_TEST_DB_URL environment variable (for local developer configuration)
+// 3. Default local database URL (for developer convenience)
+//
+// This function handles proper connection validation and initialization, ensuring
+// that tests can immediately use the returned database connection without additional setup.
+//
+// Usage:
+//
+//	db, err := testutils.GetTestDB()
+//	require.NoError(t, err)
+//	defer testutils.AssertCloseNoError(t, db)
+//
+//	// db is now ready for use in tests
 func GetTestDB() (*sql.DB, error) {
 	// First check for DATABASE_URL from integration tests
 	dbURL := os.Getenv("DATABASE_URL")
@@ -188,8 +266,18 @@ func GetTestDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
 
+	// Verify the connection works
+	if err := db.Ping(); err != nil {
+		// Close the connection to avoid leaking resources
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("database ping failed: %w (and failed to close connection: %v)", err, closeErr)
+		}
+		return nil, fmt.Errorf("database ping failed: %w", err)
+	}
+
 	// Setup database schema
 	if err := SetupTestDatabaseSchema(db); err != nil {
+		// Close the connection to avoid leaking resources
 		if closeErr := db.Close(); closeErr != nil {
 			return nil, fmt.Errorf(
 				"failed to setup database schema: %w (additionally, failed to close db: %v)",
@@ -199,6 +287,11 @@ func GetTestDB() (*sql.DB, error) {
 		}
 		return nil, fmt.Errorf("failed to setup database schema: %w", err)
 	}
+
+	// Configure connection pool settings for tests
+	db.SetMaxOpenConns(25) // Reasonable number of concurrent connections for tests
+	db.SetMaxIdleConns(25) // Keep connections ready for test parallelism
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db, nil
 }

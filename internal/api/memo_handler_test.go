@@ -34,6 +34,24 @@ func (m *MockMemoService) CreateMemoAndEnqueueTask(
 	return memo, args.Error(1)
 }
 
+func (m *MockMemoService) UpdateMemoStatus(
+	ctx context.Context,
+	memoID uuid.UUID,
+	status domain.MemoStatus,
+) error {
+	args := m.Called(ctx, memoID, status)
+	return args.Error(0)
+}
+
+func (m *MockMemoService) GetMemo(
+	ctx context.Context,
+	memoID uuid.UUID,
+) (*domain.Memo, error) {
+	args := m.Called(ctx, memoID)
+	memo, _ := args.Get(0).(*domain.Memo)
+	return memo, args.Error(1)
+}
+
 func TestMemoHandler_CreateMemo(t *testing.T) {
 	t.Run("successful creation", func(t *testing.T) {
 		// Setup

@@ -54,3 +54,8 @@ architect_output/
 CONSULT-REQUEST.md
 CONSULTANT-PLAN.md
 *-PLAN.md
+
+# Development philosophy and documentation
+DEVELOPMENT_PHILOSOPHY.md
+DEVELOPMENT_PHILOSOPHY_APPENDIX_GO.md
+docs/prompts/

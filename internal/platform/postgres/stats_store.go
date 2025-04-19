@@ -79,7 +79,7 @@ func (s *PostgresUserCardStatsStore) Get(ctx context.Context, userID, cardID uui
 	)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if IsNotFoundError(err) {
 			log.Debug("user card stats not found",
 				slog.String("user_id", userID.String()),
 				slog.String("card_id", cardID.String()))
@@ -171,22 +171,13 @@ func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.U
 		return fmt.Errorf("failed to execute user card stats update: %w", MapError(err))
 	}
 
-	// Check if a row was actually updated
-	rowsAffected, err := result.RowsAffected()
+	// Check if a row was actually updated using the helper
+	err = CheckRowsAffected(result, "user card stats")
 	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("user_id", stats.UserID.String()),
-			slog.String("card_id", stats.CardID.String()))
-		return fmt.Errorf("failed to get rows affected in user card stats update: %w", err)
-	}
-
-	// If no rows were affected, the stats entry didn't exist
-	if rowsAffected == 0 {
-		log.Debug("user card stats not found for update",
-			slog.String("user_id", stats.UserID.String()),
-			slog.String("card_id", stats.CardID.String()))
-		return store.ErrUserCardStatsNotFound
+		if errors.Is(err, store.ErrNotFound) {
+			return store.ErrUserCardStatsNotFound
+		}
+		return fmt.Errorf("failed to update user card stats: %w", err)
 	}
 
 	log.Info("user card stats updated successfully",
@@ -221,22 +212,13 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 		return fmt.Errorf("failed to execute user card stats deletion: %w", MapError(err))
 	}
 
-	// Check if a row was actually deleted
-	rowsAffected, err := result.RowsAffected()
+	// Check if a row was actually deleted using the helper
+	err = CheckRowsAffected(result, "user card stats")
 	if err != nil {
-		log.Error("failed to get rows affected",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		return fmt.Errorf("failed to get rows affected in user card stats deletion: %w", err)
-	}
-
-	// If no rows were affected, the stats entry didn't exist
-	if rowsAffected == 0 {
-		log.Debug("user card stats not found for deletion",
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		return store.ErrUserCardStatsNotFound
+		if errors.Is(err, store.ErrNotFound) {
+			return store.ErrUserCardStatsNotFound
+		}
+		return fmt.Errorf("failed to delete user card stats: %w", err)
 	}
 
 	log.Info("user card stats deleted successfully",

@@ -81,7 +81,7 @@
         2. Tests pass verifying correct error mapping.
     - **Depends‑on:** [T001]
 
-- [ ] **T009 · refactor · p1: refactor UserCardStatsStore to use error mapping helpers**
+- [x] **T009 · refactor · p1: refactor UserCardStatsStore to use error mapping helpers**
     - **Context:** cr‑03 Consistent error mapping with helpers
     - **Action:**
         1. Replace direct database error checks in `internal/platform/postgres/stats_store.go` with calls to helpers.

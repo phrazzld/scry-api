@@ -285,7 +285,7 @@
         1. Application compiles with new store implementations
     - **depends‑on:** [t105, t110, t116]
 
-- [ ] **t127 · chore · p3: update store-related documentation**
+- [x] **t127 · chore · p3: update store-related documentation**
     - **context:** build step #8, documentation
     - **action:**
         1. Create/update README.md files for store interfaces and implementations

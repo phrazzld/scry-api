@@ -272,7 +272,7 @@
         1. All store implementations are compile-time checked.
     - **Depends‑on:** none
 
-- [ ] **T029 · chore · p3: mark stub GetNextReviewCard implementation with TODO and panic**
+- [x] **T029 · chore · p3: mark stub GetNextReviewCard implementation with TODO and panic**
     - **Context:** cr‑14 Mark stub GetNextReviewCard implementation
     - **Action:**
         1. Add TODO and panic with clear message in stub.

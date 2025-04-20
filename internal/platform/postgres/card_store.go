@@ -413,10 +413,18 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 // GetNextReviewCard implements store.CardStore.GetNextReviewCard
 // It retrieves the next card due for review for a user.
 // This is based on the UserCardStats.NextReviewAt field.
+// TODO(card-review): Implement GetNextReviewCard with proper SRS algorithm integration
+// See docs/design/srs_algorithm.md for implementation details
 func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
-	// This is a stub implementation to satisfy the interface.
-	// The actual implementation will be done in a separate ticket.
-	return nil, store.ErrNotImplemented
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Error("GetNextReviewCard not implemented",
+		slog.String("user_id", userID.String()))
+
+	// Intentionally panic to make it clear this is not implemented
+	// This ensures we don't silently fail in production
+	panic("GetNextReviewCard is not implemented yet - see docs/design/srs_algorithm.md for implementation details")
 }
 
 // WithTx implements store.CardStore.WithTx

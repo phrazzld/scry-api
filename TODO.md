@@ -1,293 +1,246 @@
 # Todo
 
-## Store Error Contracts
-- [x] **T001 · refactor · p1: define base and entity-specific errors**
-    - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
-    - **Action:**
-        1. Define base errors (`ErrNotFound`, `ErrDuplicate`, etc.) in `internal/store/errors.go`.
-        2. Define entity-specific errors (`ErrUserNotFound`, `ErrMemoNotFound`, etc.) wrapping base errors.
-    - **Done‑when:**
-        1. Centralized error definitions exist in `internal/store/errors.go`.
-    - **Depends‑on:** none
+## Service/Task Decoupling
 
-- [x] **T002 · refactor · p1: update UserStore to use standardized errors**
-    - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
+- [x] **T028 · feature · p1: define TaskRequestEvent and EventHandler in internal/events**
+    - **Context:** cr-01 step 1
     - **Action:**
-        1. Update `internal/platform/postgres/user_store.go` to return standardized errors from `internal/store/errors.go`.
-        2. Update corresponding tests to assert against standardized errors using `errors.Is()`.
-    - **Done‑when:**
-        1. `PostgresUserStore` uses standardized errors.
-        2. Tests pass with new error assertions.
-    - **Depends‑on:** [T001]
+        1. Create `internal/events` package
+        2. Define `TaskRequestEvent` struct to contain task creation details
+        3. Define `EventHandler` interface with method to handle events
+    - **Done-when:**
+        1. `internal/events` package exists with properly defined types
+        2. Unit tests verify event structure and handler interface
+    - **Depends-on:** none
 
-- [x] **T003 · refactor · p1: update MemoStore to use standardized errors**
-    - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
+- [ ] **T029 · refactor · p1: replace TaskFactory dependency with EventEmitter in MemoService**
+    - **Context:** cr-01 step 2
     - **Action:**
-        1. Update `internal/platform/postgres/memo_store.go` to return standardized errors.
-        2. Update corresponding tests to assert against standardized errors using `errors.Is()`.
-    - **Done‑when:**
-        1. `PostgresMemoStore` uses standardized errors.
-        2. Tests pass with new error assertions.
-    - **Depends‑on:** [T001]
+        1. Define `EventEmitter` interface in `internal/events`
+        2. Update `MemoService` to use `EventEmitter` instead of direct `TaskFactory` dependency
+        3. Remove `SetTaskFactory` method from `MemoService`
+    - **Done-when:**
+        1. `MemoService` no longer has direct `TaskFactory` dependency
+        2. Service uses `EventEmitter` to publish task creation events
+    - **Depends-on:** [T028]
 
-- [x] **T004 · refactor · p1: update CardStore to use standardized errors**
-    - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
+- [ ] **T030 · feature · p1: create TaskFactoryEventHandler in task package**
+    - **Context:** cr-01 step 3
     - **Action:**
-        1. Update `internal/platform/postgres/card_store.go` to return standardized errors.
-        2. Update corresponding tests to assert against standardized errors using `errors.Is()`.
-    - **Done‑when:**
-        1. `PostgresCardStore` uses standardized errors.
-        2. Tests pass with new error assertions.
-    - **Depends‑on:** [T001]
+        1. Implement `TaskFactoryEventHandler` in `task` package that subscribes to events
+        2. Connect handler to the existing `TaskFactory` implementation
+        3. Add tests for the event handler implementation
+    - **Done-when:**
+        1. `TaskFactoryEventHandler` correctly creates tasks in response to events
+        2. Tests verify handler behavior with different event types
+    - **Depends-on:** [T028]
 
-- [x] **T005 · refactor · p1: update UserCardStatsStore to use standardized errors**
-    - **Context:** cr‑01 Centralize and standardize entity-specific error contracts
+- [ ] **T031 · chore · p1: wire event system in application initialization**
+    - **Context:** cr-01 step 4
     - **Action:**
-        1. Update `internal/platform/postgres/stats_store.go` to return standardized errors.
-        2. Update corresponding tests to assert against standardized errors using `errors.Is()`.
-    - **Done‑when:**
-        1. `PostgresUserCardStatsStore` uses standardized errors.
-        2. Tests pass with new error assertions.
-    - **Depends‑on:** [T001]
+        1. Update `main.go` to create and configure the event emitter
+        2. Register `TaskFactoryEventHandler` with event system
+        3. Remove any direct wiring between `MemoService` and `TaskFactory`
+    - **Done-when:**
+        1. Application initializes without circular dependency
+        2. Services and tasks operate through the event system
+    - **Depends-on:** [T029, T030]
 
-## Store Error Mapping
-- [x] **T006 · refactor · p1: refactor UserStore to use error mapping helpers**
-    - **Context:** cr‑03 Consistent error mapping with helpers
+- [ ] **T032 · refactor · p1: unexport MemoServiceImpl**
+    - **Context:** cr-01 step 5
     - **Action:**
-        1. Replace direct database error checks in `internal/platform/postgres/user_store.go` with calls to helpers.
-        2. Ensure proper error wrapping (`fmt.Errorf("%w", err)`).
-    - **Done‑when:**
-        1. `PostgresUserStore` uses centralized error mapping helpers.
-        2. Tests pass verifying correct error mapping.
-    - **Depends‑on:** [T001]
+        1. Rename `MemoServiceImpl` to unexported `memoServiceImpl`
+        2. Update constructor to return interface type only
+    - **Done-when:**
+        1. Implementation is unexported and only accessible through interface
+        2. No compilation errors or test failures
+    - **Depends-on:** [T029]
 
-- [x] **T007 · refactor · p1: refactor MemoStore to use error mapping helpers**
-    - **Context:** cr‑03 Consistent error mapping with helpers
-    - **Action:**
-        1. Replace direct database error checks in `internal/platform/postgres/memo_store.go` with calls to helpers.
-        2. Ensure proper error wrapping.
-    - **Done‑when:**
-        1. `PostgresMemoStore` uses centralized error mapping helpers.
-        2. Tests pass verifying correct error mapping.
-    - **Depends‑on:** [T001]
+## Transaction Boundary Management
 
-- [x] **T008 · refactor · p1: refactor CardStore to use error mapping helpers**
-    - **Context:** cr‑03 Consistent error mapping with helpers
+- [ ] **T033 · refactor · p1: remove transaction logic from CardStore.CreateMultiple**
+    - **Context:** cr-02 steps 1-2
     - **Action:**
-        1. Replace direct database error checks in `internal/platform/postgres/card_store.go` with calls to helpers.
-        2. Ensure proper error wrapping.
-    - **Done‑when:**
-        1. `PostgresCardStore` uses centralized error mapping helpers.
-        2. Tests pass verifying correct error mapping.
-    - **Depends‑on:** [T001]
+        1. Remove `BeginTx`, `Commit`, and `Rollback` code
+        2. Remove transaction detection logic
+        3. Modify method to assume it's operating within a transaction
+    - **Done-when:**
+        1. Method contains no transaction management code
+        2. Tests confirm behavior within transaction context
+    - **Depends-on:** none
 
-- [x] **T009 · refactor · p1: refactor UserCardStatsStore to use error mapping helpers**
-    - **Context:** cr‑03 Consistent error mapping with helpers
+- [ ] **T034 · chore · p3: document transaction assumption in CardStore.CreateMultiple**
+    - **Context:** cr-02 step 3
     - **Action:**
-        1. Replace direct database error checks in `internal/platform/postgres/stats_store.go` with calls to helpers.
-        2. Ensure proper error wrapping.
-    - **Done‑when:**
-        1. `PostgresUserCardStatsStore` uses centralized error mapping helpers.
-        2. Tests pass verifying correct error mapping.
-    - **Depends‑on:** [T001]
+        1. Add clear documentation that method must run within a transaction
+        2. Document expected behavior if called outside a transaction
+    - **Done-when:**
+        1. Method has comprehensive documentation about transaction requirements
+    - **Depends-on:** [T033]
 
-## Store Security
-- [x] **T010 · bugfix · p0: audit and update stores to prevent internal error detail leakage**
-    - **Context:** cr‑04 Prevent internal error detail leakage
+- [ ] **T035 · refactor · p1: update CardStore.CreateMultiple callers**
+    - **Context:** cr-02 step 4
     - **Action:**
-        1. Audit all error return points in store implementations.
-        2. Ensure internal error details are logged using structured logging.
-        3. Ensure only standardized errors are returned to callers.
-    - **Done‑when:**
-        1. All store methods log detailed internal errors but return only standardized, opaque errors.
-    - **Depends‑on:** [T002, T003, T004, T005, T006, T007, T008, T009]
+        1. Find all callers of `CardStore.CreateMultiple`
+        2. Ensure callers use `store.RunInTransaction` with `CardStore.WithTx`
+    - **Done-when:**
+        1. All callers properly manage the transaction context
+    - **Depends-on:** [T033]
 
-- [x] **T011 · test · p0: add tests verifying no internal details leak in store errors**
-    - **Context:** cr‑04 Prevent internal error detail leakage
-    - **Action:**
-        1. Add specific tests for each store implementation.
-        2. Trigger various database errors (e.g., constraint violations).
-        3. Assert that the returned error message does not contain internal database details.
-    - **Done‑when:**
-        1. Tests pass confirming no internal error details are exposed by store methods.
-    - **Depends‑on:** [T010]
+## Cross-Platform Pre-commit Hooks
 
-## Dependency Injection & Modularity
-- [x] **T012 · refactor · p1: define task.TaskStore interface**
-    - **Context:** cr‑05 Use TaskStore interface in dependency injection
+- [ ] **T036 · chore · p1: restore standard pre-commit hooks**
+    - **Context:** cr-03 steps 1-3
     - **Action:**
-        1. Define a `TaskStore` interface in `internal/task/task.go` with necessary methods.
-        2. Ensure `PostgresTaskStore` implicitly satisfies this interface.
-    - **Done‑when:**
-        1. `internal/task/task.go` contains the `TaskStore` interface definition.
-    - **Depends‑on:** none
+        1. Remove custom `fix-trailing-whitespace` and `fix-end-of-file` hooks
+        2. Add back standard `trailing-whitespace` and `end-of-file-fixer` hooks
+        3. Configure hooks to ensure cross-platform compatibility
+    - **Done-when:**
+        1. Hooks run successfully on both macOS and Linux
+        2. Pre-commit configuration passes validation
+    - **Depends-on:** none
 
-- [x] **T013 · refactor · p1: update dependency injection to use task.TaskStore interface**
-    - **Context:** cr‑05 Use TaskStore interface in dependency injection
-    - **Action:**
-        1. Update `appDependencies` in `cmd/server/main.go` to use interface type.
-        2. Adjust initialization code to assign concrete implementation to interface field.
-    - **Done‑when:**
-        1. `cmd/server/main.go` uses the interface for dependency injection.
-        2. Application compiles and tests pass.
-    - **Depends‑on:** [T012]
+## MemoServiceAdapter Validation
 
-- [x] **T014 · refactor · p1: decouple MemoStore.Update from task package logic**
-    - **Context:** cr‑06 Decouple MemoStore.Update from task package
+- [ ] **T037 · refactor · p2: improve MemoServiceAdapter constructor validation**
+    - **Context:** cr-04 steps 1-3
     - **Action:**
-        1. Identify task-specific logic in `MemoStore.Update`.
-        2. Move this logic to the appropriate service layer component.
-        3. Refactor `MemoStore.Update` to focus solely on data persistence.
-    - **Done‑when:**
-        1. `MemoStore.Update` has no task package dependency.
-        2. Business logic resides in the service layer.
-    - **Depends‑on:** none
+        1. Add type assertions in `NewMemoServiceAdapter` to verify interface compliance
+        2. Return clear, descriptive errors on validation failure
+        3. Document required repository methods in comments
+    - **Done-when:**
+        1. Constructor fails fast with clear errors for incompatible repositories
+        2. Documentation clearly lists all required methods
+    - **Depends-on:** none
 
-- [x] **T015 · refactor · p1: update service layer to handle memo status transitions**
-    - **Context:** cr‑06 Decouple MemoStore.Update from task package
-    - **Action:**
-        1. Move memo status transition logic to service layer.
-        2. Update all callers as needed.
-    - **Done‑when:**
-        1. All business logic for memo status lives outside the store.
-        2. Tests pass with the refactored code.
-    - **Depends‑on:** [T014]
+## Fix GetNextReviewCard Panic
 
-## Testing Utilities
-- [x] **T016 · refactor · p1: remove password hashing logic from testutils.MustInsertUser**
-    - **Context:** cr‑07 Remove domain logic from test utilities
+- [ ] **T038 · bugfix · p1: replace panic with error in GetNextReviewCard**
+    - **Context:** cr-05 steps 1-2
     - **Action:**
-        1. Modify `MustInsertUser` to accept a pre-hashed password or use UserStore.Create.
-        2. Update all test callers to provide hashed passwords or adapt to the new helper.
-    - **Done‑when:**
-        1. `MustInsertUser` no longer contains password hashing logic.
-        2. All tests using `MustInsertUser` pass.
-    - **Depends‑on:** none
+        1. Replace `panic` with `return nil, store.ErrNotImplemented`
+        2. Update callers to handle the error case properly
+    - **Done-when:**
+        1. Method returns appropriate error without panicking
+        2. Tests verify error handling
+    - **Depends-on:** none
 
-- [x] **T017 · refactor · p2: centralize duplicate test helpers into internal/testutils**
-    - **Context:** cr‑11 Clean up duplicate test helpers
-    - **Action:**
-        1. Identify duplicated test helper functions across test files.
-        2. Move these helpers into `internal/testutils`.
-        3. Update all call sites to use the centralized helpers.
-    - **Done‑when:**
-        1. No duplicate test code remains; all tests use centralized utilities.
-    - **Depends‑on:** none
+## UserCardStats Orchestration
 
-## User Store Simplification
-- [x] **T018 · refactor · p1: simplify UserStore.Update logic to remove internal fetch**
-    - **Context:** cr‑08 Simplify user update logic
+- [ ] **T039 · refactor · p1: remove UserCardStats creation from CardStore**
+    - **Context:** cr-06 step 1
     - **Action:**
-        1. Remove DB fetch in PostgresUserStore.Update.
-        2. Expect complete user object (including HashedPassword) from service layer.
-    - **Done‑when:**
-        1. User update logic is straightforward and delegates completeness to caller.
-    - **Depends‑on:** none
+        1. Remove code that inserts `UserCardStats` from `CardStore.CreateMultiple`
+        2. Ensure tests are updated to reflect the change
+    - **Done-when:**
+        1. `CardStore.CreateMultiple` only manages card entities
+    - **Depends-on:** none
 
-- [x] **T019 · refactor · p1: update service layer to provide complete user object for updates**
-    - **Context:** cr‑08 Simplify user update logic
+- [ ] **T040 · feature · p1: create CardService and orchestration method**
+    - **Context:** cr-06 steps 2-3
     - **Action:**
-        1. Change service code to always pass a fully-populated User object to Update.
-    - **Done‑when:**
-        1. Service and store layers are cleanly separated.
-        2. All tests pass with simplified update logic.
-    - **Depends‑on:** [T018]
+        1. Create new `CardService` interface and implementation in `internal/service/card_service.go`
+        2. Implement `CreateCards` method that handles both card and stats creation
+        3. Use `store.RunInTransaction` with repositories' `WithTx` methods to ensure atomicity
+    - **Done-when:**
+        1. `CardService.CreateCards` orchestrates both operations in a single transaction
+        2. Tests verify atomic behavior
+    - **Depends-on:** [T039]
 
-## Transaction Management
-- [x] **T020 · feature · p1: implement WithTx method on all store interfaces**
-    - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
+- [ ] **T041 · refactor · p2: update callers to use new orchestration method**
+    - **Context:** cr-06 step 4
     - **Action:**
-        1. Add `WithTx(*sql.Tx)` methods to all store interfaces in `internal/store`.
-    - **Done‑when:**
-        1. All store interfaces define WithTx.
-    - **Depends‑on:** none
+        1. Find all callers that previously relied on CardStore.CreateMultiple for stats
+        2. Update them to use the new service orchestration method
+    - **Done-when:**
+        1. All callers use the service method for orchestration
+    - **Depends-on:** [T040]
 
-- [x] **T021 · feature · p1: implement WithTx method in all store implementations**
-    - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
-    - **Action:**
-        1. Implement WithTx method in each Postgres store implementation.
-    - **Done‑when:**
-        1. All stores construct new instances with the provided transaction.
-    - **Depends‑on:** [T020]
+## Test Helper Consolidation
 
-- [x] **T022 · refactor · p1: update services to manage transaction boundaries explicitly**
-    - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
+- [ ] **T042 · refactor · p2: centralize duplicate test helpers**
+    - **Context:** cr-07 steps 1-3
     - **Action:**
-        1. Refactor service layer to create store instances with transactions as needed.
-    - **Done‑when:**
-        1. Transaction boundaries are explicit and managed at the service layer.
-    - **Depends‑on:** [T021]
+        1. Identify all duplicated helper functions across test files
+        2. Move them to appropriate files in `internal/testutils`
+        3. Update all tests to use the centralized helpers
+    - **Done-when:**
+        1. No duplicate test helpers exist in individual test files
+        2. Tests pass using centralized utilities
+    - **Depends-on:** none
 
-- [x] **T023 · test · p1: add integration tests for transaction atomicity**
-    - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
-    - **Action:**
-        1. Write tests to verify atomicity and rollback/commit behavior with WithTx.
-    - **Done‑when:**
-        1. Transactions are proven atomic in test scenarios.
-    - **Depends‑on:** [T021]
+## AssertNoErrorLeakage Relocation
 
-## Documentation
-- [x] **T024 · chore · p2: document transaction pattern and ownership in README**
-    - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
+- [ ] **T043 · refactor · p3: move AssertNoErrorLeakage to postgres package**
+    - **Context:** cr-08 steps 1-2
     - **Action:**
-        1. Update store/README.md to document transaction pattern.
-        2. Provide clear examples of transaction usage.
-    - **Done‑when:**
-        1. Documentation matches new transaction pattern.
-    - **Depends‑on:** [T022]
+        1. Move `AssertNoErrorLeakage` function to `internal/platform/postgres/errors_test.go`
+        2. Update all imports and references
+    - **Done-when:**
+        1. Helper is co-located with the code it tests
+        2. Tests pass with updated imports
+    - **Depends-on:** none
 
-- [x] **T025 · chore · p2: update documentation to match current interfaces and error patterns**
-    - **Context:** cr‑09 Update documentation across store implementations
-    - **Action:**
-        1. Update store/README.md and doc.go files to reflect latest interfaces and error contracts.
-    - **Done‑when:**
-        1. Documentation accurately reflects current interfaces, patterns, and best practices.
-    - **Depends‑on:** [T001, T024]
+## Standardize bcrypt Cost
 
-## Testing Improvements
-- [x] **T026 · test · p2: add missing unit tests for error utilities**
-    - **Context:** cr‑10 Add missing unit tests for error utilities
+- [ ] **T044 · refactor · p2: standardize bcrypt cost in test helpers**
+    - **Context:** cr-09 steps 1-3
     - **Action:**
-        1. Create `internal/platform/postgres/errors_test.go`.
-        2. Write table-driven tests for all error mapping and helper functions.
-    - **Done‑when:**
-        1. Coverage for error mapping utilities is comprehensive.
-    - **Depends‑on:** none
+        1. Add `bcryptCost` parameter to `MustInsertUser` and `CreateTestStores`
+        2. Pass the configured value from application settings in all test cases
+    - **Done-when:**
+        1. Test helpers use consistent bcrypt cost values
+        2. Tests pass with standardized values
+    - **Depends-on:** none
 
-## Cleanup
-- [x] **T027 · chore · p2: remove MockCardRepository and associated dead code**
-    - **Context:** cr‑12 Remove dead code (MockCardRepository)
-    - **Action:**
-        1. Remove MockCardRepository from main.go and associated test files.
-        2. Update tests to use real CardStore with transaction isolation.
-    - **Done‑when:**
-        1. No dead code remains; all tests use real implementations.
-    - **Depends‑on:** [T021]
+## Remove Unnecessary sql.DB Mock
 
-- [x] **T028 · test · p2: add compile-time interface checks to all store implementations**
-    - **Context:** cr‑13 Add compile-time interface checks
+- [ ] **T045 · refactor · p3: eliminate sql.DB mock**
+    - **Context:** cr-10 steps 1-2
     - **Action:**
-        1. Add `var _ store.Interface = (*Implementation)(nil)` assertions.
-    - **Done‑when:**
-        1. All store implementations are compile-time checked.
-    - **Depends‑on:** none
+        1. Remove `internal/mocks/db.go` file
+        2. Update tests to use store.DBTX interface instead
+    - **Done-when:**
+        1. No direct mocking of sql.DB is used in tests
+        2. All tests pass with interface-based approach
+    - **Depends-on:** none
 
-- [x] **T029 · chore · p3: mark stub GetNextReviewCard implementation with TODO and panic**
-    - **Context:** cr‑14 Mark stub GetNextReviewCard implementation
-    - **Action:**
-        1. Add TODO and panic with clear message in stub.
-        2. Create issue/task for implementation.
-    - **Done‑when:**
-        1. Method is clearly marked as unimplemented.
-    - **Depends‑on:** none
+## Document Cascade Delete Dependencies
 
-- [x] **T030 · chore · p3: clean up minor issues (logging, TODOs, dead functions)**
-    - **Context:** cr‑15 Fix minor issues (logging, TODOs, dead functions)
+- [ ] **T046 · chore · p3: document cascade delete behavior**
+    - **Context:** cr-11 steps 1-2
     - **Action:**
-        1. Reduce logging level for routine success to Debug.
-        2. Move/fix misplaced TODO comments.
-        3. Remove unused functions.
-        4. Add interface versioning comments.
-    - **Done‑when:**
-        1. Codebase passes style checks and is clean.
-    - **Depends‑on:** none
+        1. Update interface documentation in `store/card.go`
+        2. Add clear comments in the implementation about dependency on cascade deletes
+    - **Done-when:**
+        1. Cascade delete behavior is clearly documented in both interface and implementation
+    - **Depends-on:** none
+
+## Fix Trivial and Misleading Tests
+
+- [ ] **T047 · test · p3: clean up test code quality issues**
+    - **Context:** cr-12 steps 1-2
+    - **Action:**
+        1. Remove `TestDBTXInterface` test
+        2. Fix misleading comments in `TestableGeminiGenerator`
+    - **Done-when:**
+        1. Tests are meaningful and comments match implementation
+    - **Depends-on:** none
+
+## Documentation Improvements
+
+- [ ] **T048 · chore · p3: improve documentation quality**
+    - **Context:** cr-13 steps 1-2
+    - **Action:**
+        1. Update generic TODO comments to be specific and actionable
+        2. Fix all other documentation inconsistencies
+    - **Done-when:**
+        1. All TODOs have clear next steps
+        2. Documentation is accurate and consistent
+    - **Depends-on:** none
+
+### Clarifications & Assumptions
+
+- [x] **Issue:** Need to determine the best service to handle UserCardStats orchestration
+    - **Context:** cr-06 step 2
+    - **Resolution:** Create a new CardService in internal/service/card_service.go that orchestrates both Card and UserCardStats creation within a transaction. This follows the same pattern as MemoService with RunInTransaction + WithTx, keeping persistence layer focused on single responsibilities while the service layer handles orchestration.

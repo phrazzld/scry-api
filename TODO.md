@@ -236,7 +236,7 @@
         1. Documentation matches new transaction pattern.
     - **Depends‑on:** [T022]
 
-- [ ] **T025 · chore · p2: update documentation to match current interfaces and error patterns**
+- [x] **T025 · chore · p2: update documentation to match current interfaces and error patterns**
     - **Context:** cr‑09 Update documentation across store implementations
     - **Action:**
         1. Update store/README.md and doc.go files to reflect latest interfaces and error contracts.

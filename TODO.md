@@ -218,7 +218,7 @@
         1. Transaction boundaries are explicit and managed at the service layer.
     - **Depends‑on:** [T021]
 
-- [ ] **T023 · test · p1: add integration tests for transaction atomicity**
+- [x] **T023 · test · p1: add integration tests for transaction atomicity**
     - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
     - **Action:**
         1. Write tests to verify atomicity and rollback/commit behavior with WithTx.

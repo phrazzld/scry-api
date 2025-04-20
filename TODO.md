@@ -58,7 +58,7 @@
 
 ## Transaction Boundary Management
 
-- [ ] **T033 · refactor · p1: remove transaction logic from CardStore.CreateMultiple**
+- [x] **T033 · refactor · p1: remove transaction logic from CardStore.CreateMultiple**
     - **Context:** cr-02 steps 1-2
     - **Action:**
         1. Remove `BeginTx`, `Commit`, and `Rollback` code

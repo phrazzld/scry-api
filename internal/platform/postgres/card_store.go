@@ -48,8 +48,8 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 }
 
 // CreateMultiple implements store.CardStore.CreateMultiple
-// It saves multiple cards to the database in a single transaction.
-// The operation is atomic - either all cards are created or none.
+// It saves multiple cards to the database.
+// Must be called within a transaction for atomicity.
 // Returns validation errors if any card data is invalid.
 // Also creates corresponding UserCardStats entries for each card.
 func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
@@ -73,66 +73,6 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 		}
 	}
 
-	// Determine if we need to start a transaction or use existing one
-	var tx = s.db
-	var txCreated bool
-
-	// Use type assertion to check if s.db is already a transaction
-	_, isTransaction := s.db.(interface {
-		Commit() error
-		Rollback() error
-	})
-
-	// Only create a new transaction if not already in one
-	if !isTransaction {
-		// Type assertion to get the underlying database connection
-		dbConn, ok := s.db.(interface {
-			BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
-		})
-		if !ok {
-			log.Error("failed to create transaction - db doesn't support BeginTx")
-			return fmt.Errorf("%w: database connection doesn't support transactions", store.ErrTransactionFailed)
-		}
-
-		var err error
-		txObj, err := dbConn.BeginTx(ctx, nil)
-		if err != nil {
-			log.Error("failed to begin transaction", slog.String("error", err.Error()))
-			return fmt.Errorf("%w: failed to begin transaction: %v", store.ErrTransactionFailed, err)
-		}
-		tx = txObj
-		txCreated = true
-		log.Debug("transaction created for batch card insertion")
-	}
-
-	var txObj interface {
-		Commit() error
-		Rollback() error
-	}
-
-	// If we created a transaction, ensure it gets committed or rolled back
-	if txCreated {
-		// Use type assertion to get the actual transaction methods
-		var ok bool
-		txObj, ok = tx.(interface {
-			Commit() error
-			Rollback() error
-		})
-		if !ok {
-			log.Error("invalid transaction type")
-			return fmt.Errorf("%w: invalid transaction type", store.ErrTransactionFailed)
-		}
-
-		defer func() {
-			// If panic occurs, try to roll back
-			if r := recover(); r != nil {
-				_ = txObj.Rollback()
-				log.Error("panic during card creation", slog.Any("panic", r))
-				panic(r) // Re-throw the panic after cleanup
-			}
-		}()
-	}
-
 	// Insert cards
 	cardQuery := `
 		INSERT INTO cards (id, user_id, memo_id, content, created_at, updated_at)
@@ -140,7 +80,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 	`
 
 	for _, card := range cards {
-		_, err := tx.ExecContext(
+		_, err := s.db.ExecContext(
 			ctx,
 			cardQuery,
 			card.ID,
@@ -160,9 +100,6 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 						slog.String("error", err.Error()),
 						slog.String("card_id", card.ID.String()),
 						slog.String("user_id", card.UserID.String()))
-					if txCreated {
-						_ = txObj.Rollback()
-					}
 					return fmt.Errorf("%w: user with ID %s not found",
 						store.ErrInvalidEntity, card.UserID)
 				}
@@ -171,9 +108,6 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 						slog.String("error", err.Error()),
 						slog.String("card_id", card.ID.String()),
 						slog.String("memo_id", card.MemoID.String()))
-					if txCreated {
-						_ = txObj.Rollback()
-					}
 					return fmt.Errorf("%w: memo with ID %s not found",
 						store.ErrInvalidEntity, card.MemoID)
 				}
@@ -182,9 +116,6 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			log.Error("failed to insert card",
 				slog.String("error", err.Error()),
 				slog.String("card_id", card.ID.String()))
-			if txCreated {
-				_ = txObj.Rollback()
-			}
 			return fmt.Errorf("failed to insert card: %w", MapError(err))
 		}
 
@@ -210,9 +141,6 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 				slog.String("error", err.Error()),
 				slog.String("card_id", card.ID.String()),
 				slog.String("user_id", card.UserID.String()))
-			if txCreated {
-				_ = txObj.Rollback()
-			}
 			return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
 		}
 
@@ -224,7 +152,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			lastReviewedAt = stats.LastReviewedAt
 		}
 
-		_, err = tx.ExecContext(
+		_, err = s.db.ExecContext(
 			ctx,
 			statsQuery,
 			stats.UserID,
@@ -244,25 +172,12 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 				slog.String("error", err.Error()),
 				slog.String("card_id", card.ID.String()),
 				slog.String("user_id", card.UserID.String()))
-			if txCreated {
-				_ = txObj.Rollback()
-			}
 			return fmt.Errorf("failed to insert card stats: %w", MapError(err))
 		}
 
 		log.Debug("card stats inserted successfully",
 			slog.String("card_id", card.ID.String()),
 			slog.String("user_id", card.UserID.String()))
-	}
-
-	// Commit the transaction if we created it
-	if txCreated {
-		if err := txObj.Commit(); err != nil {
-			log.Error("failed to commit transaction", slog.String("error", err.Error()))
-			_ = txObj.Rollback()
-			return fmt.Errorf("%w: failed to commit transaction: %v", store.ErrTransactionFailed, err)
-		}
-		log.Debug("transaction committed successfully")
 	}
 
 	log.Debug("batch card creation completed successfully",

@@ -388,7 +388,7 @@ The Scry API uses a consistent pattern for transaction management, with clear ow
 
 ### The WithTx Pattern
 
-All store interfaces include a `WithTx` method that allows the caller to create a transactional version of the store:
+All store interfaces include a `WithTx` method that allows the caller to create a transactional version of the store. This is an architectural requirement for all store interfaces, regardless of whether they currently participate in transactions.
 
 ```go
 // WithTx returns a new UserStore instance that uses the provided transaction.
@@ -407,6 +407,16 @@ func (s *PostgresUserStore) WithTx(tx *sql.Tx) store.UserStore {
     }
 }
 ```
+
+### Why All Stores Must Implement WithTx
+
+1. **Consistency**: A uniform interface pattern makes the codebase more maintainable
+2. **Future-proofing**: Even if a store isn't currently used in transactions, it might need to be in the future
+3. **Composition**: Any store can be composed into a transactional workflow without interface changes
+4. **Testing**: Transaction-based testing becomes simpler with a consistent pattern
+5. **Simplicity**: No need to track which stores need transactions and which don't
+
+For these reasons, it has been decided that **all store interfaces must include a WithTx method**, even if they don't currently participate in transactions.
 
 ### Transaction Ownership
 
@@ -487,6 +497,7 @@ func (s *MemoService) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, st
 4. **Minimize Transaction Scope**: Keep transactions as short as possible to reduce lock contention.
 5. **Error Mapping**: Map all database errors to domain-specific errors within store implementations.
 6. **Business Logic Separation**: Business logic should live in the service layer or domain model, not in stores.
+7. **All Stores Must Implement WithTx**: Always implement the WithTx method on all store interfaces.
 
 ### Atomicity Guarantees
 

@@ -16,12 +16,16 @@
 //   - MemoStore: Interface for memo persistence operations
 //   - CardStore: Interface for flashcard persistence operations
 //   - UserCardStatsStore: Interface for SRS statistics persistence
-//   - All interfaces include a WithTx method for transaction support
+//   - TaskStore: Interface for background task persistence operations
+//   - All interfaces MUST include a WithTx method for transaction support,
+//     regardless of whether they currently participate in transactions
 //
 // 2. Transaction Support:
 //   - DBTX: Interface that abstracts *sql.DB and *sql.Tx for flexible transaction handling
 //   - RunInTransaction: Helper function to manage transaction boundaries
 //   - WithTx pattern for transaction-aware store instances
+//   - Transaction management is the responsibility of the service layer, not stores
+//   - All stores can participate in transactions via their WithTx method
 //
 // 3. Error Definitions:
 //   - Base error types: ErrNotFound, ErrDuplicate, ErrInvalidEntity, etc.

@@ -291,12 +291,3 @@
     - **Done‑when:**
         1. Codebase passes style checks and is clean.
     - **Depends‑on:** none
-
-### Clarifications & Assumptions
-- [ ] **Issue:** Should all store interfaces expose WithTx, or only those used transactionally?
-    - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
-    - **Blocking?:** yes
-
-- [ ] **Issue:** Are test helpers allowed to call direct SQL for setup, or must everything use UserStore.Create?
-    - **Context:** cr‑07 Remove domain logic from test utilities
-    - **Blocking?:** no

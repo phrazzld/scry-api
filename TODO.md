@@ -227,7 +227,7 @@
     - **Depends‑on:** [T021]
 
 ## Documentation
-- [ ] **T024 · chore · p2: document transaction pattern and ownership in README**
+- [x] **T024 · chore · p2: document transaction pattern and ownership in README**
     - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
     - **Action:**
         1. Update store/README.md to document transaction pattern.

@@ -264,7 +264,7 @@
         1. No dead code remains; all tests use real implementations.
     - **Depends‑on:** [T021]
 
-- [ ] **T028 · test · p2: add compile-time interface checks to all store implementations**
+- [x] **T028 · test · p2: add compile-time interface checks to all store implementations**
     - **Context:** cr‑13 Add compile-time interface checks
     - **Action:**
         1. Add `var _ store.Interface = (*Implementation)(nil)` assertions.

@@ -14,6 +14,9 @@ import (
 	"github.com/phrazzld/scry-api/internal/store"
 )
 
+// Compile-time check to ensure PostgresUserCardStatsStore implements store.UserCardStatsStore
+var _ store.UserCardStatsStore = (*PostgresUserCardStatsStore)(nil)
+
 // PostgresUserCardStatsStore implements the store.UserCardStatsStore interface
 // using a PostgreSQL database as the storage backend.
 type PostgresUserCardStatsStore struct {

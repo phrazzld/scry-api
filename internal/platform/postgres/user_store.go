@@ -15,6 +15,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Compile-time check to ensure PostgresUserStore implements store.UserStore
+var _ store.UserStore = (*PostgresUserStore)(nil)
+
 // PostgresUserStore implements the store.UserStore interface
 // using a PostgreSQL database as the storage backend.
 type PostgresUserStore struct {

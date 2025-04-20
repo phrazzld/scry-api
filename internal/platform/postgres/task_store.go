@@ -13,6 +13,9 @@ import (
 	"github.com/phrazzld/scry-api/internal/task"
 )
 
+// Compile-time check to ensure PostgresTaskStore implements task.TaskStore
+var _ task.TaskStore = (*PostgresTaskStore)(nil)
+
 // PostgresTaskStore implements the task.TaskStore interface using PostgreSQL
 type PostgresTaskStore struct {
 	db store.DBTX

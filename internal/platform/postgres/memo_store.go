@@ -14,6 +14,9 @@ import (
 	"github.com/phrazzld/scry-api/internal/store"
 )
 
+// Compile-time check to ensure PostgresMemoStore implements store.MemoStore
+var _ store.MemoStore = (*PostgresMemoStore)(nil)
+
 // PostgresMemoStore implements the store.MemoStore interface
 // using a PostgreSQL database as the storage backend.
 type PostgresMemoStore struct {

@@ -20,6 +20,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
@@ -35,6 +36,75 @@ import (
 // Used in the migration command implementation
 // This is a relative path from the project root
 const migrationsDir = "internal/platform/postgres/migrations"
+
+// TaskFactoryEventHandler is an event handler that creates tasks when events are emitted
+type TaskFactoryEventHandler struct {
+	taskFactory *task.MemoGenerationTaskFactory
+	taskRunner  *task.TaskRunner
+	logger      *slog.Logger
+}
+
+// HandleEvent processes events by creating and submitting tasks
+func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+	// Only handle memo generation events for now
+	if event.Type != task.TaskTypeMemoGeneration {
+		h.logger.Debug("ignoring event with unsupported type", "event_type", event.Type, "event_id", event.ID)
+		return nil
+	}
+
+	// Extract the memo ID from the event payload
+	var payload struct {
+		MemoID string `json:"memo_id"`
+	}
+
+	if err := event.UnmarshalPayload(&payload); err != nil {
+		h.logger.Error("failed to unmarshal payload", "error", err, "event_id", event.ID)
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	// Parse the memo ID
+	memoID, err := uuid.Parse(payload.MemoID)
+	if err != nil {
+		h.logger.Error("invalid memo ID", "error", err, "memo_id", payload.MemoID, "event_id", event.ID)
+		return fmt.Errorf("invalid memo ID: %w", err)
+	}
+
+	// Create the task
+	h.logger.Debug("creating task for memo", "memo_id", memoID, "event_id", event.ID)
+	task, err := h.taskFactory.CreateTask(memoID)
+	if err != nil {
+		h.logger.Error("failed to create task", "error", err, "memo_id", memoID, "event_id", event.ID)
+		return fmt.Errorf("failed to create task: %w", err)
+	}
+
+	// Submit the task to the runner
+	h.logger.Debug("submitting task to runner", "task_id", task.ID(), "memo_id", memoID, "event_id", event.ID)
+	if err := h.taskRunner.Submit(ctx, task); err != nil {
+		h.logger.Error(
+			"failed to submit task",
+			"error",
+			err,
+			"task_id",
+			task.ID(),
+			"memo_id",
+			memoID,
+			"event_id",
+			event.ID,
+		)
+		return fmt.Errorf("failed to submit task: %w", err)
+	}
+
+	h.logger.Info(
+		"task created and submitted successfully",
+		"task_id",
+		task.ID(),
+		"memo_id",
+		memoID,
+		"event_id",
+		event.ID,
+	)
+	return nil
+}
 
 // appDependencies holds all the shared application dependencies
 // to simplify passing them around between functions.
@@ -195,9 +265,6 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Create adapter for the store to be used in the service layer
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
-	// Create the memo service first
-	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, nil, deps.Logger)
-
 	// Create an adapter that makes the service usable in the task layer
 	// This breaks the circular dependency between service and task packages
 	memoServiceAdapter := task.NewMemoServiceAdapter(memoRepoAdapter)
@@ -210,12 +277,21 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 		deps.Logger,
 	)
 
-	// Update the service with the task factory
-	// This is a slight hack to break the circular dependency
-	memoServiceImpl, ok := memoService.(*service.MemoServiceImpl)
-	if ok {
-		memoServiceImpl.SetTaskFactory(memoTaskFactory)
+	// Create the event emitter that will be used by the memo service
+	eventEmitter := events.NewInMemoryEventEmitter(deps.Logger)
+
+	// Create a task factory event handler
+	taskFactoryHandler := &TaskFactoryEventHandler{
+		taskFactory: memoTaskFactory,
+		taskRunner:  deps.TaskRunner,
+		logger:      deps.Logger.With("component", "task_factory_event_handler"),
 	}
+
+	// Register the task factory handler with the event emitter
+	eventEmitter.RegisterHandler(taskFactoryHandler)
+
+	// Create the memo service with the event emitter
+	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, eventEmitter, deps.Logger)
 	memoHandler := api.NewMemoHandler(memoService)
 
 	// Register routes

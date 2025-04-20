@@ -13,7 +13,7 @@
         2. Unit tests verify event structure and handler interface
     - **Depends-on:** none
 
-- [ ] **T029 · refactor · p1: replace TaskFactory dependency with EventEmitter in MemoService**
+- [x] **T029 · refactor · p1: replace TaskFactory dependency with EventEmitter in MemoService**
     - **Context:** cr-01 step 2
     - **Action:**
         1. Define `EventEmitter` interface in `internal/events`

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -87,15 +88,14 @@ func (m *MockTaskRunner) Submit(ctx context.Context, task task.Task) error {
 	return args.Error(0)
 }
 
-// MockTaskFactory creates tasks
-type MockTaskFactory struct {
+// MockEventEmitter implements the events.EventEmitter interface for testing
+type MockEventEmitter struct {
 	mock.Mock
 }
 
-func (m *MockTaskFactory) CreateTask(memoID uuid.UUID) (task.Task, error) {
-	args := m.Called(memoID)
-	task, _ := args.Get(0).(task.Task)
-	return task, args.Error(1)
+func (m *MockEventEmitter) EmitEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
 }
 
 // MockMemoTask is a simple mock task implementation
@@ -162,15 +162,13 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 
 			// Create mocks for tasks
 			mockRunner := new(MockTaskRunner)
-			mockTaskFactory := new(MockTaskFactory)
-			mockTask := NewMockMemoTask()
+			mockEventEmitter := new(MockEventEmitter)
 
 			// Setup expectations
-			mockTaskFactory.On("CreateTask", mock.Anything).Return(mockTask, nil)
-			mockRunner.On("Submit", mock.Anything, mockTask).Return(nil) // Should never be called
+			mockEventEmitter.On("EmitEvent", mock.Anything, mock.Anything).Return(nil) // Should never be called
 
 			// Create service with the failing repository
-			memoService := service.NewMemoService(failingRepo, mockRunner, mockTaskFactory, logger)
+			memoService := service.NewMemoService(failingRepo, mockRunner, mockEventEmitter, logger)
 
 			// Attempt to create a memo - this should fail after committing the memo to DB but before committing the transaction
 			memoText := "Test memo for rollback verification"
@@ -189,8 +187,8 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 			require.NoError(t, err, "Failed to count memos")
 			assert.Equal(t, 0, count, "No memo should exist in the database due to transaction rollback")
 
-			// Verify task submission was never called
-			mockRunner.AssertNotCalled(t, "Submit", mock.Anything, mock.Anything)
+			// Verify event emission was never called
+			mockEventEmitter.AssertNotCalled(t, "EmitEvent", mock.Anything, mock.Anything)
 		})
 
 		t.Run("Transaction_Commit_On_Success", func(t *testing.T) {
@@ -202,15 +200,13 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 
 			// Create mocks for tasks
 			mockRunner := new(MockTaskRunner)
-			mockTaskFactory := new(MockTaskFactory)
-			mockTask := NewMockMemoTask()
+			mockEventEmitter := new(MockEventEmitter)
 
 			// Setup expectations
-			mockTaskFactory.On("CreateTask", mock.Anything).Return(mockTask, nil)
-			mockRunner.On("Submit", mock.Anything, mockTask).Return(nil)
+			mockEventEmitter.On("EmitEvent", mock.Anything, mock.Anything).Return(nil)
 
 			// Create service with the succeeding repository
-			memoService := service.NewMemoService(successRepo, mockRunner, mockTaskFactory, logger)
+			memoService := service.NewMemoService(successRepo, mockRunner, mockEventEmitter, logger)
 
 			// Create a memo - this should succeed
 			memoText := "Test memo for commit verification"
@@ -229,8 +225,8 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 			require.NoError(t, err, "Failed to count memos")
 			assert.Equal(t, 1, count, "Memo should exist in the database")
 
-			// Verify task submission was called
-			mockRunner.AssertCalled(t, "Submit", mock.Anything, mockTask)
+			// Verify event emission was called
+			mockEventEmitter.AssertCalled(t, "EmitEvent", mock.Anything, mock.Anything)
 		})
 	})
 }
@@ -260,7 +256,7 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 
 		// Create mocks for task components (not used in these tests)
 		mockRunner := new(MockTaskRunner)
-		mockTaskFactory := new(MockTaskFactory)
+		mockEventEmitter := new(MockEventEmitter)
 
 		// Create a test memo directly
 		memoText := "Memo for status update transaction test"
@@ -286,7 +282,7 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing repository
-			memoService := service.NewMemoService(failingRepo, mockRunner, mockTaskFactory, logger)
+			memoService := service.NewMemoService(failingRepo, mockRunner, mockEventEmitter, logger)
 
 			// Attempt to update the memo status - this should fail
 			err := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
@@ -315,7 +311,7 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing repository
-			memoService := service.NewMemoService(failingRepo, mockRunner, mockTaskFactory, logger)
+			memoService := service.NewMemoService(failingRepo, mockRunner, mockEventEmitter, logger)
 
 			// Attempt to update the memo status - this should fail during GetByID
 			err := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
@@ -343,7 +339,7 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the succeeding repository
-			memoService := service.NewMemoService(successRepo, mockRunner, mockTaskFactory, logger)
+			memoService := service.NewMemoService(successRepo, mockRunner, mockEventEmitter, logger)
 
 			// Update the memo status - this should succeed
 			err := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)

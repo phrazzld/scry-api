@@ -1,11 +1,13 @@
 package testutils
 
 import (
+	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"testing"
 
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -37,6 +39,40 @@ func CreateTaskRunner(
 ) *task.TaskRunner {
 	t.Helper()
 	return task.NewTaskRunner(taskStore, config, logger)
+}
+
+// TaskFactoryEventHandler is an EventHandler that creates tasks from events
+type TaskFactoryEventHandler struct {
+	taskFactory *task.MemoGenerationTaskFactory
+	taskRunner  *task.TaskRunner
+	logger      *slog.Logger
+}
+
+// NewTaskFactoryEventHandler creates a new TaskFactoryEventHandler
+func NewTaskFactoryEventHandler(
+	taskFactory *task.MemoGenerationTaskFactory,
+	taskRunner *task.TaskRunner,
+	logger *slog.Logger,
+) *TaskFactoryEventHandler {
+	return &TaskFactoryEventHandler{
+		taskFactory: taskFactory,
+		taskRunner:  taskRunner,
+		logger:      logger.With("component", "task_factory_event_handler"),
+	}
+}
+
+// HandleEvent processes TaskRequestEvents by creating and submitting tasks
+func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+	// Only handle memo generation events
+	if event.Type != task.TaskTypeMemoGeneration {
+		h.logger.Debug("ignoring event with unsupported type", "event_type", event.Type, "event_id", event.ID)
+		return nil
+	}
+
+	// For testing purposes, we'll just log the event and return
+	// This will be replaced by a proper handler in the next ticket
+	h.logger.Debug("handling event", "event_id", event.ID, "event_type", event.Type)
+	return nil
 }
 
 // CreateMemoServiceComponents creates all components needed for the memo service.
@@ -76,8 +112,17 @@ func CreateMemoServiceComponents(
 	// Create the memo repository adapter for service package
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, db)
 
+	// Create the event emitter
+	eventEmitter := events.NewInMemoryEventEmitter(logger)
+
+	// Create the event handler
+	eventHandler := NewTaskFactoryEventHandler(memoTaskFactory, taskRunner, logger)
+
+	// Register the event handler with the emitter
+	eventEmitter.RegisterHandler(eventHandler)
+
 	// Create the memo service
-	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)
+	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, eventEmitter, logger)
 
 	return taskRunner, memoService, memoTaskFactory
 }

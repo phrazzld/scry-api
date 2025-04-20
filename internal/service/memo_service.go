@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 )
@@ -57,36 +58,29 @@ type MemoService interface {
 }
 
 // MemoServiceImpl implements the MemoService interface
-// We're making this public so that main.go can set the task factory
 type MemoServiceImpl struct {
-	memoRepo    MemoRepository
-	taskRunner  TaskRunner
-	taskFactory MemoGenerationTaskFactory
-	logger      *slog.Logger
-}
-
-// SetTaskFactory allows setting the task factory after construction
-// This helps break the circular dependency between service and task packages
-func (s *MemoServiceImpl) SetTaskFactory(factory MemoGenerationTaskFactory) {
-	s.taskFactory = factory
+	memoRepo     MemoRepository
+	taskRunner   TaskRunner
+	eventEmitter events.EventEmitter
+	logger       *slog.Logger
 }
 
 // NewMemoService creates a new MemoService
 func NewMemoService(
 	memoRepo MemoRepository,
 	taskRunner TaskRunner,
-	taskFactory MemoGenerationTaskFactory,
+	eventEmitter events.EventEmitter,
 	logger *slog.Logger,
 ) MemoService {
 	return &MemoServiceImpl{
-		memoRepo:    memoRepo,
-		taskRunner:  taskRunner,
-		taskFactory: taskFactory,
-		logger:      logger.With("component", "memo_service"),
+		memoRepo:     memoRepo,
+		taskRunner:   taskRunner,
+		eventEmitter: eventEmitter,
+		logger:       logger.With("component", "memo_service"),
 	}
 }
 
-// CreateMemoAndEnqueueTask creates a new memo with pending status and enqueues a generation task
+// CreateMemoAndEnqueueTask creates a new memo with pending status and emits an event for processing
 // Uses a transaction for the memo creation part to ensure atomicity
 func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
 	ctx context.Context,
@@ -123,31 +117,38 @@ func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
 		"memo_id", memo.ID,
 		"user_id", userID)
 
-	// 3. Create a MemoGenerationTask
-	genTask, err := s.taskFactory.CreateTask(memo.ID)
+	// 3. Create a payload for the event
+	payload := struct {
+		MemoID uuid.UUID `json:"memo_id"`
+	}{
+		MemoID: memo.ID,
+	}
+
+	// 4. Create and emit a TaskRequestEvent
+	event, err := events.NewTaskRequestEvent(task.TaskTypeMemoGeneration, payload)
 	if err != nil {
-		s.logger.Error("failed to create memo generation task",
+		s.logger.Error("failed to create memo generation event",
 			"error", err,
 			"memo_id", memo.ID,
 			"user_id", userID)
-		return nil, fmt.Errorf("failed to create task: %w", err)
+		return nil, fmt.Errorf("failed to create event: %w", err)
 	}
 
-	// 4. Submit the task to the task runner
-	err = s.taskRunner.Submit(ctx, genTask)
+	// 5. Emit the event
+	err = s.eventEmitter.EmitEvent(ctx, event)
 	if err != nil {
-		s.logger.Error("failed to enqueue memo generation task",
+		s.logger.Error("failed to emit memo generation event",
 			"error", err,
 			"memo_id", memo.ID,
 			"user_id", userID,
-			"task_id", genTask.ID())
-		return nil, fmt.Errorf("failed to enqueue task: %w", err)
+			"event_id", event.ID)
+		return nil, fmt.Errorf("failed to emit event: %w", err)
 	}
 
-	s.logger.Info("memo generation task enqueued successfully",
+	s.logger.Info("memo generation event emitted successfully",
 		"memo_id", memo.ID,
 		"user_id", userID,
-		"task_id", genTask.ID())
+		"event_id", event.ID)
 
 	return memo, nil
 }

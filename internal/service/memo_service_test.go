@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/stretchr/testify/mock"
 )
@@ -64,18 +65,15 @@ func (m *MockTaskRunner) Submit(ctx context.Context, task task.Task) error {
 	return args.Error(0)
 }
 
-// MockMemoGenerationTaskFactory is a mock implementation of the MemoGenerationTaskFactory
-type MockMemoGenerationTaskFactory struct {
+// MockEventEmitter is a mock implementation of the events.EventEmitter interface
+type MockEventEmitter struct {
 	mock.Mock
 }
 
-// CreateTask implements MemoGenerationTaskFactory
-func (m *MockMemoGenerationTaskFactory) CreateTask(memoID uuid.UUID) (task.Task, error) {
-	args := m.Called(memoID)
-	if t, ok := args.Get(0).(task.Task); ok {
-		return t, args.Error(1)
-	}
-	return nil, args.Error(1)
+// EmitEvent implements events.EventEmitter
+func (m *MockEventEmitter) EmitEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
 }
 
 // MockMemoGenerationTask is a mock implementation of a Task generated for memo processing

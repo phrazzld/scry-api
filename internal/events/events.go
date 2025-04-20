@@ -25,6 +25,11 @@ type TaskRequestEvent struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// UnmarshalPayload decodes the event payload into the provided structure.
+func (e *TaskRequestEvent) UnmarshalPayload(v interface{}) error {
+	return json.Unmarshal(e.Payload, v)
+}
+
 // NewTaskRequestEvent creates a new TaskRequestEvent with the specified type and payload.
 func NewTaskRequestEvent(eventType string, payload interface{}) (*TaskRequestEvent, error) {
 	// Serialize the payload to JSON

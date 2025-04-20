@@ -18,6 +18,7 @@ import (
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
@@ -81,8 +82,21 @@ func setupTaskLifecycleTestServer(
 	// Use testDB for the DB connection (not tx which is the transaction)
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, testDB)
 
+	// Create event emitter
+	eventEmitter := events.NewInMemoryEventEmitter(logger)
+
+	// Create task factory event handler
+	taskFactoryHandler := &TaskFactoryEventHandler{
+		taskFactory: memoTaskFactory,
+		taskRunner:  taskRunner,
+		logger:      logger.With("component", "task_factory_event_handler"),
+	}
+
+	// Register the handler with the emitter
+	eventEmitter.RegisterHandler(taskFactoryHandler)
+
 	// Create the memo service
-	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)
+	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, eventEmitter, logger)
 
 	// Create the API handlers
 	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &authConfig)

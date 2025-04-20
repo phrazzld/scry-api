@@ -26,6 +26,7 @@ const (
 )
 
 // Task represents a unit of background work to be processed
+// Version: 1.0
 type Task interface {
 	// ID returns the task's unique identifier
 	ID() uuid.UUID
@@ -45,6 +46,7 @@ type Task interface {
 
 // TaskQueueReader provides read-only access to the task channel
 // allowing workers to consume tasks without the ability to enqueue
+// Version: 1.0
 type TaskQueueReader interface {
 	// GetChannel returns a read-only channel for consuming tasks
 	GetChannel() <-chan Task
@@ -52,6 +54,7 @@ type TaskQueueReader interface {
 
 // TaskQueueWriter provides write access to the task queue
 // allowing services to enqueue tasks for processing
+// Version: 1.0
 type TaskQueueWriter interface {
 	// Enqueue adds a task to the queue for processing
 	// Returns an error if the queue is full or closed
@@ -62,6 +65,7 @@ type TaskQueueWriter interface {
 }
 
 // TaskStore defines the interface for persisting tasks
+// Version: 1.0
 type TaskStore interface {
 	// SaveTask persists a task to the database
 	SaveTask(ctx context.Context, task Task) error

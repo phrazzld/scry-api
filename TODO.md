@@ -281,7 +281,7 @@
         1. Method is clearly marked as unimplemented.
     - **Depends‑on:** none
 
-- [ ] **T030 · chore · p3: clean up minor issues (logging, TODOs, dead functions)**
+- [x] **T030 · chore · p3: clean up minor issues (logging, TODOs, dead functions)**
     - **Context:** cr‑15 Fix minor issues (logging, TODOs, dead functions)
     - **Action:**
         1. Reduce logging level for routine success to Debug.

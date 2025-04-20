@@ -183,7 +183,7 @@ func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.U
 		return fmt.Errorf("failed to update user card stats: %w", err)
 	}
 
-	log.Info("user card stats updated successfully",
+	log.Debug("user card stats updated successfully",
 		slog.String("user_id", stats.UserID.String()),
 		slog.String("card_id", stats.CardID.String()),
 		slog.Time("next_review_at", stats.NextReviewAt))
@@ -224,7 +224,7 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 		return fmt.Errorf("failed to delete user card stats: %w", err)
 	}
 
-	log.Info("user card stats deleted successfully",
+	log.Debug("user card stats deleted successfully",
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()))
 	return nil

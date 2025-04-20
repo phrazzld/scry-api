@@ -47,9 +47,6 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 	}
 }
 
-// Ensure PostgresCardStore implements store.CardStore interface
-var _ store.CardStore = (*PostgresCardStore)(nil)
-
 // CreateMultiple implements store.CardStore.CreateMultiple
 // It saves multiple cards to the database in a single transaction.
 // The operation is atomic - either all cards are created or none.
@@ -268,7 +265,7 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 		log.Debug("transaction committed successfully")
 	}
 
-	log.Info("batch card creation completed successfully",
+	log.Debug("batch card creation completed successfully",
 		slog.Int("card_count", len(cards)))
 	return nil
 }
@@ -368,7 +365,7 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 		return fmt.Errorf("failed to update card content: %w", err)
 	}
 
-	log.Info("card content updated successfully",
+	log.Debug("card content updated successfully",
 		slog.String("card_id", id.String()))
 	return nil
 }
@@ -405,7 +402,7 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("failed to delete card: %w", err)
 	}
 
-	log.Info("card deleted successfully",
+	log.Debug("card deleted successfully",
 		slog.String("card_id", id.String()))
 	return nil
 }

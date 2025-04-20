@@ -9,6 +9,7 @@ import (
 )
 
 // CardStore defines the interface for card data persistence.
+// Version: 1.0
 type CardStore interface {
 	// CreateMultiple saves multiple cards to the store in a single transaction.
 	// All cards must be valid according to domain validation rules.

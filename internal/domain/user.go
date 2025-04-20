@@ -84,7 +84,8 @@ func (u *User) Validate() error {
 	return nil
 }
 
-// TODO: Replace this basic email validation with a more robust solution.
+// TODO(email-validation): Replace this basic email validation with a more robust solution
+// Consider using a dedicated email validation package that follows RFC 5322
 // Technical debt: This implementation is intentionally simple and has several limitations:
 // 1. It only checks for @ and . characters in the right positions
 // 2. It doesn't validate against RFC 5322 standards for email addresses

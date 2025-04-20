@@ -99,7 +99,7 @@ func (s *PostgresMemoStore) Create(ctx context.Context, memo *domain.Memo) error
 		return fmt.Errorf("failed to create memo: %w", MapError(err))
 	}
 
-	log.Info("memo created successfully",
+	log.Debug("memo created successfully",
 		slog.String("memo_id", memo.ID.String()),
 		slog.String("user_id", memo.UserID.String()),
 		slog.String("status", string(memo.Status)))
@@ -216,7 +216,7 @@ func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 		return fmt.Errorf("failed to update memo status: %w", err)
 	}
 
-	log.Info("memo status updated successfully",
+	log.Debug("memo status updated successfully",
 		slog.String("memo_id", id.String()),
 		slog.String("status", string(status)))
 	return nil
@@ -271,7 +271,7 @@ func (s *PostgresMemoStore) Update(ctx context.Context, memo *domain.Memo) error
 		return fmt.Errorf("failed to update memo: %w", err)
 	}
 
-	log.Info("memo updated successfully",
+	log.Debug("memo updated successfully",
 		slog.String("memo_id", memo.ID.String()),
 		slog.String("status", string(memo.Status)))
 	return nil

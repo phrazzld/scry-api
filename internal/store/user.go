@@ -9,6 +9,7 @@ import (
 )
 
 // UserStore defines the interface for user data persistence.
+// Version: 1.0
 type UserStore interface {
 	// Create saves a new user to the store.
 	// It handles domain validation and password hashing internally.

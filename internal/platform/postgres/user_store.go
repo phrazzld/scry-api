@@ -115,7 +115,7 @@ func (s *PostgresUserStore) Create(ctx context.Context, user *domain.User) error
 		return fmt.Errorf("%w: user creation failed", store.ErrInvalidEntity)
 	}
 
-	log.Info("user created successfully",
+	log.Debug("user created successfully",
 		slog.String("user_id", user.ID.String()),
 		slog.String("email", user.Email))
 	return nil
@@ -292,7 +292,7 @@ func (s *PostgresUserStore) Update(ctx context.Context, user *domain.User) error
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	log.Info("user updated successfully",
+	log.Debug("user updated successfully",
 		slog.String("user_id", user.ID.String()),
 		slog.String("email", user.Email))
 	return nil
@@ -332,7 +332,7 @@ func (s *PostgresUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	log.Info("user deleted successfully", slog.String("user_id", id.String()))
+	log.Debug("user deleted successfully", slog.String("user_id", id.String()))
 	return nil
 }
 

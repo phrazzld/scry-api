@@ -9,6 +9,7 @@ import (
 )
 
 // UserCardStatsStore defines the interface for user card statistics data persistence.
+// Version: 1.0
 type UserCardStatsStore interface {
 	// Get retrieves user card statistics by the combination of user ID and card ID.
 	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.

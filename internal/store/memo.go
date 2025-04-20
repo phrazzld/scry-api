@@ -9,6 +9,7 @@ import (
 )
 
 // MemoStore defines the interface for memo data persistence.
+// Version: 1.0
 type MemoStore interface {
 	// Create saves a new memo to the store.
 	// It handles domain validation internally.

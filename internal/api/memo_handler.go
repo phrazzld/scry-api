@@ -67,7 +67,8 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	memo, err := h.memoService.CreateMemoAndEnqueueTask(r.Context(), userID, req.Text)
 	if err != nil {
 		slog.Error("Failed to create memo", "error", err, "user_id", userID)
-		// TODO: Add more specific error handling based on error types
+		// TODO(api-error-handling): Add more specific error handling based on error types
+		// This should map domain and service errors to appropriate HTTP status codes
 		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to create memo")
 		return
 	}

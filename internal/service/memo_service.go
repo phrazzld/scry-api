@@ -57,8 +57,8 @@ type MemoService interface {
 	GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error)
 }
 
-// MemoServiceImpl implements the MemoService interface
-type MemoServiceImpl struct {
+// memoServiceImpl implements the MemoService interface
+type memoServiceImpl struct {
 	memoRepo     MemoRepository
 	taskRunner   TaskRunner
 	eventEmitter events.EventEmitter
@@ -72,7 +72,7 @@ func NewMemoService(
 	eventEmitter events.EventEmitter,
 	logger *slog.Logger,
 ) MemoService {
-	return &MemoServiceImpl{
+	return &memoServiceImpl{
 		memoRepo:     memoRepo,
 		taskRunner:   taskRunner,
 		eventEmitter: eventEmitter,
@@ -82,7 +82,7 @@ func NewMemoService(
 
 // CreateMemoAndEnqueueTask creates a new memo with pending status and emits an event for processing
 // Uses a transaction for the memo creation part to ensure atomicity
-func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
+func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
 	ctx context.Context,
 	userID uuid.UUID,
 	text string,
@@ -154,7 +154,7 @@ func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
 }
 
 // GetMemo retrieves a memo by its ID
-func (s *MemoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
+func (s *memoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
 	memo, err := s.memoRepo.GetByID(ctx, memoID)
 	if err != nil {
 		s.logger.Error("failed to retrieve memo",
@@ -174,7 +174,7 @@ func (s *MemoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domai
 // UpdateMemoStatus updates a memo's status and handles related business logic
 // This centralizes all status transition logic in the service layer and uses transactions
 // to ensure atomicity of the operation.
-func (s *MemoServiceImpl) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
+func (s *memoServiceImpl) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
 	// Use a transaction to ensure atomicity
 	return store.RunInTransaction(ctx, s.memoRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		// Get a transactional repo

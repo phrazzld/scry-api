@@ -46,7 +46,7 @@
         2. Services and tasks operate through the event system
     - **Depends-on:** [T029, T030]
 
-- [ ] **T032 · refactor · p1: unexport MemoServiceImpl**
+- [x] **T032 · refactor · p1: unexport MemoServiceImpl**
     - **Context:** cr-01 step 5
     - **Action:**
         1. Rename `MemoServiceImpl` to unexported `memoServiceImpl`

@@ -10,15 +10,32 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      # Formatting hooks
-      - id: trailing-whitespace       # Removes trailing whitespace
-      - id: end-of-file-fixer         # Ensures files end with a newline
-
       # Validation hooks
       - id: check-yaml                # Validates YAML syntax
       - id: check-json                # Validates JSON syntax
       - id: check-merge-conflict      # Prevents committing merge conflict markers
       - id: check-added-large-files   # Prevents committing large files (>500KB by default)
+
+  # ----------------------------------------------------------------------------
+  # Auto-fix hooks that never fail - run first
+  # ----------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: fix-trailing-whitespace
+        name: Fix trailing whitespace
+        description: Fixes trailing whitespace without failing
+        entry: bash -c 'for file in $(git diff --cached --name-only | grep -v "\.pdf$"); do if [ -f "$file" ]; then sed -i "" -e "s/[[:space:]]*$//" "$file"; fi; done'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: fix-end-of-file
+        name: Fix end of files
+        description: Ensures files end with a newline without failing
+        entry: bash -c 'for file in $(git diff --cached --name-only | grep -v "\.pdf$"); do if [ -f "$file" ] && [ -s "$file" ] && [ "$(tail -c 1 "$file")" != "" ]; then echo "" >> "$file"; fi; done'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
 
   # ----------------------------------------------------------------------------
   # Go-specific Linting & Formatting

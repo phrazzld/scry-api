@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 )
 
@@ -21,6 +23,13 @@ type MemoRepository interface {
 
 	// Update saves changes to an existing memo
 	Update(ctx context.Context, memo *domain.Memo) error
+
+	// WithTx returns a new repository instance that uses the provided transaction
+	// This is used for transactional operations
+	WithTx(tx *sql.Tx) MemoRepository
+
+	// DB returns the underlying database connection
+	DB() *sql.DB
 }
 
 // TaskRunner defines the interface for submitting background tasks
@@ -78,6 +87,7 @@ func NewMemoService(
 }
 
 // CreateMemoAndEnqueueTask creates a new memo with pending status and enqueues a generation task
+// Uses a transaction for the memo creation part to ensure atomicity
 func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -92,8 +102,15 @@ func (s *MemoServiceImpl) CreateMemoAndEnqueueTask(
 		return nil, fmt.Errorf("failed to create memo: %w", err)
 	}
 
-	// 2. Save the memo to the database
-	err = s.memoRepo.Create(ctx, memo)
+	// 2. Save the memo to the database using a transaction
+	err = store.RunInTransaction(ctx, s.memoRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get a transactional repo
+		txRepo := s.memoRepo.WithTx(tx)
+
+		// Create the memo within the transaction
+		return txRepo.Create(ctx, memo)
+	})
+
 	if err != nil {
 		s.logger.Error("failed to save memo to database",
 			"error", err,
@@ -154,41 +171,48 @@ func (s *MemoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domai
 }
 
 // UpdateMemoStatus updates a memo's status and handles related business logic
-// This centralizes all status transition logic in the service layer
+// This centralizes all status transition logic in the service layer and uses transactions
+// to ensure atomicity of the operation.
 func (s *MemoServiceImpl) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
-	// Retrieve the memo first
-	memo, err := s.memoRepo.GetByID(ctx, memoID)
-	if err != nil {
-		s.logger.Error("failed to retrieve memo for status update",
-			"error", err,
-			"memo_id", memoID,
-			"target_status", status)
-		return fmt.Errorf("failed to retrieve memo for status update: %w", err)
-	}
+	// Use a transaction to ensure atomicity
+	return store.RunInTransaction(ctx, s.memoRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get a transactional repo
+		txRepo := s.memoRepo.WithTx(tx)
 
-	// Update the memo's status
-	err = memo.UpdateStatus(status)
-	if err != nil {
-		s.logger.Error("failed to update memo status",
-			"error", err,
-			"memo_id", memoID,
-			"current_status", memo.Status,
-			"target_status", status)
-		return fmt.Errorf("failed to update memo status to %s: %w", status, err)
-	}
+		// Retrieve the memo first
+		memo, err := txRepo.GetByID(ctx, memoID)
+		if err != nil {
+			s.logger.Error("failed to retrieve memo for status update",
+				"error", err,
+				"memo_id", memoID,
+				"target_status", status)
+			return fmt.Errorf("failed to retrieve memo for status update: %w", err)
+		}
 
-	// Save the updated memo
-	err = s.memoRepo.Update(ctx, memo)
-	if err != nil {
-		s.logger.Error("failed to save updated memo status",
-			"error", err,
+		// Update the memo's status
+		err = memo.UpdateStatus(status)
+		if err != nil {
+			s.logger.Error("failed to update memo status",
+				"error", err,
+				"memo_id", memoID,
+				"current_status", memo.Status,
+				"target_status", status)
+			return fmt.Errorf("failed to update memo status to %s: %w", status, err)
+		}
+
+		// Save the updated memo using the transactional repo
+		err = txRepo.Update(ctx, memo)
+		if err != nil {
+			s.logger.Error("failed to save updated memo status",
+				"error", err,
+				"memo_id", memoID,
+				"status", status)
+			return fmt.Errorf("failed to save memo status %s: %w", status, err)
+		}
+
+		s.logger.Info("memo status updated successfully in transaction",
 			"memo_id", memoID,
 			"status", status)
-		return fmt.Errorf("failed to save memo status %s: %w", status, err)
-	}
-
-	s.logger.Info("memo status updated successfully",
-		"memo_id", memoID,
-		"status", status)
-	return nil
+		return nil
+	})
 }

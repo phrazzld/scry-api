@@ -159,6 +159,8 @@ user, err := userStore.GetByEmail(ctx, "user@example.com")
 
 // Update a user
 user.Email = "new@example.com"
+// Note: When updating, a complete user object (including HashedPassword) must be provided
+// The HashedPassword must already be populated from a previous Get operation or properly hashed
 err := userStore.Update(ctx, user)
 
 // Delete a user

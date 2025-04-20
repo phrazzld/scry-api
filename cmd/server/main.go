@@ -188,12 +188,12 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
 
-	// Create API handlers
+	// Create API handlers (user service will be created later when needed)
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
 	// Create adapter for the store to be used in the service layer
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore)
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
 	// Create the memo service first
 	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, nil, deps.Logger)

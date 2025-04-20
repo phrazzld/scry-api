@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"database/sql"
 	"io"
 	"log/slog"
 	"testing"
@@ -42,6 +43,7 @@ func CreateTaskRunner(
 // Returns task runner, memo service, and task factory.
 func CreateMemoServiceComponents(
 	t *testing.T,
+	dbtx store.DBTX,
 	taskStore task.TaskStore,
 	memoStore store.MemoStore,
 	generator task.Generator,
@@ -64,8 +66,15 @@ func CreateMemoServiceComponents(
 		logger,
 	)
 
+	// Get the real DB from the dbtx to pass to repo adapter
+	db, ok := dbtx.(*sql.DB)
+	if !ok {
+		// If it's not already a *sql.DB, create a dummy one for testing
+		db = &sql.DB{}
+	}
+
 	// Create the memo repository adapter for service package
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, db)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

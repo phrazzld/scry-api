@@ -89,7 +89,8 @@ func setupTaskLifecycleTestServer(
 	)
 
 	// Create the memo service adapter
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
+	// Use testDB for the DB connection (not tx which is the transaction)
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, testDB)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

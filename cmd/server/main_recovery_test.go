@@ -216,7 +216,9 @@ func setupTestTaskProcessing(
 	)
 
 	// Create the memo repository adapter for service package
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore)
+	// Cast dbtx to *sql.Tx to get the underlying connection for the DB() method
+	db := testDB // Use the testDB for the database connection
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(memoStore, db)
 
 	// Create the memo service
 	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, memoTaskFactory, logger)

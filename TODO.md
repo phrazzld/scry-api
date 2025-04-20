@@ -210,7 +210,7 @@
         1. All stores construct new instances with the provided transaction.
     - **Depends‑on:** [T020]
 
-- [ ] **T022 · refactor · p1: update services to manage transaction boundaries explicitly**
+- [x] **T022 · refactor · p1: update services to manage transaction boundaries explicitly**
     - **Context:** cr‑02 Implement WithTx and clarify transaction boundaries
     - **Action:**
         1. Refactor service layer to create store instances with transactions as needed.

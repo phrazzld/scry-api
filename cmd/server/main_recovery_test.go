@@ -103,49 +103,7 @@ func (g *RecoveryMockGenerator) GenerateCards(
 	return g.mockGenerator.GenerateCards(ctx, memoText, userID)
 }
 
-// RecoveryMockCardRepository tracks created cards for verification
-type RecoveryMockCardRepository struct {
-	logger       *slog.Logger
-	mu           sync.Mutex // Protect access to createdCards
-	createdCards map[string][]*domain.Card
-}
-
-// NewRecoveryMockCardRepository creates a new mock card repository
-func NewRecoveryMockCardRepository(logger *slog.Logger) *RecoveryMockCardRepository {
-	return &RecoveryMockCardRepository{
-		logger:       logger,
-		createdCards: make(map[string][]*domain.Card),
-	}
-}
-
-// CreateMultiple logs card creation for testing and stores them in memory
-func (r *RecoveryMockCardRepository) CreateMultiple(
-	ctx context.Context,
-	cards []*domain.Card,
-) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if len(cards) == 0 {
-		r.logger.Warn("Mock card repository received zero cards to store")
-		return nil
-	}
-
-	memoID := cards[0].MemoID.String()
-	r.logger.Info("Mock card repository storing cards", "count", len(cards), "memo_id", memoID)
-	r.createdCards[memoID] = append(r.createdCards[memoID], cards...)
-	return nil
-}
-
-// GetCreatedCards returns the cards created for a specific memo ID
-func (r *RecoveryMockCardRepository) GetCreatedCards(memoID string) []*domain.Card {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	// Return a copy to avoid race conditions if the caller modifies the slice
-	cardsCopy := make([]*domain.Card, len(r.createdCards[memoID]))
-	copy(cardsCopy, r.createdCards[memoID])
-	return cardsCopy
-}
+// No longer needed - using real CardStore with transaction isolation
 
 // GetExecutionCount returns the number of times the generator was executed
 func (g *RecoveryMockGenerator) GetExecutionCount() int {
@@ -164,12 +122,13 @@ func setupTestStores(
 	t *testing.T,
 	dbtx store.DBTX,
 	logger *slog.Logger,
-) (*postgres.PostgresUserStore, *postgres.PostgresTaskStore, *postgres.PostgresMemoStore) {
+) (*postgres.PostgresUserStore, *postgres.PostgresTaskStore, *postgres.PostgresMemoStore, *postgres.PostgresCardStore) {
 	t.Helper()
 	userStore := postgres.NewPostgresUserStore(dbtx, 10) // BCrypt cost = 10 for faster tests
 	taskStore := postgres.NewPostgresTaskStore(dbtx)
 	memoStore := postgres.NewPostgresMemoStore(dbtx, logger)
-	return userStore, taskStore, memoStore
+	cardStore := postgres.NewPostgresCardStore(dbtx, logger)
+	return userStore, taskStore, memoStore, cardStore
 }
 
 // setupTestAuthComponents creates auth config and initializes auth services
@@ -195,8 +154,8 @@ func setupTestTaskProcessing(
 	t *testing.T,
 	taskStore *postgres.PostgresTaskStore,
 	memoStore *postgres.PostgresMemoStore,
+	cardStore *postgres.PostgresCardStore,
 	mockGenerator *RecoveryMockGenerator,
-	mockCardRepo *RecoveryMockCardRepository,
 	taskConfig task.TaskRunnerConfig,
 	logger *slog.Logger,
 ) (*task.TaskRunner, service.MemoService) {
@@ -211,7 +170,7 @@ func setupTestTaskProcessing(
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
 		memoServiceAdapter,
 		mockGenerator,
-		mockCardRepo,
+		cardStore, // Use the real CardStore with transaction isolation
 		logger,
 	)
 
@@ -282,7 +241,6 @@ func setupRecoveryTestInstance(
 	t *testing.T,
 	dbtx store.DBTX,
 	mockGenerator *RecoveryMockGenerator,
-	mockCardRepo *RecoveryMockCardRepository,
 	taskConfig task.TaskRunnerConfig,
 ) (*httptest.Server, *task.TaskRunner, error) {
 	t.Helper()
@@ -291,7 +249,7 @@ func setupRecoveryTestInstance(
 	logger := setupTestLogger()
 
 	// Initialize database repositories using the transaction
-	userStore, taskStore, memoStore := setupTestStores(t, dbtx, logger)
+	userStore, taskStore, memoStore, cardStore := setupTestStores(t, dbtx, logger)
 
 	// Create authentication components
 	authConfig, jwtService, passwordVerifier, err := setupTestAuthComponents(t)
@@ -301,7 +259,7 @@ func setupRecoveryTestInstance(
 
 	// Setup task processing components
 	taskRunner, memoService := setupTestTaskProcessing(
-		t, taskStore, memoStore, mockGenerator, mockCardRepo, taskConfig, logger,
+		t, taskStore, memoStore, cardStore, mockGenerator, taskConfig, logger,
 	)
 
 	// Create the API handlers
@@ -454,11 +412,10 @@ func TestTaskRecovery_Success(t *testing.T) {
 
 		// Create mocks for the first instance
 		mockGenerator1 := NewRecoveryMockGenerator(logger, false, 0)
-		mockCardRepo1 := NewRecoveryMockCardRepository(logger)
 		taskConfig1 := getDefaultTestTaskConfig()
 
 		// Setup first app instance (doesn't need a running server)
-		_, _, err := setupRecoveryTestInstance(t, tx, mockGenerator1, mockCardRepo1, taskConfig1)
+		_, _, err := setupRecoveryTestInstance(t, tx, mockGenerator1, taskConfig1)
 		require.NoError(t, err, "Failed to set up first app instance")
 
 		// Create a test user directly in DB
@@ -539,7 +496,6 @@ func TestTaskRecovery_Success(t *testing.T) {
 
 		// Create mocks for the second instance
 		mockGenerator2 := NewRecoveryMockGenerator(logger, false, 200*time.Millisecond)
-		mockCardRepo2 := NewRecoveryMockCardRepository(logger)
 		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
 		// Setup second app instance
@@ -547,7 +503,6 @@ func TestTaskRecovery_Success(t *testing.T) {
 			t,
 			tx,
 			mockGenerator2,
-			mockCardRepo2,
 			taskConfig2,
 		)
 		require.NoError(t, err, "Failed to set up second app instance")
@@ -589,10 +544,11 @@ func TestTaskRecovery_Success(t *testing.T) {
 			"Generator should be executed exactly once",
 		)
 
-		// Verify cards were created
-		createdCards := mockCardRepo2.GetCreatedCards(memoID.String())
-		assert.NotEmpty(t, createdCards, "Cards should have been created after recovery")
-		assert.Len(t, createdCards, 2, "Expected 2 cards to be created")
+		// Verify cards were created using database query
+		var cardCount int
+		err = tx.QueryRow("SELECT COUNT(*) FROM cards WHERE memo_id = $1", memoID).Scan(&cardCount)
+		require.NoError(t, err, "Failed to count cards in database")
+		assert.Equal(t, 2, cardCount, "Two cards should have been created after recovery")
 	})
 }
 
@@ -668,7 +624,6 @@ func TestTaskRecovery_Failure(t *testing.T) {
 
 		// Create mocks configured to fail
 		mockGenerator := NewRecoveryMockGenerator(logger, true, 100*time.Millisecond)
-		mockCardRepo := NewRecoveryMockCardRepository(logger)
 		taskConfig := getDefaultTestTaskConfig()
 
 		// Setup app instance
@@ -676,7 +631,6 @@ func TestTaskRecovery_Failure(t *testing.T) {
 			t,
 			tx,
 			mockGenerator,
-			mockCardRepo,
 			taskConfig,
 		)
 		require.NoError(t, err, "Failed to set up app instance")
@@ -718,9 +672,11 @@ func TestTaskRecovery_Failure(t *testing.T) {
 			"Generator should be executed exactly once",
 		)
 
-		// Verify no cards were created
-		createdCards := mockCardRepo.GetCreatedCards(memoID.String())
-		assert.Empty(t, createdCards, "No cards should be created when generator fails")
+		// Verify no cards were created using database query
+		var cardCount int
+		err = tx.QueryRow("SELECT COUNT(*) FROM cards WHERE memo_id = $1", memoID).Scan(&cardCount)
+		require.NoError(t, err, "Failed to count cards in database")
+		assert.Equal(t, 0, cardCount, "No cards should be created when generator fails")
 
 		// Verify task has an error message
 		var errorMsg string
@@ -746,7 +702,6 @@ func TestTaskRecovery_API(t *testing.T) {
 
 		// Create mocks for the first instance
 		mockGenerator1 := NewRecoveryMockGenerator(logger, false, 0)
-		mockCardRepo1 := NewRecoveryMockCardRepository(logger)
 		taskConfig1 := getDefaultTestTaskConfig()
 
 		// Setup first app instance
@@ -754,7 +709,6 @@ func TestTaskRecovery_API(t *testing.T) {
 			t,
 			tx,
 			mockGenerator1,
-			mockCardRepo1,
 			taskConfig1,
 		)
 		require.NoError(t, err, "Failed to set up first app instance")
@@ -878,7 +832,6 @@ func TestTaskRecovery_API(t *testing.T) {
 
 		// Create mocks for the second instance
 		mockGenerator2 := NewRecoveryMockGenerator(logger, false, 200*time.Millisecond)
-		mockCardRepo2 := NewRecoveryMockCardRepository(logger)
 		taskConfig2 := getTestTaskConfigWithWorkers(2)
 
 		// Setup second app instance
@@ -886,7 +839,6 @@ func TestTaskRecovery_API(t *testing.T) {
 			t,
 			tx,
 			mockGenerator2,
-			mockCardRepo2,
 			taskConfig2,
 		)
 		require.NoError(t, err, "Failed to set up second app instance")
@@ -929,15 +881,10 @@ func TestTaskRecovery_API(t *testing.T) {
 			"Generator should be executed exactly once",
 		)
 
-		// Verify cards were created
-		createdCards := mockCardRepo2.GetCreatedCards(memoID)
-		assert.NotEmpty(t, createdCards, "Cards should have been created after recovery")
-		assert.Len(t, createdCards, 2, "Expected 2 cards to be created")
-
-		// Verify card count in database
+		// Verify cards were created using database query
 		var cardCount int
 		err = tx.QueryRow("SELECT COUNT(*) FROM cards WHERE memo_id = $1", memoID).Scan(&cardCount)
 		require.NoError(t, err, "Failed to count cards in database")
-		assert.Equal(t, 2, cardCount, "Two cards should exist in the database")
+		assert.Equal(t, 2, cardCount, "Two cards should have been created after recovery")
 	})
 }

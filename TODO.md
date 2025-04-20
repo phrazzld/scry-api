@@ -255,7 +255,7 @@
     - **Depends‑on:** none
 
 ## Cleanup
-- [ ] **T027 · chore · p2: remove MockCardRepository and associated dead code**
+- [x] **T027 · chore · p2: remove MockCardRepository and associated dead code**
     - **Context:** cr‑12 Remove dead code (MockCardRepository)
     - **Action:**
         1. Remove MockCardRepository from main.go and associated test files.

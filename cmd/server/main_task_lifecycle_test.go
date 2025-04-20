@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -30,17 +29,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockCardRepository is a temporary implementation for testing
-type MockCardRepository struct {
-	logger *slog.Logger
-}
-
-// CreateMultiple logs card creation for testing
-func (r *MockCardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
-	r.logger.Info("Mock card repository storing cards", "count", len(cards))
-	return nil
-}
-
 // setupTaskLifecycleTestServer sets up a test server with all required dependencies
 func setupTaskLifecycleTestServer(
 	t *testing.T,
@@ -56,6 +44,7 @@ func setupTaskLifecycleTestServer(
 	userStore := postgres.NewPostgresUserStore(tx, 10) // BCrypt cost = 10 for faster tests
 	taskStore := postgres.NewPostgresTaskStore(tx)
 	memoStore := postgres.NewPostgresMemoStore(tx, logger)
+	cardStore := postgres.NewPostgresCardStore(tx, logger)
 
 	// Create authentication components
 	authConfig := config.AuthConfig{
@@ -84,7 +73,7 @@ func setupTaskLifecycleTestServer(
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
 		memoServiceAdapter,
 		mockGenerator,
-		&MockCardRepository{logger: logger}, // Use a mock repository in integration tests
+		cardStore, // Use the real CardStore with transaction isolation
 		logger,
 	)
 

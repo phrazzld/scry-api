@@ -24,7 +24,7 @@
         2. Service uses `EventEmitter` to publish task creation events
     - **Depends-on:** [T028]
 
-- [ ] **T030 · feature · p1: create TaskFactoryEventHandler in task package**
+- [x] **T030 · feature · p1: create TaskFactoryEventHandler in task package**
     - **Context:** cr-01 step 3
     - **Action:**
         1. Implement `TaskFactoryEventHandler` in `task` package that subscribes to events

@@ -48,10 +48,26 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 }
 
 // CreateMultiple implements store.CardStore.CreateMultiple
-// It saves multiple cards to the database.
-// Must be called within a transaction for atomicity.
+// It saves multiple cards to the database and creates corresponding UserCardStats entries.
+//
+// TRANSACTION REQUIREMENT:
+// This method MUST be called within a transaction for atomicity and data consistency.
+// It assumes it's already running in a transaction context and makes no attempt to
+// create, commit, or rollback transactions itself.
+//
+// If called outside a transaction:
+// - Atomicity is not guaranteed (partial data may be inserted)
+// - Error handling will be incomplete (failed operations won't be rolled back)
+// - Consistency may be compromised (cards may exist without corresponding stats)
+//
+// Correct usage example:
+//
+//	err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+//	    txCardStore := cardStore.WithTx(tx)
+//	    return txCardStore.CreateMultiple(ctx, cards)
+//	})
+//
 // Returns validation errors if any card data is invalid.
-// Also creates corresponding UserCardStats entries for each card.
 func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
@@ -342,6 +358,17 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 // WithTx implements store.CardStore.WithTx
 // It returns a new CardStore instance that uses the provided transaction.
 // This allows for multiple operations to be executed within a single transaction.
+//
+// This method is especially important for CreateMultiple, which requires a transaction
+// context to ensure atomicity. Always use this method with store.RunInTransaction
+// when calling CreateMultiple.
+//
+// Example usage:
+//
+//	store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+//	    txCardStore := cardStore.WithTx(tx)
+//	    return txCardStore.CreateMultiple(ctx, cards)
+//	})
 func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
 	return &PostgresCardStore{
 		db:     tx,

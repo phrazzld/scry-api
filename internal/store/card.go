@@ -11,12 +11,22 @@ import (
 // CardStore defines the interface for card data persistence.
 // Version: 1.0
 type CardStore interface {
-	// CreateMultiple saves multiple cards to the store in a single transaction.
+	// CreateMultiple saves multiple cards to the store.
+	// IMPORTANT: This method MUST be run within a transaction for atomicity and data consistency.
+	// Use the WithTx method with store.RunInTransaction to ensure proper transaction handling.
+	// Calling this method outside a transaction will not guarantee atomic behavior and may
+	// result in partial data insertion if failures occur.
+	//
 	// All cards must be valid according to domain validation rules.
-	// The transaction should be atomic - either all cards are created or none.
 	// Returns validation errors if any card data is invalid.
 	// May also create corresponding UserCardStats entries for each card
 	// based on the implementation.
+	//
+	// Usage example:
+	//   err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+	//       txCardStore := cardStore.WithTx(tx)
+	//       return txCardStore.CreateMultiple(ctx, cards)
+	//   })
 	CreateMultiple(ctx context.Context, cards []*domain.Card) error
 
 	// GetByID retrieves a card by its unique ID.
@@ -46,5 +56,15 @@ type CardStore interface {
 	// WithTx returns a new CardStore instance that uses the provided transaction.
 	// This allows for multiple operations to be executed within a single transaction.
 	// The transaction should be created and managed by the caller (typically a service).
+	//
+	// IMPORTANT: Methods like CreateMultiple REQUIRE transaction context for proper
+	// atomicity and data consistency. Always use this method with store.RunInTransaction
+	// when calling operations that modify multiple database records.
+	//
+	// Example usage:
+	//   err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+	//       txCardStore := cardStore.WithTx(tx)
+	//       return txCardStore.CreateMultiple(ctx, cards)
+	//   })
 	WithTx(tx *sql.Tx) CardStore
 }

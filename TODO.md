@@ -69,7 +69,7 @@
         2. Tests confirm behavior within transaction context
     - **Depends-on:** none
 
-- [ ] **T034 · chore · p3: document transaction assumption in CardStore.CreateMultiple**
+- [x] **T034 · chore · p3: document transaction assumption in CardStore.CreateMultiple**
     - **Context:** cr-02 step 3
     - **Action:**
         1. Add clear documentation that method must run within a transaction

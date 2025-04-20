@@ -131,6 +131,9 @@ type appDependencies struct {
 	PasswordVerifier auth.PasswordVerifier
 	Generator        task.Generator // Interface for card generation
 
+	// Event system
+	EventEmitter events.EventEmitter
+
 	// Task handling
 	TaskRunner *task.TaskRunner
 }
@@ -265,33 +268,8 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Create adapter for the store to be used in the service layer
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
-	// Create an adapter that makes the service usable in the task layer
-	// This breaks the circular dependency between service and task packages
-	memoServiceAdapter := task.NewMemoServiceAdapter(memoRepoAdapter)
-
-	// Create the task factory using the service adapter
-	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		memoServiceAdapter, // Use the adapter that implements task.MemoService
-		deps.Generator,
-		deps.CardRepository,
-		deps.Logger,
-	)
-
-	// Create the event emitter that will be used by the memo service
-	eventEmitter := events.NewInMemoryEventEmitter(deps.Logger)
-
-	// Create a task factory event handler
-	taskFactoryHandler := &TaskFactoryEventHandler{
-		taskFactory: memoTaskFactory,
-		taskRunner:  deps.TaskRunner,
-		logger:      deps.Logger.With("component", "task_factory_event_handler"),
-	}
-
-	// Register the task factory handler with the event emitter
-	eventEmitter.RegisterHandler(taskFactoryHandler)
-
-	// Create the memo service with the event emitter
-	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, eventEmitter, deps.Logger)
+	// Create the memo service with the event emitter from dependencies
+	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, deps.EventEmitter, deps.Logger)
 	memoHandler := api.NewMemoHandler(memoService)
 
 	// Register routes
@@ -389,19 +367,49 @@ func startServer(cfg *config.Config) {
 	// Update dependencies with the task runner
 	deps.TaskRunner = taskRunner
 
+	// Step 6: Set up event emitter
+	eventEmitter := events.NewInMemoryEventEmitter(logger)
+
+	// Create a memo repository adapter
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
+
+	// Create a memo service adapter
+	memoServiceAdapter := task.NewMemoServiceAdapter(memoRepoAdapter)
+
+	// Create the task factory
+	memoTaskFactory := task.NewMemoGenerationTaskFactory(
+		memoServiceAdapter,
+		deps.Generator,
+		deps.CardRepository,
+		logger,
+	)
+
+	// Create and register task factory event handler
+	taskFactoryHandler := &TaskFactoryEventHandler{
+		taskFactory: memoTaskFactory,
+		taskRunner:  taskRunner,
+		logger:      logger.With("component", "task_factory_event_handler"),
+	}
+
+	// Register the event handler with the event emitter
+	eventEmitter.RegisterHandler(taskFactoryHandler)
+
+	// Add event emitter to dependencies
+	deps.EventEmitter = eventEmitter
+
 	// Ensure task runner is stopped when the server shuts down
 	defer taskRunner.Stop()
 
-	// Step 6: Set up router using the new setup function
+	// Step 7: Set up router using the new setup function
 	router := setupRouter(deps)
 
-	// Step 7: Configure and create HTTP server
+	// Step 8: Configure and create HTTP server
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler: router,
 	}
 
-	// Step 8: Start server in a goroutine to allow for graceful shutdown
+	// Step 9: Start server in a goroutine to allow for graceful shutdown
 	go func() {
 		logger.Info("Starting server", "port", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -410,7 +418,7 @@ func startServer(cfg *config.Config) {
 		}
 	}()
 
-	// Step 9: Set up graceful shutdown
+	// Step 10: Set up graceful shutdown
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownSignal

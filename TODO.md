@@ -35,7 +35,7 @@
         2. Tests verify handler behavior with different event types
     - **Depends-on:** [T028]
 
-- [ ] **T031 · chore · p1: wire event system in application initialization**
+- [x] **T031 · chore · p1: wire event system in application initialization**
     - **Context:** cr-01 step 4
     - **Action:**
         1. Update `main.go` to create and configure the event emitter
@@ -244,3 +244,4 @@
 - [x] **Issue:** Need to determine the best service to handle UserCardStats orchestration
     - **Context:** cr-06 step 2
     - **Resolution:** Create a new CardService in internal/service/card_service.go that orchestrates both Card and UserCardStats creation within a transaction. This follows the same pattern as MemoService with RunInTransaction + WithTx, keeping persistence layer focused on single responsibilities while the service layer handles orchestration.
+

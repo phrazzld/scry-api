@@ -245,7 +245,7 @@
     - **Depends‑on:** [T001, T024]
 
 ## Testing Improvements
-- [ ] **T026 · test · p2: add missing unit tests for error utilities**
+- [x] **T026 · test · p2: add missing unit tests for error utilities**
     - **Context:** cr‑10 Add missing unit tests for error utilities
     - **Action:**
         1. Create `internal/platform/postgres/errors_test.go`.

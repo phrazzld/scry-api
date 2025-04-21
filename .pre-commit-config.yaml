@@ -58,6 +58,7 @@ repos:
         language: script
         stages: [post-commit]  # Run after commit is completed
         pass_filenames: false  # Run once per commit, not per file
+        always_run: true       # Run even when no files match
 
       # Warn about long files without blocking commits
       - id: warn-long-files

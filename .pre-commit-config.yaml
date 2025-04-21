@@ -51,11 +51,11 @@ repos:
         types: [go]
         pass_filenames: false  # Run once per commit, not per file
 
-      # Run glance after commit to update directory overviews
+      # Run glance after commit to update directory overviews (async)
       - id: run-glance
-        name: Run glance to update directory overviews
-        entry: .pre-commit-hooks/run_glance.sh
-        language: script
+        name: Run glance to update directory overviews (async)
+        entry: bash -c '.pre-commit-hooks/run_glance.sh &>/dev/null &'
+        language: system
         stages: [post-commit]  # Run after commit is completed
         pass_filenames: false  # Run once per commit, not per file
         always_run: true       # Run even when no files match

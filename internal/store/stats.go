@@ -11,6 +11,12 @@ import (
 // UserCardStatsStore defines the interface for user card statistics data persistence.
 // Version: 1.0
 type UserCardStatsStore interface {
+	// Create saves a new user card statistics entry.
+	// It handles domain validation internally.
+	// Returns validation errors from the domain UserCardStats if data is invalid.
+	// Returns an error if the entry already exists.
+	Create(ctx context.Context, stats *domain.UserCardStats) error
+
 	// Get retrieves user card statistics by the combination of user ID and card ID.
 	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.
 	// This method retrieves a single entry that matches both IDs exactly.

@@ -136,7 +136,7 @@
         1. `CardStore.CreateMultiple` only manages card entities
     - **Depends-on:** none
 
-- [ ] **T040 · feature · p1: create CardService and orchestration method**
+- [x] **T040 · feature · p1: create CardService and orchestration method**
     - **Context:** cr-06 steps 2-3
     - **Action:**
         1. Create new `CardService` interface and implementation in `internal/service/card_service.go`

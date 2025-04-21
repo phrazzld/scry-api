@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -44,8 +46,101 @@ func NewPostgresUserCardStatsStore(db store.DBTX, logger *slog.Logger) *Postgres
 	}
 }
 
-// Ensure PostgresUserCardStatsStore implements store.UserCardStatsStore interface
+// Compile-time check to ensure PostgresUserCardStatsStore implements store.UserCardStatsStore interface
 var _ store.UserCardStatsStore = (*PostgresUserCardStatsStore)(nil)
+
+// Create implements store.UserCardStatsStore.Create
+// It saves a new user card statistics entry.
+// Returns validation errors from the domain UserCardStats if data is invalid.
+func (s *PostgresUserCardStatsStore) Create(ctx context.Context, stats *domain.UserCardStats) error {
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("creating user card stats",
+		slog.String("user_id", stats.UserID.String()),
+		slog.String("card_id", stats.CardID.String()))
+
+	// Validate stats before creating
+	if err := stats.Validate(); err != nil {
+		log.Warn("user card stats validation failed during creation",
+			slog.String("error", err.Error()),
+			slog.String("user_id", stats.UserID.String()),
+			slog.String("card_id", stats.CardID.String()))
+		return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
+	}
+
+	query := `
+		INSERT INTO user_card_stats (user_id, card_id, interval, ease_factor, consecutive_correct,
+								   last_reviewed_at, next_review_at, review_count, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+
+	// Handling NULL value for LastReviewedAt
+	var lastReviewedAt interface{}
+	if stats.LastReviewedAt.IsZero() {
+		lastReviewedAt = nil
+	} else {
+		lastReviewedAt = stats.LastReviewedAt
+	}
+
+	_, err := s.db.ExecContext(
+		ctx,
+		query,
+		stats.UserID,
+		stats.CardID,
+		stats.Interval,
+		stats.EaseFactor,
+		stats.ConsecutiveCorrect,
+		lastReviewedAt,
+		stats.NextReviewAt,
+		stats.ReviewCount,
+		stats.CreatedAt,
+		stats.UpdatedAt,
+	)
+
+	if err != nil {
+		// Check for unique constraint violation
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolationCode {
+			log.Warn("duplicate user card stats entry",
+				slog.String("error", err.Error()),
+				slog.String("user_id", stats.UserID.String()),
+				slog.String("card_id", stats.CardID.String()))
+			return fmt.Errorf("user card stats entry already exists for user_id=%s and card_id=%s: %w",
+				stats.UserID, stats.CardID, store.ErrDuplicate)
+		}
+
+		// Check for foreign key violation
+		if errors.As(err, &pgErr) && pgErr.Code == foreignKeyViolationCode {
+			if strings.Contains(pgErr.Message, "fk_user_card_stats_user") {
+				log.Warn("foreign key violation - user does not exist",
+					slog.String("error", err.Error()),
+					slog.String("user_id", stats.UserID.String()))
+				return fmt.Errorf("%w: user with ID %s not found",
+					store.ErrInvalidEntity, stats.UserID)
+			}
+			if strings.Contains(pgErr.Message, "fk_user_card_stats_card") {
+				log.Warn("foreign key violation - card does not exist",
+					slog.String("error", err.Error()),
+					slog.String("card_id", stats.CardID.String()))
+				return fmt.Errorf("%w: card with ID %s not found",
+					store.ErrInvalidEntity, stats.CardID)
+			}
+		}
+
+		log.Error("failed to create user card stats",
+			slog.String("error", err.Error()),
+			slog.String("user_id", stats.UserID.String()),
+			slog.String("card_id", stats.CardID.String()))
+		return fmt.Errorf("failed to create user card stats: %w", MapError(err))
+	}
+
+	log.Debug("user card stats created successfully",
+		slog.String("user_id", stats.UserID.String()),
+		slog.String("card_id", stats.CardID.String()),
+		slog.Time("next_review_at", stats.NextReviewAt))
+	return nil
+}
 
 // Get implements store.UserCardStatsStore.Get
 // It retrieves user card statistics by the combination of user ID and card ID.

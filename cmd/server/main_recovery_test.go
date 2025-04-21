@@ -165,7 +165,8 @@ func setupTestTaskProcessing(
 	taskRunner := task.NewTaskRunner(taskStore, taskConfig, logger)
 
 	// Create the memo service adapter for task package
-	memoServiceAdapter := task.NewMemoServiceAdapter(memoStore)
+	memoServiceAdapter, err := task.NewMemoServiceAdapter(memoStore)
+	require.NoError(t, err, "Failed to create memo service adapter")
 
 	// Create the memo generation task factory with the adapter
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(

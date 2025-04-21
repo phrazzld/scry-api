@@ -102,7 +102,7 @@
 
 ## MemoServiceAdapter Validation
 
-- [ ] **T037 · refactor · p2: improve MemoServiceAdapter constructor validation**
+- [x] **T037 · refactor · p2: improve MemoServiceAdapter constructor validation**
     - **Context:** cr-04 steps 1-3
     - **Action:**
         1. Add type assertions in `NewMemoServiceAdapter` to verify interface compliance

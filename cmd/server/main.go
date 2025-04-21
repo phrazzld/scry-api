@@ -374,7 +374,11 @@ func startServer(cfg *config.Config) {
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
 	// Create a memo service adapter
-	memoServiceAdapter := task.NewMemoServiceAdapter(memoRepoAdapter)
+	memoServiceAdapter, err := task.NewMemoServiceAdapter(memoRepoAdapter)
+	if err != nil {
+		logger.Error("Failed to create memo service adapter", "error", err)
+		os.Exit(1)
+	}
 
 	// Create the task factory
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(

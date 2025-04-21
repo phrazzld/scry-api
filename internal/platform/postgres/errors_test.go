@@ -509,3 +509,43 @@ func TestMapUniqueViolation(t *testing.T) {
 		})
 	}
 }
+
+// AssertNoErrorLeakage checks that the error does not leak internal database details
+func AssertNoErrorLeakage(t *testing.T, err error) {
+	t.Helper()
+
+	if err == nil {
+		return
+	}
+
+	errMsg := err.Error()
+
+	// Database specific terms that should not be leaked to users
+	sensitiveTerms := []string{
+		// PostgreSQL specific
+		"postgres", "postgresql", "pq:", "pg:", "pgx:",
+		"23505", "23503", "23502", "23514", // PostgreSQL error codes
+		"duplicate key", "violates unique constraint",
+		"violates foreign key constraint",
+		"violates not-null constraint",
+		"constraint", "table", "column",
+
+		// SQL specific
+		"sql:", "sql.ErrNoRows", "database/sql",
+		"query", "syntax error",
+
+		// Internal details
+		"position:", "line:", "file:", "detail:", "hint:",
+		"internal query:", "where:", "schema",
+	}
+
+	for _, term := range sensitiveTerms {
+		assert.NotContains(t, errMsg, term,
+			"Error message leaks internal detail: %q. Full error: %q", term, errMsg)
+	}
+
+	// In a production app, also verify it doesn't leak too much technical information
+	// by keeping error messages to a reasonable length
+	assert.Less(t, len(errMsg), 200,
+		"Error message is suspiciously long which may indicate leakage of internal details: %q", errMsg)
+}

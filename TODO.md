@@ -171,7 +171,7 @@
 
 ## AssertNoErrorLeakage Relocation
 
-- [ ] **T043 · refactor · p3: move AssertNoErrorLeakage to postgres package**
+- [x] **T043 · refactor · p3: move AssertNoErrorLeakage to postgres package**
     - **Context:** cr-08 steps 1-2
     - **Action:**
         1. Move `AssertNoErrorLeakage` function to `internal/platform/postgres/errors_test.go`

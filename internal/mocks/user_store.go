@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -128,6 +129,13 @@ func (m *MockUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return store.ErrUserNotFound
 }
 
+// WithTx implements the UserStore interface for transaction support
+func (m *MockUserStore) WithTx(tx *sql.Tx) store.UserStore {
+	// For mock purposes, just return the same mock
+	// In a real implementation, this would create a new store with the transaction
+	return m
+}
+
 // LoginMockUserStore is a specialized mock for login tests
 type LoginMockUserStore struct {
 	GetByEmailFn    func(ctx context.Context, email string) (*domain.User, error)
@@ -185,4 +193,10 @@ func (m *LoginMockUserStore) Update(ctx context.Context, user *domain.User) erro
 // Delete - placeholder implementation for UserStore interface
 func (m *LoginMockUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
+}
+
+// WithTx implements the UserStore interface for transaction support
+func (m *LoginMockUserStore) WithTx(tx *sql.Tx) store.UserStore {
+	// For mock purposes, just return the same mock
+	return m
 }

@@ -20,6 +20,8 @@ This backlog outlines the major work items required to build the Minimum Viable 
             * On full success, update Memo status to `completed`.
     * Implement Submit Memo endpoint (`POST /memos`): Authenticates user, saves Memo via `store` with `pending` status, enqueues `GenerateCardsFromMemo` job via `task` service, returns HTTP 202 Accepted.
 
+- audit whole codebase against dev philosophy, identify key things to hit
+
 * **Card Review API Implementation:**
     * Implement `store.CardStore` function `GetNextReviewCard(userID time.Time)` using the defined query logic (filtering by `next_review_at`, ordering).
     * Implement Fetch Next Card endpoint (`GET /cards/next`), using the store function and handling the 204 No Content case.

@@ -13,8 +13,9 @@ import (
 	"github.com/phrazzld/scry-api/internal/platform/gemini"
 )
 
-// TestableGeminiGenerator is a generator for testing
-// that doesn't require the actual Google dependencies
+// TestableGeminiGenerator is a test implementation that mimics GeminiGenerator
+// for use in testing without requiring actual Google Gemini API dependencies.
+// It uses a mock GenAI client to simulate API responses in a controlled way.
 type TestableGeminiGenerator struct {
 	Logger         *slog.Logger
 	Config         config.LLMConfig
@@ -22,7 +23,9 @@ type TestableGeminiGenerator struct {
 	mockClient     *gemini.MockGenAIClient
 }
 
-// NewTestableGenerator creates a new GeminiGenerator for testing
+// NewTestableGenerator creates a new TestableGeminiGenerator for testing.
+// This generator uses a MockGenAIClient internally to simulate the Gemini API,
+// allowing tests to run without external dependencies and with controlled responses.
 func NewTestableGenerator(
 	logger *slog.Logger,
 	config config.LLMConfig,
@@ -37,12 +40,25 @@ func NewTestableGenerator(
 	}
 }
 
-// Client returns the mock client for testing
+// Client returns the mock GenAIClient used by this generator.
+// This provides access to the mock for test setup, like configuring
+// expected responses or simulating errors.
 func (g *TestableGeminiGenerator) Client() *gemini.MockGenAIClient {
 	return g.mockClient
 }
 
-// CreatePromptForTest is a helper to test the createPrompt functionality
+// CreatePromptForTest is a test helper function that exposes the prompt creation logic
+// normally internal to the GeminiGenerator. It formats the provided memo text
+// using the configured template.
+//
+// Parameters:
+//   - g: The TestableGeminiGenerator instance
+//   - ctx: Context for the operation
+//   - memoText: The memo text to format into a prompt
+//
+// Returns:
+//   - The formatted prompt string
+//   - An error if formatting fails or if memoText is empty
 func CreatePromptForTest(g *TestableGeminiGenerator, ctx context.Context, memoText string) (string, error) {
 	if memoText == "" {
 		return "", gemini.ErrEmptyMemoText

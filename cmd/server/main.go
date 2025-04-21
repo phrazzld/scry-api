@@ -20,12 +20,13 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
@@ -35,6 +36,75 @@ import (
 // Used in the migration command implementation
 // This is a relative path from the project root
 const migrationsDir = "internal/platform/postgres/migrations"
+
+// TaskFactoryEventHandler is an event handler that creates tasks when events are emitted
+type TaskFactoryEventHandler struct {
+	taskFactory *task.MemoGenerationTaskFactory
+	taskRunner  *task.TaskRunner
+	logger      *slog.Logger
+}
+
+// HandleEvent processes events by creating and submitting tasks
+func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+	// Only handle memo generation events for now
+	if event.Type != task.TaskTypeMemoGeneration {
+		h.logger.Debug("ignoring event with unsupported type", "event_type", event.Type, "event_id", event.ID)
+		return nil
+	}
+
+	// Extract the memo ID from the event payload
+	var payload struct {
+		MemoID string `json:"memo_id"`
+	}
+
+	if err := event.UnmarshalPayload(&payload); err != nil {
+		h.logger.Error("failed to unmarshal payload", "error", err, "event_id", event.ID)
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	// Parse the memo ID
+	memoID, err := uuid.Parse(payload.MemoID)
+	if err != nil {
+		h.logger.Error("invalid memo ID", "error", err, "memo_id", payload.MemoID, "event_id", event.ID)
+		return fmt.Errorf("invalid memo ID: %w", err)
+	}
+
+	// Create the task
+	h.logger.Debug("creating task for memo", "memo_id", memoID, "event_id", event.ID)
+	task, err := h.taskFactory.CreateTask(memoID)
+	if err != nil {
+		h.logger.Error("failed to create task", "error", err, "memo_id", memoID, "event_id", event.ID)
+		return fmt.Errorf("failed to create task: %w", err)
+	}
+
+	// Submit the task to the runner
+	h.logger.Debug("submitting task to runner", "task_id", task.ID(), "memo_id", memoID, "event_id", event.ID)
+	if err := h.taskRunner.Submit(ctx, task); err != nil {
+		h.logger.Error(
+			"failed to submit task",
+			"error",
+			err,
+			"task_id",
+			task.ID(),
+			"memo_id",
+			memoID,
+			"event_id",
+			event.ID,
+		)
+		return fmt.Errorf("failed to submit task: %w", err)
+	}
+
+	h.logger.Info(
+		"task created and submitted successfully",
+		"task_id",
+		task.ID(),
+		"memo_id",
+		memoID,
+		"event_id",
+		event.ID,
+	)
+	return nil
+}
 
 // appDependencies holds all the shared application dependencies
 // to simplify passing them around between functions.
@@ -46,16 +116,24 @@ type appDependencies struct {
 	Logger *slog.Logger
 	DB     *sql.DB
 
-	// Stores
-	UserStore      *postgres.PostgresUserStore
-	TaskStore      *postgres.PostgresTaskStore
-	MemoRepository task.MemoRepository // Interface for memo operations
-	CardRepository task.CardRepository // Interface for card operations
+	// Stores (using interfaces for proper abstraction)
+	UserStore          store.UserStore
+	TaskStore          task.TaskStore // Using the interface defined in task.TaskStore
+	MemoStore          store.MemoStore
+	CardStore          store.CardStore
+	UserCardStatsStore store.UserCardStatsStore
+
+	// Repository interfaces for card operations
+	CardRepository store.CardStore // Interface for card operations
 
 	// Services
 	JWTService       auth.JWTService
 	PasswordVerifier auth.PasswordVerifier
-	Generator        task.Generator // Interface for card generation
+	Generator        task.Generator   // Interface for card generation
+	CardService      task.CardService // Interface for card service operations
+
+	// Event system
+	EventEmitter events.EventEmitter
 
 	// Task handling
 	TaskRunner *task.TaskRunner
@@ -184,28 +262,15 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
 
-	// Create API handlers
+	// Create API handlers (user service will be created later when needed)
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
-	// Create memo task factory and service
-	memoTaskFactory := task.NewMemoGenerationTaskFactory(
-		deps.MemoRepository,
-		deps.Generator,
-		deps.CardRepository,
-		deps.Logger,
-	)
+	// Create adapter for the store to be used in the service layer
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
-	// Create an adapter to make task.MemoRepository compatible with service.MemoRepository
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoRepository,
-		func(ctx context.Context, memo *domain.Memo) error {
-			// For now, just output a log message
-			deps.Logger.Info("Creating memo through adapter", "memo_id", memo.ID)
-			// In a real implementation, this would call the actual store
-			return nil
-		})
-
-	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, memoTaskFactory, deps.Logger)
+	// Create the memo service with the event emitter from dependencies
+	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, deps.EventEmitter, deps.Logger)
 	memoHandler := api.NewMemoHandler(memoService)
 
 	// Register routes
@@ -267,8 +332,10 @@ func startServer(cfg *config.Config) {
 
 	// Step 3: Initialize stores and other dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-	taskStore := postgres.NewPostgresTaskStore(db)
+	taskStore := postgres.NewPostgresTaskStore(db) // Concrete implementation that satisfies task.TaskStore
 	memoStore := postgres.NewPostgresMemoStore(db, logger)
+	cardStore := postgres.NewPostgresCardStore(db, logger)
+	userCardStatsStore := postgres.NewPostgresUserCardStatsStore(db, logger)
 	passwordVerifier := auth.NewBcryptVerifier()
 
 	// Create a mock generator service for card generation
@@ -276,13 +343,16 @@ func startServer(cfg *config.Config) {
 
 	// Step 4: Populate the application dependencies struct
 	deps := &appDependencies{
-		Config:           cfg,
-		Logger:           logger,
-		DB:               db,
-		UserStore:        userStore,
-		TaskStore:        taskStore,
-		MemoRepository:   memoStore,
-		CardRepository:   &mockCardRepository{logger: logger}, // Temporary mock implementation
+		Config:             cfg,
+		Logger:             logger,
+		DB:                 db,
+		UserStore:          userStore,
+		TaskStore:          taskStore,
+		MemoStore:          memoStore,
+		CardStore:          cardStore,
+		UserCardStatsStore: userCardStatsStore,
+		// MemoRepository removed - using MemoStore with adapter instead
+		CardRepository:   cardStore, // Now using the real CardStore implementation
 		Generator:        mockGenerator,
 		JWTService:       jwtService,
 		PasswordVerifier: passwordVerifier,
@@ -298,19 +368,63 @@ func startServer(cfg *config.Config) {
 	// Update dependencies with the task runner
 	deps.TaskRunner = taskRunner
 
+	// Step 6: Set up event emitter
+	eventEmitter := events.NewInMemoryEventEmitter(logger)
+
+	// Create a memo repository adapter
+	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
+
+	// Create a memo service adapter
+	memoServiceAdapter, err := task.NewMemoServiceAdapter(memoRepoAdapter)
+	if err != nil {
+		logger.Error("Failed to create memo service adapter", "error", err)
+		os.Exit(1)
+	}
+
+	// Create a card repository adapter for the card service
+	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
+	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
+
+	// Create the card service
+	cardService := service.NewCardService(cardRepoAdapter, statsRepoAdapter, logger)
+
+	// Add the card service to dependencies
+	deps.CardService = cardService
+
+	// Create the task factory
+	memoTaskFactory := task.NewMemoGenerationTaskFactory(
+		memoServiceAdapter,
+		deps.Generator,
+		deps.CardService, // Use CardService instead of CardRepository
+		logger,
+	)
+
+	// Create and register task factory event handler
+	taskFactoryHandler := &TaskFactoryEventHandler{
+		taskFactory: memoTaskFactory,
+		taskRunner:  taskRunner,
+		logger:      logger.With("component", "task_factory_event_handler"),
+	}
+
+	// Register the event handler with the event emitter
+	eventEmitter.RegisterHandler(taskFactoryHandler)
+
+	// Add event emitter to dependencies
+	deps.EventEmitter = eventEmitter
+
 	// Ensure task runner is stopped when the server shuts down
 	defer taskRunner.Stop()
 
-	// Step 6: Set up router using the new setup function
+	// Step 7: Set up router using the new setup function
 	router := setupRouter(deps)
 
-	// Step 7: Configure and create HTTP server
+	// Step 8: Configure and create HTTP server
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler: router,
 	}
 
-	// Step 8: Start server in a goroutine to allow for graceful shutdown
+	// Step 9: Start server in a goroutine to allow for graceful shutdown
 	go func() {
 		logger.Info("Starting server", "port", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -319,7 +433,7 @@ func startServer(cfg *config.Config) {
 		}
 	}()
 
-	// Step 9: Set up graceful shutdown
+	// Step 10: Set up graceful shutdown
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownSignal
@@ -563,19 +677,5 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 		return fmt.Errorf("migration command '%s' failed: %w", command, err)
 	}
 
-	return nil
-}
-
-// mockCardRepository implementation begins below
-
-// mockCardRepository is a temporary implementation of the CardRepository interface
-// that will be replaced in a future task with a real implementation
-type mockCardRepository struct {
-	logger *slog.Logger
-}
-
-// CreateMultiple logs card creation but doesn't actually persist them
-func (r *mockCardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
-	r.logger.Info("Mock card repository storing cards", "count", len(cards))
 	return nil
 }

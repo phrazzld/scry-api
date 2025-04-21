@@ -10,9 +10,10 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      # Formatting hooks
-      - id: trailing-whitespace       # Removes trailing whitespace
-      - id: end-of-file-fixer         # Ensures files end with a newline
+      # Auto-fix hooks - run first
+      - id: trailing-whitespace      # Fixes trailing whitespace
+        args: [--markdown-linebreak-ext=md] # Preserve Markdown line breaks
+      - id: end-of-file-fixer        # Ensures files end with a newline
 
       # Validation hooks
       - id: check-yaml                # Validates YAML syntax
@@ -49,6 +50,15 @@ repos:
         language: system
         types: [go]
         pass_filenames: false  # Run once per commit, not per file
+
+      # Run glance after commit to update directory overviews
+      - id: run-glance
+        name: Run glance to update directory overviews
+        entry: .pre-commit-hooks/run_glance.sh
+        language: script
+        stages: [post-commit]  # Run after commit is completed
+        pass_filenames: false  # Run once per commit, not per file
+        always_run: true       # Run even when no files match
 
       # Warn about long files without blocking commits
       - id: warn-long-files

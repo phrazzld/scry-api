@@ -16,14 +16,27 @@
 //   - MemoStore: Interface for memo persistence operations
 //   - CardStore: Interface for flashcard persistence operations
 //   - UserCardStatsStore: Interface for SRS statistics persistence
+//   - TaskStore: Interface for background task persistence operations
+//   - All interfaces MUST include a WithTx method for transaction support,
+//     regardless of whether they currently participate in transactions
 //
-// 2. Common Types:
+// 2. Transaction Support:
 //   - DBTX: Interface that abstracts *sql.DB and *sql.Tx for flexible transaction handling
-//   - QueryOptions: Types for pagination, sorting, and filtering
+//   - RunInTransaction: Helper function to manage transaction boundaries
+//   - WithTx pattern for transaction-aware store instances
+//   - Transaction management is the responsibility of the service layer, not stores
+//   - All stores can participate in transactions via their WithTx method
 //
 // 3. Error Definitions:
-//   - Standard repository errors (ErrNotFound, ErrDuplicate, etc.)
-//   - Clear error semantics for consistent error handling across the application
+//   - Base error types: ErrNotFound, ErrDuplicate, ErrInvalidEntity, etc.
+//   - Entity-specific errors: ErrUserNotFound, ErrMemoNotFound, etc.
+//   - Error wrapping using fmt.Errorf("%w", err) and the errors package
+//   - Structured error handling using errors.Is() and errors.As()
+//
+// 4. Error Mapping:
+//   - Utilities to map database-specific errors to domain-specific errors
+//   - Hiding of internal error details while preserving error semantics
+//   - Consistent error handling patterns across all implementations
 //
 // By depending only on these interfaces (rather than concrete implementations),
 // application services maintain isolation from specific storage technologies,
@@ -32,6 +45,7 @@
 // - Easy substitution of different storage technologies
 // - Simplified testing with mocks or in-memory implementations
 // - Clear separation of concerns between business logic and data access
+// - Transaction management at the service layer
 //
 // All store interfaces are designed around domain entities defined in the
 // internal/domain package, ensuring that persistence concerns don't leak

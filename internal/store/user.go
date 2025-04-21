@@ -2,22 +2,14 @@ package store
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
 )
 
-// Common store errors
-var (
-	// ErrUserNotFound indicates that the requested user does not exist in the store.
-	ErrUserNotFound = errors.New("user not found")
-
-	// ErrEmailExists indicates that a user with the given email already exists.
-	ErrEmailExists = errors.New("email already exists")
-)
-
 // UserStore defines the interface for user data persistence.
+// Version: 1.0
 type UserStore interface {
 	// Create saves a new user to the store.
 	// It handles domain validation and password hashing internally.
@@ -36,7 +28,8 @@ type UserStore interface {
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 
 	// Update modifies an existing user's details.
-	// It handles domain validation and password rehashing if needed.
+	// The caller MUST provide a complete user object including HashedPassword.
+	// If a new plain text Password is provided, it will be hashed and the HashedPassword will be updated.
 	// Returns ErrUserNotFound if the user does not exist.
 	// Returns ErrEmailExists if updating to an email that already exists.
 	// Returns validation errors from the domain User if data is invalid.
@@ -46,4 +39,9 @@ type UserStore interface {
 	// Returns ErrUserNotFound if the user does not exist.
 	// This operation is permanent and cannot be undone.
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// WithTx returns a new UserStore instance that uses the provided transaction.
+	// This allows for multiple operations to be executed within a single transaction.
+	// The transaction should be created and managed by the caller (typically a service).
+	WithTx(tx *sql.Tx) UserStore
 }

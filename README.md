@@ -5,6 +5,10 @@
 
 Scry API is a Go backend service that manages spaced repetition flashcards. It generates flashcards from user-provided memos using LLM integration (Gemini), and employs a modified SM-2 spaced repetition algorithm to schedule reviews based on user performance.
 
+## Post-commit Hook Test
+
+This line is added to test if the post-commit hook runs correctly.
+
 ## Getting Started / Setup
 
 ### Prerequisites

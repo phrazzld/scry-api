@@ -45,34 +45,62 @@ func CreateTestUser(t *testing.T) *domain.User {
 // MustInsertUser inserts a user into the database for testing.
 // It requires a transaction obtained from WithTx to ensure test isolation.
 // The function will fail the test if the insert operation fails.
-func MustInsertUser(ctx context.Context, t *testing.T, db store.DBTX, email string) uuid.UUID {
+//
+// If hashedPassword is provided, it will be used directly. Otherwise, a UserStore will be created
+// to properly handle password hashing through the domain layer.
+//
+// The bcryptCost parameter controls the computational cost of password hashing.
+// If it's <= 0, bcrypt.MinCost (4) will be used for faster test execution.
+func MustInsertUser(
+	ctx context.Context,
+	t *testing.T,
+	db store.DBTX,
+	email string,
+	bcryptCost int,
+	hashedPassword ...string,
+) uuid.UUID {
 	t.Helper()
 
-	// Create a test password that meets validation requirements (12+ chars)
+	// Generate a unique user ID
+	userID := uuid.New()
+	now := time.Now().UTC()
+
+	// Set default test password
 	password := "TestPassword123!"
 
-	// Create a user with the provided email and test password
-	user := &domain.User{
-		ID:        uuid.New(),
-		Email:     email,
-		Password:  password,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
+	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
+	if bcryptCost <= 0 {
+		bcryptCost = bcrypt.MinCost
 	}
 
-	// For simplicity in this implementation, directly hash the password
-	// In a real application, this would be handled by a service
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	require.NoError(t, err, "Failed to hash password")
+	// If there are two approaches:
+	// 1. If a hashed password is provided, insert directly with SQL
+	// 2. If no hashed password is provided, use UserStore.Create to handle hashing properly
+	if len(hashedPassword) > 0 && hashedPassword[0] != "" {
+		// Direct SQL approach with pre-hashed password
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO users (id, email, hashed_password, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5)
+		`, userID, email, hashedPassword[0], now, now)
+		require.NoError(t, err, "Failed to insert test user with pre-hashed password")
+	} else {
+		// UserStore approach - let the store handle domain validation and password hashing
+		// Create a user with the provided email and test password
+		user := &domain.User{
+			ID:        userID,
+			Email:     email,
+			Password:  password, // Plain password - UserStore.Create will hash it
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
 
-	// Execute the SQL directly to avoid circular dependencies with postgres package
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO users (id, email, hashed_password, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, user.ID, user.Email, string(hashedPassword), user.CreatedAt, user.UpdatedAt)
-	require.NoError(t, err, "Failed to insert test user")
+		// Create a UserStore to handle the proper creation logic
+		userStore := postgres.NewPostgresUserStore(db, bcryptCost)
+		err := userStore.Create(ctx, user)
+		require.NoError(t, err, "Failed to create test user using UserStore")
+	}
 
-	return user.ID
+	return userID
 }
 
 // GetUserByID retrieves a user from the database by ID.
@@ -183,6 +211,59 @@ func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
 
 // CreateTestUserStore creates a new PostgresUserStore for testing.
 // It uses the given transaction to ensure test isolation.
-func CreateTestUserStore(tx store.DBTX) store.UserStore {
-	return postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
+//
+// The bcryptCost parameter controls the computational cost of password hashing.
+// If it's <= 0, bcrypt.MinCost (4) will be used for faster test execution.
+func CreateTestUserStore(tx store.DBTX, bcryptCost int) store.UserStore {
+	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
+	if bcryptCost <= 0 {
+		bcryptCost = bcrypt.MinCost
+	}
+	return postgres.NewPostgresUserStore(tx, bcryptCost)
+}
+
+// Stores represents all database store implementations.
+// This struct provides a convenient way to access all stores
+// that share the same transaction for test isolation.
+type Stores struct {
+	UserStore          store.UserStore
+	MemoStore          store.MemoStore
+	CardStore          store.CardStore
+	UserCardStatsStore store.UserCardStatsStore
+}
+
+// CreateTestStores creates all store implementations using a single transaction.
+// This ensures that all changes made through these stores will be rolled back
+// when the test completes, providing proper test isolation.
+//
+// The bcryptCost parameter controls the computational cost of password hashing.
+// If it's <= 0, bcrypt.MinCost (4) will be used for faster test execution.
+//
+// Usage:
+//
+//	testutils.WithTx(t, db, func(tx store.DBTX) {
+//	    stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
+//
+//	    // Use any of the stores
+//	    user, err := stores.UserStore.Create(ctx, testUser)
+//	    require.NoError(t, err)
+//
+//	    // Use another store with the same transaction
+//	    memo, err := stores.MemoStore.Create(ctx, testMemo)
+//	    require.NoError(t, err)
+//
+//	    // All changes will be rolled back automatically
+//	})
+func CreateTestStores(tx store.DBTX, bcryptCost int) Stores {
+	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
+	if bcryptCost <= 0 {
+		bcryptCost = bcrypt.MinCost
+	}
+
+	return Stores{
+		UserStore:          postgres.NewPostgresUserStore(tx, bcryptCost),
+		MemoStore:          postgres.NewPostgresMemoStore(tx, nil),
+		CardStore:          postgres.NewPostgresCardStore(tx, nil),
+		UserCardStatsStore: postgres.NewPostgresUserCardStatsStore(tx, nil),
+	}
 }

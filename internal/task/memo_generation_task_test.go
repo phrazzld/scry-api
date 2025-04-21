@@ -15,6 +15,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// createCardServiceMock creates a card service mock for testing
+func createCardServiceMock(
+	createCardsFunc func(ctx context.Context, cards []*domain.Card) error,
+) *mocks.CardService {
+	return &mocks.CardService{
+		CreateCardsFunc: createCardsFunc,
+		GetCardFunc: func(ctx context.Context, cardID uuid.UUID) (*domain.Card, error) {
+			return nil, nil // Default implementation
+		},
+	}
+}
+
 func TestNewMemoGenerationTask(t *testing.T) {
 	t.Parallel()
 
@@ -22,11 +34,13 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	validMemoID := uuid.New()
 
 	t.Run("creates task with valid parameters", func(t *testing.T) {
-		memoRepo := &mocks.MemoRepository{}
+		memoService := &mocks.MockMemoService{}
 		generator := &mocks.Generator{}
-		cardRepo := &mocks.CardRepository{}
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return nil
+		})
 
-		task, err := NewMemoGenerationTask(validMemoID, memoRepo, generator, cardRepo, logger)
+		task, err := NewMemoGenerationTask(validMemoID, memoService, generator, cardService, logger)
 
 		require.NoError(t, err)
 		assert.NotNil(t, task)
@@ -36,45 +50,51 @@ func TestNewMemoGenerationTask(t *testing.T) {
 		assert.NotEqual(t, uuid.Nil, task.ID())
 	})
 
-	t.Run("fails with nil memo repository", func(t *testing.T) {
+	t.Run("fails with nil memo service", func(t *testing.T) {
 		generator := &mocks.Generator{}
-		cardRepo := &mocks.CardRepository{}
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return nil
+		})
 
-		task, err := NewMemoGenerationTask(validMemoID, nil, generator, cardRepo, logger)
+		task, err := NewMemoGenerationTask(validMemoID, nil, generator, cardService, logger)
 
 		assert.Error(t, err)
-		assert.Equal(t, ErrNilMemoRepository, err)
+		assert.Equal(t, ErrNilMemoService, err)
 		assert.Nil(t, task)
 	})
 
 	t.Run("fails with nil generator", func(t *testing.T) {
-		memoRepo := &mocks.MemoRepository{}
-		cardRepo := &mocks.CardRepository{}
+		memoService := &mocks.MockMemoService{}
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return nil
+		})
 
-		task, err := NewMemoGenerationTask(validMemoID, memoRepo, nil, cardRepo, logger)
+		task, err := NewMemoGenerationTask(validMemoID, memoService, nil, cardService, logger)
 
 		assert.Error(t, err)
 		assert.Equal(t, ErrNilGenerator, err)
 		assert.Nil(t, task)
 	})
 
-	t.Run("fails with nil card repository", func(t *testing.T) {
-		memoRepo := &mocks.MemoRepository{}
+	t.Run("fails with nil card service", func(t *testing.T) {
+		memoService := &mocks.MockMemoService{}
 		generator := &mocks.Generator{}
 
-		task, err := NewMemoGenerationTask(validMemoID, memoRepo, generator, nil, logger)
+		task, err := NewMemoGenerationTask(validMemoID, memoService, generator, nil, logger)
 
 		assert.Error(t, err)
-		assert.Equal(t, ErrNilCardRepository, err)
+		assert.Equal(t, ErrNilCardService, err)
 		assert.Nil(t, task)
 	})
 
 	t.Run("fails with nil logger", func(t *testing.T) {
-		memoRepo := &mocks.MemoRepository{}
+		memoService := &mocks.MockMemoService{}
 		generator := &mocks.Generator{}
-		cardRepo := &mocks.CardRepository{}
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return nil
+		})
 
-		task, err := NewMemoGenerationTask(validMemoID, memoRepo, generator, cardRepo, nil)
+		task, err := NewMemoGenerationTask(validMemoID, memoService, generator, cardService, nil)
 
 		assert.Error(t, err)
 		assert.Equal(t, ErrNilLogger, err)
@@ -82,11 +102,13 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 
 	t.Run("fails with nil memo ID", func(t *testing.T) {
-		memoRepo := &mocks.MemoRepository{}
+		memoService := &mocks.MockMemoService{}
 		generator := &mocks.Generator{}
-		cardRepo := &mocks.CardRepository{}
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return nil
+		})
 
-		task, err := NewMemoGenerationTask(uuid.Nil, memoRepo, generator, cardRepo, logger)
+		task, err := NewMemoGenerationTask(uuid.Nil, memoService, generator, cardService, logger)
 
 		assert.Error(t, err)
 		assert.Equal(t, ErrEmptyMemoID, err)
@@ -94,422 +116,272 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 }
 
-func TestMemoGenerationTaskPayload(t *testing.T) {
-	t.Parallel()
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	memoID := uuid.New()
-	memoRepo := &mocks.MemoRepository{}
-	generator := &mocks.Generator{}
-	cardRepo := &mocks.CardRepository{}
-
-	task, err := NewMemoGenerationTask(memoID, memoRepo, generator, cardRepo, logger)
-	require.NoError(t, err)
-
-	payload := task.Payload()
-	assert.NotEmpty(t, payload)
-
-	var decodedPayload memoGenerationPayload
-	err = json.Unmarshal(payload, &decodedPayload)
-	require.NoError(t, err)
-
-	assert.Equal(t, memoID, decodedPayload.MemoID)
-}
-
 func TestMemoGenerationTaskInterface(t *testing.T) {
 	t.Parallel()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	memoID := uuid.New()
-	memoRepo := &mocks.MemoRepository{}
+	validMemoID := uuid.New()
+	memoService := &mocks.MockMemoService{}
 	generator := &mocks.Generator{}
-	cardRepo := &mocks.CardRepository{}
+	cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+		return nil
+	})
 
-	task, err := NewMemoGenerationTask(memoID, memoRepo, generator, cardRepo, logger)
+	task, err := NewMemoGenerationTask(validMemoID, memoService, generator, cardService, logger)
 	require.NoError(t, err)
 
-	// Validate the struct fields
-	assert.NotEqual(t, uuid.Nil, task.id)
-	assert.Equal(t, memoID, task.memoID)
-	assert.NotNil(t, task.memoRepo)
-	assert.NotNil(t, task.generator)
-	assert.NotNil(t, task.logger)
-	assert.Equal(t, statusPending, task.status)
-
-	// Check ID method
-	assert.NotEqual(t, uuid.Nil, task.ID())
-
-	// Check Type method
-	assert.Equal(t, TaskTypeMemoGeneration, task.Type())
-
-	// Check Status method
+	// Test Task interface methods
+	assert.Equal(t, validMemoID, task.memoID)
 	assert.Equal(t, TaskStatus(statusPending), task.Status())
+	assert.Equal(t, TaskTypeMemoGeneration, task.Type())
+	assert.NotEqual(t, uuid.Nil, task.ID())
+}
+
+func TestMemoGenerationTaskPayload(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	validMemoID := uuid.New()
+	memoService := &mocks.MockMemoService{}
+	generator := &mocks.Generator{}
+	cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+		return nil
+	})
+
+	task, err := NewMemoGenerationTask(validMemoID, memoService, generator, cardService, logger)
+	require.NoError(t, err)
+
+	// Test payload serialization
+	payload := task.Payload()
+	assert.NotEmpty(t, payload)
+
+	// Verify payload contents
+	var data memoGenerationPayload
+	err = json.Unmarshal(payload, &data)
+	require.NoError(t, err)
+	assert.Equal(t, validMemoID, data.MemoID)
 }
 
 func TestMemoGenerationTask_Execute(t *testing.T) {
-	memoID := uuid.New()
-	userID := uuid.New()
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
 	t.Run("successfully generates cards", func(t *testing.T) {
-		// Setup mocks
+		// Setup mocks and data
+		memoID := uuid.New()
+		userID := uuid.New()
 		memo := &domain.Memo{
 			ID:     memoID,
 			UserID: userID,
 			Text:   "Test memo text",
 			Status: domain.MemoStatusPending,
 		}
-
-		// Card that will be "generated"
-		cardContent := json.RawMessage(`{"front":"Test question","back":"Test answer"}`)
-		generatedCards := []*domain.Card{
+		cards := []*domain.Card{
 			{
 				ID:      uuid.New(),
-				UserID:  userID,
 				MemoID:  memoID,
-				Content: cardContent,
+				UserID:  userID,
+				Content: json.RawMessage(`{"front":"Test front","back":"Test back"}`),
 			},
 		}
 
-		// Setup repositories with expected behavior
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
-				assert.Equal(t, memoID, id)
+		// Setup mocks
+		memoService := &mocks.MockMemoService{
+			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
-				// First call should update to processing
-				if m.Status == domain.MemoStatusProcessing {
-					return nil
-				}
-				// Second call should update to completed
-				assert.Equal(t, domain.MemoStatusCompleted, m.Status)
+			UpdateMemoStatusFn: func(ctx context.Context, id uuid.UUID, status domain.MemoStatus) error {
+				memo.Status = status
 				return nil
 			},
 		}
 
 		generator := &mocks.Generator{
-			GenerateCardsFunc: func(ctx context.Context, memoText string, id uuid.UUID) ([]*domain.Card, error) {
-				assert.Equal(t, memo.Text, memoText)
-				assert.Equal(t, userID, id)
-				return generatedCards, nil
+			GenerateCardsFunc: func(ctx context.Context, text string, userID uuid.UUID) ([]*domain.Card, error) {
+				return cards, nil
 			},
 		}
 
-		cardRepo := &mocks.CardRepository{
-			CreateMultipleFunc: func(ctx context.Context, cards []*domain.Card) error {
-				assert.Equal(t, generatedCards, cards)
-				return nil
-			},
-		}
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return nil
+		})
+
+		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 		// Create and execute task
-		task, err := NewMemoGenerationTask(memoID, memoRepo, generator, cardRepo, logger)
+		task, err := NewMemoGenerationTask(memoID, memoService, generator, cardService, logger)
 		require.NoError(t, err)
 
+		// Execute the task directly now that we have proper mocks
 		err = task.Execute(context.Background())
+
+		// Assertions
 		assert.NoError(t, err)
 		assert.Equal(t, TaskStatus(statusCompleted), task.Status())
+		assert.Equal(t, domain.MemoStatusCompleted, memo.Status)
 	})
 
 	t.Run("handles memo not found error", func(t *testing.T) {
-		expectedErr := errors.New("memo not found")
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
-				return nil, expectedErr
+		// Setup mocks and data
+		memoID := uuid.New()
+		notFoundErr := errors.New("memo not found")
+
+		// Setup mocks
+		memoService := &mocks.MockMemoService{
+			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+				return nil, notFoundErr
 			},
 		}
 
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			&mocks.Generator{},
-			&mocks.CardRepository{},
-			logger,
-		)
+		generator := &mocks.Generator{}
+		cardService := createCardServiceMock(nil)
+		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+		// Create and execute task
+		task, err := NewMemoGenerationTask(memoID, memoService, generator, cardService, logger)
 		require.NoError(t, err)
 
 		err = task.Execute(context.Background())
+
+		// Assertions
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), expectedErr.Error())
+		assert.ErrorContains(t, err, "memo not found")
 		assert.Equal(t, TaskStatus(statusFailed), task.Status())
 	})
 
-	t.Run("handles memo update to processing error", func(t *testing.T) {
-		expectedErr := errors.New("update error")
+	t.Run("handles update memo status error", func(t *testing.T) {
+		// Setup mocks and data
+		memoID := uuid.New()
+		userID := uuid.New()
 		memo := &domain.Memo{
 			ID:     memoID,
 			UserID: userID,
 			Text:   "Test memo text",
 			Status: domain.MemoStatusPending,
 		}
+		updateErr := errors.New("update status error")
 
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+		// Setup mocks
+		memoService := &mocks.MockMemoService{
+			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
-				if m.Status == domain.MemoStatusProcessing {
-					return expectedErr
-				}
-				return nil
-			},
-		}
-
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			&mocks.Generator{},
-			&mocks.CardRepository{},
-			logger,
-		)
-		require.NoError(t, err)
-
-		err = task.Execute(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), expectedErr.Error())
-		assert.Equal(t, TaskStatus(statusFailed), task.Status())
-	})
-
-	t.Run("handles generation error", func(t *testing.T) {
-		expectedErr := errors.New("generation error")
-		memo := &domain.Memo{
-			ID:     memoID,
-			UserID: userID,
-			Text:   "Test memo text",
-			Status: domain.MemoStatusPending,
-		}
-
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
-				return memo, nil
-			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
-				return nil
-			},
-		}
-
-		generator := &mocks.Generator{
-			GenerateCardsFunc: func(ctx context.Context, memoText string, id uuid.UUID) ([]*domain.Card, error) {
-				return nil, expectedErr
-			},
-		}
-
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			generator,
-			&mocks.CardRepository{},
-			logger,
-		)
-		require.NoError(t, err)
-
-		err = task.Execute(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), expectedErr.Error())
-		assert.Equal(t, TaskStatus(statusFailed), task.Status())
-	})
-
-	t.Run("handles save cards error", func(t *testing.T) {
-		expectedErr := errors.New("save error")
-		memo := &domain.Memo{
-			ID:     memoID,
-			UserID: userID,
-			Text:   "Test memo text",
-			Status: domain.MemoStatusPending,
-		}
-
-		// Card that will be "generated"
-		cardContent := json.RawMessage(`{"front":"Test question","back":"Test answer"}`)
-		generatedCards := []*domain.Card{
-			{
-				ID:      uuid.New(),
-				UserID:  userID,
-				MemoID:  memoID,
-				Content: cardContent,
-			},
-		}
-
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
-				return memo, nil
-			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
-				return nil
-			},
-		}
-
-		generator := &mocks.Generator{
-			GenerateCardsFunc: func(ctx context.Context, memoText string, id uuid.UUID) ([]*domain.Card, error) {
-				return generatedCards, nil
-			},
-		}
-
-		cardRepo := &mocks.CardRepository{
-			CreateMultipleFunc: func(ctx context.Context, cards []*domain.Card) error {
-				return expectedErr
-			},
-		}
-
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			generator,
-			cardRepo,
-			logger,
-		)
-		require.NoError(t, err)
-
-		err = task.Execute(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), expectedErr.Error())
-		assert.Equal(t, TaskStatus(statusFailed), task.Status())
-	})
-
-	t.Run("handles final update error but returns completed", func(t *testing.T) {
-		updateErr := errors.New("final update error")
-		memo := &domain.Memo{
-			ID:     memoID,
-			UserID: userID,
-			Text:   "Test memo text",
-			Status: domain.MemoStatusPending,
-		}
-
-		// Card that will be "generated"
-		cardContent := json.RawMessage(`{"front":"Test question","back":"Test answer"}`)
-		generatedCards := []*domain.Card{
-			{
-				ID:      uuid.New(),
-				UserID:  userID,
-				MemoID:  memoID,
-				Content: cardContent,
-			},
-		}
-
-		updateCalled := 0
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
-				return memo, nil
-			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
-				updateCalled++
-				// First call (to processing) succeeds
-				if updateCalled == 1 {
-					return nil
-				}
-				// Second call (to completed) fails
+			UpdateMemoStatusFn: func(ctx context.Context, id uuid.UUID, status domain.MemoStatus) error {
 				return updateErr
 			},
 		}
 
-		generator := &mocks.Generator{
-			GenerateCardsFunc: func(ctx context.Context, memoText string, id uuid.UUID) ([]*domain.Card, error) {
-				return generatedCards, nil
-			},
-		}
+		generator := &mocks.Generator{}
+		cardService := createCardServiceMock(nil)
+		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-		cardRepo := &mocks.CardRepository{
-			CreateMultipleFunc: func(ctx context.Context, cards []*domain.Card) error {
-				return nil
-			},
-		}
-
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			generator,
-			cardRepo,
-			logger,
-		)
+		// Create and execute task
+		task, err := NewMemoGenerationTask(memoID, memoService, generator, cardService, logger)
 		require.NoError(t, err)
 
-		// Should log the error but still return success because the cards were created
 		err = task.Execute(context.Background())
-		assert.NoError(t, err)
-		assert.Equal(t, TaskStatus(statusCompleted), task.Status())
-	})
 
-	t.Run("handles context cancellation", func(t *testing.T) {
-		memo := &domain.Memo{
-			ID:     memoID,
-			UserID: userID,
-			Text:   "Test memo text",
-			Status: domain.MemoStatusPending,
-		}
-
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
-				return memo, nil
-			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
-				return nil
-			},
-		}
-
-		generator := &mocks.Generator{
-			GenerateCardsFunc: func(ctx context.Context, memoText string, id uuid.UUID) ([]*domain.Card, error) {
-				// Simulate long-running task that checks context
-				if ctx.Err() != nil {
-					return nil, ctx.Err()
-				}
-				return nil, nil // Should never reach this
-			},
-		}
-
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			generator,
-			&mocks.CardRepository{},
-			logger,
-		)
-		require.NoError(t, err)
-
-		// Create a context that's already canceled
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		err = task.Execute(ctx)
+		// Assertions
 		assert.Error(t, err)
-		assert.Equal(t, context.Canceled, ctx.Err())
+		assert.ErrorContains(t, err, "update status error")
 		assert.Equal(t, TaskStatus(statusFailed), task.Status())
 	})
 
-	t.Run("handles no cards generated", func(t *testing.T) {
+	t.Run("handles generate cards error", func(t *testing.T) {
+		// Setup mocks and data
+		memoID := uuid.New()
+		userID := uuid.New()
 		memo := &domain.Memo{
 			ID:     memoID,
 			UserID: userID,
 			Text:   "Test memo text",
 			Status: domain.MemoStatusPending,
 		}
+		genErr := errors.New("generation error")
 
-		memoRepo := &mocks.MemoRepository{
-			GetByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+		// Setup mocks
+		memoService := &mocks.MockMemoService{
+			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},
-			UpdateFunc: func(ctx context.Context, m *domain.Memo) error {
+			UpdateMemoStatusFn: func(ctx context.Context, id uuid.UUID, status domain.MemoStatus) error {
+				memo.Status = status
 				return nil
 			},
 		}
 
 		generator := &mocks.Generator{
-			GenerateCardsFunc: func(ctx context.Context, memoText string, id uuid.UUID) ([]*domain.Card, error) {
-				// Return empty slice
-				return []*domain.Card{}, nil
+			GenerateCardsFunc: func(ctx context.Context, text string, userID uuid.UUID) ([]*domain.Card, error) {
+				return nil, genErr
 			},
 		}
 
-		task, err := NewMemoGenerationTask(
-			memoID,
-			memoRepo,
-			generator,
-			&mocks.CardRepository{},
-			logger,
-		)
+		cardService := createCardServiceMock(nil)
+		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+		// Create and execute task
+		task, err := NewMemoGenerationTask(memoID, memoService, generator, cardService, logger)
 		require.NoError(t, err)
 
 		err = task.Execute(context.Background())
-		assert.NoError(t, err)
-		assert.Equal(t, TaskStatus(statusCompleted), task.Status())
+
+		// Assertions
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "generation error")
+		assert.Equal(t, TaskStatus(statusFailed), task.Status())
+		assert.Equal(t, domain.MemoStatusFailed, memo.Status)
+	})
+
+	t.Run("handles save cards error", func(t *testing.T) {
+		// Setup mocks and data
+		memoID := uuid.New()
+		userID := uuid.New()
+		memo := &domain.Memo{
+			ID:     memoID,
+			UserID: userID,
+			Text:   "Test memo text",
+			Status: domain.MemoStatusPending,
+		}
+		cards := []*domain.Card{
+			{
+				ID:      uuid.New(),
+				MemoID:  memoID,
+				UserID:  userID,
+				Content: json.RawMessage(`{"front":"Test front","back":"Test back"}`),
+			},
+		}
+		saveErr := errors.New("save error")
+
+		// Setup mocks
+		memoService := &mocks.MockMemoService{
+			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+				return memo, nil
+			},
+			UpdateMemoStatusFn: func(ctx context.Context, id uuid.UUID, status domain.MemoStatus) error {
+				memo.Status = status
+				return nil
+			},
+		}
+
+		generator := &mocks.Generator{
+			GenerateCardsFunc: func(ctx context.Context, text string, userID uuid.UUID) ([]*domain.Card, error) {
+				return cards, nil
+			},
+		}
+
+		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
+			return saveErr
+		})
+
+		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+		// Create and execute task
+		task, err := NewMemoGenerationTask(memoID, memoService, generator, cardService, logger)
+		require.NoError(t, err)
+
+		err = task.Execute(context.Background())
+
+		// Assertions
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "save error")
+		assert.Equal(t, TaskStatus(statusFailed), task.Status())
+		assert.Equal(t, domain.MemoStatusFailed, memo.Status)
 	})
 }

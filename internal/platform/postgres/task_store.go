@@ -13,10 +13,16 @@ import (
 	"github.com/phrazzld/scry-api/internal/task"
 )
 
+// Compile-time check to ensure PostgresTaskStore implements task.TaskStore
+var _ task.TaskStore = (*PostgresTaskStore)(nil)
+
 // PostgresTaskStore implements the task.TaskStore interface using PostgreSQL
 type PostgresTaskStore struct {
 	db store.DBTX
 }
+
+// Compile-time verification that PostgresTaskStore implements task.TaskStore
+var _ task.TaskStore = (*PostgresTaskStore)(nil)
 
 // NewPostgresTaskStore creates a new PostgresTaskStore
 func NewPostgresTaskStore(db store.DBTX) *PostgresTaskStore {
@@ -53,8 +59,9 @@ func (s *PostgresTaskStore) SaveTask(ctx context.Context, task task.Task) error 
 		log.Error("failed to save task",
 			"task_id", task.ID(),
 			"task_type", task.Type(),
-			"error", err)
-		return fmt.Errorf("failed to save task to database: %w", err)
+			"error", err.Error())
+		// Map the error using the helper to standardize error handling
+		return fmt.Errorf("failed to save task: %w", MapError(err))
 	}
 
 	return nil
@@ -88,16 +95,18 @@ func (s *PostgresTaskStore) UpdateTaskStatus(
 		log.Error("failed to update task status",
 			"task_id", taskID,
 			"status", status,
-			"error", err)
-		return fmt.Errorf("failed to update task status: %w", err)
+			"error", err.Error())
+		return fmt.Errorf("failed to update task status: %w", MapError(err))
 	}
 
+	// Use the CheckRowsAffected helper with a special case for tasks
+	// If no rows were affected, we treat it as a no-op for task status updates
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Error("failed to get rows affected",
 			"task_id", taskID,
-			"error", err)
-		return fmt.Errorf("failed to get rows affected: %w", err)
+			"error", err.Error())
+		return fmt.Errorf("failed to get rows affected: %w", MapError(err))
 	}
 
 	if rowsAffected == 0 {
@@ -117,6 +126,15 @@ func (s *PostgresTaskStore) GetPendingTasks(ctx context.Context) ([]task.Task, e
 // GetProcessingTasks retrieves tasks with "processing" status
 func (s *PostgresTaskStore) GetProcessingTasks(ctx context.Context, olderThan time.Duration) ([]task.Task, error) {
 	return s.getTasksByStatus(ctx, task.TaskStatusProcessing, olderThan)
+}
+
+// WithTx implements task.TaskStore.WithTx
+// It returns a new TaskStore instance that uses the provided transaction.
+// This allows for multiple operations to be executed within a single transaction.
+func (s *PostgresTaskStore) WithTx(tx *sql.Tx) task.TaskStore {
+	return &PostgresTaskStore{
+		db: tx,
+	}
 }
 
 // getTasksByStatus is a helper method to get tasks by status with optional age filter
@@ -154,14 +172,14 @@ func (s *PostgresTaskStore) getTasksByStatus(
 	if err != nil {
 		log.Error("failed to query tasks by status",
 			"status", status,
-			"error", err)
-		return nil, fmt.Errorf("failed to query tasks by status: %w", err)
+			"error", err.Error())
+		return nil, fmt.Errorf("failed to query tasks by status: %w", MapError(err))
 	}
 	defer func() {
 		if cerr := rows.Close(); cerr != nil {
 			log.Error("error closing rows",
 				"status", status,
-				"error", cerr)
+				"error", cerr.Error())
 		}
 	}()
 
@@ -179,8 +197,8 @@ func (s *PostgresTaskStore) getTasksByStatus(
 		if err := rows.Scan(&id, &taskType, &payload, &taskStatus, &errorMessage, &createdAt, &updatedAt); err != nil {
 			log.Error("failed to scan task row",
 				"status", status,
-				"error", err)
-			return nil, fmt.Errorf("failed to scan task row: %w", err)
+				"error", err.Error())
+			return nil, fmt.Errorf("failed to scan task row: %w", MapError(err))
 		}
 
 		// Create a DatabaseTask with the retrieved data
@@ -200,8 +218,8 @@ func (s *PostgresTaskStore) getTasksByStatus(
 	if err := rows.Err(); err != nil {
 		log.Error("error iterating task rows",
 			"status", status,
-			"error", err)
-		return nil, fmt.Errorf("error iterating task rows: %w", err)
+			"error", err.Error())
+		return nil, fmt.Errorf("error iterating task rows: %w", MapError(err))
 	}
 
 	return tasks, nil

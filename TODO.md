@@ -89,7 +89,7 @@
 
 ## Cross-Platform Pre-commit Hooks
 
-- [ ] **T036 · chore · p1: restore standard pre-commit hooks**
+- [x] **T036 · chore · p1: restore standard pre-commit hooks**
     - **Context:** cr-03 steps 1-3
     - **Action:**
         1. Remove custom `fix-trailing-whitespace` and `fix-end-of-file` hooks
@@ -244,4 +244,3 @@
 - [x] **Issue:** Need to determine the best service to handle UserCardStats orchestration
     - **Context:** cr-06 step 2
     - **Resolution:** Create a new CardService in internal/service/card_service.go that orchestrates both Card and UserCardStats creation within a transaction. This follows the same pattern as MemoService with RunInTransaction + WithTx, keeping persistence layer focused on single responsibilities while the service layer handles orchestration.
-

@@ -356,12 +356,12 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
-	log.Error("GetNextReviewCard not implemented",
+	log.Warn("GetNextReviewCard not implemented",
 		slog.String("user_id", userID.String()))
 
-	// Intentionally panic to make it clear this is not implemented
-	// This ensures we don't silently fail in production
-	panic("GetNextReviewCard is not implemented yet - see docs/design/srs_algorithm.md for implementation details")
+	// Return standard error instead of panicking
+	// This follows proper error handling patterns for not-yet-implemented methods
+	return nil, store.ErrNotImplemented
 }
 
 // WithTxCardStore implements store.CardStore.WithTxCardStore

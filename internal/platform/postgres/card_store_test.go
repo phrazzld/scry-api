@@ -86,9 +86,49 @@ func TestCardStoreIntegration(t *testing.T) {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
-	// Test only the CreateMultiple method for now
-	// The other method tests are already implemented as standalone functions
+	// Run integration tests for each CardStore method
 	t.Run("TestPostgresCardStore_CreateMultiple", TestPostgresCardStore_CreateMultiple)
+	t.Run("TestPostgresCardStore_GetNextReviewCard", TestPostgresCardStore_GetNextReviewCard)
+}
+
+// TestPostgresCardStore_GetNextReviewCard tests the GetNextReviewCard method
+func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
+	// Skip if not in integration test environment
+	if !checkIntegrationTestEnvironment() {
+		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
+	}
+
+	t.Parallel() // Enable parallel testing
+
+	// Get a database connection
+	db, err := getTestDBForCardStore()
+	require.NoError(t, err, "Failed to connect to test database")
+	defer func() {
+		if db != nil {
+			_ = db.Close()
+		}
+	}()
+
+	withTxForCardTest(t, db, func(tx *sql.Tx) {
+		// Create stores
+		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
+		cardStore := NewPostgresCardStore(tx, nil)
+
+		// Create a test user
+		testUser, err := domain.NewUser("getnextreview@example.com", "password123")
+		require.NoError(t, err, "Failed to create test user")
+		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+
+		t.Run("returns_not_implemented_error", func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			defer cancel()
+
+			// Call GetNextReviewCard which should return ErrNotImplemented
+			_, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
+			assert.Error(t, err, "GetNextReviewCard should return an error")
+			assert.ErrorIs(t, err, store.ErrNotImplemented, "Error should be ErrNotImplemented")
+		})
+	})
 }
 
 // TestPostgresCardStore_CreateMultiple tests the CreateMultiple method

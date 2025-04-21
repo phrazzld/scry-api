@@ -115,7 +115,7 @@
 
 ## Fix GetNextReviewCard Panic
 
-- [ ] **T038 · bugfix · p1: replace panic with error in GetNextReviewCard**
+- [x] **T038 · bugfix · p1: replace panic with error in GetNextReviewCard**
     - **Context:** cr-05 steps 1-2
     - **Action:**
         1. Replace `panic` with `return nil, store.ErrNotImplemented`

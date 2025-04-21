@@ -166,13 +166,15 @@
 
 ### Clarifications & Assumptions
 
-- [ ] **Issue:** Confirm UserCardStatsStore interface and implementation are complete
+- [x] **Issue:** Confirm UserCardStatsStore interface and implementation are complete
     - **Context:** PLAN.md dependencies for CardReviewService
     - **Blocking?:** yes (blocks T073)
+    - **Status:** Confirmed, implementation exists in internal/store/stats.go
 
-- [ ] **Issue:** Confirm SRS service exists and is injectable
+- [x] **Issue:** Confirm SRS service exists and is injectable
     - **Context:** PLAN.md dependencies for CardReviewService
     - **Blocking?:** yes (blocks T073)
+    - **Status:** Confirmed, implementation exists in internal/domain/srs/service.go
 
 - [ ] **Issue:** Decide if pagination is needed for GetNextReviewCard
     - **Context:** PLAN.md > Open Questions

@@ -257,7 +257,21 @@ func (s *PostgresCardStore) UpdateContent(ctx context.Context, id uuid.UUID, con
 // Delete implements store.CardStore.Delete
 // It removes a card from the store by its ID.
 // Returns store.ErrCardNotFound if the card does not exist.
-// Associated user_card_stats entries are also deleted via cascade delete.
+//
+// IMPORTANT DATABASE DEPENDENCY:
+// This implementation relies entirely on the database's CASCADE DELETE functionality
+// to maintain referential integrity. When a card is deleted:
+//  1. The database automatically deletes related user_card_stats entries via the
+//     ON DELETE CASCADE constraint defined in the user_card_stats table schema
+//  2. No explicit deletion of related records occurs in this application code
+//
+// This approach provides better performance and atomicity, but creates a critical
+// dependency on correct database schema configuration. If the database schema changes
+// or if using a storage backend without CASCADE DELETE support, this method must be
+// modified to explicitly handle related record deletion.
+//
+// See: internal/platform/postgres/migrations/20250415000004_create_user_card_stats_table.sql
+// for the constraint definition.
 func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)

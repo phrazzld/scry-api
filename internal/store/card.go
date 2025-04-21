@@ -44,8 +44,15 @@ type CardStore interface {
 
 	// Delete removes a card from the store by its ID.
 	// Returns ErrCardNotFound if the card does not exist.
-	// Depending on the implementation, this may also delete associated
-	// UserCardStats entries via cascade delete in the database.
+	//
+	// IMPORTANT: This method relies on database-level CASCADE DELETE behavior to
+	// automatically remove associated UserCardStats entries. This is configured
+	// in the database schema through ON DELETE CASCADE foreign key constraints.
+	//
+	// The current PostgreSQL implementation depends on this database feature and does
+	// not explicitly delete related records in application code. If using a different
+	// database backend or if the schema is modified to remove cascade deletes, this
+	// method must be updated to maintain referential integrity.
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// GetNextReviewCard retrieves the next card due for review for a user.

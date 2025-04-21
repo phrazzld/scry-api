@@ -207,7 +207,7 @@
 
 ## Document Cascade Delete Dependencies
 
-- [ ] **T046 · chore · p3: document cascade delete behavior**
+- [x] **T046 · chore · p3: document cascade delete behavior**
     - **Context:** cr-11 steps 1-2
     - **Action:**
         1. Update interface documentation in `store/card.go`

@@ -183,7 +183,7 @@
 
 ## Standardize bcrypt Cost
 
-- [ ] **T044 · refactor · p2: standardize bcrypt cost in test helpers**
+- [x] **T044 · refactor · p2: standardize bcrypt cost in test helpers**
     - **Context:** cr-09 steps 1-3
     - **Action:**
         1. Add `bcryptCost` parameter to `MustInsertUser` and `CreateTestStores`

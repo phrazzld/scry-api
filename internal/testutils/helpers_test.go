@@ -12,6 +12,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // TestHelpers_CreateTestUser verifies that the CreateTestUser function creates a valid user
@@ -55,7 +56,7 @@ func TestHelpers_DatabaseOperations(t *testing.T) {
 
 			// Test inserting a user
 			email := "test-insert-helper@example.com"
-			userID := testutils.MustInsertUser(ctx, t, tx, email)
+			userID := testutils.MustInsertUser(ctx, t, tx, email, bcrypt.MinCost)
 
 			// Verify the user was inserted
 			user := testutils.GetUserByID(ctx, t, tx, userID)
@@ -75,8 +76,8 @@ func TestHelpers_DatabaseOperations(t *testing.T) {
 			// Insert some test users
 			email1 := "test-count-1@example.com"
 			email2 := "test-count-2@example.com"
-			testutils.MustInsertUser(ctx, t, tx, email1)
-			testutils.MustInsertUser(ctx, t, tx, email2)
+			testutils.MustInsertUser(ctx, t, tx, email1, bcrypt.MinCost)
+			testutils.MustInsertUser(ctx, t, tx, email2, bcrypt.MinCost)
 
 			// Test count all users
 			allCount := testutils.CountUsers(ctx, t, tx, "")

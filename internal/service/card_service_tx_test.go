@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MockFailingCardRepository is a specialized mock that can be configured to fail at specific points
@@ -137,7 +138,7 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 
 		// Create a user for testing
 		userEmail := "card-tx-test@example.com"
-		userID := testutils.MustInsertUser(ctx, t, tx, userEmail)
+		userID := testutils.MustInsertUser(ctx, t, tx, userEmail, bcrypt.MinCost)
 
 		// Create a memo for testing
 		memoID := uuid.New()

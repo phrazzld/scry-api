@@ -12,6 +12,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // TestTransactionIsolation_StoresExample demonstrates how to use the transaction
@@ -36,10 +37,10 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 			ctx := context.Background()
 
 			// Create all stores with the same transaction
-			stores := testutils.CreateTestStores(tx)
+			stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 
 			// 1. Create a user
-			userID := testutils.MustInsertUser(ctx, t, tx, "transaction-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "transaction-test@example.com", bcrypt.MinCost)
 
 			// 2. Create a memo for this user
 			memo := &domain.Memo{
@@ -117,7 +118,7 @@ func TestTransactionIsolation_Concurrency(t *testing.T) {
 				// Create a user with the same email in each test
 				// This would fail without transaction isolation due to unique constraint
 				email := "same-email-for-all@example.com"
-				userID := testutils.MustInsertUser(ctx, t, tx, email)
+				userID := testutils.MustInsertUser(ctx, t, tx, email, bcrypt.MinCost)
 
 				// Verify we can retrieve the user in this transaction
 				var retrievedEmail string

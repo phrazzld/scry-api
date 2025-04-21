@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MockFailingMemoRepository is a specialized mock that can be configured to fail at specific points
@@ -147,7 +148,7 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 
 		// Create a user for testing
 		userEmail := "memo-tx-test@example.com"
-		userID := testutils.MustInsertUser(ctx, t, tx, userEmail)
+		userID := testutils.MustInsertUser(ctx, t, tx, userEmail, bcrypt.MinCost)
 
 		// Setup base memo store with transaction
 		memoStore := postgres.NewPostgresMemoStore(tx, logger)
@@ -249,7 +250,7 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 
 		// Create a user for testing
 		userEmail := "memo-status-tx-test@example.com"
-		userID := testutils.MustInsertUser(ctx, t, tx, userEmail)
+		userID := testutils.MustInsertUser(ctx, t, tx, userEmail, bcrypt.MinCost)
 
 		// Setup base memo store with transaction
 		memoStore := postgres.NewPostgresMemoStore(tx, logger)

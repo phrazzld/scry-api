@@ -84,7 +84,7 @@ func createTestUser(t *testing.T) *domain.User {
 
 // insertTestUser uses the centralized testutils.MustInsertUser function
 func insertTestUser(ctx context.Context, t *testing.T, db store.DBTX, email string) uuid.UUID {
-	return testutils.MustInsertUser(ctx, t, db, email)
+	return testutils.MustInsertUser(ctx, t, db, email, bcrypt.MinCost)
 }
 
 // getUserByID uses the centralized testutils.GetUserByID function

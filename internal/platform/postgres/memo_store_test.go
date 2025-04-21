@@ -14,6 +14,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Add comment to explain we're using the same timeout as defined in user_store_test.go
@@ -61,7 +62,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "memo-test-user@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "memo-test-user@example.com", bcrypt.MinCost)
 
 			// Create a test memo
 			memo := createTestMemo(t, userID)
@@ -109,7 +110,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 			defer cancel()
 
 			// Create a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-memo-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-memo-test@example.com", bcrypt.MinCost)
 
 			// Create an invalid memo (empty text)
 			memo := &domain.Memo{
@@ -187,7 +188,7 @@ func TestPostgresMemoStore_GetByID(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "get-memo-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "get-memo-test@example.com", bcrypt.MinCost)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -255,7 +256,7 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "status-update-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "status-update-test@example.com", bcrypt.MinCost)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -286,7 +287,7 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-status-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-status-test@example.com", bcrypt.MinCost)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -357,7 +358,7 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "find-status-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "find-status-test@example.com", bcrypt.MinCost)
 
 			// Insert multiple memos with different statuses
 			memo1 := insertTestMemo(ctx, t, tx, userID)
@@ -395,7 +396,7 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "pagination-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "pagination-test@example.com", bcrypt.MinCost)
 
 			// Insert multiple memos with the same status
 			for i := 0; i < 5; i++ {
@@ -444,7 +445,7 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-pagination-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-pagination-test@example.com", bcrypt.MinCost)
 
 			// Insert a test memo
 			insertTestMemo(ctx, t, tx, userID)
@@ -489,7 +490,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "update-memo-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "update-memo-test@example.com", bcrypt.MinCost)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -545,7 +546,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-update-test@example.com")
+			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-update-test@example.com", bcrypt.MinCost)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)

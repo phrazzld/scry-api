@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MockFailingUserStore is a specialized mock that can be configured to fail at specific operations
@@ -204,7 +205,7 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 
 		// Create a test user directly
 		initialEmail := "update-email-tx-test@example.com"
-		userID := testutils.MustInsertUser(ctx, t, tx, initialEmail)
+		userID := testutils.MustInsertUser(ctx, t, tx, initialEmail, bcrypt.MinCost)
 
 		t.Run("Transaction_Rollback_On_GetByID_Failure", func(t *testing.T) {
 			// Create a failing store that fails on GetByID
@@ -313,7 +314,7 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 
 		// Create a test user directly
 		email := "update-password-tx-test@example.com"
-		userID := testutils.MustInsertUser(ctx, t, tx, email)
+		userID := testutils.MustInsertUser(ctx, t, tx, email, bcrypt.MinCost)
 
 		// Get the initial hashed password to verify it doesn't change on rollback
 		var initialHash string
@@ -403,11 +404,11 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 
 		// Create a test user for the delete failure test
 		emailFail := "delete-fail-tx-test@example.com"
-		userIDFail := testutils.MustInsertUser(ctx, t, tx, emailFail)
+		userIDFail := testutils.MustInsertUser(ctx, t, tx, emailFail, bcrypt.MinCost)
 
 		// Create a test user for the delete success test
 		emailSuccess := "delete-success-tx-test@example.com"
-		userIDSuccess := testutils.MustInsertUser(ctx, t, tx, emailSuccess)
+		userIDSuccess := testutils.MustInsertUser(ctx, t, tx, emailSuccess, bcrypt.MinCost)
 
 		t.Run("Transaction_Rollback_On_Delete_Failure", func(t *testing.T) {
 			// Create a failing store that fails on Delete

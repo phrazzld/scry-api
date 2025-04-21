@@ -12,17 +12,29 @@ import (
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // CreateStoreInstances creates all store instances needed for testing.
-// Takes a database transaction and logger, returns userStore, taskStore, memoStore, cardStore, statsStore.
+// Takes a database transaction, logger, and bcryptCost parameter.
+// Returns userStore, taskStore, memoStore, cardStore, statsStore.
+//
+// The bcryptCost parameter controls the computational cost of password hashing.
+// If it's <= 0, bcrypt.MinCost (4) will be used for faster test execution.
 func CreateStoreInstances(
 	t *testing.T,
 	dbtx store.DBTX,
 	logger *slog.Logger,
+	bcryptCost int,
 ) (*postgres.PostgresUserStore, *postgres.PostgresTaskStore, *postgres.PostgresMemoStore, *postgres.PostgresCardStore, *postgres.PostgresUserCardStatsStore) {
 	t.Helper()
-	userStore := postgres.NewPostgresUserStore(dbtx, 10) // BCrypt cost = 10 for faster tests
+
+	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
+	if bcryptCost <= 0 {
+		bcryptCost = bcrypt.MinCost
+	}
+
+	userStore := postgres.NewPostgresUserStore(dbtx, bcryptCost)
 	taskStore := postgres.NewPostgresTaskStore(dbtx)
 	memoStore := postgres.NewPostgresMemoStore(dbtx, logger)
 	cardStore := postgres.NewPostgresCardStore(dbtx, logger)

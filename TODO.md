@@ -87,7 +87,7 @@
         4. Returns updated stats on success
     - **Depends-on:** [T073]
 
-- [ ] **T076 · Chore · P1: configure dependency injection and routes**
+- [x] **T076 · Chore · P1: configure dependency injection and routes**
     - **Context:** PLAN.md > Detailed Build Steps > 6
     - **Action:**
         1. In `cmd/server/main.go`, instantiate `CardReviewService` with dependencies

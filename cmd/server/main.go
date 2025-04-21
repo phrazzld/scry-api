@@ -20,12 +20,14 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/events"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
@@ -273,6 +275,24 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, deps.EventEmitter, deps.Logger)
 	memoHandler := api.NewMemoHandler(memoService)
 
+	// Create repository adapters for card review service
+	cardRepoAdapter := card_review.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
+	statsRepoAdapter := card_review.NewUserCardStatsRepositoryAdapter(deps.UserCardStatsStore)
+
+	// Create SRS service with default parameters
+	srsService := srs.NewDefaultService()
+
+	// Create card review service with all dependencies
+	cardReviewService := card_review.NewCardReviewService(
+		cardRepoAdapter,
+		statsRepoAdapter,
+		srsService,
+		deps.Logger,
+	)
+
+	// Create card handler with card review service
+	cardHandler := api.NewCardHandler(cardReviewService, deps.Logger)
+
 	// Register routes
 	r.Route("/api", func(r chi.Router) {
 		// Authentication endpoints (public)
@@ -285,6 +305,10 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 			r.Use(authMiddleware.Authenticate)
 			// Memo endpoints
 			r.Post("/memos", memoHandler.CreateMemo)
+
+			// Card review endpoints
+			r.Get("/cards/next", cardHandler.GetNextReviewCard)
+			r.Post("/cards/{id}/answer", cardHandler.SubmitAnswer)
 		})
 	})
 

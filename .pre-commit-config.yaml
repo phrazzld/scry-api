@@ -51,6 +51,14 @@ repos:
         types: [go]
         pass_filenames: false  # Run once per commit, not per file
 
+      # Run glance after commit to update directory overviews
+      - id: run-glance
+        name: Run glance to update directory overviews
+        entry: .pre-commit-hooks/run_glance.sh
+        language: script
+        stages: [post-commit]  # Run after commit is completed
+        pass_filenames: false  # Run once per commit, not per file
+
       # Warn about long files without blocking commits
       - id: warn-long-files
         name: Warn on excessively long files

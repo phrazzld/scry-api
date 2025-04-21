@@ -124,12 +124,13 @@ type appDependencies struct {
 	UserCardStatsStore store.UserCardStatsStore
 
 	// Repository interfaces for card operations
-	CardRepository task.CardRepository // Interface for card operations
+	CardRepository store.CardStore // Interface for card operations
 
 	// Services
 	JWTService       auth.JWTService
 	PasswordVerifier auth.PasswordVerifier
-	Generator        task.Generator // Interface for card generation
+	Generator        task.Generator   // Interface for card generation
+	CardService      task.CardService // Interface for card service operations
 
 	// Event system
 	EventEmitter events.EventEmitter
@@ -380,11 +381,21 @@ func startServer(cfg *config.Config) {
 		os.Exit(1)
 	}
 
+	// Create a card repository adapter for the card service
+	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
+	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
+
+	// Create the card service
+	cardService := service.NewCardService(cardRepoAdapter, statsRepoAdapter, logger)
+
+	// Add the card service to dependencies
+	deps.CardService = cardService
+
 	// Create the task factory
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
 		memoServiceAdapter,
 		deps.Generator,
-		deps.CardRepository,
+		deps.CardService, // Use CardService instead of CardRepository
 		logger,
 	)
 

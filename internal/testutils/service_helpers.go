@@ -83,7 +83,7 @@ func CreateMemoServiceComponents(
 	taskStore task.TaskStore,
 	memoStore store.MemoStore,
 	generator task.Generator,
-	cardRepo task.CardRepository,
+	cardService task.CardService,
 	taskConfig task.TaskRunnerConfig,
 	logger *slog.Logger,
 ) (*task.TaskRunner, service.MemoService, *task.MemoGenerationTaskFactory) {
@@ -101,7 +101,7 @@ func CreateMemoServiceComponents(
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
 		memoServiceAdapter,
 		generator,
-		cardRepo,
+		cardService,
 		logger,
 	)
 

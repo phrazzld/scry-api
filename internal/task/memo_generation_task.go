@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/store"
 )
 
 // Status constants for MemoGenerationTask
@@ -24,11 +22,11 @@ const (
 
 // Common errors
 var (
-	ErrNilMemoService    = errors.New("memo service cannot be nil")
-	ErrNilGenerator      = errors.New("generator cannot be nil")
-	ErrNilCardRepository = errors.New("card repository cannot be nil")
-	ErrNilLogger         = errors.New("logger cannot be nil")
-	ErrEmptyMemoID       = errors.New("memo ID cannot be empty")
+	ErrNilMemoService = errors.New("memo service cannot be nil")
+	ErrNilGenerator   = errors.New("generator cannot be nil")
+	ErrNilCardService = errors.New("card service cannot be nil")
+	ErrNilLogger      = errors.New("logger cannot be nil")
+	ErrEmptyMemoID    = errors.New("memo ID cannot be empty")
 )
 
 // MemoService defines the interface for memo service operations
@@ -47,18 +45,14 @@ type Generator interface {
 	GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error)
 }
 
-// CardRepository defines the interface for card data operations
-type CardRepository interface {
-	// CreateMultiple saves multiple new cards to the store
-	// Note: This method requires a transaction context for proper atomicity.
-	// Use WithTx and RunInTransaction to ensure proper transaction handling.
-	CreateMultiple(ctx context.Context, cards []*domain.Card) error
+// CardService defines the interface for card service operations
+type CardService interface {
+	// CreateCards creates multiple cards and their associated stats in a single transaction
+	// This orchestrates both card and stats creation atomically
+	CreateCards(ctx context.Context, cards []*domain.Card) error
 
-	// WithTx returns a new repository instance that uses the provided transaction
-	WithTx(tx *sql.Tx) interface{}
-
-	// DB returns the underlying database connection
-	DB() *sql.DB
+	// GetCard retrieves a card by its ID
+	GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error)
 }
 
 // memoGenerationPayload represents the serialized data stored in the task
@@ -73,7 +67,7 @@ type MemoGenerationTask struct {
 	memoID      uuid.UUID
 	memoService MemoService
 	generator   Generator
-	cardRepo    CardRepository
+	cardService CardService
 	logger      *slog.Logger
 	status      string // Using string instead of TaskStatus to avoid circular imports
 }
@@ -83,7 +77,7 @@ func NewMemoGenerationTask(
 	memoID uuid.UUID,
 	memoService MemoService,
 	generator Generator,
-	cardRepo CardRepository,
+	cardService CardService,
 	logger *slog.Logger,
 ) (*MemoGenerationTask, error) {
 	// Validate dependencies
@@ -93,8 +87,8 @@ func NewMemoGenerationTask(
 	if generator == nil {
 		return nil, ErrNilGenerator
 	}
-	if cardRepo == nil {
-		return nil, ErrNilCardRepository
+	if cardService == nil {
+		return nil, ErrNilCardService
 	}
 	if logger == nil {
 		return nil, ErrNilLogger
@@ -110,7 +104,7 @@ func NewMemoGenerationTask(
 		memoID:      memoID,
 		memoService: memoService,
 		generator:   generator,
-		cardRepo:    cardRepo,
+		cardService: cardService,
 		logger:      logger.With("task_type", TaskTypeMemoGeneration, "memo_id", memoID),
 		status:      statusPending,
 	}, nil
@@ -198,23 +192,17 @@ func (t *MemoGenerationTask) Execute(ctx context.Context) error {
 
 	// 4. Save the generated cards (if any)
 	if len(cards) > 0 {
-		// Use a transaction to ensure atomic card creation
-		err = store.RunInTransaction(ctx, t.cardRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
-			// Get a transaction-aware card repository and cast it back to CardRepository
-			txCardRepo := t.cardRepo.WithTx(tx).(CardRepository)
-
-			// Create the cards within the transaction
-			return txCardRepo.CreateMultiple(ctx, cards)
-		})
+		// Use CardService to create cards and stats in a single transaction
+		err = t.cardService.CreateCards(ctx, cards)
 
 		if err != nil {
 			// Update memo status to failed if we couldn't save the cards
 			_ = t.memoService.UpdateMemoStatus(ctx, t.memoID, domain.MemoStatusFailed)
 			t.status = statusFailed
-			t.logger.Error("failed to save generated cards", "error", err)
-			return fmt.Errorf("failed to save generated cards: %w", err)
+			t.logger.Error("failed to save generated cards and stats", "error", err)
+			return fmt.Errorf("failed to save generated cards and stats: %w", err)
 		}
-		t.logger.Info("saved generated cards to database")
+		t.logger.Info("saved generated cards and stats to database")
 	} else {
 		t.logger.Info("no cards were generated for this memo")
 	}

@@ -147,7 +147,7 @@
         2. Tests verify atomic behavior
     - **Depends-on:** [T039]
 
-- [ ] **T041 · refactor · p2: update callers to use new orchestration method**
+- [x] **T041 · refactor · p2: update callers to use new orchestration method**
     - **Context:** cr-06 step 4
     - **Action:**
         1. Find all callers that previously relied on CardStore.CreateMultiple for stats

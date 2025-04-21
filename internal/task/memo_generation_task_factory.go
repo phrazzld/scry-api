@@ -10,7 +10,7 @@ import (
 type MemoGenerationTaskFactory struct {
 	memoService MemoService
 	generator   Generator
-	cardRepo    CardRepository
+	cardService CardService
 	logger      *slog.Logger
 }
 
@@ -18,13 +18,13 @@ type MemoGenerationTaskFactory struct {
 func NewMemoGenerationTaskFactory(
 	memoService MemoService,
 	generator Generator,
-	cardRepo CardRepository,
+	cardService CardService,
 	logger *slog.Logger,
 ) *MemoGenerationTaskFactory {
 	return &MemoGenerationTaskFactory{
 		memoService: memoService,
 		generator:   generator,
-		cardRepo:    cardRepo,
+		cardService: cardService,
 		logger:      logger.With("component", "memo_generation_task_factory"),
 	}
 }
@@ -35,7 +35,7 @@ func (f *MemoGenerationTaskFactory) CreateTask(memoID uuid.UUID) (Task, error) {
 		memoID,
 		f.memoService,
 		f.generator,
-		f.cardRepo,
+		f.cardService,
 		f.logger,
 	)
 	if err != nil {

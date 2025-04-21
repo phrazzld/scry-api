@@ -84,19 +84,26 @@ func (u *User) Validate() error {
 	return nil
 }
 
-// TODO(email-validation): Replace this basic email validation with a more robust solution
-// Consider using a dedicated email validation package that follows RFC 5322
+// TODO(email-validation): Replace this basic email validation with a more robust solution:
+//  1. Evaluate and select one of these approaches:
+//     a. Use the mail.ParseAddress function from the net/mail standard library
+//     b. Implement advanced regex validation (see RFC 5322 for guidelines)
+//     c. Add a third-party validation library (e.g., github.com/go-playground/validator)
+//  2. Create a validation package in internal/validation/ for all validation functions
+//  3. Implement the new email validation in that package with comprehensive tests
+//  4. Replace the current validateEmailFormat with the new implementation
+//  5. Update any existing tests that might be affected by stricter validation
+//
 // Technical debt: This implementation is intentionally simple and has several limitations:
 // 1. It only checks for @ and . characters in the right positions
 // 2. It doesn't validate against RFC 5322 standards for email addresses
 // 3. It doesn't handle international domains or special character requirements
 // 4. It can't detect many invalid email patterns that would be rejected by mail servers
 //
-// Future improvements:
-//   - Consider using a dedicated email validation library like "net/mail" or a third-party
-//     package that specifically implements RFC 5322/6531 standards
-//   - Alternatively, implement a more comprehensive regex pattern that covers common cases
-//   - For mission-critical validation, consider adding actual mail server verification
+// Related resources:
+// - RFC 5322 for email format: https://tools.ietf.org/html/rfc5322
+// - RFC 6531 for international email: https://tools.ietf.org/html/rfc6531
+// - net/mail package: https://pkg.go.dev/net/mail
 //
 // validateEmailFormat performs basic validation of email format.
 // Returns true if the email appears to be in a valid format.

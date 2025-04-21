@@ -67,8 +67,15 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	memo, err := h.memoService.CreateMemoAndEnqueueTask(r.Context(), userID, req.Text)
 	if err != nil {
 		slog.Error("Failed to create memo", "error", err, "user_id", userID)
-		// TODO(api-error-handling): Add more specific error handling based on error types
-		// This should map domain and service errors to appropriate HTTP status codes
+		// TODO(api-error-handling): Add more specific error handling based on error types:
+		// 1. Create an errors.go file in the api package with:
+		//    - A function to map domain errors to HTTP status codes (e.g., domain.ErrInvalidMemo -> 400)
+		//    - A function to map service errors to HTTP status codes (e.g., service.ErrPermissionDenied -> 403)
+		//    - A function to extract user-safe error messages
+		// 2. Implement error handling middleware that uses error wrapping (errors.Is, errors.As)
+		// 3. Update shared.RespondWithError to accept error types and handle mapping internally
+		// 4. Replace all direct status code assignments with the new mapping function
+		// 5. Add tests verifying correct status code mapping for each error type
 		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to create memo")
 		return
 	}

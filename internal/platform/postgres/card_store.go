@@ -308,8 +308,17 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 // GetNextReviewCard implements store.CardStore.GetNextReviewCard
 // It retrieves the next card due for review for a user.
 // This is based on the UserCardStats.NextReviewAt field.
-// TODO(card-review): Implement GetNextReviewCard with proper SRS algorithm integration
-// See docs/design/srs_algorithm.md for implementation details
+//
+// TODO(card-review): Implement GetNextReviewCard with proper SRS algorithm integration:
+//  1. Add SQL query to fetch the next card due for review, using the UserCardStats.NextReviewAt
+//     field to determine which cards are ready for review
+//  2. Sort by NextReviewAt (ascending) to prioritize cards that are most overdue
+//  3. Apply additional filtering for card status if needed
+//  4. Join with cards table to return complete card data
+//  5. Add unit tests verifying correct card selection based on review times
+//
+// See docs/design/srs_algorithm.md for full implementation details and parameters.
+// Reference the domain/srs package for algorithm calculation functions.
 func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)

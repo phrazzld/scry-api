@@ -2,7 +2,7 @@
 
 ## Card Review API
 
-- [ ] **T069 · Feature · P1: define GetNextReviewCard in CardStore interface**
+- [x] **T069 · Feature · P1: define GetNextReviewCard in CardStore interface**
     - **Context:** PLAN.md > Detailed Build Steps > 1; Public Interfaces
     - **Action:**
         1. Add `GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)` to `CardStore` interface
@@ -12,7 +12,7 @@
         2. Godoc comment added explaining behavior and errors
     - **Depends-on:** none
 
-- [ ] **T070 · Feature · P1: implement GetNextReviewCard in PostgresCardStore**
+- [x] **T070 · Feature · P1: implement GetNextReviewCard in PostgresCardStore**
     - **Context:** PLAN.md > Detailed Build Steps > 2; Error & Edge-Case Strategy
     - **Action:**
         1. Implement `GetNextReviewCard` in `internal/platform/postgres/card_store.go`
@@ -24,10 +24,10 @@
         3. Database errors are mapped and logged appropriately
     - **Depends-on:** [T069]
 
-- [ ] **T071 · Feature · P1: create CardReviewService interface**
+- [x] **T071 · Feature · P1: create CardReviewService interface**
     - **Context:** PLAN.md > Detailed Build Steps > 3; Public Interfaces
     - **Action:**
-        1. Create `internal/service/card_review_service.go`
+        1. Create `internal/service/card_review/service.go`
         2. Define `CardReviewService` interface with `GetNextCard` and `SubmitAnswer` methods
         3. Add godoc explaining method behavior, parameters, and potential errors
     - **Done-when:**
@@ -35,7 +35,7 @@
         2. Comprehensive godoc comments document behavior and error cases
     - **Depends-on:** none
 
-- [ ] **T072 · Feature · P1: implement GetNextCard in CardReviewService**
+- [x] **T072 · Feature · P1: implement GetNextCard in CardReviewService**
     - **Context:** PLAN.md > Detailed Build Steps > 4; Data Flow Diagram (GET)
     - **Action:**
         1. Create `cardReviewServiceImpl` struct with `CardStore` and `Logger` dependencies
@@ -47,7 +47,7 @@
         3. Logging includes structured fields and correlation ID
     - **Depends-on:** [T069, T070, T071]
 
-- [ ] **T073 · Feature · P1: implement SubmitAnswer in CardReviewService**
+- [x] **T073 · Feature · P1: implement SubmitAnswer in CardReviewService**
     - **Context:** PLAN.md > Detailed Build Steps > 4; Data Flow Diagram (POST)
     - **Action:**
         1. Add `UserCardStatsStore` and `srs.Service` dependencies to `cardReviewServiceImpl`
@@ -60,7 +60,7 @@
         4. Error handling and logging are comprehensive
     - **Depends-on:** [T071]
 
-- [ ] **T074 · Feature · P1: implement GET /cards/next handler**
+- [x] **T074 · Feature · P1: implement GET /cards/next handler**
     - **Context:** PLAN.md > Detailed Build Steps > 5; Error & Edge-Case Strategy
     - **Action:**
         1. Create `CardHandler` struct in `internal/api/card_handler.go`

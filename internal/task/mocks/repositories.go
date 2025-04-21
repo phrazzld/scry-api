@@ -34,7 +34,7 @@ func (m *MemoRepository) Update(ctx context.Context, memo *domain.Memo) error {
 // CardRepository is a simple implementation of the CardRepository interface.
 type CardRepository struct {
 	CreateMultipleFunc func(ctx context.Context, cards []*domain.Card) error
-	WithTxFunc         func(tx *sql.Tx) interface{}
+	WithTxFunc         func(tx *sql.Tx) interface{} // Keep as interface{} for backward compatibility
 	DBFunc             func() *sql.DB
 }
 

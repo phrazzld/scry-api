@@ -344,9 +344,9 @@ func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
 
 // The following methods allow PostgresCardStore to be used with the task.CardRepository interface
 
-// WithTx returns a new repository instance that uses the provided transaction.
+// WithTx returns a new CardStore instance that uses the provided transaction.
 // This is part of the task.CardRepository interface.
-func (s *PostgresCardStore) WithTx(tx *sql.Tx) interface{} {
+func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
 	return &PostgresCardStore{
 		db:     tx,
 		logger: s.logger,

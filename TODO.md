@@ -218,7 +218,7 @@
 
 ## Fix Trivial and Misleading Tests
 
-- [ ] **T047 · test · p3: clean up test code quality issues**
+- [x] **T047 · test · p3: clean up test code quality issues**
     - **Context:** cr-12 steps 1-2
     - **Action:**
         1. Remove `TestDBTXInterface` test

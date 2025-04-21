@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/store"
 )
 
 // Status constants for MemoGenerationTask
@@ -48,7 +50,15 @@ type Generator interface {
 // CardRepository defines the interface for card data operations
 type CardRepository interface {
 	// CreateMultiple saves multiple new cards to the store
+	// Note: This method requires a transaction context for proper atomicity.
+	// Use WithTx and RunInTransaction to ensure proper transaction handling.
 	CreateMultiple(ctx context.Context, cards []*domain.Card) error
+
+	// WithTx returns a new repository instance that uses the provided transaction
+	WithTx(tx *sql.Tx) interface{}
+
+	// DB returns the underlying database connection
+	DB() *sql.DB
 }
 
 // memoGenerationPayload represents the serialized data stored in the task
@@ -188,7 +198,15 @@ func (t *MemoGenerationTask) Execute(ctx context.Context) error {
 
 	// 4. Save the generated cards (if any)
 	if len(cards) > 0 {
-		err = t.cardRepo.CreateMultiple(ctx, cards)
+		// Use a transaction to ensure atomic card creation
+		err = store.RunInTransaction(ctx, t.cardRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
+			// Get a transaction-aware card repository and cast it back to CardRepository
+			txCardRepo := t.cardRepo.WithTx(tx).(CardRepository)
+
+			// Create the cards within the transaction
+			return txCardRepo.CreateMultiple(ctx, cards)
+		})
+
 		if err != nil {
 			// Update memo status to failed if we couldn't save the cards
 			_ = t.memoService.UpdateMemoStatus(ctx, t.memoID, domain.MemoStatusFailed)

@@ -79,10 +79,11 @@ func MustInsertCard(ctx context.Context, t *testing.T, tx store.DBTX, userID, me
 	// Create a test card
 	card := CreateTestCard(t, userID, memoID)
 
-	// Create a card store
+	// Create a card store with transaction context
 	cardStore := postgres.NewPostgresCardStore(tx, nil)
 
-	// Insert the card
+	// Insert the card - note that tx is already a transaction context
+	// so we don't need to wrap it in RunInTransaction
 	err := cardStore.CreateMultiple(ctx, []*domain.Card{card})
 	require.NoError(t, err, "Failed to insert test card")
 

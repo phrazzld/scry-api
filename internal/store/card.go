@@ -53,7 +53,7 @@ type CardStore interface {
 	// This method may involve complex sorting/filtering logic based on SRS.
 	GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
 
-	// WithTx returns a new CardStore instance that uses the provided transaction.
+	// WithTxCardStore returns a new CardStore instance that uses the provided transaction.
 	// This allows for multiple operations to be executed within a single transaction.
 	// The transaction should be created and managed by the caller (typically a service).
 	//
@@ -63,8 +63,8 @@ type CardStore interface {
 	//
 	// Example usage:
 	//   err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-	//       txCardStore := cardStore.WithTx(tx)
+	//       txCardStore := cardStore.WithTxCardStore(tx)
 	//       return txCardStore.CreateMultiple(ctx, cards)
 	//   })
-	WithTx(tx *sql.Tx) CardStore
+	WithTxCardStore(tx *sql.Tx) CardStore
 }

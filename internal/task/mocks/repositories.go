@@ -3,6 +3,7 @@ package mocks
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -33,12 +34,30 @@ func (m *MemoRepository) Update(ctx context.Context, memo *domain.Memo) error {
 // CardRepository is a simple implementation of the CardRepository interface.
 type CardRepository struct {
 	CreateMultipleFunc func(ctx context.Context, cards []*domain.Card) error
+	WithTxFunc         func(tx *sql.Tx) interface{}
+	DBFunc             func() *sql.DB
 }
 
 // CreateMultiple saves multiple new cards to the store.
 func (m *CardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
 	if m.CreateMultipleFunc != nil {
 		return m.CreateMultipleFunc(ctx, cards)
+	}
+	return nil
+}
+
+// WithTx returns a new repository instance that uses the provided transaction.
+func (m *CardRepository) WithTx(tx *sql.Tx) interface{} {
+	if m.WithTxFunc != nil {
+		return m.WithTxFunc(tx)
+	}
+	return m
+}
+
+// DB returns the underlying database connection.
+func (m *CardRepository) DB() *sql.DB {
+	if m.DBFunc != nil {
+		return m.DBFunc()
 	}
 	return nil
 }

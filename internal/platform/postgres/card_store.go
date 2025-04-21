@@ -25,6 +25,8 @@ var _ store.CardStore = (*PostgresCardStore)(nil)
 type PostgresCardStore struct {
 	db     store.DBTX
 	logger *slog.Logger
+	// Cached reference to the original *sql.DB for transaction management
+	sqlDB *sql.DB
 }
 
 // NewPostgresCardStore creates a new PostgreSQL implementation of the CardStore interface.
@@ -41,9 +43,16 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 		logger = slog.Default()
 	}
 
+	// Store the database connection if it's a *sql.DB
+	var sqlDB *sql.DB
+	if dbConn, ok := db.(*sql.DB); ok {
+		sqlDB = dbConn
+	}
+
 	return &PostgresCardStore{
 		db:     db,
 		logger: logger.With(slog.String("component", "card_store")),
+		sqlDB:  sqlDB,
 	}
 }
 
@@ -62,8 +71,8 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 //
 // Correct usage example:
 //
-//	err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-//	    txCardStore := cardStore.WithTx(tx)
+//	store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+//	    txCardStore := cardStore.WithTxCardStore(tx)
 //	    return txCardStore.CreateMultiple(ctx, cards)
 //	})
 //
@@ -355,23 +364,31 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 	panic("GetNextReviewCard is not implemented yet - see docs/design/srs_algorithm.md for implementation details")
 }
 
-// WithTx implements store.CardStore.WithTx
+// WithTxCardStore implements store.CardStore.WithTxCardStore
 // It returns a new CardStore instance that uses the provided transaction.
 // This allows for multiple operations to be executed within a single transaction.
-//
-// This method is especially important for CreateMultiple, which requires a transaction
-// context to ensure atomicity. Always use this method with store.RunInTransaction
-// when calling CreateMultiple.
-//
-// Example usage:
-//
-//	store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-//	    txCardStore := cardStore.WithTx(tx)
-//	    return txCardStore.CreateMultiple(ctx, cards)
-//	})
-func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
+func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
 	return &PostgresCardStore{
 		db:     tx,
 		logger: s.logger,
+		sqlDB:  s.sqlDB, // Preserve the original DB connection
 	}
+}
+
+// The following methods allow PostgresCardStore to be used with the task.CardRepository interface
+
+// WithTx returns a new repository instance that uses the provided transaction.
+// This is part of the task.CardRepository interface.
+func (s *PostgresCardStore) WithTx(tx *sql.Tx) interface{} {
+	return &PostgresCardStore{
+		db:     tx,
+		logger: s.logger,
+		sqlDB:  s.sqlDB, // Preserve the original DB connection
+	}
+}
+
+// DB returns the underlying database connection.
+// This is part of the task.CardRepository interface to support transaction management.
+func (s *PostgresCardStore) DB() *sql.DB {
+	return s.sqlDB
 }

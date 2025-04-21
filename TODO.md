@@ -78,7 +78,7 @@
         1. Method has comprehensive documentation about transaction requirements
     - **Depends-on:** [T033]
 
-- [ ] **T035 · refactor · p1: update CardStore.CreateMultiple callers**
+- [x] **T035 · refactor · p1: update CardStore.CreateMultiple callers**
     - **Context:** cr-02 step 4
     - **Action:**
         1. Find all callers of `CardStore.CreateMultiple`

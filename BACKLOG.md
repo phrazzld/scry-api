@@ -6,20 +6,6 @@
 
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
-* **Memo & Card Generation Implementation:**
-    * ✅ Implement `store.MemoStore` and `store.CardStore` interfaces and Postgres implementations for Memo/Card/Stats persistence and status updates.
-    * Implement Background Job logic (`internal/task/processor.go` or similar): `GenerateCardsFromMemo(memoID, userID, memoText)`:
-        * Update Memo status to `processing` in DB.
-        * Call `generation.Generator.GenerateCardsFromMemo`.
-        * Parse/validate the returned Card data structures.
-        * Attempt to save the batch of generated Cards and their initial `user_card_stats` (with `next_review_at = NOW()`) to the DB, ideally within a transaction if feasible for the batch.
-        * **Error Handling:**
-            * If saving an individual Card/Stat fails, retry that save operation (e.g., 2-3 times). Log error on each failure.
-            * If *some* cards save successfully after retries but others fail permanently, log failed card details clearly. Update Memo status to `completed_with_errors`. Log failure ratio. **Do not** retry the LLM call.
-            * If *all* card saves fail after retries, or the LLM call fails irrecoverably, log the error extensively. Update Memo status to `failed`. Trigger critical alert.
-            * On full success, update Memo status to `completed`.
-    * Implement Submit Memo endpoint (`POST /memos`): Authenticates user, saves Memo via `store` with `pending` status, enqueues `GenerateCardsFromMemo` job via `task` service, returns HTTP 202 Accepted.
-
 * **Card Review API Implementation:**
     * Implement `store.CardStore` function `GetNextReviewCard(userID time.Time)` using the defined query logic (filtering by `next_review_at`, ordering).
     * Implement Fetch Next Card endpoint (`GET /cards/next`), using the store function and handling the 204 No Content case.
@@ -58,6 +44,20 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Define a basic health check endpoint (`/healthz`).
 
 ## Completed Items
+
+* **Memo & Card Generation Implementation (Completed):**
+    * ✅ Implement `store.MemoStore` and `store.CardStore` interfaces and Postgres implementations for Memo/Card/Stats persistence and status updates.
+    * ✅ Implement Background Job logic (`internal/task/processor.go`): `GenerateCardsFromMemo(memoID, userID, memoText)`:
+        * Update Memo status to `processing` in DB.
+        * Call `generation.Generator.GenerateCardsFromMemo`.
+        * Parse/validate the returned Card data structures.
+        * Save the batch of generated Cards and their initial `user_card_stats` within a transaction.
+        * **Error Handling:**
+            * Handle individual Card/Stat saving failures with appropriate retries and logging.
+            * Handle partial success cases with appropriate status updates (`completed_with_errors`).
+            * Handle complete failures with proper error logging and status updates (`failed`).
+            * Update status to `completed` on full success.
+    * ✅ Implement Submit Memo endpoint (`POST /memos`): Authenticates user, saves Memo via `store` with `pending` status, enqueues `GenerateCardsFromMemo` job via event system and task service, returns HTTP 202 Accepted.
 
 * **Asynchronous Task Runner Setup (Completed):**
     * ✅ Implement basic in-memory background task queue & worker pool (`internal/task`) using goroutines/channels.

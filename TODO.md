@@ -1,246 +1,179 @@
 # Todo
 
-## Service/Task Decoupling
+## Card Review API
 
-- [x] **T028 · feature · p1: define TaskRequestEvent and EventHandler in internal/events**
-    - **Context:** cr-01 step 1
+- [ ] **T069 · Feature · P1: define GetNextReviewCard in CardStore interface**
+    - **Context:** PLAN.md > Detailed Build Steps > 1; Public Interfaces
     - **Action:**
-        1. Create `internal/events` package
-        2. Define `TaskRequestEvent` struct to contain task creation details
-        3. Define `EventHandler` interface with method to handle events
+        1. Add `GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)` to `CardStore` interface
+        2. Add godoc explaining it returns the next due card or `store.ErrCardNotFound`
     - **Done-when:**
-        1. `internal/events` package exists with properly defined types
-        2. Unit tests verify event structure and handler interface
+        1. Interface method signature added to `internal/store/card.go`
+        2. Godoc comment added explaining behavior and errors
     - **Depends-on:** none
 
-- [x] **T029 · refactor · p1: replace TaskFactory dependency with EventEmitter in MemoService**
-    - **Context:** cr-01 step 2
+- [ ] **T070 · Feature · P1: implement GetNextReviewCard in PostgresCardStore**
+    - **Context:** PLAN.md > Detailed Build Steps > 2; Error & Edge-Case Strategy
     - **Action:**
-        1. Define `EventEmitter` interface in `internal/events`
-        2. Update `MemoService` to use `EventEmitter` instead of direct `TaskFactory` dependency
-        3. Remove `SetTaskFactory` method from `MemoService`
+        1. Implement `GetNextReviewCard` in `internal/platform/postgres/card_store.go`
+        2. Write SQL query joining `cards` and `user_card_stats` filtering by `user_id` and `next_review_at <= NOW()`
+        3. Map `sql.ErrNoRows` to `store.ErrCardNotFound`; wrap other DB errors
     - **Done-when:**
-        1. `MemoService` no longer has direct `TaskFactory` dependency
-        2. Service uses `EventEmitter` to publish task creation events
-    - **Depends-on:** [T028]
+        1. Method returns the correct card based on `next_review_at`
+        2. Returns `store.ErrCardNotFound` when no cards are due
+        3. Database errors are mapped and logged appropriately
+    - **Depends-on:** [T069]
 
-- [x] **T030 · feature · p1: create TaskFactoryEventHandler in task package**
-    - **Context:** cr-01 step 3
+- [ ] **T071 · Feature · P1: create CardReviewService interface**
+    - **Context:** PLAN.md > Detailed Build Steps > 3; Public Interfaces
     - **Action:**
-        1. Implement `TaskFactoryEventHandler` in `task` package that subscribes to events
-        2. Connect handler to the existing `TaskFactory` implementation
-        3. Add tests for the event handler implementation
+        1. Create `internal/service/card_review_service.go`
+        2. Define `CardReviewService` interface with `GetNextCard` and `SubmitAnswer` methods
+        3. Add godoc explaining method behavior, parameters, and potential errors
     - **Done-when:**
-        1. `TaskFactoryEventHandler` correctly creates tasks in response to events
-        2. Tests verify handler behavior with different event types
-    - **Depends-on:** [T028]
-
-- [x] **T031 · chore · p1: wire event system in application initialization**
-    - **Context:** cr-01 step 4
-    - **Action:**
-        1. Update `main.go` to create and configure the event emitter
-        2. Register `TaskFactoryEventHandler` with event system
-        3. Remove any direct wiring between `MemoService` and `TaskFactory`
-    - **Done-when:**
-        1. Application initializes without circular dependency
-        2. Services and tasks operate through the event system
-    - **Depends-on:** [T029, T030]
-
-- [x] **T032 · refactor · p1: unexport MemoServiceImpl**
-    - **Context:** cr-01 step 5
-    - **Action:**
-        1. Rename `MemoServiceImpl` to unexported `memoServiceImpl`
-        2. Update constructor to return interface type only
-    - **Done-when:**
-        1. Implementation is unexported and only accessible through interface
-        2. No compilation errors or test failures
-    - **Depends-on:** [T029]
-
-## Transaction Boundary Management
-
-- [x] **T033 · refactor · p1: remove transaction logic from CardStore.CreateMultiple**
-    - **Context:** cr-02 steps 1-2
-    - **Action:**
-        1. Remove `BeginTx`, `Commit`, and `Rollback` code
-        2. Remove transaction detection logic
-        3. Modify method to assume it's operating within a transaction
-    - **Done-when:**
-        1. Method contains no transaction management code
-        2. Tests confirm behavior within transaction context
+        1. Interface matches the plan specification
+        2. Comprehensive godoc comments document behavior and error cases
     - **Depends-on:** none
 
-- [x] **T034 · chore · p3: document transaction assumption in CardStore.CreateMultiple**
-    - **Context:** cr-02 step 3
+- [ ] **T072 · Feature · P1: implement GetNextCard in CardReviewService**
+    - **Context:** PLAN.md > Detailed Build Steps > 4; Data Flow Diagram (GET)
     - **Action:**
-        1. Add clear documentation that method must run within a transaction
-        2. Document expected behavior if called outside a transaction
+        1. Create `cardReviewServiceImpl` struct with `CardStore` and `Logger` dependencies
+        2. Implement the `GetNextCard` method that calls `CardStore.GetNextReviewCard`
+        3. Add proper error handling and logging with context propagation
     - **Done-when:**
-        1. Method has comprehensive documentation about transaction requirements
-    - **Depends-on:** [T033]
+        1. Method correctly calls store layer and returns appropriate results
+        2. Error handling preserves original error types (e.g., `store.ErrCardNotFound`)
+        3. Logging includes structured fields and correlation ID
+    - **Depends-on:** [T069, T070, T071]
 
-- [x] **T035 · refactor · p1: update CardStore.CreateMultiple callers**
-    - **Context:** cr-02 step 4
+- [ ] **T073 · Feature · P1: implement SubmitAnswer in CardReviewService**
+    - **Context:** PLAN.md > Detailed Build Steps > 4; Data Flow Diagram (POST)
     - **Action:**
-        1. Find all callers of `CardStore.CreateMultiple`
-        2. Ensure callers use `store.RunInTransaction` with `CardStore.WithTx`
+        1. Add `UserCardStatsStore` and `srs.Service` dependencies to `cardReviewServiceImpl`
+        2. Implement `SubmitAnswer` with transaction handling via `store.RunInTransaction`
+        3. Verify card ownership, calculate new stats with SRS service, update stats in DB
     - **Done-when:**
-        1. All callers properly manage the transaction context
-    - **Depends-on:** [T033]
+        1. Operations are wrapped in a single transaction
+        2. Card ownership is verified against authenticated user
+        3. SRS calculation is performed and stats are updated
+        4. Error handling and logging are comprehensive
+    - **Depends-on:** [T071]
 
-## Cross-Platform Pre-commit Hooks
-
-- [x] **T036 · chore · p1: restore standard pre-commit hooks**
-    - **Context:** cr-03 steps 1-3
+- [ ] **T074 · Feature · P1: implement GET /cards/next handler**
+    - **Context:** PLAN.md > Detailed Build Steps > 5; Error & Edge-Case Strategy
     - **Action:**
-        1. Remove custom `fix-trailing-whitespace` and `fix-end-of-file` hooks
-        2. Add back standard `trailing-whitespace` and `end-of-file-fixer` hooks
-        3. Configure hooks to ensure cross-platform compatibility
+        1. Create `CardHandler` struct in `internal/api/card_handler.go`
+        2. Implement `GetNextReviewCard` handler for GET /cards/next endpoint
+        3. Map service responses to appropriate HTTP status codes (200, 204, 500)
     - **Done-when:**
-        1. Hooks run successfully on both macOS and Linux
-        2. Pre-commit configuration passes validation
-    - **Depends-on:** none
+        1. Handler extracts user ID from context
+        2. Handler calls service layer correctly
+        3. Returns HTTP 200 with card on success
+        4. Returns HTTP 204 when no cards are due
+        5. Returns HTTP 500 on other errors
+    - **Depends-on:** [T072]
 
-## MemoServiceAdapter Validation
-
-- [x] **T037 · refactor · p2: improve MemoServiceAdapter constructor validation**
-    - **Context:** cr-04 steps 1-3
+- [ ] **T075 · Feature · P1: implement POST /cards/{id}/answer handler**
+    - **Context:** PLAN.md > Detailed Build Steps > 5; Input validation hotspots
     - **Action:**
-        1. Add type assertions in `NewMemoServiceAdapter` to verify interface compliance
-        2. Return clear, descriptive errors on validation failure
-        3. Document required repository methods in comments
+        1. Implement `SubmitAnswer` handler in `CardHandler`
+        2. Validate UUID format and request body (outcome field)
+        3. Map service responses to appropriate HTTP status codes (200, 400, 404, 500)
     - **Done-when:**
-        1. Constructor fails fast with clear errors for incompatible repositories
-        2. Documentation clearly lists all required methods
-    - **Depends-on:** none
+        1. Handler validates card ID and request body
+        2. Handler extracts user ID from context
+        3. Returns appropriate HTTP status codes for different scenarios
+        4. Returns updated stats on success
+    - **Depends-on:** [T073]
 
-## Fix GetNextReviewCard Panic
-
-- [x] **T038 · bugfix · p1: replace panic with error in GetNextReviewCard**
-    - **Context:** cr-05 steps 1-2
+- [ ] **T076 · Chore · P1: configure dependency injection and routes**
+    - **Context:** PLAN.md > Detailed Build Steps > 6
     - **Action:**
-        1. Replace `panic` with `return nil, store.ErrNotImplemented`
-        2. Update callers to handle the error case properly
+        1. In `cmd/server/main.go`, instantiate `CardReviewService` with dependencies
+        2. Instantiate `CardHandler` with the service
+        3. Register API routes with authentication middleware
     - **Done-when:**
-        1. Method returns appropriate error without panicking
-        2. Tests verify error handling
-    - **Depends-on:** none
+        1. Service and handler are properly instantiated
+        2. Routes `/cards/next` and `/cards/{id}/answer` are registered
+        3. Routes are protected by authentication middleware
+    - **Depends-on:** [T074, T075]
 
-## UserCardStats Orchestration
-
-- [x] **T039 · refactor · p1: remove UserCardStats creation from CardStore**
-    - **Context:** cr-06 step 1
+- [ ] **T077 · Test · P2: add unit tests for PostgresCardStore.GetNextReviewCard**
+    - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
-        1. Remove code that inserts `UserCardStats` from `CardStore.CreateMultiple`
-        2. Ensure tests are updated to reflect the change
+        1. Create unit tests for store implementation
+        2. Cover: card found, no card due, database error scenarios
     - **Done-when:**
-        1. `CardStore.CreateMultiple` only manages card entities
-    - **Depends-on:** none
+        1. Tests pass and cover specified scenarios
+        2. Edge cases and error handling are tested
+    - **Depends-on:** [T070]
 
-- [x] **T040 · feature · p1: create CardService and orchestration method**
-    - **Context:** cr-06 steps 2-3
+- [ ] **T078 · Test · P2: add unit tests for CardReviewService methods**
+    - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
-        1. Create new `CardService` interface and implementation in `internal/service/card_service.go`
-        2. Implement `CreateCards` method that handles both card and stats creation
-        3. Use `store.RunInTransaction` with repositories' `WithTx` methods to ensure atomicity
+        1. Create unit tests for `GetNextCard` and `SubmitAnswer` with mocked dependencies
+        2. Cover happy paths and various error scenarios
     - **Done-when:**
-        1. `CardService.CreateCards` orchestrates both operations in a single transaction
-        2. Tests verify atomic behavior
-    - **Depends-on:** [T039]
+        1. Tests pass using mocked dependencies
+        2. Error handling and edge cases are covered
+        3. Ownership verification is tested
+    - **Depends-on:** [T072, T073]
 
-- [x] **T041 · refactor · p2: update callers to use new orchestration method**
-    - **Context:** cr-06 step 4
+- [ ] **T079 · Test · P2: add unit tests for card review API handlers**
+    - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
-        1. Find all callers that previously relied on CardStore.CreateMultiple for stats
-        2. Update them to use the new service orchestration method
+        1. Create unit tests for both handler methods with mocked service
+        2. Test input validation, response status codes, and response bodies
     - **Done-when:**
-        1. All callers use the service method for orchestration
-    - **Depends-on:** [T040]
+        1. Tests pass using mocked service
+        2. Status code mappings are verified
+        3. Input validation is tested
+    - **Depends-on:** [T074, T075]
 
-## Test Helper Consolidation
-
-- [x] **T042 · refactor · p2: centralize duplicate test helpers**
-    - **Context:** cr-07 steps 1-3
+- [ ] **T080 · Test · P2: add integration tests for card review API endpoints**
+    - **Context:** PLAN.md > Testing Strategy > Integration Tests
     - **Action:**
-        1. Identify all duplicated helper functions across test files
-        2. Move them to appropriate files in `internal/testutils`
-        3. Update all tests to use the centralized helpers
+        1. Set up integration test environment with test database
+        2. Test both endpoints with various scenarios
+        3. Verify database state changes after operations
     - **Done-when:**
-        1. No duplicate test helpers exist in individual test files
-        2. Tests pass using centralized utilities
-    - **Depends-on:** none
+        1. Integration tests pass against real database
+        2. HTTP status codes and response bodies are verified
+        3. Database state changes are verified after operations
+    - **Depends-on:** [T076]
 
-## AssertNoErrorLeakage Relocation
-
-- [x] **T043 · refactor · p3: move AssertNoErrorLeakage to postgres package**
-    - **Context:** cr-08 steps 1-2
+- [ ] **T081 · Chore · P2: ensure query performance with proper indexing**
+    - **Context:** PLAN.md > Risk Matrix > Query performance issues
     - **Action:**
-        1. Move `AssertNoErrorLeakage` function to `internal/platform/postgres/errors_test.go`
-        2. Update all imports and references
+        1. Analyze the query for `GetNextReviewCard`
+        2. Verify index exists on `user_card_stats` for `user_id` and `next_review_at`
+        3. Create migration for index if needed
     - **Done-when:**
-        1. Helper is co-located with the code it tests
-        2. Tests pass with updated imports
-    - **Depends-on:** none
+        1. Proper index exists or is added via migration
+        2. Query performance is analyzed and acceptable
+    - **Depends-on:** [T070]
 
-## Standardize bcrypt Cost
-
-- [x] **T044 · refactor · p2: standardize bcrypt cost in test helpers**
-    - **Context:** cr-09 steps 1-3
+- [ ] **T082 · Chore · P2: implement concurrency protection for stats updates**
+    - **Context:** PLAN.md > Risk Matrix > Concurrency issues in stats updates
     - **Action:**
-        1. Add `bcryptCost` parameter to `MustInsertUser` and `CreateTestStores`
-        2. Pass the configured value from application settings in all test cases
+        1. Review transaction isolation in `SubmitAnswer`
+        2. Implement `FOR UPDATE` locking if needed when fetching stats
     - **Done-when:**
-        1. Test helpers use consistent bcrypt cost values
-        2. Tests pass with standardized values
-    - **Depends-on:** none
-
-## Remove Unnecessary sql.DB Mock
-
-- [x] **T045 · refactor · p3: eliminate sql.DB mock**
-    - **Context:** cr-10 steps 1-2
-    - **Action:**
-        1. Remove `internal/mocks/db.go` file
-        2. Update tests to use store.DBTX interface instead
-    - **Done-when:**
-        1. No direct mocking of sql.DB is used in tests
-        2. All tests pass with interface-based approach
-    - **Depends-on:** none
-
-## Document Cascade Delete Dependencies
-
-- [x] **T046 · chore · p3: document cascade delete behavior**
-    - **Context:** cr-11 steps 1-2
-    - **Action:**
-        1. Update interface documentation in `store/card.go`
-        2. Add clear comments in the implementation about dependency on cascade deletes
-    - **Done-when:**
-        1. Cascade delete behavior is clearly documented in both interface and implementation
-    - **Depends-on:** none
-
-## Fix Trivial and Misleading Tests
-
-- [x] **T047 · test · p3: clean up test code quality issues**
-    - **Context:** cr-12 steps 1-2
-    - **Action:**
-        1. Remove `TestDBTXInterface` test
-        2. Fix misleading comments in `TestableGeminiGenerator`
-    - **Done-when:**
-        1. Tests are meaningful and comments match implementation
-    - **Depends-on:** none
-
-## Documentation Improvements
-
-- [x] **T048 · chore · p3: improve documentation quality**
-    - **Context:** cr-13 steps 1-2
-    - **Action:**
-        1. Update generic TODO comments to be specific and actionable
-        2. Fix all other documentation inconsistencies
-    - **Done-when:**
-        1. All TODOs have clear next steps
-        2. Documentation is accurate and consistent
-    - **Depends-on:** none
+        1. Concurrency issues are analyzed and addressed
+        2. Appropriate locking mechanism is implemented if needed
+    - **Depends-on:** [T073]
 
 ### Clarifications & Assumptions
 
-- [x] **Issue:** Need to determine the best service to handle UserCardStats orchestration
-    - **Context:** cr-06 step 2
-    - **Resolution:** Create a new CardService in internal/service/card_service.go that orchestrates both Card and UserCardStats creation within a transaction. This follows the same pattern as MemoService with RunInTransaction + WithTx, keeping persistence layer focused on single responsibilities while the service layer handles orchestration.
+- [ ] **Issue:** Confirm UserCardStatsStore interface and implementation are complete
+    - **Context:** PLAN.md dependencies for CardReviewService
+    - **Blocking?:** yes (blocks T073)
+
+- [ ] **Issue:** Confirm SRS service exists and is injectable
+    - **Context:** PLAN.md dependencies for CardReviewService
+    - **Blocking?:** yes (blocks T073)
+
+- [ ] **Issue:** Decide if pagination is needed for GetNextReviewCard
+    - **Context:** PLAN.md > Open Questions
+    - **Blocking?:** no (can be added later)

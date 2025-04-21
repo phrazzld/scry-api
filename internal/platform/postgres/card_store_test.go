@@ -24,11 +24,17 @@ const testTimeout = 5 * time.Second
 
 // checkIntegrationTestEnvironment checks if we're running in an environment
 // where integration tests can be executed, by checking DATABASE_URL
+//
+// NOTE: This duplicates functionality in testutils.IsIntegrationTestEnvironment,
+// but is kept here to avoid import cycles.
 func checkIntegrationTestEnvironment() bool {
 	return os.Getenv("DATABASE_URL") != ""
 }
 
 // getTestDBForCardStore gets a connection to the test database
+//
+// NOTE: This duplicates functionality in testutils.GetTestDB,
+// but is kept here to avoid import cycles.
 func getTestDBForCardStore() (*sql.DB, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -56,6 +62,9 @@ func getTestDBForCardStore() (*sql.DB, error) {
 
 // withTxForCardTest executes a function within a transaction and rolls it back afterward.
 // This ensures that tests are isolated and don't affect each other.
+//
+// NOTE: This duplicates functionality in testutils.WithTx,
+// but is kept here to avoid import cycles.
 func withTxForCardTest(t *testing.T, db *sql.DB, fn func(tx *sql.Tx)) {
 	t.Helper()
 

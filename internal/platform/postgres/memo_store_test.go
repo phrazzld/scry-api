@@ -3,7 +3,6 @@ package postgres_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,51 +19,19 @@ import (
 // Add comment to explain we're using the same timeout as defined in user_store_test.go
 // We don't define testTimeout here to avoid redeclaration
 
-// createTestMemo creates a new valid memo for testing.
-// It does not save the memo to the database.
+// createTestMemo uses the centralized testutils.CreateTestMemo function
 func createTestMemo(t *testing.T, userID uuid.UUID) *domain.Memo {
-	t.Helper()
-
-	memo, err := domain.NewMemo(
-		userID,
-		fmt.Sprintf("Test memo content %s", uuid.New().String()[:8]),
-	)
-	require.NoError(t, err, "Failed to create test memo")
-	return memo
+	return testutils.CreateTestMemo(t, userID)
 }
 
-// insertTestMemo inserts a memo into the database for testing.
-// It requires a valid userID that exists in the database.
+// insertTestMemo uses the centralized testutils.MustInsertMemo function
 func insertTestMemo(ctx context.Context, t *testing.T, tx store.DBTX, userID uuid.UUID) *domain.Memo {
-	t.Helper()
-
-	// Create a test memo
-	memo := createTestMemo(t, userID)
-
-	// Create a memo store
-	memoStore := postgres.NewPostgresMemoStore(tx, nil)
-
-	// Insert the memo
-	err := memoStore.Create(ctx, memo)
-	require.NoError(t, err, "Failed to insert test memo")
-
-	return memo
+	return testutils.MustInsertMemo(ctx, t, tx, userID)
 }
 
-// countMemos counts the number of memos in the database matching certain criteria
+// countMemos uses the centralized testutils.CountMemos function
 func countMemos(ctx context.Context, t *testing.T, tx store.DBTX, whereClause string, args ...interface{}) int {
-	t.Helper()
-
-	query := "SELECT COUNT(*) FROM memos"
-	if whereClause != "" {
-		query += " WHERE " + whereClause
-	}
-
-	var count int
-	err := tx.QueryRowContext(ctx, query, args...).Scan(&count)
-	require.NoError(t, err, "Failed to count memos")
-
-	return count
+	return testutils.CountMemos(ctx, t, tx, whereClause, args...)
 }
 
 // TestPostgresMemoStore_Create tests the Create method

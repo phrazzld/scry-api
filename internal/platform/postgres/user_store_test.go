@@ -3,7 +3,6 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -83,56 +82,17 @@ func createTestUser(t *testing.T) *domain.User {
 	return testutils.CreateTestUser(t)
 }
 
-// insertTestUser inserts a user into the database for testing using PostgresUserStore.Create
-// This version uses the actual UserStore to insert the user, which is more of an integration test approach
+// insertTestUser uses the centralized testutils.MustInsertUser function
 func insertTestUser(ctx context.Context, t *testing.T, db store.DBTX, email string) uuid.UUID {
-	// Create a test password that meets validation requirements (12+ chars)
-	password := "TestPassword123!"
-
-	// Create a user with the provided email and test password
-	user := &domain.User{
-		ID:        uuid.New(),
-		Email:     email,
-		Password:  password,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-	}
-
-	// Create a user store
-	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-
-	// Insert the user using Create method
-	err := userStore.Create(ctx, user)
-	require.NoError(t, err, "Failed to insert test user using UserStore.Create")
-
-	// Password should be hashed and the plaintext cleared by the Create method
-	assert.Empty(t, user.Password, "Plaintext password should be cleared")
-	assert.NotEmpty(t, user.HashedPassword, "Hashed password should be set")
-
-	return user.ID
+	return testutils.MustInsertUser(ctx, t, db, email)
 }
 
-// getUserByID retrieves a user from the database using PostgresUserStore.GetByID
-// This version uses the actual UserStore to retrieve the user, which is more of an integration test approach
+// getUserByID uses the centralized testutils.GetUserByID function
 func getUserByID(ctx context.Context, t *testing.T, db store.DBTX, id uuid.UUID) *domain.User {
-	// Create a user store
-	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-
-	// Retrieve the user using GetByID method
-	user, err := userStore.GetByID(ctx, id)
-
-	// Handle the result
-	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
-			return nil
-		}
-		require.NoError(t, err, "Failed to retrieve user by ID")
-	}
-
-	return user
+	return testutils.GetUserByID(ctx, t, db, id)
 }
 
-// countUsers counts the number of users in the database matching certain criteria
+// countUsers uses the centralized testutils.CountUsers function
 func countUsers(ctx context.Context, t *testing.T, db store.DBTX, whereClause string, args ...interface{}) int {
 	return testutils.CountUsers(ctx, t, db, whereClause, args...)
 }

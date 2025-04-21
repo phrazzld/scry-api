@@ -158,7 +158,7 @@
 
 ## Test Helper Consolidation
 
-- [ ] **T042 · refactor · p2: centralize duplicate test helpers**
+- [x] **T042 · refactor · p2: centralize duplicate test helpers**
     - **Context:** cr-07 steps 1-3
     - **Action:**
         1. Identify all duplicated helper functions across test files

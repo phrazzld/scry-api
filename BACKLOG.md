@@ -7,7 +7,7 @@
 This backlog outlines the major work items required to build the Minimum Viable Product (MVP) for the Scry Go backend API, hosted entirely on DigitalOcean. Items should generally be tackled in order, aligning with our core principles and engineering guidelines. Each item represents a meaningful chunk of work, intended to be broken down further into detailed plans and tasks.
 
 * **Memo & Card Generation Implementation:**
-    * Implement `store.MemoStore` and `store.CardStore` interfaces and Postgres implementations for Memo/Card/Stats persistence and status updates.
+    * ✅ Implement `store.MemoStore` and `store.CardStore` interfaces and Postgres implementations for Memo/Card/Stats persistence and status updates.
     * Implement Background Job logic (`internal/task/processor.go` or similar): `GenerateCardsFromMemo(memoID, userID, memoText)`:
         * Update Memo status to `processing` in DB.
         * Call `generation.Generator.GenerateCardsFromMemo`.
@@ -19,8 +19,6 @@ This backlog outlines the major work items required to build the Minimum Viable 
             * If *all* card saves fail after retries, or the LLM call fails irrecoverably, log the error extensively. Update Memo status to `failed`. Trigger critical alert.
             * On full success, update Memo status to `completed`.
     * Implement Submit Memo endpoint (`POST /memos`): Authenticates user, saves Memo via `store` with `pending` status, enqueues `GenerateCardsFromMemo` job via `task` service, returns HTTP 202 Accepted.
-
-- audit whole codebase against dev philosophy, identify key things to hit
 
 * **Card Review API Implementation:**
     * Implement `store.CardStore` function `GetNextReviewCard(userID time.Time)` using the defined query logic (filtering by `next_review_at`, ordering).

@@ -74,7 +74,7 @@
         5. Returns HTTP 500 on other errors
     - **Depends-on:** [T072]
 
-- [ ] **T075 · Feature · P1: implement POST /cards/{id}/answer handler**
+- [x] **T075 · Feature · P1: implement POST /cards/{id}/answer handler**
     - **Context:** PLAN.md > Detailed Build Steps > 5; Input validation hotspots
     - **Action:**
         1. Implement `SubmitAnswer` handler in `CardHandler`

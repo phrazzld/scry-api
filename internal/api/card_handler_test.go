@@ -1,14 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -167,6 +170,237 @@ func TestGetNextReviewCard(t *testing.T) {
 					if content["back"] != "Paris" {
 						t.Errorf("wrong back content: got %v", content["back"])
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestSubmitAnswer(t *testing.T) {
+	userID := uuid.New()
+	cardID := uuid.New()
+
+	now := time.Now().UTC()
+	oneHourLater := now.Add(time.Hour)
+
+	// Create a sample stats object
+	sampleStats := &domain.UserCardStats{
+		UserID:             userID,
+		CardID:             cardID,
+		Interval:           1,
+		EaseFactor:         2.5,
+		ConsecutiveCorrect: 1,
+		LastReviewedAt:     now,
+		NextReviewAt:       oneHourLater,
+		ReviewCount:        1,
+		CreatedAt:          now.Add(-time.Hour),
+		UpdatedAt:          now,
+	}
+
+	tests := []struct {
+		name            string
+		userIDInCtx     uuid.UUID
+		cardIDInPath    string
+		requestBody     map[string]string
+		serviceResult   *domain.UserCardStats
+		serviceError    error
+		expectedStatus  int
+		expectedErrCode string
+	}{
+		{
+			name:            "Success",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   sampleStats,
+			serviceError:    nil,
+			expectedStatus:  http.StatusOK,
+			expectedErrCode: "",
+		},
+		{
+			name:            "Card Not Found",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    card_review.ErrCardNotFound,
+			expectedStatus:  http.StatusNotFound,
+			expectedErrCode: "Card not found",
+		},
+		{
+			name:            "Card Not Owned",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    card_review.ErrCardNotOwned,
+			expectedStatus:  http.StatusForbidden,
+			expectedErrCode: "You do not own this card",
+		},
+		{
+			name:            "Invalid Answer",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    card_review.ErrInvalidAnswer,
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "Invalid answer",
+		},
+		{
+			name:            "Other Error",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    errors.New("database error"),
+			expectedStatus:  http.StatusInternalServerError,
+			expectedErrCode: "Failed to submit answer",
+		},
+		{
+			name:            "Missing User ID",
+			userIDInCtx:     uuid.Nil,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    nil,
+			expectedStatus:  http.StatusUnauthorized,
+			expectedErrCode: "User ID not found or invalid",
+		},
+		{
+			name:            "Invalid Card ID Format",
+			userIDInCtx:     userID,
+			cardIDInPath:    "not-a-uuid",
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    nil,
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "Invalid card ID format",
+		},
+		{
+			name:            "Missing Outcome Field",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{},
+			serviceResult:   nil,
+			serviceError:    nil,
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "Validation error",
+		},
+		{
+			name:            "Invalid Outcome Value",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     map[string]string{"outcome": "invalid"},
+			serviceResult:   nil,
+			serviceError:    nil,
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "Validation error",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a mock service that returns the test case's result
+			mockService := &mockCardReviewService{
+				submitAnswerFn: func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error) {
+					// Only check these in the success case
+					if tc.serviceError == nil {
+						if userID != tc.userIDInCtx {
+							t.Errorf("wrong user ID passed to service: got %v want %v", userID, tc.userIDInCtx)
+						}
+						expectedCardID, _ := uuid.Parse(tc.cardIDInPath)
+						if cardID != expectedCardID {
+							t.Errorf("wrong card ID passed to service: got %v want %v", cardID, expectedCardID)
+						}
+						if string(answer.Outcome) != tc.requestBody["outcome"] {
+							t.Errorf(
+								"wrong outcome passed to service: got %v want %v",
+								answer.Outcome,
+								tc.requestBody["outcome"],
+							)
+						}
+					}
+					return tc.serviceResult, tc.serviceError
+				},
+			}
+
+			// Create the handler
+			handler := NewCardHandler(mockService, nil)
+
+			// Create request body
+			jsonBody, _ := json.Marshal(tc.requestBody)
+			req, err := http.NewRequest("POST", "/cards/"+tc.cardIDInPath+"/answer", bytes.NewBuffer(jsonBody))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			// Add user ID to context if needed
+			if tc.userIDInCtx != uuid.Nil {
+				ctx := context.WithValue(req.Context(), shared.UserIDContextKey, tc.userIDInCtx)
+				req = req.WithContext(ctx)
+			}
+
+			// Create a chi context with URL parameters
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tc.cardIDInPath)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+			// Create a response recorder
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			handler.SubmitAnswer(rr, req)
+
+			// Check status code
+			if status := rr.Code; status != tc.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, tc.expectedStatus)
+			}
+
+			// For non-success responses, check the error message
+			if tc.expectedStatus != http.StatusOK {
+				var errResp shared.ErrorResponse
+				if err := json.NewDecoder(rr.Body).Decode(&errResp); err == nil {
+					// Only check if the error starts with the expected message
+					// (we don't want the test to be too brittle with exact message matching)
+					if !strings.HasPrefix(errResp.Error, tc.expectedErrCode) {
+						t.Errorf(
+							"wrong error message: expected to start with %q, got %q",
+							tc.expectedErrCode,
+							errResp.Error,
+						)
+					}
+				}
+			} else {
+				// For success responses, check the response structure
+				var response UserCardStatsResponse
+				if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+					t.Errorf("failed to decode response body: %v", err)
+					return
+				}
+
+				// Validate the key fields
+				if response.UserID != userID.String() {
+					t.Errorf("wrong user ID in response: got %v want %v", response.UserID, userID.String())
+				}
+				if response.CardID != cardID.String() {
+					t.Errorf("wrong card ID in response: got %v want %v", response.CardID, cardID.String())
+				}
+				if response.Interval != sampleStats.Interval {
+					t.Errorf("wrong interval in response: got %v want %v", response.Interval, sampleStats.Interval)
+				}
+				if response.EaseFactor != sampleStats.EaseFactor {
+					t.Errorf("wrong ease factor in response: got %v want %v", response.EaseFactor, sampleStats.EaseFactor)
+				}
+				if response.ConsecutiveCorrect != sampleStats.ConsecutiveCorrect {
+					t.Errorf("wrong consecutive correct in response: got %v want %v", response.ConsecutiveCorrect, sampleStats.ConsecutiveCorrect)
+				}
+				if !response.NextReviewAt.Equal(sampleStats.NextReviewAt) {
+					t.Errorf("wrong next review at in response: got %v want %v", response.NextReviewAt, sampleStats.NextReviewAt)
+				}
+				if response.ReviewCount != sampleStats.ReviewCount {
+					t.Errorf("wrong review count in response: got %v want %v", response.ReviewCount, sampleStats.ReviewCount)
 				}
 			}
 		})

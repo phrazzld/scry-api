@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
@@ -90,6 +91,145 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", card.ID.String()))
 	shared.RespondWithJSON(w, r, http.StatusOK, response)
+}
+
+// SubmitAnswerRequest represents the request body for submitting a card review answer
+type SubmitAnswerRequest struct {
+	Outcome string `json:"outcome" validate:"required,oneof=again hard good easy"`
+}
+
+// UserCardStatsResponse represents the response data for user card statistics
+type UserCardStatsResponse struct {
+	UserID             string    `json:"user_id"`
+	CardID             string    `json:"card_id"`
+	Interval           int       `json:"interval"`
+	EaseFactor         float64   `json:"ease_factor"`
+	ConsecutiveCorrect int       `json:"consecutive_correct"`
+	LastReviewedAt     time.Time `json:"last_reviewed_at"`
+	NextReviewAt       time.Time `json:"next_review_at"`
+	ReviewCount        int       `json:"review_count"`
+}
+
+// SubmitAnswer handles POST /cards/{id}/answer requests
+// It processes a user's answer to a card review and updates the spaced repetition schedule.
+func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(r.Context(), h.logger)
+
+	// Extract card ID from URL path using chi router
+	pathCardID := chi.URLParam(r, "id")
+	if pathCardID == "" {
+		log.Warn("card ID not found in URL path")
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Card ID is required")
+		return
+	}
+
+	// Parse card ID as UUID
+	cardID, err := uuid.Parse(pathCardID)
+	if err != nil {
+		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid card ID format")
+		return
+	}
+
+	// Extract user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		log.Warn("user ID not found or invalid in request context")
+		shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found or invalid")
+		return
+	}
+
+	// Parse request body
+	var req SubmitAnswerRequest
+	if err := shared.DecodeJSON(r, &req); err != nil {
+		log.Warn("invalid request format",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		return
+	}
+
+	// Validate request
+	if err := h.validator.Struct(req); err != nil {
+		log.Warn("validation error",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+		return
+	}
+
+	// Convert string outcome to domain.ReviewOutcome
+	outcome := domain.ReviewOutcome(req.Outcome)
+
+	// Submit answer to service
+	stats, err := h.cardReviewService.SubmitAnswer(
+		r.Context(),
+		userID,
+		cardID,
+		card_review.ReviewAnswer{Outcome: outcome},
+	)
+
+	// Handle specific error types
+	if err != nil {
+		if errors.Is(err, card_review.ErrCardNotFound) {
+			log.Warn("card not found",
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+			shared.RespondWithError(w, r, http.StatusNotFound, "Card not found")
+			return
+		}
+
+		if errors.Is(err, card_review.ErrCardNotOwned) {
+			log.Warn("user does not own card",
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+			shared.RespondWithError(w, r, http.StatusForbidden, "You do not own this card")
+			return
+		}
+
+		if errors.Is(err, card_review.ErrInvalidAnswer) {
+			log.Warn("invalid answer",
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()),
+				slog.String("outcome", string(outcome)))
+			shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid answer")
+			return
+		}
+
+		log.Error("failed to submit answer",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to submit answer")
+		return
+	}
+
+	// Transform domain object to response
+	response := statsToResponse(stats)
+
+	// Return response with 200 OK status
+	log.Debug("successfully submitted answer",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
+		slog.String("outcome", string(outcome)))
+	shared.RespondWithJSON(w, r, http.StatusOK, response)
+}
+
+// statsToResponse converts a domain.UserCardStats to a UserCardStatsResponse
+func statsToResponse(stats *domain.UserCardStats) UserCardStatsResponse {
+	return UserCardStatsResponse{
+		UserID:             stats.UserID.String(),
+		CardID:             stats.CardID.String(),
+		Interval:           stats.Interval,
+		EaseFactor:         stats.EaseFactor,
+		ConsecutiveCorrect: stats.ConsecutiveCorrect,
+		LastReviewedAt:     stats.LastReviewedAt,
+		NextReviewAt:       stats.NextReviewAt,
+		ReviewCount:        stats.ReviewCount,
+	}
 }
 
 // cardToResponse converts a domain.Card to a CardResponse

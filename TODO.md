@@ -195,7 +195,7 @@
 
 ## Remove Unnecessary sql.DB Mock
 
-- [ ] **T045 · refactor · p3: eliminate sql.DB mock**
+- [x] **T045 · refactor · p3: eliminate sql.DB mock**
     - **Context:** cr-10 steps 1-2
     - **Action:**
         1. Remove `internal/mocks/db.go` file

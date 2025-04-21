@@ -201,16 +201,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 				"Retrieved card should have correct content",
 			)
 
-			// Verify user card stats were created
-			stats, err := statsStore.Get(ctx, testUser.ID, card.ID)
-			assert.NoError(t, err, "Should find stats for created card")
-			assert.Equal(t, testUser.ID, stats.UserID, "Stats should have correct user ID")
-			assert.Equal(t, card.ID, stats.CardID, "Stats should have correct card ID")
-			assert.Equal(t, 0, stats.Interval, "New card should have 0 interval")
-			assert.Equal(t, 2.5, stats.EaseFactor, "New card should have default ease factor")
-			assert.Equal(t, 0, stats.ConsecutiveCorrect, "New card should have 0 consecutive correct")
-			assert.Equal(t, 0, stats.ReviewCount, "New card should have 0 review count")
-			assert.True(t, stats.LastReviewedAt.IsZero(), "New card should have zero LastReviewedAt")
+			// Verify that user card stats are NOT created anymore
+			// This test specifically verifies that the refactored CardStore.CreateMultiple
+			// no longer creates associated UserCardStats entries
+			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
+			assert.Error(t, err, "Should not find stats for created card")
+			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
 		})
 
 		t.Run("multiple_cards", func(t *testing.T) {
@@ -238,10 +234,10 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 				assert.NoError(t, err, "GetByID should find created card")
 				assert.Equal(t, card.ID, retrievedCard.ID, "Retrieved card should have same ID")
 
-				// Verify stats were created for each card
-				stats, err := statsStore.Get(ctx, testUser.ID, card.ID)
-				assert.NoError(t, err, "Should find stats for created card")
-				assert.Equal(t, card.ID, stats.CardID, "Stats should have correct card ID")
+				// Verify that user card stats are NOT created anymore
+				_, err = statsStore.Get(ctx, testUser.ID, card.ID)
+				assert.Error(t, err, "Should not find stats for created card")
+				assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
 			}
 		})
 

@@ -57,7 +57,7 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 }
 
 // CreateMultiple implements store.CardStore.CreateMultiple
-// It saves multiple cards to the database and creates corresponding UserCardStats entries.
+// It saves multiple cards to the database.
 //
 // TRANSACTION REQUIREMENT:
 // This method MUST be called within a transaction for atomicity and data consistency.
@@ -67,7 +67,6 @@ func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore
 // If called outside a transaction:
 // - Atomicity is not guaranteed (partial data may be inserted)
 // - Error handling will be incomplete (failed operations won't be rolled back)
-// - Consistency may be compromised (cards may exist without corresponding stats)
 //
 // Correct usage example:
 //
@@ -148,61 +147,6 @@ func (s *PostgresCardStore) CreateMultiple(ctx context.Context, cards []*domain.
 			slog.String("card_id", card.ID.String()),
 			slog.String("user_id", card.UserID.String()),
 			slog.String("memo_id", card.MemoID.String()))
-	}
-
-	// Now create the corresponding UserCardStats entries
-	statsQuery := `
-		INSERT INTO user_card_stats
-		(user_id, card_id, interval, ease_factor, consecutive_correct,
-		 last_reviewed_at, next_review_at, review_count, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`
-
-	for _, card := range cards {
-		// Create default stats object
-		stats, err := domain.NewUserCardStats(card.UserID, card.ID)
-		if err != nil {
-			log.Error("failed to create default stats",
-				slog.String("error", err.Error()),
-				slog.String("card_id", card.ID.String()),
-				slog.String("user_id", card.UserID.String()))
-			return fmt.Errorf("%w: %v", store.ErrInvalidEntity, err)
-		}
-
-		// Handle zero time for last_reviewed_at
-		var lastReviewedAt interface{}
-		if stats.LastReviewedAt.IsZero() {
-			lastReviewedAt = nil
-		} else {
-			lastReviewedAt = stats.LastReviewedAt
-		}
-
-		_, err = s.db.ExecContext(
-			ctx,
-			statsQuery,
-			stats.UserID,
-			stats.CardID,
-			stats.Interval,
-			stats.EaseFactor,
-			stats.ConsecutiveCorrect,
-			lastReviewedAt,
-			stats.NextReviewAt,
-			stats.ReviewCount,
-			stats.CreatedAt,
-			stats.UpdatedAt,
-		)
-
-		if err != nil {
-			log.Error("failed to insert card stats",
-				slog.String("error", err.Error()),
-				slog.String("card_id", card.ID.String()),
-				slog.String("user_id", card.UserID.String()))
-			return fmt.Errorf("failed to insert card stats: %w", MapError(err))
-		}
-
-		log.Debug("card stats inserted successfully",
-			slog.String("card_id", card.ID.String()),
-			slog.String("user_id", card.UserID.String()))
 	}
 
 	log.Debug("batch card creation completed successfully",

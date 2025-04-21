@@ -127,7 +127,7 @@
 
 ## UserCardStats Orchestration
 
-- [ ] **T039 · refactor · p1: remove UserCardStats creation from CardStore**
+- [x] **T039 · refactor · p1: remove UserCardStats creation from CardStore**
     - **Context:** cr-06 step 1
     - **Action:**
         1. Remove code that inserts `UserCardStats` from `CardStore.CreateMultiple`

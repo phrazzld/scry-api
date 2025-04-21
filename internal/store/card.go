@@ -19,8 +19,10 @@ type CardStore interface {
 	//
 	// All cards must be valid according to domain validation rules.
 	// Returns validation errors if any card data is invalid.
-	// May also create corresponding UserCardStats entries for each card
-	// based on the implementation.
+	//
+	// This method only handles card entities and does not create any associated records
+	// like UserCardStats. For coordinated creation of cards and stats, use a service-layer
+	// orchestration method.
 	//
 	// Usage example:
 	//   err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {

@@ -463,6 +463,43 @@ func ExecuteSubmitAnswerRequest(
 	return client.Do(req)
 }
 
+// ExecuteSubmitAnswerRequestWithRawID executes a POST /cards/{id}/answer request
+// with a raw ID string (can be invalid for testing error cases).
+// Returns the response and error, if any.
+func ExecuteSubmitAnswerRequestWithRawID(
+	t *testing.T,
+	server *httptest.Server,
+	rawCardID string,
+	outcome domain.ReviewOutcome,
+) (*http.Response, error) {
+	t.Helper()
+
+	// Create request body
+	requestBody := map[string]string{"outcome": string(outcome)}
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create request with raw ID string (may be invalid)
+	req, err := http.NewRequest(
+		"POST",
+		server.URL+"/api/cards/"+rawCardID+"/answer",
+		bytes.NewBuffer(bodyBytes),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add headers
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	client := &http.Client{}
+	return client.Do(req)
+}
+
 // AssertCardResponse checks that a response contains a valid card with the expected values.
 func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.Card) {
 	t.Helper()
@@ -529,25 +566,105 @@ func AssertErrorResponse(t *testing.T, resp *http.Response, expectedStatus int, 
 	t.Helper()
 
 	// Check status code
-	assert.Equal(t, expectedStatus, resp.StatusCode)
+	assert.Equal(
+		t,
+		expectedStatus,
+		resp.StatusCode,
+		"Expected status code %d but got %d",
+		expectedStatus,
+		resp.StatusCode,
+	)
 
 	// For 204 No Content, body should be empty
 	if expectedStatus == http.StatusNoContent {
 		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-		assert.Empty(t, body)
+		require.NoError(t, err, "Failed to read response body")
+		assert.Empty(t, body, "Expected empty body for 204 No Content")
 		return
 	}
 
 	// Read body for other status codes
 	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to read response body")
 
 	// Parse error response
 	var errResp shared.ErrorResponse
 	err = json.Unmarshal(body, &errResp)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to unmarshal error response: %s", string(body))
 
 	// Verify error message
-	assert.Contains(t, errResp.Error, expectedErrorMsgPart)
+	assert.Contains(t, errResp.Error, expectedErrorMsgPart,
+		"Error message should contain '%s' but got '%s'", expectedErrorMsgPart, errResp.Error)
+}
+
+// ExecuteInvalidJSONRequest sends a request with an invalid JSON body to test error handling.
+func ExecuteInvalidJSONRequest(t *testing.T, server *httptest.Server, method, path string) (*http.Response, error) {
+	t.Helper()
+
+	// Create request with invalid JSON body
+	req, err := http.NewRequest(
+		method,
+		server.URL+path,
+		bytes.NewBuffer([]byte(`{"invalid_json": true,`)), // Malformed JSON (missing closing bracket)
+	)
+	require.NoError(t, err, "Failed to create request with invalid JSON")
+
+	// Add headers
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	client := &http.Client{}
+	return client.Do(req)
+}
+
+// ExecuteEmptyBodyRequest sends a request with an empty body to test validation.
+func ExecuteEmptyBodyRequest(t *testing.T, server *httptest.Server, method, path string) (*http.Response, error) {
+	t.Helper()
+
+	// Create request with empty body
+	req, err := http.NewRequest(
+		method,
+		server.URL+path,
+		bytes.NewBuffer([]byte(`{}`)), // Empty JSON object
+	)
+	require.NoError(t, err, "Failed to create request with empty body")
+
+	// Add headers
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	client := &http.Client{}
+	return client.Do(req)
+}
+
+// ExecuteCustomBodyRequest sends a request with a custom JSON body for testing.
+func ExecuteCustomBodyRequest(
+	t *testing.T,
+	server *httptest.Server,
+	method, path string,
+	body interface{},
+) (*http.Response, error) {
+	t.Helper()
+
+	// Marshal the body to JSON
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err, "Failed to marshal request body")
+
+	// Create request
+	req, err := http.NewRequest(
+		method,
+		server.URL+path,
+		bytes.NewBuffer(bodyBytes),
+	)
+	require.NoError(t, err, "Failed to create request")
+
+	// Add headers
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	client := &http.Client{}
+	return client.Do(req)
 }

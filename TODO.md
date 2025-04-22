@@ -91,9 +91,9 @@
 - Depends On: T011
 
 ### T013: Use API Test Helpers
-- [  ] Create helpers for API request execution and response validation
-- [  ] Replace manual HTTP client code with standardized helpers
-- [  ] Improve assertion messages for test failures
+- [x] Create helpers for API request execution and response validation
+- [x] Replace manual HTTP client code with standardized helpers
+- [x] Improve assertion messages for test failures
 - Effort: Small
 - Depends On: T012
 

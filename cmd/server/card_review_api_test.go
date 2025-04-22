@@ -4,10 +4,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -112,12 +110,6 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 			} else {
 				// Error case - verify error response
 				testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedError)
-			}
-
-			// Verify call counts if relevant
-			if server := tc.serverOptions.GetNextCardFn; server != nil {
-				// We'll skip this part since the mock call counts are managed differently in the testutils
-				// and the test is now focused on the HTTP response, not the internal mock behavior
 			}
 		})
 	}
@@ -254,13 +246,8 @@ func TestSubmitAnswerAPI(t *testing.T) {
 				// Execute normal request using the helper function
 				resp, err = testutils.ExecuteSubmitAnswerRequest(t, server, tc.cardID, tc.outcome)
 			} else if tc.name == "Invalid Card ID Format" {
-				// Special case for invalid card ID format - can't use the helper directly
-				client := &http.Client{}
-				req, err := http.NewRequest("POST", server.URL+"/api/cards/not-a-uuid/answer", nil)
-				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer test-token")
-				req.Header.Set("Content-Type", "application/json")
-				resp, err = client.Do(req)
+				// Use the helper for invalid card ID format
+				resp, err = testutils.ExecuteSubmitAnswerRequestWithRawID(t, server, "not-a-uuid", tc.outcome)
 			}
 
 			require.NoError(t, err)
@@ -280,10 +267,6 @@ func TestSubmitAnswerAPI(t *testing.T) {
 				// Error case - verify error response
 				testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedError)
 			}
-
-			// We can optionally add validation for the mock call counts here
-			// but since we've moved to using the testutils helpers, the focus is on
-			// verifying the HTTP responses, not the internal mock behavior
 		})
 	}
 }
@@ -297,26 +280,24 @@ func TestInvalidRequestBody(t *testing.T) {
 	// Define test cases
 	tests := []struct {
 		name             string
-		requestBody      io.Reader
-		endpoint         string
+		testType         string
+		path             string
 		expectedStatus   int
 		expectedErrorMsg string
 	}{
-		// We're removing the errorReader case as it causes actual client-side errors
-		// instead of server-side handling that we want to test
 		{
 			name:             "Submit Answer - Invalid JSON",
-			requestBody:      bytes.NewBufferString(`{"outcome": "good"`), // Malformed JSON
-			endpoint:         "/api/cards/" + cardID.String() + "/answer",
+			testType:         "invalid-json",
+			path:             "/api/cards/" + cardID.String() + "/answer",
 			expectedStatus:   http.StatusBadRequest,
 			expectedErrorMsg: "Invalid request format",
 		},
 		{
 			name:             "Submit Answer - Empty Body",
-			requestBody:      bytes.NewBufferString(``), // Empty body
-			endpoint:         "/api/cards/" + cardID.String() + "/answer",
+			testType:         "empty-body",
+			path:             "/api/cards/" + cardID.String() + "/answer",
 			expectedStatus:   http.StatusBadRequest,
-			expectedErrorMsg: "Invalid request format",
+			expectedErrorMsg: "Validation error",
 		},
 	}
 
@@ -328,21 +309,19 @@ func TestInvalidRequestBody(t *testing.T) {
 			})
 			defer server.Close()
 
-			// Create request
-			client := &http.Client{}
-			req, err := http.NewRequest(
-				"POST",
-				server.URL+tc.endpoint,
-				tc.requestBody,
-			)
-			require.NoError(t, err)
+			var resp *http.Response
+			var err error
 
-			// Set headers
-			req.Header.Set("Authorization", "Bearer test-token")
-			req.Header.Set("Content-Type", "application/json")
+			// Use the appropriate helper based on the test type
+			switch tc.testType {
+			case "invalid-json":
+				resp, err = testutils.ExecuteInvalidJSONRequest(t, server, "POST", tc.path)
+			case "empty-body":
+				resp, err = testutils.ExecuteEmptyBodyRequest(t, server, "POST", tc.path)
+			default:
+				t.Fatalf("Unknown test type: %s", tc.testType)
+			}
 
-			// Execute request
-			resp, err := client.Do(req)
 			require.NoError(t, err)
 			defer func() {
 				if err := resp.Body.Close(); err != nil {
@@ -350,7 +329,7 @@ func TestInvalidRequestBody(t *testing.T) {
 				}
 			}()
 
-			// Verify response
+			// Verify response using the helper
 			testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedErrorMsg)
 		})
 	}

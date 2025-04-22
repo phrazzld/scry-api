@@ -218,7 +218,7 @@
         3. Tests validate response body structure
     - **Depends-on:** [T083]
 
-- [ ] **T086 · Chore · P2: Update testutils for API testing**
+- [x] **T086 · Chore · P2: Update testutils for API testing**
     - **Context:** CONSULTANT-PLAN.md > Implementation Plan
     - **Action:**
         1. Enhance `internal/testutils/api_helpers.go` with new helpers for card review API tests

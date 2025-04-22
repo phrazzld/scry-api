@@ -193,7 +193,7 @@
         3. Mock correctly implements the CardReviewService interface
     - **Depends-on:** None
 
-- [ ] **T084 · Test · P1: Implement API tests for GetNextReviewCard endpoint**
+- [x] **T084 · Test · P1: Implement API tests for GetNextReviewCard endpoint**
     - **Context:** CONSULTANT-PLAN.md > Step 2: Create API Test for Card Review Endpoints
     - **Action:**
         1. Create a new file `cmd/server/card_review_api_test.go`

@@ -230,7 +230,7 @@
         3. Test data creation is consistent across tests
     - **Depends-on:** [T083]
 
-- [ ] **T087 · Chore · P2: Remove or refactor database-dependent integration tests**
+- [x] **T087 · Chore · P2: Remove or refactor database-dependent integration tests**
     - **Context:** CONSULTANT-PLAN.md > Implementation Strategy
     - **Action:**
         1. Decide whether to completely remove `card_review_integration_test.go` or keep with build tags

@@ -77,16 +77,16 @@
 ## Test Improvements
 
 ### T011: Extract Common Test Setup
-- [  ] Create `testutils.SetupCardReviewTestServer` helper
-- [  ] Move duplicate setup code from API tests to helper
-- [  ] Ensure proper cleanup in all test paths
+- [x] Create `testutils.SetupCardReviewTestServer` helper
+- [x] Move duplicate setup code from API tests to helper
+- [x] Ensure proper cleanup in all test paths
 - Effort: Small
 - Depends On: None
 
 ### T012: Implement Table-Driven API Tests
-- [  ] Refactor card review API tests to use table-driven approach
-- [  ] Create test case structs with inputs and expected outputs
-- [  ] Use `t.Run` for individual test isolation
+- [x] Refactor card review API tests to use table-driven approach
+- [x] Create test case structs with inputs and expected outputs
+- [x] Use `t.Run` for individual test isolation
 - Effort: Small
 - Depends On: T011
 

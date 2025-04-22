@@ -144,6 +144,37 @@
     - **Depends-on:** [T076]
     - **Note:** After implementation review, we determined a better approach is to use API tests with mocked dependencies instead of database-dependent integration tests. See tasks T083-T088 for the new implementation approach.
 
+    **Testing Approach Lessons Learned:**
+
+    1. **Database Independence**:
+       - API tests with mocked dependencies provide faster, more reliable test runs
+       - Removes the need for DATABASE_URL to be set in test environments
+       - Eliminates test flakiness caused by database state or connection issues
+       - Allows CI to run tests without database setup
+
+    2. **Improved Separation of Concerns**:
+       - API tests focus solely on HTTP layer behavior (request/response, status codes, content)
+       - Service and store layers are tested separately with dedicated unit tests
+       - Clear boundaries make it easier to identify where issues occur
+
+    3. **Enhanced Test Maintainability**:
+       - Mock with functional options pattern provides flexible configuration
+       - Test helpers with builder pattern make test setup more concise and readable
+       - Table-driven tests make adding new scenarios straightforward
+       - Consistent patterns across tests reduce cognitive load
+
+    4. **Better Test Coverage**:
+       - Mocks make it easier to test edge cases (errors, rare conditions)
+       - Clearer verification of call tracking ensures correct component interaction
+       - Fine-grained control over test conditions
+       - Build tags (`test_without_external_deps`) allow conditional compilation
+
+    5. **Developer Experience**:
+       - Tests run faster (no database setup/teardown overhead)
+       - Less environment setup required to run tests
+       - Isolated failures make debugging easier
+       - Clear test patterns are more approachable for new developers
+
 - [ ] **T081 · Chore · P2: ensure query performance with proper indexing**
     - **Context:** PLAN.md > Risk Matrix > Query performance issues
     - **Action:**
@@ -242,7 +273,7 @@
         3. Test coverage reports show equivalent or better coverage
     - **Depends-on:** [T084, T085]
 
-- [ ] **T088 · Chore · P2: Update T080 with lessons learned**
+- [x] **T088 · Chore · P2: Update T080 with lessons learned**
     - **Context:** Original task is now marked completed but we want to document our learning
     - **Action:**
         1. Add comprehensive note to T080 about the testing approach change

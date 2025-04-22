@@ -24,9 +24,9 @@
 - Depends On: T001
 
 ### T004: Refactor Card Review Service Constructor
-- [  ] Update `NewCardReviewService` to return errors instead of panicking on nil dependencies
-- [  ] Change function signature to return `(*cardReviewService, error)`
-- [  ] Replace panic calls with formatted error returns
+- [x] Update `NewCardReviewService` to return errors instead of panicking on nil dependencies
+- [x] Change function signature to return `(*cardReviewService, error)`
+- [x] Replace panic calls with formatted error returns
 - Effort: Small
 - Depends On: None
 

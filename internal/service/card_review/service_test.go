@@ -132,6 +132,50 @@ func createTestCard(userID uuid.UUID) *domain.Card {
 	}
 }
 
+// TestNewCardReviewService tests the service constructor with various inputs
+func TestNewCardReviewService(t *testing.T) {
+	// Setup
+	mockCardRepo := new(MockCardRepository)
+	mockStatsRepo := new(MockUserCardStatsRepository)
+	mockSrsService := new(MockSRSService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Test cases
+	t.Run("valid dependencies", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, mockSrsService, logger)
+		assert.NoError(t, err)
+		assert.NotNil(t, service)
+	})
+
+	t.Run("nil card repository", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(nil, mockStatsRepo, mockSrsService, logger)
+		assert.Error(t, err)
+		assert.Nil(t, service)
+		assert.Contains(t, err.Error(), "cardRepo cannot be nil")
+	})
+
+	t.Run("nil stats repository", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(mockCardRepo, nil, mockSrsService, logger)
+		assert.Error(t, err)
+		assert.Nil(t, service)
+		assert.Contains(t, err.Error(), "statsRepo cannot be nil")
+	})
+
+	t.Run("nil SRS service", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, nil, logger)
+		assert.Error(t, err)
+		assert.Nil(t, service)
+		assert.Contains(t, err.Error(), "srsService cannot be nil")
+	})
+
+	t.Run("nil logger", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, mockSrsService, nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, service)
+		// Logger should be defaulted, not error
+	})
+}
+
 // TestGetNextCard tests the GetNextCard method of CardReviewService
 func TestGetNextCard(t *testing.T) {
 	// Define test cases
@@ -194,12 +238,14 @@ func TestGetNextCard(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 			// Create service with all required dependencies
-			service := card_review.NewCardReviewService(
+			service, err := card_review.NewCardReviewService(
 				mockCardRepo,
 				mockStatsRepo,
 				mockSrsService,
 				logger,
 			)
+			assert.NoError(t, err)
+			assert.NotNil(t, service)
 
 			// Call method
 			card, err := service.GetNextCard(context.Background(), tc.userID)

@@ -26,21 +26,22 @@ type cardReviewServiceImpl struct {
 }
 
 // NewCardReviewService creates a new CardReviewService implementation.
+// It returns an error if any of the required dependencies are nil.
 func NewCardReviewService(
 	cardRepo CardRepository,
 	statsRepo UserCardStatsRepository,
 	srsService srs.Service,
 	logger *slog.Logger,
-) CardReviewService {
+) (CardReviewService, error) {
 	// Validate inputs
 	if cardRepo == nil {
-		panic("cardRepo cannot be nil")
+		return nil, fmt.Errorf("cardRepo cannot be nil")
 	}
 	if statsRepo == nil {
-		panic("statsRepo cannot be nil")
+		return nil, fmt.Errorf("statsRepo cannot be nil")
 	}
 	if srsService == nil {
-		panic("srsService cannot be nil")
+		return nil, fmt.Errorf("srsService cannot be nil")
 	}
 
 	// Use provided logger or create default
@@ -53,7 +54,7 @@ func NewCardReviewService(
 		statsRepo:  statsRepo,
 		srsService: srsService,
 		logger:     logger.With(slog.String("component", "card_review_service")),
-	}
+	}, nil
 }
 
 // GetNextCard implements CardReviewService.GetNextCard.

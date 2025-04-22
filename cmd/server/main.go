@@ -283,12 +283,16 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	srsService := srs.NewDefaultService()
 
 	// Create card review service with all dependencies
-	cardReviewService := card_review.NewCardReviewService(
+	cardReviewService, err := card_review.NewCardReviewService(
 		cardRepoAdapter,
 		statsRepoAdapter,
 		srsService,
 		deps.Logger,
 	)
+	if err != nil {
+		deps.Logger.Error("Failed to create card review service", "error", err)
+		os.Exit(1)
+	}
 
 	// Create card handler with card review service
 	cardHandler := api.NewCardHandler(cardReviewService, deps.Logger)

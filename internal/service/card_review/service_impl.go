@@ -2,7 +2,7 @@ package card_review
 
 import (
 	"context"
-	"database/sql" // Used for transaction handling
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,6 +12,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
+	"github.com/phrazzld/scry-api/internal/store"
 )
 
 // Verify interface compliance at compile time
@@ -19,8 +20,8 @@ var _ CardReviewService = (*cardReviewServiceImpl)(nil)
 
 // cardReviewServiceImpl implements the CardReviewService interface.
 type cardReviewServiceImpl struct {
-	cardRepo   CardRepository
-	statsRepo  UserCardStatsRepository
+	cardStore  store.CardStore
+	statsStore store.UserCardStatsStore
 	srsService srs.Service
 	logger     *slog.Logger
 }
@@ -28,17 +29,17 @@ type cardReviewServiceImpl struct {
 // NewCardReviewService creates a new CardReviewService implementation.
 // It returns an error if any of the required dependencies are nil.
 func NewCardReviewService(
-	cardRepo CardRepository,
-	statsRepo UserCardStatsRepository,
+	cardStore store.CardStore,
+	statsStore store.UserCardStatsStore,
 	srsService srs.Service,
 	logger *slog.Logger,
 ) (CardReviewService, error) {
 	// Validate inputs
-	if cardRepo == nil {
-		return nil, fmt.Errorf("cardRepo cannot be nil")
+	if cardStore == nil {
+		return nil, fmt.Errorf("cardStore cannot be nil")
 	}
-	if statsRepo == nil {
-		return nil, fmt.Errorf("statsRepo cannot be nil")
+	if statsStore == nil {
+		return nil, fmt.Errorf("statsStore cannot be nil")
 	}
 	if srsService == nil {
 		return nil, fmt.Errorf("srsService cannot be nil")
@@ -50,8 +51,8 @@ func NewCardReviewService(
 	}
 
 	return &cardReviewServiceImpl{
-		cardRepo:   cardRepo,
-		statsRepo:  statsRepo,
+		cardStore:  cardStore,
+		statsStore: statsStore,
 		srsService: srsService,
 		logger:     logger.With(slog.String("component", "card_review_service")),
 	}, nil
@@ -68,11 +69,11 @@ func (s *cardReviewServiceImpl) GetNextCard(
 
 	log.Debug("retrieving next review card", slog.String("user_id", userID.String()))
 
-	// Call the repository to get the next card due for review
-	card, err := s.cardRepo.GetNextReviewCard(ctx, userID)
+	// Call the store to get the next card due for review
+	card, err := s.cardStore.GetNextReviewCard(ctx, userID)
 	if err != nil {
-		// Map store.ErrCardNotFound to service.ErrNoCardsDue
-		if errors.Is(err, ErrCardNotFound) {
+		// Map "card not found" errors to service.ErrNoCardsDue
+		if errors.Is(err, store.ErrCardNotFound) || err.Error() == "card not found" {
 			log.Debug("no cards due for review", slog.String("user_id", userID.String()))
 			return nil, ErrNoCardsDue
 		}
@@ -122,77 +123,80 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 
 	// We need to run these operations in a single transaction
 	var updatedStats *domain.UserCardStats
-	err := s.runInTransaction(
-		ctx,
-		func(ctx context.Context, cardRepo CardRepository, statsRepo UserCardStatsRepository) error {
-			// First, verify that the card exists
-			card, err := cardRepo.GetByID(ctx, cardID)
-			if err != nil {
-				if errors.Is(err, ErrCardNotFound) {
-					log.Warn("card not found for review",
-						slog.String("user_id", userID.String()),
-						slog.String("card_id", cardID.String()))
-					return ErrCardNotFound
-				}
-				return fmt.Errorf("failed to get card: %w", err)
-			}
 
-			// Verify that the user owns the card
-			if card.UserID != userID {
-				log.Warn("user does not own card",
-					slog.String("user_id", userID.String()),
-					slog.String("card_id", cardID.String()),
-					slog.String("owner_id", card.UserID.String()))
-				return ErrCardNotOwned
-			}
+	// Use the standard store.RunInTransaction helper for consistent transaction handling
+	err := store.RunInTransaction(ctx, s.cardStore.DB(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get transactional stores
+		txCardStore := s.cardStore.WithTxCardStore(tx)
+		txStatsStore := s.statsStore.WithTx(tx)
 
-			// Get the current stats with a row-level lock to prevent concurrent updates
-			stats, err := statsRepo.GetForUpdate(ctx, userID, cardID)
-			if err != nil {
-				if errors.Is(err, ErrCardStatsNotFound) {
-					log.Warn("stats not found for card",
-						slog.String("user_id", userID.String()),
-						slog.String("card_id", cardID.String()))
-					// Create new stats with default values
-					stats, err = domain.NewUserCardStats(userID, cardID)
-					if err != nil {
-						return fmt.Errorf("failed to create new stats: %w", err)
-					}
-				} else {
-					return fmt.Errorf("failed to get stats: %w", err)
-				}
-			}
-
-			// Calculate new review schedule using SRS algorithm
-			newStats, err := s.srsService.CalculateNextReview(stats, answer.Outcome, time.Now().UTC())
-			if err != nil {
-				log.Error("failed to calculate next review",
-					slog.String("error", err.Error()),
+		// First, verify that the card exists
+		card, err := txCardStore.GetByID(ctx, cardID)
+		if err != nil {
+			if errors.Is(err, store.ErrCardNotFound) {
+				log.Warn("card not found for review",
 					slog.String("user_id", userID.String()),
 					slog.String("card_id", cardID.String()))
-				return fmt.Errorf("failed to calculate next review: %w", err)
+				return ErrCardNotFound
 			}
+			return fmt.Errorf("failed to get card: %w", err)
+		}
 
-			// Save or update the stats
-			if stats.LastReviewedAt.IsZero() {
-				// This is a new card that hasn't been reviewed yet
-				err = statsRepo.Create(ctx, newStats)
+		// Verify that the user owns the card
+		if card.UserID != userID {
+			log.Warn("user does not own card",
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()),
+				slog.String("owner_id", card.UserID.String()))
+			return ErrCardNotOwned
+		}
+
+		// Get the current stats with a row-level lock to prevent concurrent updates
+		stats, err := txStatsStore.GetForUpdate(ctx, userID, cardID)
+		if err != nil {
+			if errors.Is(err, store.ErrUserCardStatsNotFound) {
+				log.Warn("stats not found for card",
+					slog.String("user_id", userID.String()),
+					slog.String("card_id", cardID.String()))
+				// Create new stats with default values
+				stats, err = domain.NewUserCardStats(userID, cardID)
 				if err != nil {
-					return fmt.Errorf("failed to create stats: %w", err)
+					return fmt.Errorf("failed to create new stats: %w", err)
 				}
 			} else {
-				// This is an existing card that has been reviewed before
-				err = statsRepo.Update(ctx, newStats)
-				if err != nil {
-					return fmt.Errorf("failed to update stats: %w", err)
-				}
+				return fmt.Errorf("failed to get stats: %w", err)
 			}
+		}
 
-			// Store the updated stats for the return value
-			updatedStats = newStats
-			return nil
-		},
-	)
+		// Calculate new review schedule using SRS algorithm
+		newStats, err := s.srsService.CalculateNextReview(stats, answer.Outcome, time.Now().UTC())
+		if err != nil {
+			log.Error("failed to calculate next review",
+				slog.String("error", err.Error()),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+			return fmt.Errorf("failed to calculate next review: %w", err)
+		}
+
+		// Save or update the stats
+		if stats.LastReviewedAt.IsZero() {
+			// This is a new card that hasn't been reviewed yet
+			err = txStatsStore.Create(ctx, newStats)
+			if err != nil {
+				return fmt.Errorf("failed to create stats: %w", err)
+			}
+		} else {
+			// This is an existing card that has been reviewed before
+			err = txStatsStore.Update(ctx, newStats)
+			if err != nil {
+				return fmt.Errorf("failed to update stats: %w", err)
+			}
+		}
+
+		// Store the updated stats for the return value
+		updatedStats = newStats
+		return nil
+	})
 
 	if err != nil {
 		// If the error is already one of our service errors, pass it through
@@ -218,45 +222,6 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 		slog.Time("next_review_at", updatedStats.NextReviewAt))
 
 	return updatedStats, nil
-}
-
-// runInTransaction runs the given function in a transaction
-func (s *cardReviewServiceImpl) runInTransaction(
-	ctx context.Context,
-	fn func(context.Context, CardRepository, UserCardStatsRepository) error,
-) error {
-	// Create a local variable that explicitly uses the database/sql package
-	// This prevents the "imported and not used" error
-	sqlRef := sql.IsolationLevel(0)
-	_ = sqlRef // Suppress unused variable warning
-
-	db := s.cardRepo.DB()
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	// Create transactional repositories
-	cardRepo := s.cardRepo.WithTx(tx)
-	statsRepo := s.statsRepo.WithTx(tx)
-
-	// Execute the transaction function
-	err = fn(ctx, cardRepo, statsRepo)
-	if err != nil {
-		// Roll back if there was an error
-		if rbErr := tx.Rollback(); rbErr != nil {
-			// We combine the rollback error with the original error
-			return fmt.Errorf("tx error: %v, rollback error: %v", err, rbErr)
-		}
-		return err
-	}
-
-	// Commit the transaction
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
 }
 
 // isValidOutcome checks if the given outcome is valid

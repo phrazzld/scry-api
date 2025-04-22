@@ -94,4 +94,8 @@ type CardStore interface {
 	//       return txCardStore.CreateMultiple(ctx, cards)
 	//   })
 	WithTxCardStore(tx *sql.Tx) CardStore
+
+	// DB returns the underlying database connection.
+	// This is used for transaction management with store.RunInTransaction.
+	DB() *sql.DB
 }

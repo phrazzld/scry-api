@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -12,16 +13,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// MockCardRepository is a mock implementation of the CardRepository interface
-type MockCardRepository struct {
+// MockCardStore is a mock implementation of the store.CardStore interface
+type MockCardStore struct {
 	mock.Mock
 }
 
-func (m *MockCardRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error) {
+func (m *MockCardStore) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
+	args := m.Called(ctx, cards)
+	return args.Error(0)
+}
+
+func (m *MockCardStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -29,7 +36,17 @@ func (m *MockCardRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return args.Get(0).(*domain.Card), args.Error(1)
 }
 
-func (m *MockCardRepository) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
+func (m *MockCardStore) UpdateContent(ctx context.Context, id uuid.UUID, content []byte) error {
+	args := m.Called(ctx, id, content)
+	return args.Error(0)
+}
+
+func (m *MockCardStore) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -37,22 +54,27 @@ func (m *MockCardRepository) GetNextReviewCard(ctx context.Context, userID uuid.
 	return args.Get(0).(*domain.Card), args.Error(1)
 }
 
-func (m *MockCardRepository) WithTx(tx *sql.Tx) card_review.CardRepository {
+func (m *MockCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
 	args := m.Called(tx)
-	return args.Get(0).(card_review.CardRepository)
+	return args.Get(0).(store.CardStore)
 }
 
-func (m *MockCardRepository) DB() *sql.DB {
+func (m *MockCardStore) DB() *sql.DB {
 	args := m.Called()
 	return args.Get(0).(*sql.DB)
 }
 
-// MockUserCardStatsRepository is a mock implementation of the UserCardStatsRepository interface
-type MockUserCardStatsRepository struct {
+// MockUserCardStatsStore is a mock implementation of the store.UserCardStatsStore interface
+type MockUserCardStatsStore struct {
 	mock.Mock
 }
 
-func (m *MockUserCardStatsRepository) Get(
+func (m *MockUserCardStatsStore) Create(ctx context.Context, stats *domain.UserCardStats) error {
+	args := m.Called(ctx, stats)
+	return args.Error(0)
+}
+
+func (m *MockUserCardStatsStore) Get(
 	ctx context.Context,
 	userID, cardID uuid.UUID,
 ) (*domain.UserCardStats, error) {
@@ -63,7 +85,7 @@ func (m *MockUserCardStatsRepository) Get(
 	return args.Get(0).(*domain.UserCardStats), args.Error(1)
 }
 
-func (m *MockUserCardStatsRepository) GetForUpdate(
+func (m *MockUserCardStatsStore) GetForUpdate(
 	ctx context.Context,
 	userID, cardID uuid.UUID,
 ) (*domain.UserCardStats, error) {
@@ -74,19 +96,19 @@ func (m *MockUserCardStatsRepository) GetForUpdate(
 	return args.Get(0).(*domain.UserCardStats), args.Error(1)
 }
 
-func (m *MockUserCardStatsRepository) Create(ctx context.Context, stats *domain.UserCardStats) error {
+func (m *MockUserCardStatsStore) Update(ctx context.Context, stats *domain.UserCardStats) error {
 	args := m.Called(ctx, stats)
 	return args.Error(0)
 }
 
-func (m *MockUserCardStatsRepository) Update(ctx context.Context, stats *domain.UserCardStats) error {
-	args := m.Called(ctx, stats)
+func (m *MockUserCardStatsStore) Delete(ctx context.Context, userID, cardID uuid.UUID) error {
+	args := m.Called(ctx, userID, cardID)
 	return args.Error(0)
 }
 
-func (m *MockUserCardStatsRepository) WithTx(tx *sql.Tx) card_review.UserCardStatsRepository {
+func (m *MockUserCardStatsStore) WithTx(tx *sql.Tx) store.UserCardStatsStore {
 	args := m.Called(tx)
-	return args.Get(0).(card_review.UserCardStatsRepository)
+	return args.Get(0).(store.UserCardStatsStore)
 }
 
 // MockSRSService is a mock implementation of the srs.Service interface
@@ -135,41 +157,41 @@ func createTestCard(userID uuid.UUID) *domain.Card {
 // TestNewCardReviewService tests the service constructor with various inputs
 func TestNewCardReviewService(t *testing.T) {
 	// Setup
-	mockCardRepo := new(MockCardRepository)
-	mockStatsRepo := new(MockUserCardStatsRepository)
+	mockCardStore := new(MockCardStore)
+	mockStatsStore := new(MockUserCardStatsStore)
 	mockSrsService := new(MockSRSService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Test cases
 	t.Run("valid dependencies", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, mockSrsService, logger)
+		service, err := card_review.NewCardReviewService(mockCardStore, mockStatsStore, mockSrsService, logger)
 		assert.NoError(t, err)
 		assert.NotNil(t, service)
 	})
 
-	t.Run("nil card repository", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(nil, mockStatsRepo, mockSrsService, logger)
+	t.Run("nil card store", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(nil, mockStatsStore, mockSrsService, logger)
 		assert.Error(t, err)
 		assert.Nil(t, service)
-		assert.Contains(t, err.Error(), "cardRepo cannot be nil")
+		assert.Contains(t, err.Error(), "cardStore cannot be nil")
 	})
 
-	t.Run("nil stats repository", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(mockCardRepo, nil, mockSrsService, logger)
+	t.Run("nil stats store", func(t *testing.T) {
+		service, err := card_review.NewCardReviewService(mockCardStore, nil, mockSrsService, logger)
 		assert.Error(t, err)
 		assert.Nil(t, service)
-		assert.Contains(t, err.Error(), "statsRepo cannot be nil")
+		assert.Contains(t, err.Error(), "statsStore cannot be nil")
 	})
 
 	t.Run("nil SRS service", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, nil, logger)
+		service, err := card_review.NewCardReviewService(mockCardStore, mockStatsStore, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, service)
 		assert.Contains(t, err.Error(), "srsService cannot be nil")
 	})
 
 	t.Run("nil logger", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, mockSrsService, nil)
+		service, err := card_review.NewCardReviewService(mockCardStore, mockStatsStore, mockSrsService, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, service)
 		// Logger should be defaulted, not error
@@ -182,16 +204,16 @@ func TestGetNextCard(t *testing.T) {
 	testCases := []struct {
 		name           string
 		userID         uuid.UUID
-		setupMock      func(*MockCardRepository, uuid.UUID)
+		setupMock      func(*MockCardStore, uuid.UUID)
 		expectedError  error
 		expectedErrMsg string
 	}{
 		{
 			name:   "happy path - card found",
 			userID: uuid.New(),
-			setupMock: func(repo *MockCardRepository, userID uuid.UUID) {
+			setupMock: func(store *MockCardStore, userID uuid.UUID) {
 				card := createTestCard(userID)
-				repo.On("GetNextReviewCard", mock.Anything, userID).Return(card, nil)
+				store.On("GetNextReviewCard", mock.Anything, userID).Return(card, nil)
 			},
 			expectedError:  nil,
 			expectedErrMsg: "",
@@ -199,8 +221,8 @@ func TestGetNextCard(t *testing.T) {
 		{
 			name:   "no cards due",
 			userID: uuid.New(),
-			setupMock: func(repo *MockCardRepository, userID uuid.UUID) {
-				repo.On("GetNextReviewCard", mock.Anything, userID).Return(nil, card_review.ErrCardNotFound)
+			setupMock: func(store *MockCardStore, userID uuid.UUID) {
+				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, fmt.Errorf("card not found"))
 			},
 			expectedError:  card_review.ErrNoCardsDue,
 			expectedErrMsg: "",
@@ -208,8 +230,8 @@ func TestGetNextCard(t *testing.T) {
 		{
 			name:   "repository error",
 			userID: uuid.New(),
-			setupMock: func(repo *MockCardRepository, userID uuid.UUID) {
-				repo.On("GetNextReviewCard", mock.Anything, userID).Return(nil, errors.New("database error"))
+			setupMock: func(store *MockCardStore, userID uuid.UUID) {
+				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, errors.New("database error"))
 			},
 			expectedError:  nil,
 			expectedErrMsg: "failed to get next review card: database error",
@@ -217,8 +239,8 @@ func TestGetNextCard(t *testing.T) {
 		{
 			name:   "nil uuid",
 			userID: uuid.Nil,
-			setupMock: func(repo *MockCardRepository, userID uuid.UUID) {
-				repo.On("GetNextReviewCard", mock.Anything, userID).Return(nil, card_review.ErrCardNotFound)
+			setupMock: func(store *MockCardStore, userID uuid.UUID) {
+				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, fmt.Errorf("card not found"))
 			},
 			expectedError:  card_review.ErrNoCardsDue,
 			expectedErrMsg: "",
@@ -228,19 +250,19 @@ func TestGetNextCard(t *testing.T) {
 	// Run test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create mock repositories
-			mockCardRepo := new(MockCardRepository)
-			mockStatsRepo := new(MockUserCardStatsRepository)
+			// Create mock stores
+			mockCardStore := new(MockCardStore)
+			mockStatsStore := new(MockUserCardStatsStore)
 			mockSrsService := new(MockSRSService)
-			tc.setupMock(mockCardRepo, tc.userID)
+			tc.setupMock(mockCardStore, tc.userID)
 
 			// Create no-op logger for testing
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 			// Create service with all required dependencies
 			service, err := card_review.NewCardReviewService(
-				mockCardRepo,
-				mockStatsRepo,
+				mockCardStore,
+				mockStatsStore,
 				mockSrsService,
 				logger,
 			)
@@ -261,8 +283,36 @@ func TestGetNextCard(t *testing.T) {
 			}
 
 			// Verify all expectations were met
-			mockCardRepo.AssertExpectations(t)
+			mockCardStore.AssertExpectations(t)
 			// No need to verify other mocks for GetNextCard as they aren't used
 		})
 	}
+}
+
+// TestSubmitAnswer tests the SubmitAnswer method of CardReviewService
+func TestSubmitAnswer(t *testing.T) {
+	// Only test invalid answer case since we can't easily mock RunInTransaction
+	// without a mocking library
+	invalidAnswer := card_review.ReviewAnswer{Outcome: "invalid"}
+	userID := uuid.New()
+	cardID := uuid.New()
+
+	// Create mocks
+	mockCardStore := new(MockCardStore)
+	mockStatsStore := new(MockUserCardStatsStore)
+	mockSrsService := new(MockSRSService)
+
+	// Create service
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	service, err := card_review.NewCardReviewService(
+		mockCardStore,
+		mockStatsStore,
+		mockSrsService,
+		logger,
+	)
+	assert.NoError(t, err)
+
+	// Test invalid answer case
+	_, err = service.SubmitAnswer(context.Background(), userID, cardID, invalidAnswer)
+	assert.ErrorIs(t, err, card_review.ErrInvalidAnswer)
 }

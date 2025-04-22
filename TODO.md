@@ -54,9 +54,9 @@
 - Depends On: T006
 
 ### T008: Refactor Card Review Repository Interface
-- [  ] Update card review service to depend directly on store interfaces
-- [  ] Remove redundant adapter layers between store and service
-- [  ] Modify service implementation to call store methods directly
+- [x] Update card review service to depend directly on store interfaces
+- [x] Remove redundant adapter layers between store and service
+- [x] Modify service implementation to call store methods directly
 - Effort: Medium
 - Depends On: T007
 

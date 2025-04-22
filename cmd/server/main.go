@@ -279,10 +279,6 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	}
 	memoHandler := api.NewMemoHandler(memoService)
 
-	// Create repository adapters for card review service
-	cardRepoAdapter := card_review.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
-	statsRepoAdapter := card_review.NewUserCardStatsRepositoryAdapter(deps.UserCardStatsStore)
-
 	// Create SRS service with default parameters
 	srsService, err := srs.NewDefaultService()
 	if err != nil {
@@ -290,10 +286,10 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 		os.Exit(1)
 	}
 
-	// Create card review service with all dependencies
+	// Create card review service with direct store dependencies
 	cardReviewService, err := card_review.NewCardReviewService(
-		cardRepoAdapter,
-		statsRepoAdapter,
+		deps.CardStore,
+		deps.UserCardStatsStore,
 		srsService,
 		deps.Logger,
 	)

@@ -31,6 +31,10 @@ type UserCardStatsRepository interface {
 	// Get retrieves user card statistics by the combination of user ID and card ID.
 	Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
 
+	// GetForUpdate retrieves user card statistics with a row-level lock using SELECT FOR UPDATE.
+	// This should be used within a transaction when you plan to update the row.
+	GetForUpdate(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
+
 	// Create saves a new user card statistics entry.
 	Create(ctx context.Context, stats *domain.UserCardStats) error
 
@@ -98,6 +102,14 @@ func (a *userCardStatsRepositoryAdapter) Get(
 	userID, cardID uuid.UUID,
 ) (*domain.UserCardStats, error) {
 	return a.statsStore.Get(ctx, userID, cardID)
+}
+
+// GetForUpdate implements UserCardStatsRepository.GetForUpdate
+func (a *userCardStatsRepositoryAdapter) GetForUpdate(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
+	return a.statsStore.GetForUpdate(ctx, userID, cardID)
 }
 
 // Create implements UserCardStatsRepository.Create

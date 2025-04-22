@@ -190,7 +190,7 @@
         - `idx_stats_user_next_review_at` on `user_card_stats(user_id, next_review_at)` for both filtering and sorting on user_card_stats
         - No new migration needed as indexes were already included in the initial table creation
 
-- [ ] **T082 · Chore · P2: implement concurrency protection for stats updates**
+- [x] **T082 · Chore · P2: implement concurrency protection for stats updates**
     - **Context:** PLAN.md > Risk Matrix > Concurrency issues in stats updates
     - **Action:**
         1. Review transaction isolation in `SubmitAnswer`
@@ -199,6 +199,9 @@
         1. Concurrency issues are analyzed and addressed
         2. Appropriate locking mechanism is implemented if needed
     - **Depends-on:** [T073]
+    - **Note:** Added `GetForUpdate` method with `SELECT FOR UPDATE` to the `UserCardStatsStore` interface
+      and its implementation. Updated the `SubmitAnswer` method to use this new method, providing
+      row-level locking to prevent concurrent modifications to the same stats record.
 
 ### Clarifications & Assumptions
 

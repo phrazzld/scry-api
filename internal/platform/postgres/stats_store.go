@@ -145,6 +145,10 @@ func (s *PostgresUserCardStatsStore) Create(ctx context.Context, stats *domain.U
 // Get implements store.UserCardStatsStore.Get
 // It retrieves user card statistics by the combination of user ID and card ID.
 // Returns store.ErrUserCardStatsNotFound if the statistics entry does not exist.
+//
+// IMPORTANT: This implementation does NOT use row locking. If you need to read
+// and then update a row within a transaction with concurrency protection, use
+// GetForUpdate instead.
 func (s *PostgresUserCardStatsStore) Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error) {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
@@ -323,6 +327,73 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()))
 	return nil
+}
+
+// GetForUpdate is similar to Get but uses a SELECT FOR UPDATE to acquire a row-level lock.
+// This should be used within a transaction when you plan to update the row
+// to prevent concurrent modifications.
+// Returns store.ErrUserCardStatsNotFound if the statistics entry does not exist.
+func (s *PostgresUserCardStatsStore) GetForUpdate(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
+	// Get the logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("retrieving user card stats with lock",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+
+	query := `
+		SELECT user_id, card_id, interval, ease_factor, consecutive_correct,
+			   last_reviewed_at, next_review_at, review_count, created_at, updated_at
+		FROM user_card_stats
+		WHERE user_id = $1 AND card_id = $2
+		FOR UPDATE
+	`
+
+	var stats domain.UserCardStats
+	var lastReviewedAt sql.NullTime // Using sql.NullTime since last_reviewed_at can be NULL
+
+	err := s.db.QueryRowContext(ctx, query, userID, cardID).Scan(
+		&stats.UserID,
+		&stats.CardID,
+		&stats.Interval,
+		&stats.EaseFactor,
+		&stats.ConsecutiveCorrect,
+		&lastReviewedAt,
+		&stats.NextReviewAt,
+		&stats.ReviewCount,
+		&stats.CreatedAt,
+		&stats.UpdatedAt,
+	)
+
+	if err != nil {
+		if IsNotFoundError(err) {
+			log.Debug("user card stats not found for update",
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+			return nil, store.ErrUserCardStatsNotFound
+		}
+		log.Error("failed to get user card stats with lock",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return nil, fmt.Errorf("failed to query user card stats with lock: %w", MapError(err))
+	}
+
+	// Handle the nullable LastReviewedAt field
+	if lastReviewedAt.Valid {
+		stats.LastReviewedAt = lastReviewedAt.Time
+	} else {
+		stats.LastReviewedAt = time.Time{} // Zero value for time.Time
+	}
+
+	log.Debug("user card stats retrieved with lock successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
+		slog.Time("next_review_at", stats.NextReviewAt))
+	return &stats, nil
 }
 
 // WithTx implements store.UserCardStatsStore.WithTx

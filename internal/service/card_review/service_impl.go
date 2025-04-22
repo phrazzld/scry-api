@@ -90,6 +90,12 @@ func (s *cardReviewServiceImpl) GetNextCard(
 
 // SubmitAnswer implements CardReviewService.SubmitAnswer.
 // It processes a user's answer to a flashcard and updates the review schedule.
+//
+// CONCURRENCY PROTECTION:
+// This method uses SELECT FOR UPDATE to acquire a row-level lock on the user's stats
+// for the given card. This prevents race conditions that could occur if multiple
+// requests try to update the same stats record simultaneously. The lock is acquired
+// within a transaction and is held until the transaction is committed or rolled back.
 func (s *cardReviewServiceImpl) SubmitAnswer(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -139,8 +145,8 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 				return ErrCardNotOwned
 			}
 
-			// Get the current stats
-			stats, err := statsRepo.Get(ctx, userID, cardID)
+			// Get the current stats with a row-level lock to prevent concurrent updates
+			stats, err := statsRepo.GetForUpdate(ctx, userID, cardID)
 			if err != nil {
 				if errors.Is(err, ErrCardStatsNotFound) {
 					log.Warn("stats not found for card",

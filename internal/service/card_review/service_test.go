@@ -63,6 +63,17 @@ func (m *MockUserCardStatsRepository) Get(
 	return args.Get(0).(*domain.UserCardStats), args.Error(1)
 }
 
+func (m *MockUserCardStatsRepository) GetForUpdate(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
+	args := m.Called(ctx, userID, cardID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.UserCardStats), args.Error(1)
+}
+
 func (m *MockUserCardStatsRepository) Create(ctx context.Context, stats *domain.UserCardStats) error {
 	args := m.Called(ctx, stats)
 	return args.Error(0)

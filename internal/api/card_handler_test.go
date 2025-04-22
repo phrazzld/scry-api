@@ -96,6 +96,21 @@ func TestGetNextReviewCard(t *testing.T) {
 			expectedStatus: http.StatusUnauthorized,
 			hasBody:        true, // Error response has a body
 		},
+		{
+			name:        "Service Returns Card But With Unmarshalable Content",
+			userIDInCtx: userID,
+			serviceResult: &domain.Card{
+				ID:        cardID,
+				UserID:    userID,
+				MemoID:    memoID,
+				Content:   []byte(`{"invalid json`), // Invalid JSON
+				CreatedAt: time.Now().UTC(),
+				UpdatedAt: time.Now().UTC(),
+			},
+			serviceError:   nil,
+			expectedStatus: http.StatusOK,
+			hasBody:        true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -159,16 +174,26 @@ func TestGetNextReviewCard(t *testing.T) {
 					t.Errorf("wrong memo ID in response: got %v want %v", response.MemoID, memoID.String())
 				}
 
-				// Validate content
-				content, ok := response.Content.(map[string]interface{})
-				if !ok {
-					t.Errorf("content was not of expected type: got %T", response.Content)
-				} else {
-					if content["front"] != "What is the capital of France?" {
-						t.Errorf("wrong front content: got %v", content["front"])
+				// Validate content for valid JSON case
+				if tc.name == "Success" {
+					content, ok := response.Content.(map[string]interface{})
+					if !ok {
+						t.Errorf("content was not of expected type: got %T", response.Content)
+					} else {
+						if content["front"] != "What is the capital of France?" {
+							t.Errorf("wrong front content: got %v", content["front"])
+						}
+						if content["back"] != "Paris" {
+							t.Errorf("wrong back content: got %v", content["back"])
+						}
 					}
-					if content["back"] != "Paris" {
-						t.Errorf("wrong back content: got %v", content["back"])
+				}
+
+				// Check that unmarshalable content is handled gracefully
+				if tc.name == "Service Returns Card But With Unmarshalable Content" {
+					_, ok := response.Content.(string)
+					if !ok {
+						t.Errorf("expected string content for invalid JSON, got %T", response.Content)
 					}
 				}
 			}
@@ -297,6 +322,26 @@ func TestSubmitAnswer(t *testing.T) {
 			expectedStatus:  http.StatusBadRequest,
 			expectedErrCode: "Validation error",
 		},
+		{
+			name:            "Missing Card ID in Path",
+			userIDInCtx:     userID,
+			cardIDInPath:    "", // Empty card ID
+			requestBody:     map[string]string{"outcome": "good"},
+			serviceResult:   nil,
+			serviceError:    nil,
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "Card ID is required",
+		},
+		{
+			name:            "Invalid JSON in Request Body",
+			userIDInCtx:     userID,
+			cardIDInPath:    cardID.String(),
+			requestBody:     nil, // Will send invalid JSON
+			serviceResult:   nil,
+			serviceError:    nil,
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "Invalid request format",
+		},
 	}
 
 	for _, tc := range tests {
@@ -305,7 +350,9 @@ func TestSubmitAnswer(t *testing.T) {
 			mockService := &mockCardReviewService{
 				submitAnswerFn: func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error) {
 					// Only check these in the success case
-					if tc.serviceError == nil {
+					if tc.serviceError == nil && tc.userIDInCtx != uuid.Nil && tc.cardIDInPath != "" &&
+						tc.cardIDInPath != "not-a-uuid" &&
+						tc.requestBody != nil {
 						if userID != tc.userIDInCtx {
 							t.Errorf("wrong user ID passed to service: got %v want %v", userID, tc.userIDInCtx)
 						}
@@ -329,8 +376,18 @@ func TestSubmitAnswer(t *testing.T) {
 			handler := NewCardHandler(mockService, nil)
 
 			// Create request body
-			jsonBody, _ := json.Marshal(tc.requestBody)
-			req, err := http.NewRequest("POST", "/cards/"+tc.cardIDInPath+"/answer", bytes.NewBuffer(jsonBody))
+			var jsonBody []byte
+			var req *http.Request
+			var err error
+
+			if tc.requestBody != nil {
+				jsonBody, _ = json.Marshal(tc.requestBody)
+				req, err = http.NewRequest("POST", "/cards/"+tc.cardIDInPath+"/answer", bytes.NewBuffer(jsonBody))
+			} else {
+				// Send invalid JSON
+				req, err = http.NewRequest("POST", "/cards/"+tc.cardIDInPath+"/answer", bytes.NewBuffer([]byte(`{"outcome": invalid-json`)))
+			}
+
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -344,7 +401,9 @@ func TestSubmitAnswer(t *testing.T) {
 
 			// Create a chi context with URL parameters
 			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("id", tc.cardIDInPath)
+			if tc.cardIDInPath != "" {
+				rctx.URLParams.Add("id", tc.cardIDInPath)
+			}
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 			// Create a response recorder
@@ -404,5 +463,25 @@ func TestSubmitAnswer(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNewCardHandler(t *testing.T) {
+	// Test with nil logger
+	mockService := &mockCardReviewService{}
+	handler := NewCardHandler(mockService, nil)
+
+	if handler == nil {
+		t.Fatal("expected handler to be created with nil logger")
+	}
+
+	if handler.cardReviewService == nil {
+		t.Error("expected cardReviewService to be set")
+	}
+	if handler.validator == nil {
+		t.Error("expected validator to be initialized")
+	}
+	if handler.logger == nil {
+		t.Error("expected default logger to be set")
 	}
 }

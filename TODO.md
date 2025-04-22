@@ -120,7 +120,7 @@
         3. Ownership verification is tested
     - **Depends-on:** [T072, T073]
 
-- [ ] **T079 · Test · P2: add unit tests for card review API handlers**
+- [x] **T079 · Test · P2: add unit tests for card review API handlers**
     - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
         1. Create unit tests for both handler methods with mocked service

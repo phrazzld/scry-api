@@ -109,7 +109,7 @@
         2. Edge cases and error handling are tested
     - **Depends-on:** [T070]
 
-- [ ] **T078 · Test · P2: add unit tests for CardReviewService methods**
+- [x] **T078 · Test · P2: add unit tests for CardReviewService methods**
     - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
         1. Create unit tests for `GetNextCard` and `SubmitAnswer` with mocked dependencies

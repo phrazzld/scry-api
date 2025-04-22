@@ -61,9 +61,9 @@
 - Depends On: T007
 
 ### T009: Extend UserCardStatsStore Interface
-- [  ] Add `GetForUpdate` method to `store.UserCardStatsStore` interface
-- [  ] Implement method in postgres store with proper locking
-- [  ] Update unit tests for the new method
+- [x] Add `GetForUpdate` method to `store.UserCardStatsStore` interface
+- [x] Implement method in postgres store with proper locking
+- [x] Update unit tests for the new method
 - Effort: Small
 - Depends On: None
 

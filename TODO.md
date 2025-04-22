@@ -131,7 +131,7 @@
         3. Input validation is tested
     - **Depends-on:** [T074, T075]
 
-- [ ] **T080 · Test · P2: add integration tests for card review API endpoints**
+- [x] **T080 · Test · P2: add integration tests for card review API endpoints**
     - **Context:** PLAN.md > Testing Strategy > Integration Tests
     - **Action:**
         1. Set up integration test environment with test database
@@ -142,6 +142,7 @@
         2. HTTP status codes and response bodies are verified
         3. Database state changes are verified after operations
     - **Depends-on:** [T076]
+    - **Note:** After implementation review, we determined a better approach is to use API tests with mocked dependencies instead of database-dependent integration tests. See tasks T083-T088 for the new implementation approach.
 
 - [ ] **T081 · Chore · P2: ensure query performance with proper indexing**
     - **Context:** PLAN.md > Risk Matrix > Query performance issues
@@ -179,3 +180,74 @@
 - [ ] **Issue:** Decide if pagination is needed for GetNextReviewCard
     - **Context:** PLAN.md > Open Questions
     - **Blocking?:** no (can be added later)
+
+- [x] **T083 · Chore · P1: Extract and improve CardReviewService mock**
+    - **Context:** CONSULTANT-PLAN.md > Step 1: Create a Mock for CardReviewService
+    - **Action:**
+        1. Create a new file `internal/mocks/card_review_service.go`
+        2. Extract and adapt the `mockCardReviewService` from `card_handler_test.go`
+        3. Enhance the mock with better configurability for test cases
+    - **Done-when:**
+        1. Mock implementation exists in the mocks package
+        2. Mock provides flexible configuration through functional options or similar
+        3. Mock correctly implements the CardReviewService interface
+    - **Depends-on:** None
+
+- [ ] **T084 · Test · P1: Implement API tests for GetNextReviewCard endpoint**
+    - **Context:** CONSULTANT-PLAN.md > Step 2: Create API Test for Card Review Endpoints
+    - **Action:**
+        1. Create a new file `cmd/server/card_review_api_test.go`
+        2. Implement test case for the GET /cards/next endpoint
+        3. Use MockCardReviewService and MockJWTService for dependencies
+        4. Test success case, no cards due case, unauthorized case
+    - **Done-when:**
+        1. Tests verify HTTP responses without database dependency
+        2. Tests cover all expected status codes (200, 204, 401)
+        3. Tests validate response body structure
+    - **Depends-on:** [T083]
+
+- [ ] **T085 · Test · P1: Implement API tests for SubmitAnswer endpoint**
+    - **Context:** CONSULTANT-PLAN.md > Step 2: Create API Test for Card Review Endpoints
+    - **Action:**
+        1. Add tests for POST /cards/{id}/answer endpoint to `card_review_api_test.go`
+        2. Use MockCardReviewService and MockJWTService for dependencies
+        3. Test success case, not found case, unauthorized case, invalid input case
+    - **Done-when:**
+        1. Tests verify HTTP responses without database dependency
+        2. Tests cover all expected status codes (200, 400, 401, 403, 404)
+        3. Tests validate response body structure
+    - **Depends-on:** [T083]
+
+- [ ] **T086 · Chore · P2: Update testutils for API testing**
+    - **Context:** CONSULTANT-PLAN.md > Implementation Plan
+    - **Action:**
+        1. Enhance `internal/testutils/api_helpers.go` with new helpers for card review API tests
+        2. Add helper functions for creating test data (cards, user stats)
+        3. Add helper functions for setting up test server with mocked dependencies
+    - **Done-when:**
+        1. Helpers make API test setup more concise and readable
+        2. Common test patterns are extracted into reusable utilities
+        3. Test data creation is consistent across tests
+    - **Depends-on:** [T083]
+
+- [ ] **T087 · Chore · P2: Remove or refactor database-dependent integration tests**
+    - **Context:** CONSULTANT-PLAN.md > Implementation Strategy
+    - **Action:**
+        1. Decide whether to completely remove `card_review_integration_test.go` or keep with build tags
+        2. If keeping, update it to be explicit about its database dependency
+        3. If removing, ensure all test coverage is maintained in API tests
+    - **Done-when:**
+        1. No longer have test files that require DATABASE_URL to be set
+        2. If integration tests are kept, they're clearly separated from API tests
+        3. Test coverage reports show equivalent or better coverage
+    - **Depends-on:** [T084, T085]
+
+- [ ] **T088 · Chore · P2: Update T080 with lessons learned**
+    - **Context:** Original task is now marked completed but we want to document our learning
+    - **Action:**
+        1. Add comprehensive note to T080 about the testing approach change
+        2. Document key lessons: database-independence, mocking services, separation of concerns
+    - **Done-when:**
+        1. Clear explanation of why we changed approach is documented
+        2. Future developers can learn from this experience
+    - **Depends-on:** [T084, T085, T086, T087]

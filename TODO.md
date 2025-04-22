@@ -10,9 +10,9 @@
 - Depends On: None
 
 ### T002: Fix Main.go Generator Initialization
-- [  ] Update `cmd/server/main.go` to use factory function instead of direct mock import
-- [  ] Add error handling for generator creation failures
-- [  ] Remove direct use of `mocks.NewMockGeneratorWithDefaultCards`
+- [x] Update `cmd/server/main.go` to use factory function instead of direct mock import
+- [x] Add error handling for generator creation failures
+- [x] Remove direct use of `mocks.NewMockGeneratorWithDefaultCards`
 - Effort: Small
 - Depends On: T001
 

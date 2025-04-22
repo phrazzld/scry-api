@@ -362,10 +362,10 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 	return &card, nil
 }
 
-// WithTxCardStore implements store.CardStore.WithTxCardStore
+// WithTx implements store.CardStore.WithTx
 // It returns a new CardStore instance that uses the provided transaction.
 // This allows for multiple operations to be executed within a single transaction.
-func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
+func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
 	return &PostgresCardStore{
 		db:     tx,
 		logger: s.logger,
@@ -373,16 +373,10 @@ func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
 	}
 }
 
-// The following methods allow PostgresCardStore to be used with the task.CardRepository interface
-
-// WithTx returns a new CardStore instance that uses the provided transaction.
-// This is part of the task.CardRepository interface.
-func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
-	return &PostgresCardStore{
-		db:     tx,
-		logger: s.logger,
-		sqlDB:  s.sqlDB, // Preserve the original DB connection
-	}
+// WithTxCardStore is deprecated. Use WithTx instead.
+// This method is maintained for backward compatibility.
+func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
+	return s.WithTx(tx)
 }
 
 // DB returns the underlying database connection.

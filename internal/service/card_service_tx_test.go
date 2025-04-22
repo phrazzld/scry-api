@@ -44,7 +44,7 @@ func (m *MockFailingCardRepository) GetByID(ctx context.Context, id uuid.UUID) (
 
 func (m *MockFailingCardRepository) WithTx(tx *sql.Tx) service.CardRepository {
 	return &MockFailingCardRepository{
-		CardStore:         m.CardStore.WithTxCardStore(tx),
+		CardStore:         m.CardStore.WithTx(tx),
 		FailOnCreateCards: m.FailOnCreateCards,
 		dbConn:            m.dbConn,
 	}

@@ -54,9 +54,14 @@ func (m *MockCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID)
 	return args.Get(0).(*domain.Card), args.Error(1)
 }
 
-func (m *MockCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
+func (m *MockCardStore) WithTx(tx *sql.Tx) store.CardStore {
 	args := m.Called(tx)
 	return args.Get(0).(store.CardStore)
+}
+
+// WithTxCardStore is deprecated. Use WithTx instead.
+func (m *MockCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
+	return m.WithTx(tx)
 }
 
 func (m *MockCardStore) DB() *sql.DB {

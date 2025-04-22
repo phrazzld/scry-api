@@ -127,7 +127,7 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 	// Use the standard store.RunInTransaction helper for consistent transaction handling
 	err := store.RunInTransaction(ctx, s.cardStore.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		// Get transactional stores
-		txCardStore := s.cardStore.WithTxCardStore(tx)
+		txCardStore := s.cardStore.WithTx(tx)
 		txStatsStore := s.statsStore.WithTx(tx)
 
 		// First, verify that the card exists

@@ -80,7 +80,7 @@ type CardStore interface {
 	// should be optimized for performance, as it may be called frequently during review sessions.
 	GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
 
-	// WithTxCardStore returns a new CardStore instance that uses the provided transaction.
+	// WithTx returns a new CardStore instance that uses the provided transaction.
 	// This allows for multiple operations to be executed within a single transaction.
 	// The transaction should be created and managed by the caller (typically a service).
 	//
@@ -90,10 +90,10 @@ type CardStore interface {
 	//
 	// Example usage:
 	//   err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-	//       txCardStore := cardStore.WithTxCardStore(tx)
+	//       txCardStore := cardStore.WithTx(tx)
 	//       return txCardStore.CreateMultiple(ctx, cards)
 	//   })
-	WithTxCardStore(tx *sql.Tx) CardStore
+	WithTx(tx *sql.Tx) CardStore
 
 	// DB returns the underlying database connection.
 	// This is used for transaction management with store.RunInTransaction.

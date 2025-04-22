@@ -36,6 +36,18 @@ func NewGenerator(ctx context.Context, logger *slog.Logger, config config.LLMCon
 	// Log the initialization attempt
 	logger.InfoContext(ctx, "Initializing Gemini generator")
 
+	// Validate configuration (performed differently based on build tags)
+	// General configuration validation that applies to all environments
+	if config.PromptTemplatePath == "" {
+		return nil, fmt.Errorf("%w: prompt template path cannot be empty", generation.ErrInvalidConfig)
+	}
+
+	// Additional validation for production environments
+	// In test environments with test_without_external_deps tag, these validations are less strict
+	if err := validateConfig(ctx, logger, config); err != nil {
+		return nil, err
+	}
+
 	// Call the version-specific implementation
 	generator, err := NewGeminiGenerator(ctx, logger, config)
 	if err != nil {

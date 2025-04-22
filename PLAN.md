@@ -1,217 +1,152 @@
-# Plan: Card Review API Implementation
+# Remediation Plan – Sprint 25
 
-## Chosen Approach (One‑liner)
-Implement dedicated CardReviewService to orchestrate SRS logic and data operations with clear separation of concerns, explicit transaction handling, and comprehensive error mapping.
+## Executive Summary
+This plan addresses critical issues identified in the Card Review API code review, focusing on production stability, developer experience, and maintainability. Starting with the critical mock LLM usage in production code, we'll then improve error handling, consolidate repository abstractions, and refactor tests. The changes are ordered to maximize stability gains while minimizing regression risks, targeting both immediate safety concerns and long-term maintainability.
 
-## Architecture Blueprint
-- **Modules / Packages**
-  - `internal/domain`: Core entities and SRS domain logic (existing)
-  - `internal/store`: Store interfaces - `CardStore`, `UserCardStatsStore` (require additions)
-  - `internal/platform/postgres`: PostgreSQL implementations (require additions)
-  - `internal/service`: Add `CardReviewService` for orchestration
-  - `internal/api`: HTTP handlers for review endpoints
-  - `cmd/server`: Main application setup and dependency injection
+## Strike List
+| Seq | CR-ID | Title | Effort | Owner |
+|-----|-------|-------|--------|-------|
+| 1 | cr-01 | Remove Mock LLM from Main Application Path | s | backend |
+| 2 | cr-02 | Replace Panics with Error Returns | xs | backend |
+| 3 | cr-07 | Consolidate Repository Interfaces/Adapters | m | backend |
+| 4 | cr-08 | Use Centralized Mock in Card Handler Tests | xs | backend |
+| 5 | cr-03,04,05,06 | Refactor Card Review API Tests | m | backend |
+| 6 | cr-09 | Add Deterministic DB Ordering | xs | backend |
+| 7 | cr-18 | Consolidate Duplicate Test Helper | xs | backend |
+| 8 | cr-14, cr-15 | Improve API Error Response Security | s | backend |
+| 9 | cr-17 | Move Adapter Creation | s | backend |
+| 10 | cr-10, cr-11, cr-12 | Harden Pre-commit Hook Environment | s | backend |
+| 11 | cr-16 | Remove Unused Import Workaround | xs | backend |
 
-- **Public Interfaces / Contracts**
-  - `store.CardStore` interface update:
-    ```go
-    type CardStore interface {
-        // ... existing methods ...
-        GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
-        WithTxCardStore(tx *sql.Tx) CardStore // Ensure consistent tx pattern
-    }
-    ```
-  - `store.UserCardStatsStore` (existing methods):
-    ```go
-    type UserCardStatsStore interface {
-        // ... existing methods ...
-        Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
-        Update(ctx context.Context, stats *domain.UserCardStats) error
-        WithTx(tx *sql.Tx) UserCardStatsStore // For transactional use
-    }
-    ```
-  - New `service.CardReviewService`:
-    ```go
-    type CardReviewService interface {
-        // GetNextCard retrieves the next card due for review
-        // Returns store.ErrNotFound if no cards are due
-        GetNextCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
+## Detailed Remedies
 
-        // SubmitAnswer processes a user's answer and updates the SRS stats
-        // Returns errors for not found, validation failures, or DB issues
-        SubmitAnswer(ctx context.Context, userID uuid.UUID, cardID uuid.UUID,
-                    outcome domain.ReviewOutcome) (*domain.UserCardStats, error)
-    }
-    ```
-  - API Request/Response types:
-    ```go
-    // SubmitAnswerRequest defines the payload for submitting a card answer
-    type SubmitAnswerRequest struct {
-        Outcome string `json:"outcome" validate:"required,oneof=again hard good easy"`
-    }
+### cr-01 Remove Mock LLM from Main Application Path
+- **Problem:** The application uses mock LLM generator in the main application path, risking deployment with non-functional AI.
+- **Impact:** Critical production failure if deployed; core flashcard generation functionality would use test data instead of actual AI-generated content.
+- **Chosen Fix:** Use build tags to conditionally compile generator initialization based on the build environment.
+- **Steps:**
+  1. Create `internal/platform/gemini/generator_prod.go` (no build tag) containing `createGenerator` that returns the real implementation.
+  2. Create `internal/platform/gemini/generator_test.go` (with `//go:build test_without_external_deps`) containing a test implementation.
+  3. Update `cmd/server/main.go` to call `gemini.createGenerator()` instead of directly initializing a mock.
+  4. Ensure CI/CD pipeline doesn't include the test build tag for production builds.
+- **Done-When:** Production build uses real LLM; test build uses mock; no direct mock initialization in main.
 
-    // Card/stats responses can use domain types directly initially
-    // More tailored DTOs can be added later if needed
-    ```
+### cr-02 Replace Panics with Error Returns
+- **Problem:** Several constructors panic when provided with nil dependencies instead of returning errors.
+- **Impact:** Application crashes during startup with minimal diagnostics if dependencies are misconfigured.
+- **Chosen Fix:** Modify constructors to return errors instead of panicking, allowing for graceful handling.
+- **Steps:**
+  1. Update `NewCardReviewService` and `NewCardHandler` signatures to return `(..., error)`.
+  2. Replace panic calls with `return nil, fmt.Errorf("dependency %s cannot be nil", "depName")`.
+  3. Update all callers to handle potential errors.
+  4. Add error handling in application setup to log detailed diagnostic information.
+- **Done-When:** Application handles initialization errors gracefully with clear error messages.
 
-- **Data Flow Diagram**
-  ```
-  GET /cards/next:
-  Client → API Handler → CardReviewService → CardStore → Database
-                                          ↑
-                                          └ Returns card or ErrNotFound
+### cr-07 Consolidate Repository Interfaces/Adapters
+- **Problem:** Multiple repository interfaces and adapters create confusion and unnecessary abstraction layers.
+- **Impact:** Increased complexity, overlapping responsibilities, unclear architectural boundaries.
+- **Chosen Fix:** Consolidate repository interfaces by adding key methods to existing store interfaces.
+- **Steps:**
+  1. Add `GetForUpdate` method to `store.UserCardStatsStore` interface.
+  2. Ensure Postgres implementation properly implements the new method.
+  3. Remove separate repository adapters in the card_review package.
+  4. Update `CardReviewService` to use the store interfaces directly.
+  5. Update main.go to remove adapter creation and inject store implementations directly.
+- **Done-When:** No separate repository interfaces exist; services use store interfaces directly.
 
-  POST /cards/{id}/answer:
-  Client → API Handler → CardReviewService → Begin Transaction
-                                          ↓
-                             Get stats/card → SRS calculation → Update stats
-                                          ↑
-                                          └ Commit/Rollback → Return result
-  ```
+### cr-08 Use Centralized Mock in Card Handler Tests
+- **Problem:** Tests define local mock implementations instead of using the centralized mocks.
+- **Impact:** Duplication of mock logic, inconsistent test behavior, maintenance burden.
+- **Chosen Fix:** Replace local mocks with centralized mocks from the mocks package.
+- **Steps:**
+  1. Remove the local `mockCardReviewService` from `api/card_handler_test.go`.
+  2. Import and use `mocks.MockCardReviewService` with functional options.
+  3. Update assertions to use the standard mock's tracking capabilities.
+- **Done-When:** All tests use centralized mocks consistently.
 
-- **Error & Edge‑Case Strategy**
-  - `GetNextReviewCard`:
-    - No cards due: Return `store.ErrCardNotFound` → HTTP 204 No Content
-    - DB error: Return mapped error → HTTP 500 Internal Server Error
-  - `SubmitAnswer`:
-    - Invalid cardID format or invalid outcome: HTTP 400 Bad Request
-    - Card/stats not found or mismatch: HTTP 404 Not Found
-    - SRS calculation error: HTTP 500 Internal Server Error
-    - DB update error: HTTP 500 Internal Server Error
-  - Use standardized error types from `store` package
-  - Always wrap errors with contextual information using `fmt.Errorf("%w", err)`
+### cr-03,04,05,06 Refactor Card Review API Tests
+- **Problem:** API tests are verbose with duplicate setup, manual validation, and complex assertions.
+- **Impact:** Tests are difficult to maintain, understand, and extend.
+- **Chosen Fix:** Leverage testutils helpers to simplify test code and improve maintainability.
+- **Steps:**
+  1. Replace manual server/router setup with `testutils.SetupCardReviewTestServer`.
+  2. Replace manual HTTP request execution with helper methods like `ExecuteGetNextCardRequest`.
+  3. Replace manual response validation with `AssertCardResponse` and similar helpers.
+  4. Simplify service call count assertions.
+- **Done-When:** Tests are significantly more concise, use consistent patterns, and remain comprehensive.
 
-## Detailed Build Steps
-1. Define `GetNextReviewCard` method in `store.CardStore` interface (internal/store/card.go)
-   - Add method signature to interface
-   - Add detailed documentation about expected behavior
+### cr-09 Add Deterministic DB Ordering
+- **Problem:** The GetNextReviewCard SQL query relies on implicit ordering when timestamps match.
+- **Impact:** Non-deterministic behavior in tests and production when cards have identical due times.
+- **Chosen Fix:** Add a secondary sort key to ensure consistent ordering.
+- **Steps:**
+  1. Modify the ORDER BY clause to `ORDER BY ucs.next_review_at ASC, c.id ASC`.
+  2. Add a comment explaining the reason for the secondary sort key.
+  3. Create or update tests to verify deterministic ordering.
+- **Done-When:** Query includes secondary sort key; tests confirm deterministic ordering.
 
-2. Implement `GetNextReviewCard` in `PostgresCardStore` (internal/platform/postgres/card_store.go)
-   - Write SQL query to join cards with user_card_stats and filter by next_review_at
-   - Map sql.ErrNoRows to store.ErrCardNotFound
-   - Add proper logging and error mapping for database errors
+### cr-18 Consolidate Duplicate Test Helper
+- **Problem:** The `createCardWithStats` helper function is duplicated across test files.
+- **Impact:** Violates DRY principle, potential for inconsistencies if logic needs updates.
+- **Chosen Fix:** Move the helper to the testutils package.
+- **Steps:**
+  1. Create `CreateTestCardWithStats` in `internal/testutils/domain_helpers.go`.
+  2. Remove duplicate implementations.
+  3. Update test files to use the centralized helper.
+- **Done-When:** No duplicate helper implementations exist; tests use the centralized helper.
 
-3. Create `CardReviewService` interface in `internal/service/card_review_service.go`
-   - Define methods as outlined in architecture blueprint
-   - Add comprehensive documentation about behavior and error cases
+### cr-14, cr-15 Improve API Error Response Security
+- **Problem:** API handlers expose raw internal data and validation errors in responses.
+- **Impact:** Information leakage useful to attackers; poor user experience.
+- **Chosen Fix:** Return standardized, user-friendly error messages instead of raw errors.
+- **Steps:**
+  1. Update `cardToResponse` to handle unmarshal errors safely (return nil or generic error structure).
+  2. Modify validation error handling to return user-friendly messages without internal details.
+  3. Update tests to verify the improved error responses.
+- **Done-When:** API responses contain user-friendly errors without exposing internal details.
 
-4. Implement `cardReviewServiceImpl` in `internal/service/card_review_service.go`
-   - Create struct with dependencies: CardStore, UserCardStatsStore, SRS Service, Logger
-   - Implement `GetNextCard` method
-   - Implement `SubmitAnswer` method with transaction handling via store.RunInTransaction
-   - Add proper error handling, logging, and correlation ID propagation
+### cr-17 Move Adapter Creation
+- **Problem:** Repository adapters are created within router setup rather than during application initialization.
+- **Impact:** Obscures dependency graph, violates dependency injection principles.
+- **Chosen Fix:** Move adapter creation to application initialization (or remove adapters entirely if cr-07 is implemented).
+- **Steps:**
+  1. If adapters are still needed after cr-07, move their creation to startServer.
+  2. Update setupRouter to accept fully constructed dependencies.
+- **Done-When:** Clear dependency graph with adapters created during application initialization.
 
-5. Create `CardHandler` in `internal/api/card_handler.go`
-   - Implement `GetNextReviewCard` handler for GET /cards/next endpoint
-   - Implement `SubmitAnswer` handler for POST /cards/{id}/answer endpoint
-   - Add input validation for request body and URL parameters
-   - Implement proper error mapping to HTTP status codes
+### cr-10, cr-11, cr-12 Harden Pre-commit Hook Environment
+- **Problem:** Pre-commit hooks rely on user shell profiles and use hardcoded paths.
+- **Impact:** Brittle development environment setup, inconsistent behavior across systems.
+- **Chosen Fix:** Make hook scripts more self-contained and portable.
+- **Steps:**
+  1. Remove shell profile sourcing from run_glance.sh.
+  2. Use mktemp for temporary files instead of hardcoded paths.
+  3. Define minimal PATH setup within the script.
+  4. Test the hook in different environments.
+- **Done-When:** Hooks run consistently across different environments without user-specific configuration.
 
-6. Update dependency injection in `cmd/server/main.go`
-   - Instantiate CardReviewService
-   - Instantiate CardHandler
-   - Register routes in router
+### cr-16 Remove Unused Import Workaround
+- **Problem:** A variable is defined solely to suppress an "imported and not used" error.
+- **Impact:** Code clarity issue, obscures the actual reason for the import.
+- **Chosen Fix:** Remove the unnecessary workaround.
+- **Steps:**
+  1. Remove `sqlRef := sql.IsolationLevel(0)` and related code.
+  2. Verify code compiles correctly.
+- **Done-When:** Workaround is removed; code compiles without warnings.
 
-7. Write unit tests for new components
-   - Test `PostgresCardStore.GetNextReviewCard` with different scenarios
-   - Test `CardReviewService` methods with mocked dependencies
-   - Test `CardHandler` with mocked service and http test utilities
+## Standards Alignment
+- **Simplicity First:** Consolidating repository interfaces (cr-07) and removing unnecessary code (cr-16) directly improve simplicity. Refactoring tests (cr-03-06) makes them easier to understand and maintain.
+- **Modularity:** Fixing mock LLM usage (cr-01) enforces architectural boundaries. Moving adapter creation (cr-17) improves dependency injection clarity.
+- **Design for Testability:** Comprehensive test improvements (cr-03-06, cr-08, cr-18) enable easier testing and maintenance. Using build tags for LLM initialization (cr-01) allows proper testing without affecting production.
+- **Error Handling:** Replacing panics with errors (cr-02) and improving API error responses (cr-14, cr-15) align with best practices for robust error handling.
+- **Security:** Fixing mock LLM usage (cr-01) prevents potential production issues. Improving API error responses (cr-14, cr-15) reduces information leakage.
 
-8. Write integration tests for API endpoints
-   - Test full flow for GET /cards/next with various scenarios
-   - Test full flow for POST /cards/{id}/answer with various scenarios
-   - Verify database state changes after successful operations
-
-## Testing Strategy
-- **Unit Tests:**
-  - `PostgresCardStore.GetNextReviewCard`: Test SQL query logic
-  - `CardReviewService`: Test orchestration logic and error handling
-    - Mock `CardStore`, `UserCardStatsStore`, `srs.Service`
-    - Test various scenarios including happy path and error cases
-  - `CardHandler`: Test handler logic, input validation, and response formatting
-    - Mock `CardReviewService`
-    - Test HTTP status code mapping for different error types
-
-- **Integration Tests:**
-  - `PostgresCardStore.GetNextReviewCard`: Test with real database
-    - Use transaction isolation via testutils.WithTx
-    - Set up test data with various next_review_at values
-  - API endpoints: Test end-to-end with HTTP requests
-    - Test error cases and edge conditions
-    - Verify database state changes after successful operations
-
-- **What to mock:**
-  - In unit tests: Mock dependencies at the same layer or external layers
-  - In integration tests: Use real implementations with test database
-
-- **Coverage targets:**
-  - Core logic (service layer): 90%+ coverage
-  - Edge cases and error handling: 80%+ coverage
-  - Focus on the review flow to ensure it works correctly
-
-## Logging & Observability
-- **Log events:**
-  - CardStore:
-    - Start/end of `GetNextReviewCard` with userID
-    - Card found or not found status
-    - Database errors with context
-  - CardReviewService:
-    - Start/end of service method calls
-    - Transaction boundaries (start, commit, rollback)
-    - Error conditions with context
-  - CardHandler:
-    - Request details (method, path, userID)
-    - Response status and errors
-
-- **Structured fields per action:**
-  - Common: correlation_id, request_id, user_id
-  - Card-specific: card_id, memo_id
-  - Stats-specific: interval, ease_factor, next_review_at, review_count
-  - Errors: error message, error type
-
-- **Correlation ID propagation:**
-  - Use existing pattern of context.Context to propagate correlation ID
-  - Include correlation ID in all log entries
-  - Pass context through all layers of call stack
-
-## Security & Config
-- **Input validation hotspots:**
-  - `cardID` in URL path (validate UUID format)
-  - `outcome` in request body (validate allowed values)
-  - Use validator tags for request struct validation
-
-- **Ownership check:**
-  - Verify that requested card/stats belong to authenticated user
-  - Return 404 Not Found (not 403 Forbidden) for non-owned resources to avoid leaking existence
-
-- **Authorization:**
-  - Use existing auth middleware to ensure authenticated requests
-
-## Documentation
-- **Code self-doc patterns:**
-  - Add comprehensive godoc comments for all new interfaces, structs, and methods
-  - Document error cases and return values
-  - Document transaction handling and resource ownership checks
-
-- **Interface documentation:**
-  - Clearly document contract between layers
-  - Document error types that can be returned
-
-- **Testing documentation:**
-  - Document test setup and verification approach
-  - Document test data requirements
-
-## Risk Matrix
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Incorrect SRS calculation | High | Leverage existing, tested SRS service; Add focused tests |
-| Next review card query incorrect | Medium | Write comprehensive tests with various test data scenarios |
-| Query performance issues | Medium | Ensure proper indexing on user_card_stats (user_id, next_review_at); Test with larger datasets |
-| Concurrency issues in stats updates | Medium | Use proper transaction isolation; Include FOR UPDATE locking if needed |
-| Error mapping inconsistencies | Low | Standardize error types and handling across layers |
-| Security: User accesses other user's cards | Low | Implement strict ownership validation in service layer |
-
-## Open Questions
-- Should we implement pagination for the `GetNextReviewCard` endpoint to return multiple cards at once? Single card is simpler for now, can be extended later.
-- Should we store the review history or just update the stats? Just updating stats is sufficient for initial implementation.
+## Validation Checklist
+- [ ] All automated tests pass (`go test ./...` and with test tags).
+- [ ] Static analysis passes (`golangci-lint run`) with no new issues.
+- [ ] Build succeeds without test tags and uses real LLM integration.
+- [ ] Build with test tags uses mock LLM integration.
+- [ ] API endpoints return user-friendly errors for validation failures.
+- [ ] Pre-commit hooks run successfully in a clean environment.
+- [ ] No panics during application startup with invalid configuration.
+- [ ] SQL query ordering is deterministic for cards with identical due dates.

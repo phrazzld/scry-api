@@ -11,9 +11,39 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/generation"
 )
+
+// NewGenerator creates the appropriate GeminiGenerator implementation based on build tags.
+// This factory function allows the application to use the real implementation in production
+// and the mock implementation in test environments with the test_without_external_deps build tag.
+//
+// Parameters:
+//   - ctx: Context for initialization, which may include timeouts or cancellation
+//   - logger: A logger for recording operations
+//   - config: Configuration information including API keys and settings
+//
+// Returns:
+//   - A generation.Generator implementation
+//   - An error if initialization fails
+func NewGenerator(ctx context.Context, logger *slog.Logger, config config.LLMConfig) (generation.Generator, error) {
+	if logger == nil {
+		return nil, fmt.Errorf("logger cannot be nil")
+	}
+
+	// Log the initialization attempt
+	logger.InfoContext(ctx, "Initializing Gemini generator")
+
+	// Call the version-specific implementation
+	generator, err := NewGeminiGenerator(ctx, logger, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return generator, nil
+}
 
 // createPromptFromTemplate generates a prompt string from the template with the provided memo text.
 //

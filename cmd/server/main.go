@@ -22,7 +22,10 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/events"
-	"github.com/phrazzld/scry-api/internal/mocks"
+
+	// Needed for some tests
+	_ "github.com/phrazzld/scry-api/internal/mocks"
+	"github.com/phrazzld/scry-api/internal/platform/gemini"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
@@ -362,8 +365,13 @@ func startServer(cfg *config.Config) {
 	userCardStatsStore := postgres.NewPostgresUserCardStatsStore(db, logger)
 	passwordVerifier := auth.NewBcryptVerifier()
 
-	// Create a mock generator service for card generation
-	mockGenerator := mocks.NewMockGeneratorWithDefaultCards(uuid.Nil, uuid.Nil)
+	// Create the appropriate generator service for card generation based on build tags
+	generator, err := gemini.NewGenerator(context.Background(), logger.With("component", "llm_generator"), cfg.LLM)
+	if err != nil {
+		logger.Error("Failed to initialize LLM generator", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("LLM generator initialized successfully")
 
 	// Step 4: Populate the application dependencies struct
 	deps := &appDependencies{
@@ -377,7 +385,7 @@ func startServer(cfg *config.Config) {
 		UserCardStatsStore: userCardStatsStore,
 		// MemoRepository removed - using MemoStore with adapter instead
 		CardRepository:   cardStore, // Now using the real CardStore implementation
-		Generator:        mockGenerator,
+		Generator:        generator,
 		JWTService:       jwtService,
 		PasswordVerifier: passwordVerifier,
 	}

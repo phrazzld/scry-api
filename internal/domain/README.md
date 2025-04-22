@@ -74,3 +74,169 @@ The domain models encapsulate the following core business logic:
 4. **Card content management**: The Card model provides flexible storage for card content while maintaining references to the source memo.
 
 Each model includes validation logic to ensure data integrity, and methods to support the required business operations (e.g., updating review statistics, changing memo status, etc.).
+
+## Repository Pattern Standards
+
+This section documents the standardized approach to implementing the repository pattern in the Scry API application.
+
+### Core Principles
+
+1. **Single Point of Data Access**: Repositories serve as the single point of access to data storage for domain entities
+2. **Domain-Driven Design**: Repository interfaces are designed around domain concepts, not storage implementation details
+3. **Clear Separation of Concerns**: Storage mechanisms are separated from business logic through repository abstractions
+4. **Transaction Support**: All repositories support transactions for coordinating multiple operations
+5. **Proper Error Handling**: Domain-specific errors with proper context are returned, not storage-specific errors
+
+### Interface Standards
+
+#### Naming Conventions
+
+1. **Use *Store Suffix**: All repository interfaces must use the `*Store` naming pattern (e.g., `UserStore`, `CardStore`)
+2. **Implementation Prefixes**: Concrete implementations use a prefix indicating the storage backend (e.g., `PostgresUserStore`)
+3. **Method Naming**: Methods follow standard CRUD naming patterns:
+   - `Create` / `CreateMultiple` for creation operations
+   - `Get` or `GetByID` for retrieval by ID
+   - `Update` / `UpdateContent` for modification operations
+   - `Delete` for removal operations
+   - `Find*` for query operations returning multiple entities
+
+#### Interface Structure
+
+Every repository interface should include:
+
+1. **CRUD Operations**: Core methods for creating, reading, updating, and deleting entities
+2. **Transaction Support**: A `WithTx` method that returns a new instance operating within a transaction
+3. **DB Access**: A `DB()` method that returns the underlying database connection for transaction management
+4. **Concurrency Protection**: `GetForUpdate` methods for entities that require optimistic locking
+5. **Comprehensive Documentation**: Each method must include detailed documentation explaining:
+   - Purpose and behavior
+   - Parameters and return values
+   - Error conditions and handling
+   - Transaction requirements
+   - Usage examples
+
+Example interface template:
+
+```go
+// EntityStore defines the interface for entity data persistence.
+type EntityStore interface {
+    // Create saves a new entity to the store.
+    // It handles domain validation internally.
+    Create(ctx context.Context, entity *domain.Entity) error
+
+    // GetByID retrieves an entity by its unique ID.
+    // Returns ErrEntityNotFound if the entity does not exist.
+    GetByID(ctx context.Context, id uuid.UUID) (*domain.Entity, error)
+
+    // Update saves changes to an existing entity.
+    // Returns ErrEntityNotFound if the entity does not exist.
+    Update(ctx context.Context, entity *domain.Entity) error
+
+    // Delete removes an entity from the store by its ID.
+    // Returns ErrEntityNotFound if the entity does not exist.
+    Delete(ctx context.Context, id uuid.UUID) error
+
+    // WithTx returns a new EntityStore instance that uses the provided transaction.
+    // This allows for multiple operations to be executed within a single transaction.
+    WithTx(tx *sql.Tx) EntityStore
+
+    // DB returns the underlying database connection for transaction management.
+    DB() *sql.DB
+}
+```
+
+### Transaction Handling
+
+Repositories must support transactions with the following requirements:
+
+1. **Explicit Transaction Support**: All repositories must provide a `WithTx` method
+2. **No Internal Transactions**: Repositories should not start/commit transactions internally
+3. **Atomic Operations**: Complex operations should use transactions to ensure atomicity
+4. **Proper Error Propagation**: Errors inside transactions must be propagated for proper rollback
+5. **Standard Transaction Pattern**: Use the `store.RunInTransaction` helper for consistent transaction handling
+
+Example transaction usage:
+
+```go
+// Example of proper transaction usage
+err := store.RunInTransaction(ctx, entityStore.DB(), func(ctx context.Context, tx *sql.Tx) error {
+    // Get transactional repositories
+    txEntityStore := entityStore.WithTx(tx)
+    txRelatedStore := relatedStore.WithTx(tx)
+
+    // Execute operations within the transaction
+    if err := txEntityStore.Create(ctx, entity); err != nil {
+        return err
+    }
+
+    if err := txRelatedStore.Create(ctx, related); err != nil {
+        return err
+    }
+
+    return nil
+})
+```
+
+### Layering Guidelines
+
+To maintain proper separation of concerns:
+
+1. **No Service Awareness**: Store implementations must not be aware of service-layer interfaces
+2. **No Cross-Repository Dependencies**: Repositories should not directly depend on other repositories
+3. **Service Orchestration**: Services coordinate operations across multiple repositories
+4. **Store as Primary Abstraction**: Services should depend directly on store interfaces when possible
+5. **Domain-Focused Interfaces**: Store interfaces should be focused on domain entity operations
+
+### Implementation Requirements
+
+Concrete repository implementations must:
+
+1. **Compile-Time Interface Checks**: Use compile-time interface checks to ensure implementation correctness
+2. **Error Mapping**: Map storage-specific errors to domain-specific errors
+3. **Proper Logging**: Include structured logging with appropriate context
+4. **Validation**: Validate entities before persistence operations
+5. **Consistent Returns**: Return domain models, not storage-specific models
+6. **Transaction Propagation**: Properly implement the `WithTx` method to propagate transactions
+
+Example implementation pattern:
+
+```go
+// Compile-time check to ensure implementation satisfies interface
+var _ store.EntityStore = (*PostgresEntityStore)(nil)
+
+// PostgresEntityStore implements the store.EntityStore interface
+type PostgresEntityStore struct {
+    db     store.DBTX
+    logger *slog.Logger
+}
+
+// NewPostgresEntityStore creates a new PostgreSQL implementation of EntityStore
+func NewPostgresEntityStore(db store.DBTX, logger *slog.Logger) *PostgresEntityStore {
+    // Validate inputs
+    if db == nil {
+        panic("db cannot be nil")
+    }
+
+    // Use provided logger or create default
+    if logger == nil {
+        logger = slog.Default()
+    }
+
+    return &PostgresEntityStore{
+        db:     db,
+        logger: logger.With(slog.String("component", "entity_store")),
+    }
+}
+
+// WithTx implements store.EntityStore.WithTx
+func (s *PostgresEntityStore) WithTx(tx *sql.Tx) store.EntityStore {
+    return &PostgresEntityStore{
+        db:     tx,
+        logger: s.logger,
+    }
+}
+
+// Additional method implementations...
+```
+
+By following these guidelines, we ensure consistent, maintainable, and robust data access across the application.

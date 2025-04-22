@@ -206,7 +206,7 @@
         3. Tests validate response body structure
     - **Depends-on:** [T083]
 
-- [ ] **T085 · Test · P1: Implement API tests for SubmitAnswer endpoint**
+- [x] **T085 · Test · P1: Implement API tests for SubmitAnswer endpoint**
     - **Context:** CONSULTANT-PLAN.md > Step 2: Create API Test for Card Review Endpoints
     - **Action:**
         1. Add tests for POST /cards/{id}/answer endpoint to `card_review_api_test.go`

@@ -99,7 +99,7 @@
         3. Routes are protected by authentication middleware
     - **Depends-on:** [T074, T075]
 
-- [ ] **T077 · Test · P2: add unit tests for PostgresCardStore.GetNextReviewCard**
+- [x] **T077 · Test · P2: add unit tests for PostgresCardStore.GetNextReviewCard**
     - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
         1. Create unit tests for store implementation

@@ -175,7 +175,7 @@
        - Isolated failures make debugging easier
        - Clear test patterns are more approachable for new developers
 
-- [ ] **T081 · Chore · P2: ensure query performance with proper indexing**
+- [x] **T081 · Chore · P2: ensure query performance with proper indexing**
     - **Context:** PLAN.md > Risk Matrix > Query performance issues
     - **Action:**
         1. Analyze the query for `GetNextReviewCard`
@@ -185,6 +185,10 @@
         1. Proper index exists or is added via migration
         2. Query performance is analyzed and acceptable
     - **Depends-on:** [T070]
+    - **Note:** Analysis confirmed that appropriate indexes are already in place:
+        - `idx_cards_user_id` on `cards(user_id)` for the cards table filter
+        - `idx_stats_user_next_review_at` on `user_card_stats(user_id, next_review_at)` for both filtering and sorting on user_card_stats
+        - No new migration needed as indexes were already included in the initial table creation
 
 - [ ] **T082 · Chore · P2: implement concurrency protection for stats updates**
     - **Context:** PLAN.md > Risk Matrix > Concurrency issues in stats updates

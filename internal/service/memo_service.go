@@ -66,18 +66,35 @@ type memoServiceImpl struct {
 }
 
 // NewMemoService creates a new MemoService
+// It returns an error if any of the required dependencies are nil.
 func NewMemoService(
 	memoRepo MemoRepository,
 	taskRunner TaskRunner,
 	eventEmitter events.EventEmitter,
 	logger *slog.Logger,
-) MemoService {
+) (MemoService, error) {
+	// Validate dependencies
+	if memoRepo == nil {
+		return nil, fmt.Errorf("memoRepo cannot be nil")
+	}
+	if taskRunner == nil {
+		return nil, fmt.Errorf("taskRunner cannot be nil")
+	}
+	if eventEmitter == nil {
+		return nil, fmt.Errorf("eventEmitter cannot be nil")
+	}
+
+	// Use provided logger or create default
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &memoServiceImpl{
 		memoRepo:     memoRepo,
 		taskRunner:   taskRunner,
 		eventEmitter: eventEmitter,
 		logger:       logger.With("component", "memo_service"),
-	}
+	}, nil
 }
 
 // CreateMemoAndEnqueueTask creates a new memo with pending status and emits an event for processing

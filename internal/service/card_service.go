@@ -61,16 +61,30 @@ type cardServiceImpl struct {
 }
 
 // NewCardService creates a new CardService
+// It returns an error if any of the required dependencies are nil.
 func NewCardService(
 	cardRepo CardRepository,
 	statsRepo StatsRepository,
 	logger *slog.Logger,
-) CardService {
+) (CardService, error) {
+	// Validate dependencies
+	if cardRepo == nil {
+		return nil, fmt.Errorf("cardRepo cannot be nil")
+	}
+	if statsRepo == nil {
+		return nil, fmt.Errorf("statsRepo cannot be nil")
+	}
+
+	// Use provided logger or create default
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &cardServiceImpl{
 		cardRepo:  cardRepo,
 		statsRepo: statsRepo,
 		logger:    logger.With(slog.String("component", "card_service")),
-	}
+	}, nil
 }
 
 // CreateCards implements CardService.CreateCards

@@ -137,7 +137,10 @@ func CreateMemoServiceComponents(
 	eventEmitter.RegisterHandler(eventHandler)
 
 	// Create the memo service
-	memoService := service.NewMemoService(memoRepoAdapter, taskRunner, eventEmitter, logger)
+	memoService, err := service.NewMemoService(memoRepoAdapter, taskRunner, eventEmitter, logger)
+	if err != nil {
+		return nil, nil, nil // In test helpers, return nil rather than panic
+	}
 
 	return taskRunner, memoService, memoTaskFactory
 }

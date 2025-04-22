@@ -192,17 +192,18 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing repository
-			cardService := service.NewCardService(failingCardRepo, statsRepo, logger)
+			cardService, err := service.NewCardService(failingCardRepo, statsRepo, logger)
+			require.NoError(t, err, "Failed to create card service")
 
 			// Create test cards
 			cards := createTestCards(2)
 
 			// Attempt to create cards - this should fail
-			err := cardService.CreateCards(ctx, cards)
+			createErr := cardService.CreateCards(ctx, cards)
 
 			// Verify the operation failed
-			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated card creation failure", "Error should be from our mock")
+			assert.Error(t, createErr, "Operation should fail")
+			assert.Contains(t, createErr.Error(), "simulated card creation failure", "Error should be from our mock")
 
 			// Verify no cards were created
 			var cardCount int
@@ -238,17 +239,18 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the repositories
-			cardService := service.NewCardService(cardRepo, statsRepo, logger)
+			cardService, err := service.NewCardService(cardRepo, statsRepo, logger)
+			require.NoError(t, err, "Failed to create card service")
 
 			// Create test cards
 			cards := createTestCards(2)
 
 			// Attempt to create cards - this should fail during stats creation
-			err := cardService.CreateCards(ctx, cards)
+			createErr := cardService.CreateCards(ctx, cards)
 
 			// Verify the operation failed
-			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated stats creation failure", "Error should be from our mock")
+			assert.Error(t, createErr, "Operation should fail")
+			assert.Contains(t, createErr.Error(), "simulated stats creation failure", "Error should be from our mock")
 
 			// Verify no cards were created due to transaction rollback
 			var cardCount int
@@ -284,16 +286,17 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the successful repositories
-			cardService := service.NewCardService(cardRepo, adapter, logger)
+			cardService, err := service.NewCardService(cardRepo, adapter, logger)
+			require.NoError(t, err, "Failed to create card service")
 
 			// Create test cards
 			cards := createTestCards(2)
 
 			// Attempt to create cards - this should succeed
-			err := cardService.CreateCards(ctx, cards)
+			createErr := cardService.CreateCards(ctx, cards)
 
 			// Verify the operation succeeded
-			assert.NoError(t, err, "Operation should succeed")
+			assert.NoError(t, createErr, "Operation should succeed")
 
 			// Verify cards were created
 			var cardCount int

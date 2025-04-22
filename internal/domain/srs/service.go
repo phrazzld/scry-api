@@ -37,17 +37,24 @@ type defaultService struct {
 }
 
 // NewDefaultService creates a new SRS service with default parameters
-func NewDefaultService() Service {
+// This function will never return an error as it uses default parameters, but
+// maintains the error return for consistency with other service constructors.
+func NewDefaultService() (Service, error) {
 	return &defaultService{
 		params: NewDefaultParams(),
-	}
+	}, nil
 }
 
 // NewServiceWithParams creates a new SRS service with custom parameters
-func NewServiceWithParams(params *Params) Service {
+// It returns an error if the provided parameters are nil.
+func NewServiceWithParams(params *Params) (Service, error) {
+	if params == nil {
+		return nil, errors.New("params cannot be nil")
+	}
+
 	return &defaultService{
 		params: params,
-	}
+	}, nil
 }
 
 // CalculateNextReview implements the Service interface for calculating updated stats

@@ -31,9 +31,9 @@
 - Depends On: None
 
 ### T005: Update Service Init Error Handling
-- [  ] Modify all call sites of service constructors to check for errors
-- [  ] Add appropriate error handling in `cmd/server/main.go`
-- [  ] Update logs with context about initialization failures
+- [x] Modify all call sites of service constructors to check for errors
+- [x] Add appropriate error handling in `cmd/server/main.go`
+- [x] Update logs with context about initialization failures
 - Effort: Small
 - Depends On: T004
 

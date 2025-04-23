@@ -1,7 +1,10 @@
 // Package domain defines the core business entities and errors.
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Common domain errors used across the application.
 var (
@@ -36,3 +39,36 @@ var (
 	// ErrUnauthorized is returned when an operation is not permitted.
 	ErrUnauthorized = errors.New("unauthorized operation")
 )
+
+// ValidationError is a custom error type for validation errors.
+// It wraps a specific validation error and provides additional context.
+type ValidationError struct {
+	Field   string // Field that failed validation
+	Message string // Validation error message
+	Err     error  // Original validation error
+}
+
+// Error implements the error interface for ValidationError.
+func (v *ValidationError) Error() string {
+	if v.Field != "" {
+		return fmt.Sprintf("validation error on field %s: %s", v.Field, v.Message)
+	}
+	return fmt.Sprintf("validation error: %s", v.Message)
+}
+
+// Unwrap returns the wrapped error to support errors.Is/errors.As.
+func (v *ValidationError) Unwrap() error {
+	return v.Err
+}
+
+// NewValidationError creates a new ValidationError with the given field, message, and wrapped error.
+func NewValidationError(field, message string, err error) *ValidationError {
+	if err == nil {
+		err = ErrValidation
+	}
+	return &ValidationError{
+		Field:   field,
+		Message: message,
+		Err:     err,
+	}
+}

@@ -3,6 +3,7 @@ package card_review
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -89,3 +90,46 @@ var (
 	// ErrInvalidAnswer indicates an invalid answer was provided.
 	ErrInvalidAnswer = errors.New("invalid answer")
 )
+
+// ServiceError wraps errors from the card review service with additional context.
+// This allows consumers to differentiate between different types of service errors
+// using errors.As instead of string matching.
+type ServiceError struct {
+	// Operation is the operation that failed (e.g., "get_next_card", "submit_answer")
+	Operation string
+	// Message is a human-readable description of the error
+	Message string
+	// Err is the underlying error that caused the failure
+	Err error
+}
+
+// Error implements the error interface for ServiceError.
+func (e *ServiceError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s operation failed: %s: %v", e.Operation, e.Message, e.Err)
+	}
+	return fmt.Sprintf("%s operation failed: %s", e.Operation, e.Message)
+}
+
+// Unwrap returns the wrapped error to support errors.Is/errors.As.
+func (e *ServiceError) Unwrap() error {
+	return e.Err
+}
+
+// NewSubmitAnswerError returns a new ServiceError for the submit_answer operation.
+func NewSubmitAnswerError(message string, err error) *ServiceError {
+	return &ServiceError{
+		Operation: "submit_answer",
+		Message:   message,
+		Err:       err,
+	}
+}
+
+// NewGetNextCardError returns a new ServiceError for the get_next_card operation.
+func NewGetNextCardError(message string, err error) *ServiceError {
+	return &ServiceError{
+		Operation: "get_next_card",
+		Message:   message,
+		Err:       err,
+	}
+}

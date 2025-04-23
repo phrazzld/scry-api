@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -21,7 +22,8 @@ func MapErrorToStatusCode(err error) int {
 		errors.Is(err, auth.ErrExpiredToken),
 		errors.Is(err, auth.ErrInvalidRefreshToken),
 		errors.Is(err, auth.ErrExpiredRefreshToken),
-		errors.Is(err, auth.ErrWrongTokenType):
+		errors.Is(err, auth.ErrWrongTokenType),
+		errors.Is(err, domain.ErrUnauthorized):
 		return http.StatusUnauthorized
 
 	// Authorization errors
@@ -32,17 +34,28 @@ func MapErrorToStatusCode(err error) int {
 	case errors.Is(err, store.ErrUserNotFound),
 		errors.Is(err, store.ErrCardNotFound),
 		errors.Is(err, store.ErrMemoNotFound),
+		errors.Is(err, store.ErrNotFound),
 		errors.Is(err, card_review.ErrCardNotFound),
 		errors.Is(err, card_review.ErrCardStatsNotFound):
 		return http.StatusNotFound
 
 	// Conflict errors
-	case errors.Is(err, store.ErrEmailExists):
+	case errors.Is(err, store.ErrEmailExists),
+		errors.Is(err, store.ErrDuplicate):
 		return http.StatusConflict
 
-	// Bad request errors
+	// Bad request errors - validation errors and invalid entities
 	case errors.Is(err, store.ErrInvalidEntity),
-		errors.Is(err, card_review.ErrInvalidAnswer):
+		errors.Is(err, card_review.ErrInvalidAnswer),
+		errors.Is(err, domain.ErrValidation),
+		errors.Is(err, domain.ErrInvalidFormat),
+		errors.Is(err, domain.ErrInvalidID),
+		errors.Is(err, domain.ErrInvalidEmail),
+		errors.Is(err, domain.ErrInvalidPassword),
+		errors.Is(err, domain.ErrEmptyContent),
+		errors.Is(err, domain.ErrInvalidReviewOutcome),
+		errors.Is(err, domain.ErrInvalidCardContent),
+		errors.Is(err, domain.ErrInvalidMemoStatus):
 		return http.StatusBadRequest
 
 	// Special cases
@@ -51,6 +64,12 @@ func MapErrorToStatusCode(err error) int {
 
 	// Default: internal server error
 	default:
+		// Check if the error is a wrapped validation error
+		var validationErr *domain.ValidationError
+		if errors.As(err, &validationErr) {
+			return http.StatusBadRequest
+		}
+
 		return http.StatusInternalServerError
 	}
 }
@@ -75,6 +94,9 @@ func GetSafeErrorMessage(err error) string {
 		errors.Is(err, auth.ErrWrongTokenType):
 		return "Invalid refresh token"
 
+	case errors.Is(err, domain.ErrUnauthorized):
+		return "Unauthorized operation"
+
 	// Authorization errors
 	case errors.Is(err, card_review.ErrCardNotOwned):
 		return "You do not own this card"
@@ -93,62 +115,137 @@ func GetSafeErrorMessage(err error) string {
 	case errors.Is(err, card_review.ErrCardStatsNotFound):
 		return "Card statistics not found"
 
+	case errors.Is(err, store.ErrNotFound):
+		return "Resource not found"
+
 	// Conflict errors
 	case errors.Is(err, store.ErrEmailExists):
 		return "Email already exists"
 
-	// Bad request errors
+	case errors.Is(err, store.ErrDuplicate):
+		return "Resource already exists"
+
+	// Bad request errors - domain validation errors
+	case errors.Is(err, domain.ErrValidation):
+		return "Validation failed"
+
+	case errors.Is(err, domain.ErrInvalidFormat):
+		return "Invalid format"
+
+	case errors.Is(err, domain.ErrInvalidID):
+		return "Invalid ID"
+
+	case errors.Is(err, domain.ErrInvalidEmail):
+		return "Invalid email format"
+
+	case errors.Is(err, domain.ErrInvalidPassword):
+		return "Invalid password"
+
+	case errors.Is(err, domain.ErrEmptyContent):
+		return "Content cannot be empty"
+
+	case errors.Is(err, domain.ErrInvalidReviewOutcome):
+		return "Invalid review outcome"
+
+	case errors.Is(err, domain.ErrInvalidCardContent):
+		return "Invalid card content"
+
+	case errors.Is(err, domain.ErrInvalidMemoStatus):
+		return "Invalid memo status"
+
+	// Store/service specific errors
 	case errors.Is(err, store.ErrInvalidEntity):
 		return "Invalid entity data"
 
 	case errors.Is(err, card_review.ErrInvalidAnswer):
 		return "Invalid answer"
 
-	// No cards due is handled separately with StatusNoContent
+	// Card review related errors
+	case errors.Is(err, card_review.ErrNoCardsDue):
+		// This should not happen as we return StatusNoContent, but for completeness
+		return "No cards due for review"
 
 	// Default case for unknown errors
 	default:
-		// Check if we're in a card review context by looking at the error string
-		if strings.Contains(err.Error(), "submit answer") {
-			return "Failed to submit answer"
-		} else if strings.Contains(err.Error(), "get next") {
-			return "Failed to get next review card"
+		// Check for service-specific context errors using errors.As
+		var validationErr *domain.ValidationError
+		if errors.As(err, &validationErr) {
+			if validationErr.Field != "" {
+				return fmt.Sprintf("Invalid %s: %s", validationErr.Field, validationErr.Message)
+			}
+			return validationErr.Message
 		}
+
+		// Handle generic card review context errors
+		if errors.As(err, new(*card_review.ServiceError)) {
+			return "Card review operation failed"
+		}
+
 		return "An unexpected error occurred"
 	}
 }
 
-// SanitizeValidationError removes sensitive details from validation errors
-// and returns a user-friendly message.
+// SanitizeValidationError extracts validation details from structured validation errors
+// or uses type checking to provide a user-friendly message.
+//
+// For go-playground/validator errors, it attempts to parse the field and tag from
+// the validator's structured error format.
+//
+// For domain.ValidationError types, it uses the field and message directly.
 func SanitizeValidationError(err error) string {
-	errMsg := err.Error()
-
-	// Check if this is likely a validation error message
-	if strings.Contains(errMsg, "Field validation") {
-		// Extract the field name and validation tag
-		// Example format: "Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
-		parts := strings.Split(errMsg, "Error:")
-		if len(parts) >= 2 {
-			// Further split to get just the field validation part
-			fieldParts := strings.Split(parts[1], "'")
-			if len(fieldParts) >= 3 {
-				field := fieldParts[1]
-				var tag string
-				if len(fieldParts) >= 5 {
-					tag = fieldParts[3]
-				}
-
-				// Create a cleaner error message
-				if tag != "" {
-					return fmt.Sprintf("Invalid %s: %s", field, getValidationTagMessage(tag))
-				}
-				return fmt.Sprintf("Invalid %s", field)
-			}
+	// First, check if we have a domain.ValidationError
+	var validationErr *domain.ValidationError
+	if errors.As(err, &validationErr) {
+		if validationErr.Field != "" {
+			return fmt.Sprintf("Invalid %s: %s", validationErr.Field, validationErr.Message)
 		}
+		return validationErr.Message
+	}
+
+	// Try to extract field and tag information from the go-playground/validator error format
+	// Example: "Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
+	errStr := err.Error()
+
+	// Look for validator's structured error format
+	if field, tag, ok := extractValidatorFieldAndTag(errStr); ok {
+		if tag != "" {
+			return fmt.Sprintf("Invalid %s: %s", field, getValidationTagMessage(tag))
+		}
+		return fmt.Sprintf("Invalid %s", field)
 	}
 
 	// Fall back to a generic validation error message
 	return "Validation error"
+}
+
+// extractValidatorFieldAndTag attempts to extract the field name and validation tag
+// from a go-playground/validator error message.
+// Returns the field name, tag, and whether extraction was successful.
+func extractValidatorFieldAndTag(errStr string) (string, string, bool) {
+	// Check for the typical validator error format
+	if !strings.Contains(errStr, "Field validation") {
+		return "", "", false
+	}
+
+	// Example: "Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
+	parts := strings.Split(errStr, "Error:")
+	if len(parts) < 2 {
+		return "", "", false
+	}
+
+	// Extract just the field validation part
+	fieldParts := strings.Split(parts[1], "'")
+	if len(fieldParts) < 3 {
+		return "", "", false
+	}
+
+	field := fieldParts[1]
+	var tag string
+	if len(fieldParts) >= 5 {
+		tag = fieldParts[3]
+	}
+
+	return field, tag, true
 }
 
 // getValidationTagMessage maps validation tags to user-friendly error messages

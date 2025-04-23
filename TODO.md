@@ -32,7 +32,7 @@
         1. Sentinel errors are defined and exported in relevant domain/store packages.
     - **Depends‑on:** none
 
-- [ ] **T004 · Refactor · P1: refactor error mapping functions to use errors.is/errors.as**
+- [x] **T004 · Refactor · P1: refactor error mapping functions to use errors.is/errors.as**
     - **Context:** PLAN.md / cr‑01 Use Error Types for Mapping / Step 2
     - **Action:**
         1. Modify `MapErrorToStatusCode` in `internal/api/errors.go` to use `errors.Is` and `errors.As` for checking against sentinel/custom error types.

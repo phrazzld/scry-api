@@ -88,8 +88,8 @@ func TestGetNextReviewCardExtended(t *testing.T) {
 
 	t.Run("exact_same_review_time", func(t *testing.T) {
 		// Create multiple cards with exactly the same review time
-		// According to the SQL query, ordering should be by next_review_at ASC
-		// When times are identical, database order will apply (typically insertion order)
+		// According to the SQL query, ordering should be by next_review_at ASC, then card ID ASC
+		// This test verifies the deterministic ordering by card ID when timestamps match
 		sameReviewTime := time.Now().UTC().Add(-1 * time.Hour)
 
 		var createdCards []*domain.Card
@@ -99,13 +99,27 @@ func TestGetNextReviewCardExtended(t *testing.T) {
 			createdCards = append(createdCards, card)
 		}
 
-		// The first card created should be returned (consistent with SQL ordering by time ASC)
-		firstCard := createdCards[0]
+		// Sort the created cards by ID to determine which one should be returned first
+		// This simulates the ORDER BY c.id ASC in the query
+		var expectedCard *domain.Card
+		lowestID := uuid.Nil
+		for _, card := range createdCards {
+			if lowestID == uuid.Nil || card.ID.String() < lowestID.String() {
+				lowestID = card.ID
+				expectedCard = card
+			}
+		}
+		require.NotNil(t, expectedCard, "Failed to identify card with lowest ID")
 
 		// Call GetNextReviewCard
 		card, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
 		assert.NoError(t, err, "GetNextReviewCard should succeed")
-		assert.Equal(t, firstCard.ID, card.ID, "Should return the first card created when review times are identical")
+		assert.Equal(
+			t,
+			expectedCard.ID,
+			card.ID,
+			"Should return the card with lowest ID when review times are identical",
+		)
 	})
 
 	t.Run("stats_without_matching_card", func(t *testing.T) {

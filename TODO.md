@@ -114,9 +114,9 @@
 ## Code Quality
 
 ### T016: Add Deterministic SQL Ordering
-- [  ] Add secondary sort keys to GetNextReviewCard query
-- [  ] Ensure ORDER BY includes card ID for deterministic ordering
-- [  ] Add test case with identical timestamps to verify
+- [x] Add secondary sort keys to GetNextReviewCard query
+- [x] Ensure ORDER BY includes card ID for deterministic ordering
+- [x] Add test case with identical timestamps to verify
 - Effort: Extra Small
 - Depends On: None
 

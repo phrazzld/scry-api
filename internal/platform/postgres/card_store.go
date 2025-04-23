@@ -320,6 +320,7 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 	// 2. Have user_card_stats records
 	// 3. Are due for review (next_review_at <= current time)
 	// The result is ordered by next_review_at ascending to prioritize oldest due cards first
+	// Secondary sort by card ID ensures deterministic ordering when timestamps match
 	query := `
 		SELECT c.id, c.user_id, c.memo_id, c.content, c.created_at, c.updated_at
 		FROM cards c
@@ -327,7 +328,7 @@ func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.U
 		WHERE c.user_id = $1
 		  AND ucs.user_id = $1
 		  AND ucs.next_review_at <= NOW()
-		ORDER BY ucs.next_review_at ASC
+		ORDER BY ucs.next_review_at ASC, c.id ASC
 		LIMIT 1
 	`
 

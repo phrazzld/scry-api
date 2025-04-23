@@ -121,9 +121,9 @@
 - Depends On: None
 
 ### T017: Update Pre-commit Hooks
-- [  ] Enhance pre-commit checks for panic usage
-- [  ] Add verification of SQL query deterministic ordering
-- [  ] Improve hook reliability and error messages
+- [x] Enhance pre-commit checks for panic usage
+- [x] Add verification of SQL query deterministic ordering
+- [x] Improve hook reliability and error messages
 - Effort: Small
 - Depends On: T004, T016
 

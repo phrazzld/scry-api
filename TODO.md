@@ -13,7 +13,7 @@
         3. Existing relevant tests pass.
     - **Depends‑on:** none
 
-- [ ] **T002 · Test · P1: add tests verifying no internal error details leak via api**
+- [x] **T002 · Test · P1: add tests verifying no internal error details leak via api**
     - **Context:** PLAN.md / cr‑02 Seal Error Wrapping Details Leak / Step 4
     - **Action:**
         1. Create specific test cases that generate internal errors (e.g., mock database errors).

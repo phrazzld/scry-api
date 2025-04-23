@@ -8,13 +8,22 @@ import (
 	"github.com/google/uuid"
 )
 
-// Common validation errors for Card
+// Card-specific validation errors
 var (
-	ErrEmptyCardID        = errors.New("card ID cannot be empty")
-	ErrEmptyCardUserID    = errors.New("card user ID cannot be empty")
-	ErrEmptyCardMemoID    = errors.New("card memo ID cannot be empty")
-	ErrEmptyCardContent   = errors.New("card content cannot be empty")
-	ErrInvalidCardContent = errors.New("card content must be valid JSON")
+	// ErrCardIDEmpty is returned when a card ID is empty or nil.
+	ErrCardIDEmpty = errors.New("card ID cannot be empty")
+
+	// ErrCardUserIDEmpty is returned when a card's user ID is empty or nil.
+	ErrCardUserIDEmpty = errors.New("card user ID cannot be empty")
+
+	// ErrCardMemoIDEmpty is returned when a card's memo ID is empty or nil.
+	ErrCardMemoIDEmpty = errors.New("card memo ID cannot be empty")
+
+	// ErrCardContentEmpty is returned when a card's content is empty.
+	ErrCardContentEmpty = errors.New("card content cannot be empty")
+
+	// ErrCardContentInvalid is returned when a card's content is not valid JSON.
+	ErrCardContentInvalid = errors.New("card content must be valid JSON")
 )
 
 // Card represents a flashcard generated from a user's memo.
@@ -64,25 +73,25 @@ func NewCard(userID, memoID uuid.UUID, content json.RawMessage) (*Card, error) {
 // Returns an error if any field fails validation.
 func (c *Card) Validate() error {
 	if c.ID == uuid.Nil {
-		return ErrEmptyCardID
+		return ErrCardIDEmpty
 	}
 
 	if c.UserID == uuid.Nil {
-		return ErrEmptyCardUserID
+		return ErrCardUserIDEmpty
 	}
 
 	if c.MemoID == uuid.Nil {
-		return ErrEmptyCardMemoID
+		return ErrCardMemoIDEmpty
 	}
 
 	if len(c.Content) == 0 {
-		return ErrEmptyCardContent
+		return ErrCardContentEmpty
 	}
 
 	// Check if content is valid JSON
 	var js json.RawMessage
 	if err := json.Unmarshal(c.Content, &js); err != nil {
-		return ErrInvalidCardContent
+		return ErrCardContentInvalid
 	}
 
 	return nil

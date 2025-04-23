@@ -127,7 +127,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Creating memo with empty text should fail")
-			assert.Equal(t, domain.ErrEmptyMemoText, err, "Error should be ErrEmptyMemoText")
+			assert.Equal(t, domain.ErrMemoTextEmpty, err, "Error should be ErrMemoTextEmpty")
 
 			// Verify no memo was created
 			count := countMemos(ctx, t, tx, "id = $1", memo.ID)
@@ -560,7 +560,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Updating memo with empty text should fail")
-			assert.Equal(t, domain.ErrEmptyMemoText, err, "Error should be ErrEmptyMemoText")
+			assert.Equal(t, domain.ErrMemoTextEmpty, err, "Error should be ErrMemoTextEmpty")
 
 			// Verify the memo was not updated
 			var dbText string

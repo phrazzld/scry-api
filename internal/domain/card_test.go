@@ -46,27 +46,27 @@ func TestNewCard(t *testing.T) {
 
 	// Test invalid userID
 	_, err = NewCard(uuid.Nil, memoID, content)
-	if err != ErrEmptyCardUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardUserID, err)
+	if err != ErrCardUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardUserIDEmpty, err)
 	}
 
 	// Test invalid memoID
 	_, err = NewCard(userID, uuid.Nil, content)
-	if err != ErrEmptyCardMemoID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardMemoID, err)
+	if err != ErrCardMemoIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardMemoIDEmpty, err)
 	}
 
 	// Test invalid content
 	_, err = NewCard(userID, memoID, nil)
-	if err != ErrEmptyCardContent {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardContent, err)
+	if err != ErrCardContentEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardContentEmpty, err)
 	}
 
 	// Test invalid JSON content
 	invalidJSON := json.RawMessage(`{"front": "broken JSON`)
 	_, err = NewCard(userID, memoID, invalidJSON)
-	if err != ErrInvalidCardContent {
-		t.Errorf("Expected error %v, got %v", ErrInvalidCardContent, err)
+	if err != ErrCardContentInvalid {
+		t.Errorf("Expected error %v, got %v", ErrCardContentInvalid, err)
 	}
 }
 
@@ -87,36 +87,36 @@ func TestCardValidate(t *testing.T) {
 	// Test invalid ID
 	invalidCard := validCard
 	invalidCard.ID = uuid.Nil
-	if err := invalidCard.Validate(); err != ErrEmptyCardID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardID, err)
+	if err := invalidCard.Validate(); err != ErrCardIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardIDEmpty, err)
 	}
 
 	// Test invalid UserID
 	invalidCard = validCard
 	invalidCard.UserID = uuid.Nil
-	if err := invalidCard.Validate(); err != ErrEmptyCardUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardUserID, err)
+	if err := invalidCard.Validate(); err != ErrCardUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardUserIDEmpty, err)
 	}
 
 	// Test invalid MemoID
 	invalidCard = validCard
 	invalidCard.MemoID = uuid.Nil
-	if err := invalidCard.Validate(); err != ErrEmptyCardMemoID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardMemoID, err)
+	if err := invalidCard.Validate(); err != ErrCardMemoIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardMemoIDEmpty, err)
 	}
 
 	// Test empty Content
 	invalidCard = validCard
 	invalidCard.Content = nil
-	if err := invalidCard.Validate(); err != ErrEmptyCardContent {
-		t.Errorf("Expected error %v, got %v", ErrEmptyCardContent, err)
+	if err := invalidCard.Validate(); err != ErrCardContentEmpty {
+		t.Errorf("Expected error %v, got %v", ErrCardContentEmpty, err)
 	}
 
 	// Test invalid JSON Content
 	invalidCard = validCard
 	invalidCard.Content = json.RawMessage(`{"front": "broken JSON`)
-	if err := invalidCard.Validate(); err != ErrInvalidCardContent {
-		t.Errorf("Expected error %v, got %v", ErrInvalidCardContent, err)
+	if err := invalidCard.Validate(); err != ErrCardContentInvalid {
+		t.Errorf("Expected error %v, got %v", ErrCardContentInvalid, err)
 	}
 }
 
@@ -153,8 +153,8 @@ func TestUpdateContent(t *testing.T) {
 
 	err = card.UpdateContent(invalidContent)
 
-	if err != ErrInvalidCardContent {
-		t.Errorf("Expected error %v, got %v", ErrInvalidCardContent, err)
+	if err != ErrCardContentInvalid {
+		t.Errorf("Expected error %v, got %v", ErrCardContentInvalid, err)
 	}
 
 	if string(card.Content) != string(originalContent) {

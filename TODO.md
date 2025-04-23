@@ -23,7 +23,7 @@
         2. All tests pass.
     - **Depends‑on:** [T001]
 
-- [ ] **T003 · Refactor · P1: define exported sentinel errors for domain/store packages**
+- [x] **T003 · Refactor · P1: define exported sentinel errors for domain/store packages**
     - **Context:** PLAN.md / cr‑01 Use Error Types for Mapping / Step 1
     - **Action:**
         1. Identify common error conditions (e.g., not found, conflict, validation) in domain and store packages.

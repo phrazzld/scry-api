@@ -19,12 +19,19 @@ const (
 	MemoStatusFailed              MemoStatus = "failed"
 )
 
-// Common validation errors for Memo
+// Memo-specific validation errors
 var (
-	ErrEmptyMemoID       = errors.New("memo ID cannot be empty")
-	ErrEmptyMemoUserID   = errors.New("memo user ID cannot be empty")
-	ErrEmptyMemoText     = errors.New("memo text cannot be empty")
-	ErrInvalidMemoStatus = errors.New("invalid memo status")
+	// ErrMemoIDEmpty is returned when a memo ID is empty or nil.
+	ErrMemoIDEmpty = errors.New("memo ID cannot be empty")
+
+	// ErrMemoUserIDEmpty is returned when a memo's user ID is empty or nil.
+	ErrMemoUserIDEmpty = errors.New("memo user ID cannot be empty")
+
+	// ErrMemoTextEmpty is returned when a memo's text is empty.
+	ErrMemoTextEmpty = errors.New("memo text cannot be empty")
+
+	// ErrMemoStatusInvalid is returned when a memo status is not valid.
+	ErrMemoStatusInvalid = errors.New("invalid memo status")
 )
 
 // Memo represents a text-based entry submitted by a user
@@ -64,19 +71,19 @@ func NewMemo(userID uuid.UUID, text string) (*Memo, error) {
 // Returns an error if any field fails validation.
 func (m *Memo) Validate() error {
 	if m.ID == uuid.Nil {
-		return ErrEmptyMemoID
+		return ErrMemoIDEmpty
 	}
 
 	if m.UserID == uuid.Nil {
-		return ErrEmptyMemoUserID
+		return ErrMemoUserIDEmpty
 	}
 
 	if m.Text == "" {
-		return ErrEmptyMemoText
+		return ErrMemoTextEmpty
 	}
 
 	if !isValidMemoStatus(m.Status) {
-		return ErrInvalidMemoStatus
+		return ErrMemoStatusInvalid
 	}
 
 	return nil
@@ -86,7 +93,7 @@ func (m *Memo) Validate() error {
 // Returns an error if the new status is invalid.
 func (m *Memo) UpdateStatus(status MemoStatus) error {
 	if !isValidMemoStatus(status) {
-		return ErrInvalidMemoStatus
+		return ErrMemoStatusInvalid
 	}
 
 	m.Status = status

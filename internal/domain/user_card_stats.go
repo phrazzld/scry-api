@@ -18,13 +18,22 @@ const (
 	ReviewOutcomeEasy  ReviewOutcome = "easy"
 )
 
-// Common validation errors for UserCardStats
+// UserCardStats-specific validation errors
 var (
-	ErrEmptyStatsUserID     = errors.New("user card stats user ID cannot be empty")
-	ErrEmptyStatsCardID     = errors.New("user card stats card ID cannot be empty")
-	ErrInvalidInterval      = errors.New("interval must be greater than or equal to 0")
-	ErrInvalidEaseFactor    = errors.New("ease factor must be greater than 1.0")
-	ErrInvalidReviewOutcome = errors.New("invalid review outcome")
+	// ErrStatsUserIDEmpty is returned when a user card stats user ID is empty or nil.
+	ErrStatsUserIDEmpty = errors.New("user card stats user ID cannot be empty")
+
+	// ErrStatsCardIDEmpty is returned when a user card stats card ID is empty or nil.
+	ErrStatsCardIDEmpty = errors.New("user card stats card ID cannot be empty")
+
+	// ErrStatsIntervalInvalid is returned when an interval is invalid.
+	ErrStatsIntervalInvalid = errors.New("interval must be greater than or equal to 0")
+
+	// ErrStatsEaseFactorInvalid is returned when an ease factor is invalid.
+	ErrStatsEaseFactorInvalid = errors.New("ease factor must be greater than 1.0")
+
+	// ErrStatsReviewOutcomeInvalid is returned when a review outcome is invalid.
+	ErrStatsReviewOutcomeInvalid = errors.New("invalid review outcome")
 )
 
 // UserCardStats tracks a user's spaced repetition statistics for a specific card.
@@ -70,19 +79,19 @@ func NewUserCardStats(userID, cardID uuid.UUID) (*UserCardStats, error) {
 // Returns an error if any field fails validation.
 func (s *UserCardStats) Validate() error {
 	if s.UserID == uuid.Nil {
-		return ErrEmptyStatsUserID
+		return ErrStatsUserIDEmpty
 	}
 
 	if s.CardID == uuid.Nil {
-		return ErrEmptyStatsCardID
+		return ErrStatsCardIDEmpty
 	}
 
 	if s.Interval < 0 {
-		return ErrInvalidInterval
+		return ErrStatsIntervalInvalid
 	}
 
 	if s.EaseFactor <= 1.0 {
-		return ErrInvalidEaseFactor
+		return ErrStatsEaseFactorInvalid
 	}
 
 	return nil

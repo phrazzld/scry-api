@@ -267,7 +267,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Creating user with weak password should fail")
-			assert.Equal(t, domain.ErrPasswordTooShort, err, "Error should be ErrPasswordTooShort")
+			assert.Equal(t, domain.ErrUserPasswordTooShort, err, "Error should be ErrUserPasswordTooShort")
 
 			// Verify no user was created
 			count := countUsers(ctx, t, tx, "email = $1", user.Email)
@@ -298,7 +298,7 @@ func TestPostgresUserStore_Create(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Creating user with too long password should fail")
-			assert.Equal(t, domain.ErrPasswordTooLong, err, "Error should be ErrPasswordTooLong")
+			assert.Equal(t, domain.ErrUserPasswordTooLong, err, "Error should be ErrUserPasswordTooLong")
 
 			// Verify no user was created
 			count := countUsers(ctx, t, tx, "email = $1", user.Email)

@@ -171,3 +171,6 @@ func CountUserCardStats(ctx context.Context, t *testing.T, tx store.DBTX, whereC
 
 	return count
 }
+
+// The helpers from this file have been moved to card_helpers.go to avoid import cycles
+// This allows test packages to use the helpers without causing import cycles

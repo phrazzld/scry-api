@@ -98,9 +98,9 @@
 - Depends On: T012
 
 ### T014: Consolidate Domain Test Helpers
-- [  ] Move `createCardWithStats` helper to testutils package
-- [  ] Update all test files to use shared implementation
-- [  ] Remove duplicate code across test files
+- [x] Move `createCardWithStats` helper to testutils package
+- [x] Update all test files to use shared implementation
+- [x] Remove duplicate code across test files
 - Effort: Extra Small
 - Depends On: T011
 

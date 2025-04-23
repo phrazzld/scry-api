@@ -87,3 +87,7 @@ testutils.WithTx(t, db, func(tx store.DBTX) {
 - **Better than separate databases**: Shared schema, no need to manage multiple databases
 - **Better than fixtures**: Dynamic test data specific to each test, no shared state
 - **Better than manual isolation**: Automatic rollback prevents test pollution
+
+## Deprecated Components
+
+For historical reasons, there is a deprecated package containing helper functions that have been consolidated into card_helpers.go to avoid import cycles. You should never need to use anything from the `deprecated` directory. All functionality has been moved to the main package with improved implementations.

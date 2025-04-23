@@ -320,10 +320,3 @@ func TestInvalidRequestBody(t *testing.T) {
 		})
 	}
 }
-
-// errorReader is a simple io.Reader that always returns an error
-type errorReader struct{}
-
-func (e errorReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("simulated read error")
-}

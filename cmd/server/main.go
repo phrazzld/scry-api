@@ -14,13 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	apimiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api"
-	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+	apiMiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/events"
@@ -264,14 +262,14 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(apimiddleware.TraceMiddleware) // Add trace IDs for improved error handling
+	r.Use(apiMiddleware.TraceMiddleware) // Add trace IDs for improved error handling
 
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
 
 	// Create API handlers (user service will be created later when needed)
 	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth, deps.Logger)
-	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
+	authMiddleware := apiMiddleware.NewAuthMiddleware(deps.JWTService)
 
 	// Use memo service from dependencies, which has been properly initialized in startServer
 	memoHandler := api.NewMemoHandler(deps.MemoService, deps.Logger)

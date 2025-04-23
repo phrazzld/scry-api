@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	apimiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
@@ -260,6 +262,7 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(apimiddleware.TraceMiddleware) // Add trace IDs for improved error handling
 
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()

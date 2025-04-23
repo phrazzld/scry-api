@@ -142,8 +142,8 @@
 - Depends On: T008
 
 ### T020: Improve Error Handling in API Responses
-- [  ] Prevent internal error details from leaking in responses
-- [  ] Add structured error responses with appropriate status codes
-- [  ] Ensure sensitive data (DB errors, SQL) is not exposed
+- [x] Prevent internal error details from leaking in responses
+- [x] Add structured error responses with appropriate status codes
+- [x] Ensure sensitive data (DB errors, SQL) is not exposed
 - Effort: Small
 - Depends On: None

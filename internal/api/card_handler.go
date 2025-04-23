@@ -58,7 +58,7 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	if !ok || userID == uuid.Nil {
 		log.Warn("user ID not found or invalid in request context")
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found or invalid")
+		shared.RespondWithError(w, r, http.StatusUnauthorized, "Authentication required")
 		return
 	}
 
@@ -76,10 +76,12 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 
 	// Handle other errors
 	if err != nil {
-		log.Error("failed to get next review card",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()))
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to get next review card")
+		// Use our new error handling helper methods
+		statusCode := MapErrorToStatusCode(err)
+		safeMessage := GetSafeErrorMessage(err)
+
+		// Log the full error details but only send sanitized message to client
+		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
 		return
 	}
 
@@ -136,7 +138,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	if !ok || userID == uuid.Nil {
 		log.Warn("user ID not found or invalid in request context")
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found or invalid")
+		shared.RespondWithError(w, r, http.StatusUnauthorized, "Authentication required")
 		return
 	}
 
@@ -157,7 +159,10 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+
+		// Use our sanitized validation error format
+		sanitizedError := SanitizeValidationError(err)
+		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)
 		return
 	}
 
@@ -172,38 +177,14 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 		card_review.ReviewAnswer{Outcome: outcome},
 	)
 
-	// Handle specific error types
+	// Handle errors with our improved error handling
 	if err != nil {
-		if errors.Is(err, card_review.ErrCardNotFound) {
-			log.Warn("card not found",
-				slog.String("user_id", userID.String()),
-				slog.String("card_id", cardID.String()))
-			shared.RespondWithError(w, r, http.StatusNotFound, "Card not found")
-			return
-		}
+		// Map to appropriate status code and get sanitized message
+		statusCode := MapErrorToStatusCode(err)
+		safeMessage := GetSafeErrorMessage(err)
 
-		if errors.Is(err, card_review.ErrCardNotOwned) {
-			log.Warn("user does not own card",
-				slog.String("user_id", userID.String()),
-				slog.String("card_id", cardID.String()))
-			shared.RespondWithError(w, r, http.StatusForbidden, "You do not own this card")
-			return
-		}
-
-		if errors.Is(err, card_review.ErrInvalidAnswer) {
-			log.Warn("invalid answer",
-				slog.String("user_id", userID.String()),
-				slog.String("card_id", cardID.String()),
-				slog.String("outcome", string(outcome)))
-			shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid answer")
-			return
-		}
-
-		log.Error("failed to submit answer",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to submit answer")
+		// Log the full error but only send sanitized message to client
+		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
 		return
 	}
 

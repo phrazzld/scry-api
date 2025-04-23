@@ -54,26 +54,40 @@ func RespondWithErrorAndLog(w http.ResponseWriter, r *http.Request, status int, 
 	traceID := GetTraceID(r.Context())
 
 	// Create the error response with only the safe message
+	// Note: We never include the raw error string in the response
 	errorResponse := ErrorResponse{
 		Error:   userMessage,
 		Code:    status,
 		TraceID: traceID,
 	}
 
-	// Log the full error details with trace ID for correlation
-	log := slog.With(
+	// Set up common log attributes
+	logAttrs := []slog.Attr{
 		slog.String("trace_id", traceID),
 		slog.String("path", r.URL.Path),
 		slog.String("method", r.Method),
 		slog.Int("status_code", status),
 		slog.String("user_message", userMessage),
-	)
-
-	if err != nil {
-		log = log.With(slog.String("error", err.Error()))
 	}
 
-	log.Debug("error response")
+	// Include the full error details (but only in the logs)
+	if err != nil {
+		logAttrs = append(logAttrs, slog.Any("error", err))
+	}
 
+	// Set appropriate log level based on status code
+	logLevel := slog.LevelDebug
+	if status >= http.StatusInternalServerError {
+		// Log server errors (5xx) at ERROR level
+		logLevel = slog.LevelError
+	} else if status >= http.StatusBadRequest {
+		// Log client errors (4xx) at WARN level
+		logLevel = slog.LevelWarn
+	}
+
+	// Log with the determined level
+	slog.LogAttrs(r.Context(), logLevel, "API error response", logAttrs...)
+
+	// Send sanitized response to client
 	RespondWithJSON(w, r, status, errorResponse)
 }

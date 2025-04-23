@@ -168,6 +168,6 @@ func TestCardReviewTestHelpers(t *testing.T) {
 		}()
 
 		// Verify error response
-		AssertErrorResponse(t, resp, http.StatusInternalServerError, "An unexpected error occurred")
+		AssertErrorResponse(t, resp, http.StatusInternalServerError, "Failed to get next review card")
 	})
 }

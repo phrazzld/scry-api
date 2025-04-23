@@ -58,6 +58,11 @@ func MapErrorToStatusCode(err error) int {
 // GetSafeErrorMessage returns a sanitized, user-friendly error message
 // based on the error type. This prevents leaking sensitive internal details.
 func GetSafeErrorMessage(err error) string {
+	// Handle nil error
+	if err == nil {
+		return "An unexpected error occurred"
+	}
+
 	// Map specific error types to user-friendly messages
 	switch {
 	// Authentication errors
@@ -103,6 +108,12 @@ func GetSafeErrorMessage(err error) string {
 
 	// Default case for unknown errors
 	default:
+		// Check if we're in a card review context by looking at the error string
+		if strings.Contains(err.Error(), "submit answer") {
+			return "Failed to submit answer"
+		} else if strings.Contains(err.Error(), "get next") {
+			return "Failed to get next review card"
+		}
 		return "An unexpected error occurred"
 	}
 }

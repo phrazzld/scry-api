@@ -131,10 +131,12 @@ type appDependencies struct {
 	CardRepository store.CardStore // Interface for card operations
 
 	// Services
-	JWTService       auth.JWTService
-	PasswordVerifier auth.PasswordVerifier
-	Generator        task.Generator   // Interface for card generation
-	CardService      task.CardService // Interface for card service operations
+	JWTService        auth.JWTService
+	PasswordVerifier  auth.PasswordVerifier
+	Generator         task.Generator                // Interface for card generation
+	CardService       task.CardService              // Interface for card service operations
+	MemoService       service.MemoService           // Interface for memo service operations
+	CardReviewService card_review.CardReviewService // Interface for card review operations
 
 	// Event system
 	EventEmitter events.EventEmitter
@@ -268,41 +270,14 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	passwordVerifier := auth.NewBcryptVerifier()
 
 	// Create API handlers (user service will be created later when needed)
-	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
+	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth, deps.Logger)
 	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
 
-	// Create adapter for the store to be used in the service layer
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
+	// Use memo service from dependencies, which has been properly initialized in startServer
+	memoHandler := api.NewMemoHandler(deps.MemoService, deps.Logger)
 
-	// Create the memo service with the event emitter from dependencies
-	memoService, err := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, deps.EventEmitter, deps.Logger)
-	if err != nil {
-		deps.Logger.Error("Failed to create memo service", "error", err)
-		os.Exit(1)
-	}
-	memoHandler := api.NewMemoHandler(memoService)
-
-	// Create SRS service with default parameters
-	srsService, err := srs.NewDefaultService()
-	if err != nil {
-		deps.Logger.Error("Failed to create SRS service", "error", err)
-		os.Exit(1)
-	}
-
-	// Create card review service with direct store dependencies
-	cardReviewService, err := card_review.NewCardReviewService(
-		deps.CardStore,
-		deps.UserCardStatsStore,
-		srsService,
-		deps.Logger,
-	)
-	if err != nil {
-		deps.Logger.Error("Failed to create card review service", "error", err)
-		os.Exit(1)
-	}
-
-	// Create card handler with card review service
-	cardHandler := api.NewCardHandler(cardReviewService, deps.Logger)
+	// Use the card review service from dependencies
+	cardHandler := api.NewCardHandler(deps.CardReviewService, deps.Logger)
 
 	// Register routes
 	r.Route("/api", func(r chi.Router) {
@@ -410,11 +385,21 @@ func startServer(cfg *config.Config) {
 
 	// Step 6: Set up event emitter
 	eventEmitter := events.NewInMemoryEventEmitter(logger)
+	// Add event emitter to dependencies immediately so it can be used by services
+	deps.EventEmitter = eventEmitter
 
 	// Create a memo repository adapter
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
-	// Create a memo service adapter
+	// Create memo service
+	memoService, err := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, deps.EventEmitter, logger)
+	if err != nil {
+		logger.Error("Failed to create memo service", "error", err)
+		os.Exit(1)
+	}
+	deps.MemoService = memoService
+
+	// Create a memo service adapter for tasks
 	memoServiceAdapter, err := task.NewMemoServiceAdapter(memoRepoAdapter)
 	if err != nil {
 		logger.Error("Failed to create memo service adapter", "error", err)
@@ -431,9 +416,27 @@ func startServer(cfg *config.Config) {
 		logger.Error("Failed to create card service", "error", err)
 		os.Exit(1)
 	}
-
-	// Add the card service to dependencies
 	deps.CardService = cardService
+
+	// Create SRS service with default parameters
+	srsService, err := srs.NewDefaultService()
+	if err != nil {
+		logger.Error("Failed to create SRS service", "error", err)
+		os.Exit(1)
+	}
+
+	// Create card review service with direct store dependencies
+	cardReviewService, err := card_review.NewCardReviewService(
+		deps.CardStore,
+		deps.UserCardStatsStore,
+		srsService,
+		logger,
+	)
+	if err != nil {
+		logger.Error("Failed to create card review service", "error", err)
+		os.Exit(1)
+	}
+	deps.CardReviewService = cardReviewService
 
 	// Create the task factory
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
@@ -452,9 +455,6 @@ func startServer(cfg *config.Config) {
 
 	// Register the event handler with the event emitter
 	eventEmitter.RegisterHandler(taskFactoryHandler)
-
-	// Add event emitter to dependencies
-	deps.EventEmitter = eventEmitter
 
 	// Ensure task runner is stopped when the server shuts down
 	defer taskRunner.Stop()

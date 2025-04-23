@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -51,7 +52,8 @@ func setupTestServer(t *testing.T, db *sql.DB) *httptest.Server {
 	testAuthConfig := &config.AuthConfig{
 		TokenLifetimeMinutes: 60, // 1 hour for tests
 	}
-	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, testAuthConfig)
+	logger := slog.Default()
+	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, testAuthConfig, logger)
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 
 	// Create a test handler for protected routes

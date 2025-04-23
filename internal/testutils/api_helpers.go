@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -56,8 +57,10 @@ func CreateAPIHandlers(
 	memoService service.MemoService,
 ) (*api.AuthHandler, *api.MemoHandler, *authmiddleware.AuthMiddleware) {
 	t.Helper()
-	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &authConfig)
-	memoHandler := api.NewMemoHandler(memoService)
+	// Use default logger for tests
+	logger := slog.Default()
+	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &authConfig, logger)
+	memoHandler := api.NewMemoHandler(memoService, logger)
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 	return authHandler, memoHandler, authMiddleware
 }
@@ -398,8 +401,11 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 	// Create auth middleware
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtMock)
 
+	// Create logger
+	logger := slog.Default()
+
 	// Create card handler
-	cardHandler := api.NewCardHandler(cardReviewMock, nil) // nil logger uses default
+	cardHandler := api.NewCardHandler(cardReviewMock, logger)
 
 	// Set up API routes
 	router.Route("/api", func(r chi.Router) {

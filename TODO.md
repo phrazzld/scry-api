@@ -135,9 +135,9 @@
 - Depends On: None
 
 ### T019: Review Repository Injection in Main
-- [  ] Verify all dependency injection happens in main.go
-- [  ] Ensure no adapters are created in router setup
-- [  ] Document DI approach for future reference
+- [x] Verify all dependency injection happens in main.go
+- [x] Ensure no adapters are created in router setup
+- [x] Document DI approach for future reference
 - Effort: Extra Small
 - Depends On: T008
 

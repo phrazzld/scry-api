@@ -380,8 +380,3 @@ func (g *GeminiGenerator) GenerateCards(
 
 	return cards, nil
 }
-
-// Ensure the generation package is imported so its error types can be used
-// and wrapped by this package, even if not explicitly referenced elsewhere.
-// This prevents potential "unused import" errors during compilation or linting.
-var _ = generation.ErrGenerationFailed

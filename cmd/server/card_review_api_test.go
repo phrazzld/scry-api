@@ -91,17 +91,13 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup the test server using the helper function
+			// Note: server.Close() is automatically called through t.Cleanup()
 			server := testutils.SetupCardReviewTestServer(t, tc.serverOptions)
-			defer server.Close()
 
 			// Execute the request using the helper function
+			// Note: response body is automatically closed through t.Cleanup()
 			resp, err := testutils.ExecuteGetNextCardRequest(t, server)
 			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Errorf("Failed to close response body: %v", err)
-				}
-			}()
 
 			// Verify the response
 			if tc.expectedStatus == http.StatusOK {
@@ -236,8 +232,8 @@ func TestSubmitAnswerAPI(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup the test server using the helper function
+			// Note: server.Close() is automatically called through t.Cleanup()
 			server := testutils.SetupCardReviewTestServer(t, tc.serverOptions)
-			defer server.Close()
 
 			var resp *http.Response
 			var err error
@@ -251,13 +247,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			defer func() {
-				if resp != nil && resp.Body != nil {
-					if err := resp.Body.Close(); err != nil {
-						t.Errorf("Failed to close response body: %v", err)
-					}
-				}
-			}()
+			// Note: response body is automatically closed through the assertion helpers
 
 			// Verify the response
 			if tc.expectedStatus == http.StatusOK {
@@ -304,10 +294,10 @@ func TestInvalidRequestBody(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup test server
+			// Note: server.Close() is automatically called through t.Cleanup()
 			server := testutils.SetupCardReviewTestServer(t, testutils.CardReviewServerOptions{
 				UserID: userID,
 			})
-			defer server.Close()
 
 			var resp *http.Response
 			var err error
@@ -323,11 +313,7 @@ func TestInvalidRequestBody(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Errorf("Failed to close response body: %v", err)
-				}
-			}()
+			// Note: response body is automatically closed through the assertion helpers
 
 			// Verify response using the helper
 			testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedErrorMsg)

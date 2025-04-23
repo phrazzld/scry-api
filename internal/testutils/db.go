@@ -242,7 +242,7 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 //
 //	db, err := testutils.GetTestDB()
 //	require.NoError(t, err)
-//	defer testutils.AssertCloseNoError(t, db)
+//	t.Cleanup(func() { testutils.CleanupDB(t, db) }) // Use t.Cleanup for automatic cleanup
 //
 //	// db is now ready for use in tests
 func GetTestDB() (*sql.DB, error) {
@@ -294,4 +294,23 @@ func GetTestDB() (*sql.DB, error) {
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db, nil
+}
+
+// CleanupDB properly closes a database connection and logs any errors.
+// This function should be used with t.Cleanup() to ensure proper resource cleanup
+// in tests that use database connections.
+//
+// Usage:
+//
+//	db, err := testutils.GetTestDB()
+//	require.NoError(t, err)
+//	t.Cleanup(func() { testutils.CleanupDB(t, db) })
+func CleanupDB(t *testing.T, db *sql.DB) {
+	t.Helper()
+	if db == nil {
+		return
+	}
+	if err := db.Close(); err != nil {
+		t.Logf("Warning: failed to close database connection: %v", err)
+	}
 }

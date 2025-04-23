@@ -105,9 +105,9 @@
 - Depends On: T011
 
 ### T015: Add Test Cleanup Mechanisms
-- [  ] Review all tests for proper resource cleanup
-- [  ] Use `t.Cleanup` consistently for all test resources
-- [  ] Ensure database connections are properly closed
+- [x] Review all tests for proper resource cleanup
+- [x] Use `t.Cleanup` consistently for all test resources
+- [x] Ensure database connections are properly closed
 - Effort: Extra Small
 - Depends On: T012
 

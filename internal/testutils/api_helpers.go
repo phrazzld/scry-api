@@ -78,9 +78,14 @@ func CreateTestRouter(t *testing.T) *chi.Mux {
 
 // CreateTestServer creates a httptest server with the given handler.
 // This is a simple helper to reduce boilerplate in tests.
+// Automatically registers cleanup via t.Cleanup() so callers don't need to manually close the server.
 func CreateTestServer(t *testing.T, handler http.Handler) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(handler)
+	server := httptest.NewServer(handler)
+	t.Cleanup(func() {
+		server.Close()
+	})
+	return server
 }
 
 // SetupAuthRoutes configures standard auth routes on the provided router.
@@ -328,6 +333,7 @@ type CardReviewServerOptions struct {
 
 // SetupCardReviewTestServer creates a test server with properly configured
 // card review API routes and mocked dependencies.
+// Automatically registers cleanup via t.Cleanup() so callers don't need to manually close the server.
 func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *httptest.Server {
 	t.Helper()
 
@@ -404,8 +410,13 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 		})
 	})
 
-	// Create and return test server
-	return httptest.NewServer(router)
+	// Create test server and register cleanup
+	server := httptest.NewServer(router)
+	t.Cleanup(func() {
+		server.Close()
+	})
+
+	return server
 }
 
 // ExecuteGetNextCardRequest executes a GET /cards/next request against the test server.
@@ -501,8 +512,12 @@ func ExecuteSubmitAnswerRequestWithRawID(
 }
 
 // AssertCardResponse checks that a response contains a valid card with the expected values.
+// Automatically registers cleanup for the response body.
 func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.Card) {
 	t.Helper()
+
+	// Register cleanup for the response body
+	CleanupResponseBody(t, resp)
 
 	// Check status code
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -535,8 +550,12 @@ func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.
 }
 
 // AssertStatsResponse checks that a response contains valid stats with the expected values.
+// Automatically registers cleanup for the response body.
 func AssertStatsResponse(t *testing.T, resp *http.Response, expectedStats *domain.UserCardStats) {
 	t.Helper()
+
+	// Register cleanup for the response body
+	CleanupResponseBody(t, resp)
 
 	// Check status code
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -561,9 +580,26 @@ func AssertStatsResponse(t *testing.T, resp *http.Response, expectedStats *domai
 	assert.True(t, expectedStats.NextReviewAt.Equal(statsResp.NextReviewAt))
 }
 
+// CleanupResponseBody registers a cleanup function to close the response body
+// to prevent resource leaks. Should be used in tests when receiving an HTTP response.
+func CleanupResponseBody(t *testing.T, resp *http.Response) {
+	t.Helper()
+	if resp != nil && resp.Body != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Warning: failed to close response body: %v", err)
+			}
+		})
+	}
+}
+
 // AssertErrorResponse checks that a response contains an error with the expected status code and message.
+// Automatically registers cleanup for the response body.
 func AssertErrorResponse(t *testing.T, resp *http.Response, expectedStatus int, expectedErrorMsgPart string) {
 	t.Helper()
+
+	// Register cleanup for the response body
+	CleanupResponseBody(t, resp)
 
 	// Check status code
 	assert.Equal(

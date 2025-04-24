@@ -40,7 +40,7 @@ func CleanupResponseBody(t *testing.T, resp *http.Response) {
 }
 
 // AssertErrorResponse checks that a response contains an error with the expected status code and message.
-// Automatically registers cleanup for the response body.
+// Note: No longer registers cleanup for the response body as the request helpers handle this.
 func AssertErrorResponse(
 	t *testing.T,
 	resp *http.Response,
@@ -48,9 +48,6 @@ func AssertErrorResponse(
 	expectedErrorMsgPart string,
 ) {
 	t.Helper()
-
-	// Register cleanup for the response body
-	CleanupResponseBody(t, resp)
 
 	// Check status code
 	assert.Equal(
@@ -85,6 +82,7 @@ func AssertErrorResponse(
 }
 
 // ExecuteInvalidJSONRequest sends a request with an invalid JSON body to test error handling.
+// Automatically registers cleanup for the response body so callers don't need to manually close it.
 func ExecuteInvalidJSONRequest(
 	t *testing.T,
 	server *httptest.Server,
@@ -115,10 +113,22 @@ func ExecuteInvalidJSONRequest(
 
 	// Execute request
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
 }
 
 // ExecuteEmptyBodyRequest sends a request with an empty body to test validation.
+// Automatically registers cleanup for the response body so callers don't need to manually close it.
 func ExecuteEmptyBodyRequest(
 	t *testing.T,
 	server *httptest.Server,
@@ -147,10 +157,22 @@ func ExecuteEmptyBodyRequest(
 
 	// Execute request
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
 }
 
 // ExecuteCustomBodyRequest sends a request with a custom JSON body for testing.
+// Automatically registers cleanup for the response body so callers don't need to manually close it.
 func ExecuteCustomBodyRequest(
 	t *testing.T,
 	server *httptest.Server,
@@ -184,5 +206,16 @@ func ExecuteCustomBodyRequest(
 
 	// Execute request
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
 }

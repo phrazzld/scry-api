@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
@@ -183,7 +182,7 @@ func TestErrorDetailsWithWrappedErrors(t *testing.T) {
 	wrappedTwice := fmt.Errorf("service error: %w", wrappedOnce)
 	deeplyWrappedError := fmt.Errorf("controller error: %w", wrappedTwice)
 
-	// Setup test server with the deeply wrapped error
+	// Setup test server with a custom function that returns the deeply wrapped error
 	server := testutils.SetupCardReviewTestServer(t, testutils.CardReviewServerOptions{
 		UserID: userID,
 		GetNextCardFn: func(ctx context.Context, uid uuid.UUID) (*domain.Card, error) {
@@ -192,15 +191,9 @@ func TestErrorDetailsWithWrappedErrors(t *testing.T) {
 	})
 
 	// Execute request
+	// Response body is automatically closed via t.Cleanup() now
 	resp, err := testutils.ExecuteGetNextCardRequest(t, server, userID)
 	require.NoError(t, err)
-
-	// Register cleanup for the response body
-	t.Cleanup(func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Logf("Warning: failed to close response body: %v", err)
-		}
-	})
 
 	// Verify status code
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -238,17 +231,8 @@ func TestErrorDetailsDontLeakFromCustomErrors(t *testing.T) {
 		"failed to process request",
 		"user=admin&password=secret123")
 
-	// Use a custom ValidateTokenFn to simulate a custom error from authentication
-	validateTokenFn := func(ctx context.Context, token string) (*auth.Claims, error) {
-		// Return our custom error with sensitive details
-		return nil, customErr
-	}
-
-	// Setup test server with the custom error
-	server := testutils.SetupCardReviewTestServer(t, testutils.CardReviewServerOptions{
-		UserID:          userID,
-		ValidateTokenFn: validateTokenFn,
-	})
+	// Setup test server with auth error using our convenience constructor
+	server := testutils.SetupCardReviewTestServerWithAuthError(t, userID, customErr)
 
 	// Create a request
 	req, err := http.NewRequest("GET", server.URL+"/api/cards/next", nil)

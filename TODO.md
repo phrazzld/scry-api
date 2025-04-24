@@ -113,7 +113,7 @@
         3. All tests that use the options pass.
     - **Depends‑on:** none
 
-- [ ] **T011 · Refactor · P2: make test setup more explicit and straightforward**
+- [✓] **T011 · Refactor · P2: make test setup more explicit and straightforward**
     - **Context:** PLAN.md / cr‑04 Simplify Card Review API Test Harness / Step 3
     - **Action:**
         1. Update test setup code to use simplified options and be more explicit.

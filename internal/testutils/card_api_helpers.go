@@ -144,7 +144,11 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 
 // SetupCardReviewTestServerWithNextCard creates a test server that returns a specific card
 // from the GetNextCard method. This is a convenience wrapper for the common success case.
-func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card *domain.Card) *httptest.Server {
+func SetupCardReviewTestServerWithNextCard(
+	t *testing.T,
+	userID uuid.UUID,
+	card *domain.Card,
+) *httptest.Server {
 	return SetupCardReviewTestServer(t, CardReviewServerOptions{
 		UserID:   userID,
 		NextCard: card,
@@ -153,7 +157,11 @@ func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card 
 
 // SetupCardReviewTestServerWithError creates a test server that returns a specific error
 // from both service methods. This is a convenience wrapper for error test cases.
-func SetupCardReviewTestServerWithError(t *testing.T, userID uuid.UUID, err error) *httptest.Server {
+func SetupCardReviewTestServerWithError(
+	t *testing.T,
+	userID uuid.UUID,
+	err error,
+) *httptest.Server {
 	return SetupCardReviewTestServer(t, CardReviewServerOptions{
 		UserID: userID,
 		Error:  err,
@@ -175,7 +183,11 @@ func SetupCardReviewTestServerWithUpdatedStats(
 
 // SetupCardReviewTestServerWithAuthError creates a test server that returns an authentication error.
 // This is a convenience wrapper for testing authentication failure cases.
-func SetupCardReviewTestServerWithAuthError(t *testing.T, userID uuid.UUID, authError error) *httptest.Server {
+func SetupCardReviewTestServerWithAuthError(
+	t *testing.T,
+	userID uuid.UUID,
+	authError error,
+) *httptest.Server {
 	return SetupCardReviewTestServer(t, CardReviewServerOptions{
 		UserID: userID,
 		ValidateTokenFn: func(ctx context.Context, token string) (*auth.Claims, error) {
@@ -189,8 +201,13 @@ func SetupCardReviewTestServerWithAuthError(t *testing.T, userID uuid.UUID, auth
 //------------------------------------------------------------------------------
 
 // ExecuteGetNextCardRequest executes a GET /cards/next request against the test server.
+// Automatically registers cleanup for the response body so callers don't need to manually close it.
 // Returns the response and error, if any.
-func ExecuteGetNextCardRequest(t *testing.T, server *httptest.Server, userID uuid.UUID) (*http.Response, error) {
+func ExecuteGetNextCardRequest(
+	t *testing.T,
+	server *httptest.Server,
+	userID uuid.UUID,
+) (*http.Response, error) {
 	t.Helper()
 
 	// Create request
@@ -210,10 +227,22 @@ func ExecuteGetNextCardRequest(t *testing.T, server *httptest.Server, userID uui
 
 	// Execute request
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
 }
 
 // ExecuteSubmitAnswerRequest executes a POST /cards/{id}/answer request against the test server.
+// Automatically registers cleanup for the response body so callers don't need to manually close it.
 // Returns the response and error, if any.
 func ExecuteSubmitAnswerRequest(
 	t *testing.T,
@@ -253,11 +282,23 @@ func ExecuteSubmitAnswerRequest(
 
 	// Execute request
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
 }
 
 // ExecuteSubmitAnswerRequestWithRawID executes a POST /cards/{id}/answer request
 // with a raw ID string (can be invalid for testing error cases).
+// Automatically registers cleanup for the response body so callers don't need to manually close it.
 // Returns the response and error, if any.
 func ExecuteSubmitAnswerRequestWithRawID(
 	t *testing.T,
@@ -297,16 +338,24 @@ func ExecuteSubmitAnswerRequestWithRawID(
 
 	// Execute request
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
 }
 
 // AssertCardResponse checks that a response contains a valid card with the expected values.
-// Automatically registers cleanup for the response body.
+// Note: No longer registers cleanup for the response body as the request helpers handle this.
 func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.Card) {
 	t.Helper()
-
-	// Register cleanup for the response body
-	CleanupResponseBody(t, resp)
 
 	// Check status code
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -339,12 +388,9 @@ func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.
 }
 
 // AssertStatsResponse checks that a response contains valid stats with the expected values.
-// Automatically registers cleanup for the response body.
+// Note: No longer registers cleanup for the response body as the request helpers handle this.
 func AssertStatsResponse(t *testing.T, resp *http.Response, expectedStats *domain.UserCardStats) {
 	t.Helper()
-
-	// Register cleanup for the response body
-	CleanupResponseBody(t, resp)
 
 	// Check status code
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

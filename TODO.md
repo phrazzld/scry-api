@@ -154,7 +154,7 @@
         3. All tests pass.
     - **Depends‑on:** none
 
-- [ ] **T015 · Test · P2: replace memo_handler_test.go stub with real tests**
+- [✓] **T015 · Test · P2: replace memo_handler_test.go stub with real tests**
     - **Context:** PLAN.md / cr‑06 Replace Stub Test Files / Step 1 & 2
     - **Action:**
         1. Delete `internal/api/memo_handler_test.go` stub file.

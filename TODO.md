@@ -77,7 +77,7 @@
     - **Depends‑on:** [T001]
 
 ## Security & Testing
-- [ ] **T008 · Security · P0: implement test jwt service for generating/validating real tokens**
+- [x] **T008 · Security · P0: implement test jwt service for generating/validating real tokens**
     - **Context:** PLAN.md / cr‑03 Fix Dangerous Default JWT Stubbing / Step 2
     - **Action:**
         1. Create a JWT utility/service within `internal/testutils` using a dedicated, non-production test secret key.

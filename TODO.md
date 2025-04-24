@@ -143,7 +143,7 @@
         1. Consolidated test helpers have clear GoDoc documentation.
     - **Depends‑on:** [T012]
 
-- [ ] **T014 · Test · P2: replace auth_handler_test.go stub with real tests**
+- [✓] **T014 · Test · P2: replace auth_handler_test.go stub with real tests**
     - **Context:** PLAN.md / cr‑06 Replace Stub Test Files / Step 1 & 2
     - **Action:**
         1. Delete `internal/api/auth_handler_test.go` stub file.

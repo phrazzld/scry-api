@@ -153,6 +153,25 @@ func TestAuthHandler_Register(t *testing.T) {
 			expectedBody:   "Failed to generate authentication tokens",
 			wantTokens:     false,
 		},
+		{
+			name: "domain_user_creation_error",
+			requestBody: RegisterRequest{
+				Email:    "valid@example.com",
+				Password: "securePassword123",
+			},
+			setupMocks: func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Mock domain error by making the userStore.Create function return a validation error
+				us.CreateFn = func(ctx context.Context, user *domain.User) error {
+					return &domain.ValidationError{
+						Field:   "email",
+						Message: "already exists",
+					}
+				}
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Invalid email: already exists",
+			wantTokens:     false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -884,3 +903,42 @@ func TestAuthHandler_Integration(t *testing.T) {
 }
 
 // We don't need this helper function as we're parsing the JSON directly in the tests
+
+// TestAuthHandler_NewAuthHandler tests the constructor function.
+func TestAuthHandler_NewAuthHandler(t *testing.T) {
+	mockUserStore := mocks.NewMockUserStore()
+	mockJWTService := &mocks.MockJWTService{}
+	mockPasswordVerifier := &mocks.MockPasswordVerifier{}
+	authConfig := &config.AuthConfig{
+		JWTSecret:                   "test-secret",
+		TokenLifetimeMinutes:        60,
+		RefreshTokenLifetimeMinutes: 1440,
+	}
+
+	t.Run("with_logger", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+		handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+
+		assert.NotNil(t, handler)
+		assert.Equal(t, mockUserStore, handler.userStore)
+		assert.Equal(t, mockJWTService, handler.jwtService)
+		assert.Equal(t, mockPasswordVerifier, handler.passwordVerifier)
+		assert.Equal(t, authConfig, handler.authConfig)
+		assert.NotNil(t, handler.validator)
+		assert.NotNil(t, handler.logger)
+		assert.Equal(t, time.Now, handler.timeFunc) // Default time function
+	})
+
+	t.Run("without_logger", func(t *testing.T) {
+		handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, nil)
+
+		assert.NotNil(t, handler)
+		assert.Equal(t, mockUserStore, handler.userStore)
+		assert.Equal(t, mockJWTService, handler.jwtService)
+		assert.Equal(t, mockPasswordVerifier, handler.passwordVerifier)
+		assert.Equal(t, authConfig, handler.authConfig)
+		assert.NotNil(t, handler.validator)
+		assert.NotNil(t, handler.logger)            // Should create a default logger
+		assert.Equal(t, time.Now, handler.timeFunc) // Default time function
+	})
+}

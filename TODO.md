@@ -165,7 +165,7 @@
         3. All tests pass.
     - **Depends‑on:** none
 
-- [ ] **T016 · Chore · P2: ensure accurate test coverage metrics**
+- [x] **T016 · Chore · P2: ensure accurate test coverage metrics**
     - **Context:** PLAN.md / cr‑06 Replace Stub Test Files / Step 3
     - **Action:**
         1. After implementing real tests for auth and memo handlers, run coverage report.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -36,13 +35,13 @@ func NewCardReviewService(
 ) (CardReviewService, error) {
 	// Validate inputs
 	if cardStore == nil {
-		return nil, fmt.Errorf("cardStore cannot be nil")
+		return nil, domain.NewValidationError("cardStore", "cannot be nil", domain.ErrValidation)
 	}
 	if statsStore == nil {
-		return nil, fmt.Errorf("statsStore cannot be nil")
+		return nil, domain.NewValidationError("statsStore", "cannot be nil", domain.ErrValidation)
 	}
 	if srsService == nil {
-		return nil, fmt.Errorf("srsService cannot be nil")
+		return nil, domain.NewValidationError("srsService", "cannot be nil", domain.ErrValidation)
 	}
 
 	// Use provided logger or create default
@@ -73,7 +72,7 @@ func (s *cardReviewServiceImpl) GetNextCard(
 	card, err := s.cardStore.GetNextReviewCard(ctx, userID)
 	if err != nil {
 		// Map "card not found" errors to service.ErrNoCardsDue
-		if errors.Is(err, store.ErrCardNotFound) || err.Error() == "card not found" {
+		if errors.Is(err, store.ErrCardNotFound) || errors.Is(err, store.ErrNotFound) {
 			log.Debug("no cards due for review", slog.String("user_id", userID.String()))
 			return nil, ErrNoCardsDue
 		}
@@ -81,7 +80,7 @@ func (s *cardReviewServiceImpl) GetNextCard(
 		log.Error("failed to get next review card",
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()))
-		return nil, fmt.Errorf("failed to get next review card: %w", err)
+		return nil, NewGetNextCardError("database error", err)
 	}
 
 	log.Debug("successfully retrieved next review card",
@@ -139,7 +138,7 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 					slog.String("card_id", cardID.String()))
 				return ErrCardNotFound
 			}
-			return fmt.Errorf("failed to get card: %w", err)
+			return NewSubmitAnswerError("failed to retrieve card", err)
 		}
 
 		// Verify that the user owns the card
@@ -161,10 +160,10 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 				// Create new stats with default values
 				stats, err = domain.NewUserCardStats(userID, cardID)
 				if err != nil {
-					return fmt.Errorf("failed to create new stats: %w", err)
+					return NewSubmitAnswerError("failed to create new stats", err)
 				}
 			} else {
-				return fmt.Errorf("failed to get stats: %w", err)
+				return NewSubmitAnswerError("failed to retrieve stats", err)
 			}
 		}
 
@@ -175,7 +174,7 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 				slog.String("error", err.Error()),
 				slog.String("user_id", userID.String()),
 				slog.String("card_id", cardID.String()))
-			return fmt.Errorf("failed to calculate next review: %w", err)
+			return NewSubmitAnswerError("failed to calculate next review", err)
 		}
 
 		// Save or update the stats
@@ -183,13 +182,13 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 			// This is a new card that hasn't been reviewed yet
 			err = txStatsStore.Create(ctx, newStats)
 			if err != nil {
-				return fmt.Errorf("failed to create stats: %w", err)
+				return NewSubmitAnswerError("failed to create stats record", err)
 			}
 		} else {
 			// This is an existing card that has been reviewed before
 			err = txStatsStore.Update(ctx, newStats)
 			if err != nil {
-				return fmt.Errorf("failed to update stats: %w", err)
+				return NewSubmitAnswerError("failed to update stats record", err)
 			}
 		}
 
@@ -210,7 +209,7 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-		return nil, fmt.Errorf("failed to submit answer: %w", err)
+		return nil, err // No need to wrap, we're using CustomErrors now
 	}
 
 	log.Debug("successfully processed review answer",

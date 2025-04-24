@@ -42,7 +42,7 @@
         2. Functions correctly map defined sentinel/custom errors.
     - **Depends‑on:** [T003]
 
-- [ ] **T005 · Refactor · P1: update service/store implementations to return defined sentinel errors**
+- [x] **T005 · Refactor · P1: update service/store implementations to return defined sentinel errors**
     - **Context:** PLAN.md / cr‑01 Use Error Types for Mapping / Step 3 & 4
     - **Action:**
         1. Audit service and store implementations for places where errors are returned.

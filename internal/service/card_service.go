@@ -12,6 +12,35 @@ import (
 	"github.com/phrazzld/scry-api/internal/store"
 )
 
+// CardServiceError is a custom error type for card service errors.
+type CardServiceError struct {
+	Operation string
+	Message   string
+	Err       error
+}
+
+// Error implements the error interface for CardServiceError.
+func (e *CardServiceError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("card service %s failed: %s: %v", e.Operation, e.Message, e.Err)
+	}
+	return fmt.Sprintf("card service %s failed: %s", e.Operation, e.Message)
+}
+
+// Unwrap returns the wrapped error to support errors.Is/errors.As.
+func (e *CardServiceError) Unwrap() error {
+	return e.Err
+}
+
+// NewCardServiceError creates a new CardServiceError.
+func NewCardServiceError(operation, message string, err error) *CardServiceError {
+	return &CardServiceError{
+		Operation: operation,
+		Message:   message,
+		Err:       err,
+	}
+}
+
 // CardRepository defines the repository interface for the service layer
 type CardRepository interface {
 	// CreateMultiple saves multiple cards to the store
@@ -69,10 +98,10 @@ func NewCardService(
 ) (CardService, error) {
 	// Validate dependencies
 	if cardRepo == nil {
-		return nil, fmt.Errorf("cardRepo cannot be nil")
+		return nil, domain.NewValidationError("cardRepo", "cannot be nil", domain.ErrValidation)
 	}
 	if statsRepo == nil {
-		return nil, fmt.Errorf("statsRepo cannot be nil")
+		return nil, domain.NewValidationError("statsRepo", "cannot be nil", domain.ErrValidation)
 	}
 
 	// Use provided logger or create default
@@ -112,7 +141,7 @@ func (s *cardServiceImpl) CreateCards(ctx context.Context, cards []*domain.Card)
 		if err != nil {
 			log.Error("failed to create cards in transaction",
 				slog.String("error", err.Error()))
-			return fmt.Errorf("failed to create cards: %w", err)
+			return NewCardServiceError("create_cards", "failed to save cards", err)
 		}
 
 		// 2. Create a UserCardStats entry for each card
@@ -124,7 +153,7 @@ func (s *cardServiceImpl) CreateCards(ctx context.Context, cards []*domain.Card)
 					slog.String("error", err.Error()),
 					slog.String("user_id", card.UserID.String()),
 					slog.String("card_id", card.ID.String()))
-				return fmt.Errorf("failed to create user card stats: %w", err)
+				return NewCardServiceError("create_cards", "failed to create stats object", err)
 			}
 
 			// Save the stats
@@ -134,7 +163,7 @@ func (s *cardServiceImpl) CreateCards(ctx context.Context, cards []*domain.Card)
 					slog.String("error", err.Error()),
 					slog.String("user_id", card.UserID.String()),
 					slog.String("card_id", card.ID.String()))
-				return fmt.Errorf("failed to save user card stats: %w", err)
+				return NewCardServiceError("create_cards", "failed to save stats", err)
 			}
 
 			log.Debug("created user card stats",
@@ -160,7 +189,13 @@ func (s *cardServiceImpl) GetCard(ctx context.Context, cardID uuid.UUID) (*domai
 		log.Error("failed to retrieve card",
 			slog.String("error", err.Error()),
 			slog.String("card_id", cardID.String()))
-		return nil, fmt.Errorf("failed to retrieve card: %w", err)
+
+		// Check for specific error types
+		if store.IsNotFoundError(err) {
+			return nil, NewCardServiceError("get_card", "card not found", store.ErrCardNotFound)
+		}
+
+		return nil, NewCardServiceError("get_card", "failed to retrieve card", err)
 	}
 
 	log.Debug("retrieved card successfully",

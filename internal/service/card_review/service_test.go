@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -21,6 +20,21 @@ import (
 // MockCardStore is a mock implementation of the store.CardStore interface
 type MockCardStore struct {
 	mock.Mock
+	// Expose store errors for testing
+	ErrNotFound      error
+	ErrCardNotFound  error
+	ErrDuplicate     error
+	ErrInvalidEntity error
+}
+
+func NewMockCardStore() *MockCardStore {
+	mockStore := &MockCardStore{
+		ErrNotFound:      store.ErrNotFound,
+		ErrCardNotFound:  store.ErrCardNotFound,
+		ErrDuplicate:     store.ErrDuplicate,
+		ErrInvalidEntity: store.ErrInvalidEntity,
+	}
+	return mockStore
 }
 
 func (m *MockCardStore) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
@@ -162,7 +176,7 @@ func createTestCard(userID uuid.UUID) *domain.Card {
 // TestNewCardReviewService tests the service constructor with various inputs
 func TestNewCardReviewService(t *testing.T) {
 	// Setup
-	mockCardStore := new(MockCardStore)
+	mockCardStore := NewMockCardStore()
 	mockStatsStore := new(MockUserCardStatsStore)
 	mockSrsService := new(MockSRSService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -178,21 +192,33 @@ func TestNewCardReviewService(t *testing.T) {
 		service, err := card_review.NewCardReviewService(nil, mockStatsStore, mockSrsService, logger)
 		assert.Error(t, err)
 		assert.Nil(t, service)
-		assert.Contains(t, err.Error(), "cardStore cannot be nil")
+
+		var validationErr *domain.ValidationError
+		assert.ErrorAs(t, err, &validationErr)
+		assert.Equal(t, "cardStore", validationErr.Field)
+		assert.Equal(t, "cannot be nil", validationErr.Message)
 	})
 
 	t.Run("nil stats store", func(t *testing.T) {
 		service, err := card_review.NewCardReviewService(mockCardStore, nil, mockSrsService, logger)
 		assert.Error(t, err)
 		assert.Nil(t, service)
-		assert.Contains(t, err.Error(), "statsStore cannot be nil")
+
+		var validationErr *domain.ValidationError
+		assert.ErrorAs(t, err, &validationErr)
+		assert.Equal(t, "statsStore", validationErr.Field)
+		assert.Equal(t, "cannot be nil", validationErr.Message)
 	})
 
 	t.Run("nil SRS service", func(t *testing.T) {
 		service, err := card_review.NewCardReviewService(mockCardStore, mockStatsStore, nil, logger)
 		assert.Error(t, err)
 		assert.Nil(t, service)
-		assert.Contains(t, err.Error(), "srsService cannot be nil")
+
+		var validationErr *domain.ValidationError
+		assert.ErrorAs(t, err, &validationErr)
+		assert.Equal(t, "srsService", validationErr.Field)
+		assert.Equal(t, "cannot be nil", validationErr.Message)
 	})
 
 	t.Run("nil logger", func(t *testing.T) {
@@ -207,11 +233,11 @@ func TestNewCardReviewService(t *testing.T) {
 func TestGetNextCard(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name           string
-		userID         uuid.UUID
-		setupMock      func(*MockCardStore, uuid.UUID)
-		expectedError  error
-		expectedErrMsg string
+		name          string
+		userID        uuid.UUID
+		setupMock     func(*MockCardStore, uuid.UUID)
+		expectedError error
+		checkError    func(*testing.T, error)
 	}{
 		{
 			name:   "happy path - card found",
@@ -220,17 +246,17 @@ func TestGetNextCard(t *testing.T) {
 				card := createTestCard(userID)
 				store.On("GetNextReviewCard", mock.Anything, userID).Return(card, nil)
 			},
-			expectedError:  nil,
-			expectedErrMsg: "",
+			expectedError: nil,
+			checkError:    nil,
 		},
 		{
 			name:   "no cards due",
 			userID: uuid.New(),
 			setupMock: func(store *MockCardStore, userID uuid.UUID) {
-				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, fmt.Errorf("card not found"))
+				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, store.ErrCardNotFound)
 			},
-			expectedError:  card_review.ErrNoCardsDue,
-			expectedErrMsg: "",
+			expectedError: card_review.ErrNoCardsDue,
+			checkError:    nil,
 		},
 		{
 			name:   "repository error",
@@ -238,17 +264,23 @@ func TestGetNextCard(t *testing.T) {
 			setupMock: func(store *MockCardStore, userID uuid.UUID) {
 				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, errors.New("database error"))
 			},
-			expectedError:  nil,
-			expectedErrMsg: "failed to get next review card: database error",
+			expectedError: nil,
+			checkError: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				var serviceErr *card_review.ServiceError
+				assert.ErrorAs(t, err, &serviceErr)
+				assert.Equal(t, "get_next_card", serviceErr.Operation)
+				assert.Equal(t, "database error", serviceErr.Message)
+			},
 		},
 		{
 			name:   "nil uuid",
 			userID: uuid.Nil,
 			setupMock: func(store *MockCardStore, userID uuid.UUID) {
-				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, fmt.Errorf("card not found"))
+				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, store.ErrCardNotFound)
 			},
-			expectedError:  card_review.ErrNoCardsDue,
-			expectedErrMsg: "",
+			expectedError: card_review.ErrNoCardsDue,
+			checkError:    nil,
 		},
 	}
 
@@ -256,7 +288,7 @@ func TestGetNextCard(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock stores
-			mockCardStore := new(MockCardStore)
+			mockCardStore := NewMockCardStore()
 			mockStatsStore := new(MockUserCardStatsStore)
 			mockSrsService := new(MockSRSService)
 			tc.setupMock(mockCardStore, tc.userID)
@@ -280,8 +312,8 @@ func TestGetNextCard(t *testing.T) {
 			// Verify expectations
 			if tc.expectedError != nil {
 				assert.ErrorIs(t, err, tc.expectedError)
-			} else if tc.expectedErrMsg != "" {
-				assert.EqualError(t, err, tc.expectedErrMsg)
+			} else if tc.checkError != nil {
+				tc.checkError(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, card)
@@ -303,7 +335,7 @@ func TestSubmitAnswer(t *testing.T) {
 	cardID := uuid.New()
 
 	// Create mocks
-	mockCardStore := new(MockCardStore)
+	mockCardStore := NewMockCardStore()
 	mockStatsStore := new(MockUserCardStatsStore)
 	mockSrsService := new(MockSRSService)
 

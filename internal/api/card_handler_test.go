@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
+	"github.com/stretchr/testify/assert"
 )
 
 // mockCardReviewService is a mock implementation of the CardReviewService interface
@@ -123,7 +126,8 @@ func TestGetNextReviewCard(t *testing.T) {
 			}
 
 			// Create the handler
-			handler := NewCardHandler(mockService, nil)
+			testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			handler := NewCardHandler(mockService, testLogger)
 
 			// Create a request
 			req, err := http.NewRequest("GET", "/cards/next", nil)
@@ -373,7 +377,8 @@ func TestSubmitAnswer(t *testing.T) {
 			}
 
 			// Create the handler
-			handler := NewCardHandler(mockService, nil)
+			testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			handler := NewCardHandler(mockService, testLogger)
 
 			// Create request body
 			var jsonBody []byte
@@ -467,13 +472,20 @@ func TestSubmitAnswer(t *testing.T) {
 }
 
 func TestNewCardHandler(t *testing.T) {
-	// Test with nil logger
 	mockService := &mockCardReviewService{}
-	handler := NewCardHandler(mockService, nil)
+
+	// Test with valid logger
+	testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := NewCardHandler(mockService, testLogger)
 
 	if handler == nil {
-		t.Fatal("expected handler to be created with nil logger")
+		t.Fatal("expected handler to be created")
 	}
+
+	// Test with nil logger should panic
+	assert.Panics(t, func() {
+		NewCardHandler(mockService, nil)
+	})
 
 	if handler.cardReviewService == nil {
 		t.Error("expected cardReviewService to be set")

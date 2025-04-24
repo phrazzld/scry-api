@@ -80,9 +80,9 @@ func NewAuthHandler(
 	authConfig *config.AuthConfig,
 	logger *slog.Logger,
 ) *AuthHandler {
-	// Use provided logger or create default
 	if logger == nil {
-		logger = slog.Default()
+		// ALLOW-PANIC: Constructor enforcing required dependency
+		panic("logger cannot be nil for AuthHandler")
 	}
 
 	return &AuthHandler{

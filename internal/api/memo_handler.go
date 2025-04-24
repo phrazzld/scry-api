@@ -37,9 +37,9 @@ type MemoHandler struct {
 
 // NewMemoHandler creates a new MemoHandler
 func NewMemoHandler(memoService service.MemoService, logger *slog.Logger) *MemoHandler {
-	// Use provided logger or create default
 	if logger == nil {
-		logger = slog.Default()
+		// ALLOW-PANIC: Constructor enforcing required dependency
+		panic("logger cannot be nil for MemoHandler")
 	}
 
 	return &MemoHandler{

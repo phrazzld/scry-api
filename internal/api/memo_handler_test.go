@@ -314,11 +314,10 @@ func TestMemoHandler_NewMemoHandler(t *testing.T) {
 	})
 
 	t.Run("without_logger", func(t *testing.T) {
-		handler := NewMemoHandler(mockService, nil)
+		// Test for panic with nil logger
+		assert.Panics(t, func() {
+			NewMemoHandler(mockService, nil)
+		})
 
-		assert.NotNil(t, handler)
-		assert.Equal(t, mockService, handler.memoService)
-		assert.NotNil(t, handler.validator)
-		assert.NotNil(t, handler.logger) // Should create a default logger
 	})
 }

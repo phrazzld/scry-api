@@ -37,9 +37,9 @@ type CardHandler struct {
 
 // NewCardHandler creates a new CardHandler
 func NewCardHandler(cardReviewService card_review.CardReviewService, logger *slog.Logger) *CardHandler {
-	// Use provided logger or create default
 	if logger == nil {
-		logger = slog.Default()
+		// ALLOW-PANIC: Constructor enforcing required dependency
+		panic("logger cannot be nil for CardHandler")
 	}
 
 	return &CardHandler{

@@ -262,7 +262,7 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(apiMiddleware.TraceMiddleware) // Add trace IDs for improved error handling
+	r.Use(apiMiddleware.NewTraceMiddleware(deps.Logger)) // Add trace IDs for improved error handling
 
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()

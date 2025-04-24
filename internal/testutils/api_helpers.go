@@ -21,8 +21,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// CreateAuthComponents creates JWT service and password verifier for testing.
-// Returns auth config, jwt service, password verifier, and any error.
+// CreateAuthComponents creates JWT service and password verifier for testing with a pre-configured
+// test JWT secret and standard expiration settings.
+//
+// It returns:
+//   - A valid auth configuration with test secrets
+//   - A initialized JWT service for creating and validating tokens
+//   - A password verifier implementation for testing
+//   - Any error encountered during creation
+//
+// Example:
+//
+//	authConfig, jwtService, passwordVerifier, err := testutils.CreateAuthComponents(t)
+//	require.NoError(t, err)
+//	// Use the components in your test
 func CreateAuthComponents(
 	t *testing.T,
 ) (config.AuthConfig, auth.JWTService, auth.PasswordVerifier, error) {
@@ -40,8 +52,26 @@ func CreateAuthComponents(
 	return authConfig, jwtService, passwordVerifier, nil
 }
 
-// CreateAPIHandlers creates API handlers and middleware for testing.
-// Takes the required dependencies and returns initialized handlers.
+// CreateAPIHandlers creates API handlers and middleware for testing purposes.
+//
+// It initializes:
+//   - An auth handler for authentication endpoints
+//   - A memo handler for memo-related endpoints
+//   - An auth middleware for route protection
+//
+// The function takes all required dependencies and configures them for testing.
+// It uses the default logger (slog.Default()) for simplicity in tests.
+//
+// Example:
+//
+//	// Set up stores and services
+//	userStore := testutils.CreatePostgresUserStore(db)
+//	authConfig, jwtService, passwordVerifier, _ := testutils.CreateAuthComponents(t)
+//	memoService := service.NewMemoService(...)
+//
+//	// Create handlers
+//	authHandler, memoHandler, authMiddleware := testutils.CreateAPIHandlers(
+//	    t, userStore, jwtService, passwordVerifier, authConfig, memoService)
 func CreateAPIHandlers(
 	t *testing.T,
 	userStore store.UserStore,
@@ -59,8 +89,19 @@ func CreateAPIHandlers(
 	return authHandler, memoHandler, authMiddleware
 }
 
-// CreateTestRouter creates a Chi router with standard middleware applied.
-// This provides a consistent router setup for all API tests.
+// CreateTestRouter creates a Chi router with standard middleware applied for testing.
+//
+// This function provides a consistent router setup for all API tests, applying the
+// following middleware:
+//   - RequestID: Assigns a unique request ID to each request
+//   - RealIP: Sets the request's RemoteAddr to either X-Forwarded-For or X-Real-IP
+//   - Recoverer: Recovers from panics and logs them appropriately
+//
+// Example:
+//
+//	router := testutils.CreateTestRouter(t)
+//	// Add routes to the router
+//	router.Get("/health", healthHandler)
 func CreateTestRouter(t *testing.T) *chi.Mux {
 	t.Helper()
 	r := chi.NewRouter()
@@ -74,7 +115,23 @@ func CreateTestRouter(t *testing.T) *chi.Mux {
 }
 
 // SetupAuthRoutes configures standard auth routes on the provided router.
-// This ensures consistency in how auth routes are set up across tests.
+//
+// This function sets up a standard API route structure for testing, including:
+//   - Public routes: /api/auth/register and /api/auth/login
+//   - Protected routes: /api/memos (requires authentication)
+//
+// The function ensures consistency in how auth routes are set up across tests
+// and simplifies test setup for auth-related functionality.
+//
+// Example:
+//
+//	router := testutils.CreateTestRouter(t)
+//	authHandler, memoHandler, authMiddleware := testutils.CreateAPIHandlers(...)
+//	testutils.SetupAuthRoutes(t, router, authHandler, memoHandler, authMiddleware)
+//
+//	// Test the routes
+//	server := httptest.NewServer(router)
+//	defer server.Close()
 func SetupAuthRoutes(
 	t *testing.T,
 	r chi.Router,
@@ -98,7 +155,16 @@ func SetupAuthRoutes(
 }
 
 // CreatePostgresUserStore creates a PostgresUserStore with default test settings.
-// This is a convenience function to create a user store for testing.
+//
+// This convenience function initializes a user store with BCrypt cost set to 10
+// for faster password hashing during tests. This is lower than production would use
+// but significantly speeds up tests that involve user creation or authentication.
+//
+// Example:
+//
+//	db := testutils.GetTestDB(t)
+//	userStore := testutils.CreatePostgresUserStore(db)
+//	// Use userStore in tests
 func CreatePostgresUserStore(db store.DBTX) *postgres.PostgresUserStore {
 	return postgres.NewPostgresUserStore(db, 10) // BCrypt cost = 10 for faster tests
 }

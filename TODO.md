@@ -135,7 +135,7 @@
         3. Tests using the consolidated helpers pass.
     - **Depends‑on:** none
 
-- [ ] **T013 · Chore · P2: document consolidated test helpers**
+- [✓] **T013 · Chore · P2: document consolidated test helpers**
     - **Context:** PLAN.md / cr‑05 Consolidate Test Helper Abstractions / Step 3
     - **Action:**
         1. Add GoDoc comments explaining the purpose and usage of the primary consolidated test helpers.

@@ -113,7 +113,7 @@ func TestErrorDetailsLeak(t *testing.T) {
 				})
 
 				// Execute request
-				resp, err = testutils.ExecuteGetNextCardRequest(t, server)
+				resp, err = testutils.ExecuteGetNextCardRequest(t, server, userID)
 				require.NoError(t, err)
 			} else {
 				// Test SubmitAnswer endpoint
@@ -125,7 +125,7 @@ func TestErrorDetailsLeak(t *testing.T) {
 				})
 
 				// Execute request
-				resp, err = testutils.ExecuteSubmitAnswerRequest(t, server, uuid.New(), domain.ReviewOutcome("good"))
+				resp, err = testutils.ExecuteSubmitAnswerRequest(t, server, userID, uuid.New(), domain.ReviewOutcome("good"))
 				require.NoError(t, err)
 			}
 
@@ -192,7 +192,7 @@ func TestErrorDetailsWithWrappedErrors(t *testing.T) {
 	})
 
 	// Execute request
-	resp, err := testutils.ExecuteGetNextCardRequest(t, server)
+	resp, err := testutils.ExecuteGetNextCardRequest(t, server, userID)
 	require.NoError(t, err)
 
 	// Register cleanup for the response body

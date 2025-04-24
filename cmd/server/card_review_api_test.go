@@ -96,7 +96,7 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 
 			// Execute the request using the helper function
 			// Note: response body is automatically closed through t.Cleanup()
-			resp, err := testutils.ExecuteGetNextCardRequest(t, server)
+			resp, err := testutils.ExecuteGetNextCardRequest(t, server, tc.serverOptions.UserID)
 			require.NoError(t, err)
 
 			// Verify the response
@@ -240,10 +240,16 @@ func TestSubmitAnswerAPI(t *testing.T) {
 
 			if tc.executeRequest {
 				// Execute normal request using the helper function
-				resp, err = testutils.ExecuteSubmitAnswerRequest(t, server, tc.cardID, tc.outcome)
+				resp, err = testutils.ExecuteSubmitAnswerRequest(
+					t,
+					server,
+					tc.serverOptions.UserID,
+					tc.cardID,
+					tc.outcome,
+				)
 			} else if tc.name == "Invalid Card ID Format" {
 				// Use the helper for invalid card ID format
-				resp, err = testutils.ExecuteSubmitAnswerRequestWithRawID(t, server, "not-a-uuid", tc.outcome)
+				resp, err = testutils.ExecuteSubmitAnswerRequestWithRawID(t, server, tc.serverOptions.UserID, "not-a-uuid", tc.outcome)
 			}
 
 			require.NoError(t, err)
@@ -305,9 +311,9 @@ func TestInvalidRequestBody(t *testing.T) {
 			// Use the appropriate helper based on the test type
 			switch tc.testType {
 			case "invalid-json":
-				resp, err = testutils.ExecuteInvalidJSONRequest(t, server, "POST", tc.path)
+				resp, err = testutils.ExecuteInvalidJSONRequest(t, server, userID, "POST", tc.path)
 			case "empty-body":
-				resp, err = testutils.ExecuteEmptyBodyRequest(t, server, "POST", tc.path)
+				resp, err = testutils.ExecuteEmptyBodyRequest(t, server, userID, "POST", tc.path)
 			default:
 				t.Fatalf("Unknown test type: %s", tc.testType)
 			}

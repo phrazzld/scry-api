@@ -88,7 +88,7 @@
         2. Test utility exists to validate tokens signed with the test secret.
     - **Depends‑on:** none
 
-- [ ] **T009 · Security · P0: remove default jwt stub and update api tests to use real tokens**
+- [✓] **T009 · Security · P0: remove default jwt stub and update api tests to use real tokens**
     - **Context:** PLAN.md / cr‑03 Fix Dangerous Default JWT Stubbing / Step 1, 3 & 4
     - **Action:**
         1. Remove the default `ValidateTokenFn` stub from `internal/testutils/api_helpers.go`.

@@ -115,7 +115,7 @@ func TestCardReviewTestHelpers(t *testing.T) {
 		defer server.Close()
 
 		// Test GetNextCard
-		resp, err := ExecuteGetNextCardRequest(t, server)
+		resp, err := ExecuteGetNextCardRequest(t, server, userID)
 		require.NoError(t, err)
 		defer func() {
 			if err := resp.Body.Close(); err != nil {
@@ -134,7 +134,7 @@ func TestCardReviewTestHelpers(t *testing.T) {
 		defer submitServer.Close()
 
 		// Test SubmitAnswer
-		resp2, err := ExecuteSubmitAnswerRequest(t, submitServer, cardID, domain.ReviewOutcomeGood)
+		resp2, err := ExecuteSubmitAnswerRequest(t, submitServer, userID, cardID, domain.ReviewOutcomeGood)
 		require.NoError(t, err)
 		defer func() {
 			if err := resp2.Body.Close(); err != nil {
@@ -159,7 +159,7 @@ func TestCardReviewTestHelpers(t *testing.T) {
 		defer server.Close()
 
 		// Test request
-		resp, err := ExecuteGetNextCardRequest(t, server)
+		resp, err := ExecuteGetNextCardRequest(t, server, userID)
 		require.NoError(t, err)
 		defer func() {
 			if err := resp.Body.Close(); err != nil {

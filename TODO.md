@@ -123,7 +123,7 @@
         2. All tests pass with the updated setup.
     - **Depends‑on:** [T010]
 
-- [ ] **T012 · Refactor · P2: consolidate overlapping test helpers**
+- [✓] **T012 · Refactor · P2: consolidate overlapping test helpers**
     - **Context:** PLAN.md / cr‑05 Consolidate Test Helper Abstractions / Step 1 & 2
     - **Action:**
         1. Audit helpers in `internal/testutils/api_helpers.go` and `internal/testutils/card_helpers.go`.

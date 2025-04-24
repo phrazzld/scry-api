@@ -3,7 +3,6 @@ package testutils
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -28,60 +27,57 @@ type CardWithStatsOptions struct {
 
 // NewTestCard creates a domain.Card instance with test data.
 // It does not persist the card to the database.
+//
+// DEPRECATED: Use CreateCardForAPITest instead. This function is maintained
+// for backward compatibility and will be removed in a future version.
 func NewTestCard(userID, memoID uuid.UUID, options *CardWithStatsOptions) (*domain.Card, error) {
+	// Convert struct options to functional options
+	var opts []CardOption
+
+	// Add user ID and memo ID
+	opts = append(opts, WithCardUserID(userID), WithCardMemoID(memoID))
+
 	// Set up default options if none provided
 	if options == nil {
 		options = &CardWithStatsOptions{}
 	}
 
-	// Set default card ID if not provided
-	if options.CardID == uuid.Nil {
-		options.CardID = uuid.New()
+	// Add card ID if provided
+	if options.CardID != uuid.Nil {
+		opts = append(opts, WithCardID(options.CardID))
 	}
 
-	var content json.RawMessage
-
-	// Use provided raw content or marshal the content map
+	// Handle content
 	if len(options.RawContent) > 0 {
-		content = options.RawContent
-	} else {
-		// Set default content if not provided
-		cardContent := options.CardContent
-		if cardContent == nil {
-			cardContent = map[string]interface{}{
-				"front": "Test front",
-				"back":  "Test back",
-			}
-		}
-
-		var err error
-		content, err = json.Marshal(cardContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal card content: %w", err)
-		}
+		// Use raw content if provided
+		opts = append(opts, WithRawCardContent(options.RawContent))
+	} else if options.CardContent != nil {
+		// Use content map if provided
+		opts = append(opts, WithCardContent(options.CardContent))
 	}
 
-	// Create the card
-	card := &domain.Card{
-		ID:        options.CardID,
-		UserID:    userID,
-		MemoID:    memoID,
-		Content:   content,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-	}
+	// Use the standard creation function - pass nil for t to avoid test helper functionality
+	card := CreateCardForAPITest(nil, opts...)
+
+	// Override timestamps to use current time instead of -24h as in CreateCardForAPITest
+	now := time.Now().UTC()
+	card.CreatedAt = now
+	card.UpdatedAt = now
 
 	return card, nil
 }
 
 // NewTestUserCardStats creates a domain.UserCardStats instance with test data.
 // It does not persist the stats to the database.
+//
+// DEPRECATED: Use CreateStatsForAPITest instead. This function is maintained
+// for backward compatibility and will be removed in a future version.
 func NewTestUserCardStats(userID, cardID uuid.UUID, options *CardWithStatsOptions) (*domain.UserCardStats, error) {
-	// Create the stats
-	stats, err := domain.NewUserCardStats(userID, cardID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stats: %w", err)
-	}
+	// Convert struct options to functional options
+	var opts []StatsOption
+
+	// Add user ID and card ID
+	opts = append(opts, WithStatsUserID(userID), WithStatsCardID(cardID))
 
 	// Set up default options if none provided
 	if options == nil {
@@ -90,13 +86,19 @@ func NewTestUserCardStats(userID, cardID uuid.UUID, options *CardWithStatsOption
 
 	// Set the next review time if provided
 	if !options.NextReviewAt.IsZero() {
-		stats.NextReviewAt = options.NextReviewAt
+		opts = append(opts, WithStatsNextReviewAt(options.NextReviewAt))
 	}
+
+	// Use the standard creation function - pass nil for t to avoid test helper functionality
+	stats := CreateStatsForAPITest(nil, opts...)
 
 	return stats, nil
 }
 
 // MustNewTestCard creates a new test card or fails the test if there's an error
+//
+// DEPRECATED: Use MustCreateCardForTest instead. This function is maintained
+// for backward compatibility and will be removed in a future version.
 func MustNewTestCard(t *testing.T, userID, memoID uuid.UUID, options *CardWithStatsOptions) *domain.Card {
 	t.Helper()
 	card, err := NewTestCard(userID, memoID, options)
@@ -105,6 +107,9 @@ func MustNewTestCard(t *testing.T, userID, memoID uuid.UUID, options *CardWithSt
 }
 
 // MustNewTestUserCardStats creates a new test user card stats or fails the test if there's an error
+//
+// DEPRECATED: Use MustCreateStatsForTest instead. This function is maintained
+// for backward compatibility and will be removed in a future version.
 func MustNewTestUserCardStats(
 	t *testing.T,
 	userID, cardID uuid.UUID,
@@ -118,15 +123,12 @@ func MustNewTestUserCardStats(
 
 // CreateTestMemo creates a new valid memo for testing.
 // It does not save the memo to the database.
+//
+// DEPRECATED: Use MustCreateMemoForTest instead. This function is maintained
+// for backward compatibility and will be removed in a future version.
 func CreateTestMemo(t *testing.T, userID uuid.UUID) *domain.Memo {
 	t.Helper()
-
-	memo, err := domain.NewMemo(
-		userID,
-		fmt.Sprintf("Test memo content %s", uuid.New().String()[:8]),
-	)
-	require.NoError(t, err, "Failed to create test memo")
-	return memo
+	return MustCreateMemoForTest(t, WithMemoUserID(userID))
 }
 
 // MustInsertMemo inserts a memo into the database for testing.
@@ -135,8 +137,8 @@ func CreateTestMemo(t *testing.T, userID uuid.UUID) *domain.Memo {
 func MustInsertMemo(ctx context.Context, t *testing.T, tx store.DBTX, userID uuid.UUID) *domain.Memo {
 	t.Helper()
 
-	// Create a test memo
-	memo := CreateTestMemo(t, userID)
+	// Create a test memo using the new helper
+	memo := MustCreateMemoForTest(t, WithMemoUserID(userID))
 
 	// Create a memo store
 	memoStore := postgres.NewPostgresMemoStore(tx, nil)
@@ -154,8 +156,11 @@ func MustInsertMemo(ctx context.Context, t *testing.T, tx store.DBTX, userID uui
 func MustInsertCard(ctx context.Context, t *testing.T, tx store.DBTX, userID, memoID uuid.UUID) *domain.Card {
 	t.Helper()
 
-	// Create a test card
-	card := MustNewTestCard(t, userID, memoID, nil)
+	// Create a test card using the new helper
+	card := MustCreateCardForTest(t,
+		WithCardUserID(userID),
+		WithCardMemoID(memoID),
+	)
 
 	// Create a card store with transaction context
 	cardStore := postgres.NewPostgresCardStore(tx, nil)
@@ -179,8 +184,11 @@ func MustInsertUserCardStats(
 ) *domain.UserCardStats {
 	t.Helper()
 
-	// Create test stats
-	stats := MustNewTestUserCardStats(t, userID, cardID, nil)
+	// Create test stats using the new helper
+	stats := MustCreateStatsForTest(t,
+		WithStatsUserID(userID),
+		WithStatsCardID(cardID),
+	)
 
 	// Use store to insert
 	statsStore := postgres.NewPostgresUserCardStatsStore(tx, nil)

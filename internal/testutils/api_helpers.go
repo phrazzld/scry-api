@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -139,6 +140,14 @@ func WithCardContent(content map[string]interface{}) CardOption {
 	}
 }
 
+// WithRawCardContent sets raw JSON content for the test card.
+// This allows direct setting of pre-marshaled JSON.
+func WithRawCardContent(content json.RawMessage) CardOption {
+	return func(c *domain.Card) {
+		c.Content = content
+	}
+}
+
 // WithCardCreatedAt sets the creation timestamp for the test card.
 func WithCardCreatedAt(createdAt time.Time) CardOption {
 	return func(c *domain.Card) {
@@ -155,8 +164,11 @@ func WithCardUpdatedAt(updatedAt time.Time) CardOption {
 
 // CreateCardForAPITest creates a Card instance for API testing with default values.
 // Options can be passed to customize the card.
+// If t is nil, error checking for JSON marshaling is skipped.
 func CreateCardForAPITest(t *testing.T, opts ...CardOption) *domain.Card {
-	t.Helper()
+	if t != nil {
+		t.Helper()
+	}
 
 	now := time.Now().UTC()
 	userID := uuid.New()
@@ -169,7 +181,9 @@ func CreateCardForAPITest(t *testing.T, opts ...CardOption) *domain.Card {
 		"back":  "Paris",
 	}
 	contentBytes, err := json.Marshal(defaultContent)
-	require.NoError(t, err)
+	if t != nil {
+		require.NoError(t, err)
+	}
 
 	// Create card with default values
 	card := &domain.Card{
@@ -186,6 +200,14 @@ func CreateCardForAPITest(t *testing.T, opts ...CardOption) *domain.Card {
 		opt(card)
 	}
 
+	return card
+}
+
+// MustCreateCardForTest creates a Card instance for testing or fails the test if there's an error.
+// This is a convenience wrapper around CreateCardForAPITest.
+func MustCreateCardForTest(t *testing.T, opts ...CardOption) *domain.Card {
+	t.Helper()
+	card := CreateCardForAPITest(t, opts...)
 	return card
 }
 
@@ -264,8 +286,11 @@ func WithStatsUpdatedAt(timestamp time.Time) StatsOption {
 
 // CreateStatsForAPITest creates a UserCardStats instance for API testing with default values.
 // Options can be passed to customize the stats.
+// If t is nil, no test helper functionality is used.
 func CreateStatsForAPITest(t *testing.T, opts ...StatsOption) *domain.UserCardStats {
-	t.Helper()
+	if t != nil {
+		t.Helper()
+	}
 
 	now := time.Now().UTC()
 	userID := uuid.New()
@@ -291,4 +316,91 @@ func CreateStatsForAPITest(t *testing.T, opts ...StatsOption) *domain.UserCardSt
 	}
 
 	return stats
+}
+
+// MustCreateStatsForTest creates a UserCardStats instance for testing or fails the test if there's an error.
+// This is a convenience wrapper around CreateStatsForAPITest.
+func MustCreateStatsForTest(t *testing.T, opts ...StatsOption) *domain.UserCardStats {
+	t.Helper()
+	stats := CreateStatsForAPITest(t, opts...)
+	return stats
+}
+
+//------------------------------------------------------------------------------
+// Memo Test Options
+//------------------------------------------------------------------------------
+
+// MemoOption is a function that configures a Memo for testing.
+type MemoOption func(*domain.Memo)
+
+// WithMemoID sets a specific ID for the test memo.
+func WithMemoID(id uuid.UUID) MemoOption {
+	return func(m *domain.Memo) {
+		m.ID = id
+	}
+}
+
+// WithMemoUserID sets a specific user ID for the test memo.
+func WithMemoUserID(userID uuid.UUID) MemoOption {
+	return func(m *domain.Memo) {
+		m.UserID = userID
+	}
+}
+
+// WithMemoText sets the text content for the test memo.
+func WithMemoText(text string) MemoOption {
+	return func(m *domain.Memo) {
+		m.Text = text
+	}
+}
+
+// WithMemoCreatedAt sets the creation timestamp for the test memo.
+func WithMemoCreatedAt(createdAt time.Time) MemoOption {
+	return func(m *domain.Memo) {
+		m.CreatedAt = createdAt
+	}
+}
+
+// WithMemoUpdatedAt sets the update timestamp for the test memo.
+func WithMemoUpdatedAt(updatedAt time.Time) MemoOption {
+	return func(m *domain.Memo) {
+		m.UpdatedAt = updatedAt
+	}
+}
+
+// CreateMemoForTest creates a Memo instance for testing with default values.
+// Options can be passed to customize the memo.
+// If t is nil, error checking is skipped.
+func CreateMemoForTest(t *testing.T, opts ...MemoOption) *domain.Memo {
+	if t != nil {
+		t.Helper()
+	}
+
+	now := time.Now().UTC()
+	userID := uuid.New()
+
+	// Create memo with default values
+	memo := &domain.Memo{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Text:      fmt.Sprintf("Test memo content %s", uuid.New().String()[:8]),
+		Status:    domain.MemoStatusPending,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(memo)
+	}
+
+	return memo
+}
+
+// MustCreateMemoForTest creates a Memo instance for testing or fails the test if there's an error.
+// This is a convenience wrapper around CreateMemoForTest.
+func MustCreateMemoForTest(t *testing.T, opts ...MemoOption) *domain.Memo {
+	t.Helper()
+	memo := CreateMemoForTest(t, opts...)
+	return memo
 }

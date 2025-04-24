@@ -82,7 +82,45 @@ func GetSafeErrorMessage(err error) string {
 		return "An unexpected error occurred"
 	}
 
-	// Map specific error types to user-friendly messages
+	// First check for custom error types with additional context
+	// These checks need to come before the errors.Is checks to ensure
+	// we get the most specific and helpful error messages
+	var validationErr *domain.ValidationError
+	if errors.As(err, &validationErr) {
+		if validationErr.Field != "" {
+			return fmt.Sprintf("Invalid %s: %s", validationErr.Field, validationErr.Message)
+		}
+		return validationErr.Message
+	}
+
+	// Handle service errors with wrapped errors
+	var serviceErr *card_review.ServiceError
+	if errors.As(err, &serviceErr) {
+		// Check if the service error wraps a specific error we have a better message for
+		if serviceErr.Err != nil {
+			// Try to get a message for the wrapped error
+			innerMessage := GetSafeErrorMessage(serviceErr.Err)
+			if innerMessage != "An unexpected error occurred" {
+				return innerMessage
+			}
+		}
+		return "Card review operation failed"
+	}
+
+	// Handle store errors with wrapped errors
+	var storeErr *store.StoreError
+	if errors.As(err, &storeErr) {
+		// Try to get a message for the wrapped error
+		if storeErr.Err != nil {
+			innerMessage := GetSafeErrorMessage(storeErr.Err)
+			if innerMessage != "An unexpected error occurred" {
+				return innerMessage
+			}
+		}
+		return fmt.Sprintf("Operation failed: %s", storeErr.Message)
+	}
+
+	// Map specific sentinel error types to user-friendly messages
 	switch {
 	// Authentication errors
 	case errors.Is(err, auth.ErrInvalidToken),
@@ -167,20 +205,6 @@ func GetSafeErrorMessage(err error) string {
 
 	// Default case for unknown errors
 	default:
-		// Check for service-specific context errors using errors.As
-		var validationErr *domain.ValidationError
-		if errors.As(err, &validationErr) {
-			if validationErr.Field != "" {
-				return fmt.Sprintf("Invalid %s: %s", validationErr.Field, validationErr.Message)
-			}
-			return validationErr.Message
-		}
-
-		// Handle generic card review context errors
-		if errors.As(err, new(*card_review.ServiceError)) {
-			return "Card review operation failed"
-		}
-
 		return "An unexpected error occurred"
 	}
 }

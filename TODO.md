@@ -54,7 +54,7 @@
         3. Existing relevant tests pass.
     - **Depends‑on:** [T004]
 
-- [ ] **T006 · Test · P1: add tests verifying error mapping based on error types**
+- [x] **T006 · Test · P1: add tests verifying error mapping based on error types**
     - **Context:** PLAN.md / cr‑01 Use Error Types for Mapping / Step 5
     - **Action:**
         1. Write new tests for `MapErrorToStatusCode` and `GetSafeErrorMessage`.

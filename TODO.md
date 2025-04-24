@@ -101,10 +101,10 @@
     - **Depends‑on:** [T008]
 
 ## Test Infrastructure
-- [ ] **T010 · Refactor · P2: simplify card review api test harness options**
+- [✓] **T010 · Refactor · P2: simplify card review api test harness options**
     - **Context:** PLAN.md / cr‑04 Simplify Card Review API Test Harness / Step 1 & 2
     - **Action:**
-        1. Review and simplify `CardReviewServerOptions` in `internal/testutils/api_helpers.go`.
+        1. Review and simplify `CardReviewServerOptions` in `internal/testutils/card_api_helpers.go`.
         2. Identify and remove unnecessary configuration options.
         3. Refactor impacted tests as needed.
     - **Done‑when:**

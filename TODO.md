@@ -64,7 +64,7 @@
         2. All tests pass.
     - **Depends‑on:** [T005]
 
-- [ ] **T007 · Refactor · P1: adjust error logging levels based on http status code**
+- [x] **T007 · Refactor · P1: adjust error logging levels based on http status code**
     - **Context:** PLAN.md / cr‑08 Fix Error Logging Level / Step 1, 2 & 3
     - **Action:**
         1. Modify `RespondWithErrorAndLog` in `internal/api/shared/responses.go`.

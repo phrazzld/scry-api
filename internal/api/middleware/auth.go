@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/api"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/redact"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -31,14 +32,14 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		// Extract token from Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			shared.RespondWithError(w, r, http.StatusUnauthorized, "Authorization header required")
+			api.HandleAPIError(w, r, auth.ErrInvalidToken, "Authorization header required")
 			return
 		}
 
 		// Check Bearer prefix
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid authorization format")
+			api.HandleAPIError(w, r, auth.ErrInvalidToken, "Invalid authorization format")
 			return
 		}
 
@@ -49,17 +50,12 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		if err != nil {
 			switch err {
 			case auth.ErrExpiredToken:
-				shared.RespondWithError(w, r, http.StatusUnauthorized, "Token expired")
+				api.HandleAPIError(w, r, err, "Token expired")
 			case auth.ErrInvalidToken:
-				shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid token")
+				api.HandleAPIError(w, r, err, "Invalid token")
 			default:
 				slog.Error("failed to validate token", "error", redact.Error(err))
-				shared.RespondWithError(
-					w,
-					r,
-					http.StatusInternalServerError,
-					"Authentication error",
-				)
+				api.HandleAPIError(w, r, err, "Authentication error")
 			}
 			return
 		}

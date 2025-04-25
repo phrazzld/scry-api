@@ -55,7 +55,7 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	if !ok || userID == uuid.Nil {
 		log.Warn("user ID not found or invalid in request context")
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "Authentication required")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "Authentication required")
 		return
 	}
 
@@ -75,12 +75,7 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	// Create memo and enqueue task
 	memo, err := h.memoService.CreateMemoAndEnqueueTask(r.Context(), userID, req.Text)
 	if err != nil {
-		// Map error to appropriate status code and get sanitized message
-		statusCode := MapErrorToStatusCode(err)
-		safeMessage := GetSafeErrorMessage(err)
-
-		// Log the full error details but only send sanitized message to client
-		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
+		HandleAPIError(w, r, err, "Failed to create memo")
 		return
 	}
 

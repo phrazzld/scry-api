@@ -130,29 +130,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Create user
 	user, err := domain.NewUser(req.Email, req.Password)
 	if err != nil {
-		// Map domain error to appropriate message and status
-		statusCode := MapErrorToStatusCode(err)
-		safeMessage := GetSafeErrorMessage(err)
-		if safeMessage == "An unexpected error occurred" {
-			safeMessage = "Invalid user data"
-		}
-		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
+		HandleAPIError(w, r, err, "Invalid user data")
 		return
 	}
 
 	// Store user
 	if err := h.userStore.Create(r.Context(), user); err != nil {
-		statusCode := MapErrorToStatusCode(err)
-		safeMessage := GetSafeErrorMessage(err)
-		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
+		HandleAPIError(w, r, err, "Failed to create user")
 		return
 	}
 
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), user.ID)
 	if err != nil {
-		shared.RespondWithErrorAndLog(w, r, http.StatusInternalServerError,
-			"Failed to generate authentication tokens", err)
+		HandleAPIError(w, r, err, "Failed to generate authentication tokens")
 		return
 	}
 
@@ -185,10 +176,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Validate refresh token
 	claims, err := h.jwtService.ValidateRefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		// Map different error types to appropriate status codes and messages
-		statusCode := MapErrorToStatusCode(err)
-		safeMessage := GetSafeErrorMessage(err)
-		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
+		HandleAPIError(w, r, err, "Invalid refresh token")
 		return
 	}
 
@@ -203,8 +191,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), userID)
 	if err != nil {
-		shared.RespondWithErrorAndLog(w, r, http.StatusInternalServerError,
-			"Failed to generate new authentication tokens", err)
+		HandleAPIError(w, r, err, "Failed to generate new authentication tokens")
 		return
 	}
 
@@ -238,18 +225,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrUserNotFound) {
 			// Use generic error message for security (don't reveal if email exists)
 			// Elevate to WARN level as repeated auth failures are operationally important
-			shared.RespondWithErrorAndLog(
-				w,
-				r,
-				http.StatusUnauthorized,
-				"Invalid credentials",
-				err,
-				shared.WithElevatedLogLevel(),
-			)
+			HandleAPIError(w, r, err, "Invalid credentials", shared.WithElevatedLogLevel())
 			return
 		}
-		shared.RespondWithErrorAndLog(w, r, http.StatusInternalServerError,
-			"Failed to authenticate user", err)
+		HandleAPIError(w, r, err, "Failed to authenticate user")
 		return
 	}
 
@@ -257,22 +236,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := h.passwordVerifier.Compare(user.HashedPassword, req.Password); err != nil {
 		// Use same generic error message as above for security
 		// Elevate to WARN level as repeated auth failures are operationally important
-		shared.RespondWithErrorAndLog(
-			w,
-			r,
-			http.StatusUnauthorized,
-			"Invalid credentials",
-			err,
-			shared.WithElevatedLogLevel(),
-		)
+		HandleAPIError(w, r, err, "Invalid credentials", shared.WithElevatedLogLevel())
 		return
 	}
 
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), user.ID)
 	if err != nil {
-		shared.RespondWithErrorAndLog(w, r, http.StatusInternalServerError,
-			"Failed to generate authentication tokens", err)
+		HandleAPIError(w, r, err, "Failed to generate authentication tokens")
 		return
 	}
 

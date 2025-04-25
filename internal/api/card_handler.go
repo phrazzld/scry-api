@@ -59,7 +59,7 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	if !ok || userID == uuid.Nil {
 		log.Warn("user ID not found or invalid in request context")
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found or invalid")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
 		return
 	}
 
@@ -77,18 +77,7 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 
 	// Handle other errors
 	if err != nil {
-		// Use our new error handling helper methods
-		statusCode := MapErrorToStatusCode(err)
-		safeMessage := GetSafeErrorMessage(err)
-
-		// For generic server errors in GetNextReviewCard, use a specific message
-		if statusCode == http.StatusInternalServerError &&
-			!errors.Is(err, card_review.ErrNoCardsDue) {
-			safeMessage = "Failed to get next review card"
-		}
-
-		// Log the full error details but only send sanitized message to client
-		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
+		HandleAPIError(w, r, err, "Failed to get next review card")
 		return
 	}
 
@@ -129,7 +118,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	pathCardID := chi.URLParam(r, "id")
 	if pathCardID == "" {
 		log.Warn("card ID not found in URL path")
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Card ID is required")
+		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
 		return
 	}
 
@@ -137,7 +126,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	cardID, err := uuid.Parse(pathCardID)
 	if err != nil {
 		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid card ID format")
+		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
 		return
 	}
 
@@ -145,7 +134,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	if !ok || userID == uuid.Nil {
 		log.Warn("user ID not found or invalid in request context")
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found or invalid")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
 		return
 	}
 
@@ -183,17 +172,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 
 	// Handle errors with our improved error handling
 	if err != nil {
-		// Map to appropriate status code and get sanitized message
-		statusCode := MapErrorToStatusCode(err)
-		safeMessage := GetSafeErrorMessage(err)
-
-		// For generic server errors in SubmitAnswer, use a specific message
-		if statusCode == http.StatusInternalServerError {
-			safeMessage = "Failed to submit answer"
-		}
-
-		// Log the full error but only send sanitized message to client
-		shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err)
+		HandleAPIError(w, r, err, "Failed to submit answer")
 		return
 	}
 

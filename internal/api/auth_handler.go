@@ -96,9 +96,18 @@ func NewAuthHandler(
 
 // WithTimeFunc returns a new AuthHandler with the given time function.
 // This is useful for testing with a fixed time source.
+// The original handler remains unchanged (immutable pattern).
 func (h *AuthHandler) WithTimeFunc(timeFunc func() time.Time) *AuthHandler {
-	h.timeFunc = timeFunc
-	return h
+	// Create a new handler that's a copy of the current one
+	newHandler := &AuthHandler{
+		userStore:        h.userStore,
+		jwtService:       h.jwtService,
+		passwordVerifier: h.passwordVerifier,
+		authConfig:       h.authConfig,
+		timeFunc:         timeFunc, // Set the new time function
+		logger:           h.logger,
+	}
+	return newHandler
 }
 
 // Register handles the /auth/register endpoint.

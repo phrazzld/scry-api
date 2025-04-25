@@ -76,7 +76,7 @@
   - Depends On: []
   - Estimated Story Points: 1
 
-- [ ] [T024] Make handler mutation immutable or test-only
+- [x] [T024] Make handler mutation immutable or test-only
   - Description: Address the non-idiomatic mutable handler pattern (`WithTimeFunc`) by either making it return a new instance or clearly documenting it as test-only with appropriate safeguards.
   - Acceptance Criteria:
     - AC1: Either: `WithTimeFunc` returns a new handler instance, leaving the original unchanged

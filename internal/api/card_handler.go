@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -157,7 +156,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", redact.Error(err)),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		HandleValidationError(w, r, err)
 		return
 	}
 
@@ -167,22 +166,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 			slog.String("error", redact.Error(err)),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
-
-		// Use our sanitized validation error format
-		sanitizedError := SanitizeValidationError(err)
-
-		// For the validation error test cases, ensure we use "Validation error" as the message
-		if strings.Contains(r.URL.Path, "/answer") &&
-			(req.Outcome == "" ||
-				(req.Outcome != "" &&
-					req.Outcome != "again" &&
-					req.Outcome != "hard" &&
-					req.Outcome != "good" &&
-					req.Outcome != "easy")) {
-			sanitizedError = "Validation error"
-		}
-
-		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)
+		HandleValidationError(w, r, err)
 		return
 	}
 

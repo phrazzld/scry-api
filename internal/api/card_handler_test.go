@@ -336,7 +336,7 @@ func TestSubmitAnswer(t *testing.T) {
 			serviceResult:   nil,
 			serviceError:    nil,
 			expectedStatus:  http.StatusBadRequest,
-			expectedErrCode: "Validation error",
+			expectedErrCode: "Invalid Outcome: required field",
 		},
 		{
 			name:            "Invalid Outcome Value",
@@ -346,7 +346,7 @@ func TestSubmitAnswer(t *testing.T) {
 			serviceResult:   nil,
 			serviceError:    nil,
 			expectedStatus:  http.StatusBadRequest,
-			expectedErrCode: "Validation error",
+			expectedErrCode: "Invalid Outcome: invalid value",
 		},
 		{
 			name:            "Missing Card ID in Path",
@@ -366,7 +366,7 @@ func TestSubmitAnswer(t *testing.T) {
 			serviceResult:   nil,
 			serviceError:    nil,
 			expectedStatus:  http.StatusBadRequest,
-			expectedErrCode: "Invalid request format",
+			expectedErrCode: "Validation error",
 		},
 	}
 

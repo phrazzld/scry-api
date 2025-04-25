@@ -157,7 +157,7 @@ func TestMemoHandler_CreateMemo(t *testing.T) {
 				// Mock won't be called
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedErrMsg: "Invalid request format",
+			expectedErrMsg: "Validation error",
 		},
 		{
 			name: "missing_required_text",

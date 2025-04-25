@@ -62,15 +62,13 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req CreateMemoRequest
 	if err := shared.DecodeJSON(r, &req); err != nil {
-		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, "Invalid request format", err)
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Validate request
 	if err := shared.Validate.Struct(req); err != nil {
-		// Sanitize validation error message
-		sanitizedError := SanitizeValidationError(err)
-		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)
+		HandleValidationError(w, r, err)
 		return
 	}
 

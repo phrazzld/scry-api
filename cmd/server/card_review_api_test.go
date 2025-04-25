@@ -305,7 +305,7 @@ func TestInvalidRequestBody(t *testing.T) {
 			testType:         "invalid-json",
 			path:             "/api/cards/" + cardID.String() + "/answer",
 			expectedStatus:   http.StatusBadRequest,
-			expectedErrorMsg: "Invalid request format",
+			expectedErrorMsg: "Validation error",
 		},
 		{
 			name:             "Submit Answer - Empty Body",

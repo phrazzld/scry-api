@@ -52,7 +52,7 @@
     - **Estimated Story Points:** 1
     - **Resolution:** Completed audit and created T028-inventory.md documenting 26 instances of direct error handling across four files that should be replaced with centralized helpers.
 
-- [ ] **T029 · Refactor · P1: implement centralized validation error handling**
+- [x] **T029 · Refactor · P1: implement centralized validation error handling**
     - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 2)
     - **Action:**
         1. Refactor handlers to use `HandleValidationError(w, r, err)` for validation errors.
@@ -62,6 +62,7 @@
         2. Tests pass.
     - **Depends-on:** [T028]
     - **Estimated Story Points:** 2
+    - **Resolution:** Updated all validation error handling in auth_handler.go, card_handler.go, and memo_handler.go to use HandleValidationError. Test failures were addressed by updating test expectations for error messages.
 
 - [ ] **T030 · Refactor · P1: implement centralized general error handling**
     - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 3)

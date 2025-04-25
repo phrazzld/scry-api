@@ -43,6 +43,11 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Set up basic alerting via DO App Platform monitoring or external service for critical error logs.
     * Define a basic health check endpoint (`/healthz`).
 
+* **Technical Debt & Refactoring:**
+    * **Over-Aggressive Redaction Patterns**: Fine-tune regex patterns in redaction utilities to balance security with debuggability. Add more comprehensive tests for edge cases and potential false positives/negatives.
+    * **Mixed Responsibilities in Test Utilities**: Refactor test helpers for better separation of concerns by breaking them into focused packages (e.g., HTTP helpers, entity creation, DB helpers).
+    * **Documentation and Test Parallelization**: Add consistent godoc comments to all public functions, mark deprecated test helpers clearly, and add t.Parallel() to compatible table-driven subtests.
+
 ## Completed Items
 
 * **Memo & Card Generation Implementation (Completed):**

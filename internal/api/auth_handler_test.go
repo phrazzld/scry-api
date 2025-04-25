@@ -66,7 +66,7 @@ func TestAuthHandler_Register(t *testing.T) {
 			}`,
 			setupMocks:     func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid request format",
+			expectedBody:   "Validation error",
 			wantTokens:     false,
 		},
 		{
@@ -314,7 +314,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			}`,
 			setupMocks:     func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid request format",
+			expectedBody:   "Validation error",
 			wantTokens:     false,
 		},
 		{
@@ -524,7 +524,7 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			}`,
 			setupMocks:     func(js *mocks.MockJWTService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "Invalid request format",
+			expectedBody:   "Validation error",
 			wantTokens:     false,
 		},
 		{

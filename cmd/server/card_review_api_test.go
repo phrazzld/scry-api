@@ -290,21 +290,31 @@ func TestSubmitAnswerAPI(t *testing.T) {
 // Note: Different validation error types produce different error messages:
 // - Invalid JSON syntax - Returns the generic "Validation error" message
 // - Empty body with missing required fields - Returns specific field validation errors
+// - Invalid field values - Returns field-specific validation errors with details
 func TestInvalidRequestBody(t *testing.T) {
 	// Test user and card ID
 	userID := uuid.New()
 	cardID := uuid.New()
+
+	// Create sample stats for tests that reach the service layer
+	sampleStats := testutils.CreateStatsForAPITest(t,
+		testutils.WithStatsUserID(userID),
+		testutils.WithStatsCardID(cardID),
+	)
 
 	// Define test cases
 	tests := []struct {
 		name       string
 		testType   string
 		path       string
+		payload    map[string]interface{} // For custom payload tests
 		validation struct {
 			field   string
 			msgPart string
 		}
+		expectSuccess bool // For cases that should succeed rather than return validation errors
 	}{
+		// Basic required field validation
 		{
 			name:     "Submit Answer - Invalid JSON",
 			testType: "invalid-json",
@@ -329,13 +339,97 @@ func TestInvalidRequestBody(t *testing.T) {
 				msgPart: "required field",
 			},
 		},
+
+		// Enum validation tests (oneof)
+		{
+			name:     "Submit Answer - Invalid Outcome Value",
+			testType: "custom",
+			path:     "/api/cards/" + cardID.String() + "/answer",
+			payload: map[string]interface{}{
+				"outcome": "medium", // Not in allowed enum: "again", "hard", "good", "easy"
+			},
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "Outcome",
+				msgPart: "invalid value",
+			},
+		},
+		{
+			name:     "Submit Answer - Outcome With Incorrect Case",
+			testType: "custom",
+			path:     "/api/cards/" + cardID.String() + "/answer",
+			payload: map[string]interface{}{
+				"outcome": "GOOD", // Correct value but wrong case (case-sensitive)
+			},
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "Outcome",
+				msgPart: "invalid value",
+			},
+		},
+
+		// Edge cases with empty strings and non-string values
+		{
+			name:     "Submit Answer - Empty String Outcome",
+			testType: "custom",
+			path:     "/api/cards/" + cardID.String() + "/answer",
+			payload: map[string]interface{}{
+				"outcome": "", // Empty string
+			},
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "Outcome",
+				msgPart: "required field", // Empty strings fail the "required" validation
+			},
+		},
+		{
+			name:     "Submit Answer - Numeric Outcome",
+			testType: "custom",
+			path:     "/api/cards/" + cardID.String() + "/answer",
+			payload: map[string]interface{}{
+				"outcome": 5, // Number instead of string
+			},
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "", // This fails JSON type validation, not field validation
+				msgPart: "Validation error",
+			},
+		},
+
+		// Test with nearly valid UUID
+		{
+			name:     "Submit Answer - Nearly Valid UUID",
+			testType: "nearly-valid-uuid",
+			path:     "/api/cards/almost-valid-uuid", // Not an API path with {id} parameter
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "",
+				msgPart: "Invalid ID",
+			},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup test server with minimal configuration (no specific behavior needed)
-			// Server is automatically closed via t.Cleanup()
-			server := testutils.SetupCardReviewTestServerWithNextCard(t, userID, nil)
+			// For most tests, we just need a server that accepts requests
+			var server *httptest.Server
+			if tc.expectSuccess {
+				// For tests expecting success, set up a server that returns stats
+				server = testutils.SetupCardReviewTestServerWithUpdatedStats(t, userID, sampleStats)
+			} else {
+				// For validation tests, the service behavior doesn't matter
+				server = testutils.SetupCardReviewTestServerWithNextCard(t, userID, nil)
+			}
 
 			var resp *http.Response
 			var err error
@@ -347,14 +441,54 @@ func TestInvalidRequestBody(t *testing.T) {
 				resp, err = testutils.ExecuteInvalidJSONRequest(t, server, userID, "POST", tc.path)
 			case "empty-body":
 				resp, err = testutils.ExecuteEmptyBodyRequest(t, server, userID, "POST", tc.path)
+			case "custom":
+				resp, err = testutils.ExecuteCustomBodyRequest(t, server, userID, "POST", tc.path, tc.payload)
+			case "nearly-valid-uuid":
+				resp, err = testutils.ExecuteSubmitAnswerRequestWithRawID(
+					t, server, userID, "almost-valid-uuid",
+					domain.ReviewOutcomeGood,
+				)
 			default:
 				t.Fatalf("Unknown test type: %s", tc.testType)
 			}
 
 			require.NoError(t, err)
 
-			// Verify response using the new validation error helper
+			// Handle special cases where we expect success
+			if tc.expectSuccess {
+				testutils.AssertStatsResponse(t, resp, sampleStats)
+				return
+			}
+
+			// Verify response using the validation error helper
 			testutils.AssertValidationError(t, resp, tc.validation.field, tc.validation.msgPart)
 		})
 	}
+
+	// Create a separate test for Additional Fields - this is a valid request
+	// that should pass validation and reach the service layer
+	t.Run("Submit Answer - Valid With Extra Fields", func(t *testing.T) {
+		// Create stats to be returned by the mock service
+		stats := testutils.CreateStatsForAPITest(t,
+			testutils.WithStatsUserID(userID),
+			testutils.WithStatsCardID(cardID),
+		)
+
+		// Set up a server that returns the stats for a successful answer submission
+		server := testutils.SetupCardReviewTestServerWithUpdatedStats(t, userID, stats)
+
+		// Payload with valid outcome and extra fields that should be ignored
+		payload := map[string]interface{}{
+			"outcome":    "good",              // Valid outcome
+			"extra_data": "should be ignored", // Extra field that should be ignored
+		}
+
+		// Execute the request
+		resp, err := testutils.ExecuteCustomBodyRequest(t, server, userID, "POST",
+			"/api/cards/"+cardID.String()+"/answer", payload)
+		require.NoError(t, err)
+
+		// Verify successful response
+		testutils.AssertStatsResponse(t, resp, stats)
+	})
 }

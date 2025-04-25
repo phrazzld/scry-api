@@ -98,7 +98,7 @@
     - **Depends-on:** [T029, T030, T031]
     - **Estimated Story Points:** 2
 
-- [ ] **T033 · Test · P2: implement tests for error redaction**
+- [x] **T033 · Test · P2: implement tests for error redaction**
     - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 4)
     - **Action:**
         1. Create tests that trigger error logging scenarios.
@@ -108,6 +108,9 @@
         2. All tests pass.
     - **Depends-on:** [T025, T027]
     - **Estimated Story Points:** 2
+    - **Resolution:** Added two new test files with comprehensive test coverage for error redaction:
+        1. `error_log_redaction_test.go` - Tests centralized error handlers with various sensitive data
+        2. `middleware/auth_redaction_test.go` - Tests middleware error redaction
 
 - [ ] **T034 · Refactor · P2: refactor `AuthHandler.WithTimeFunc` to return new instance**
     - **Context:** PLAN.md > cr‑03 Fix Non-idiomatic Handler Mutability (Steps 1-3)

@@ -347,17 +347,17 @@ func TestCard_ValidationFailures(t *testing.T) {
 	// Test nil user ID
 	_, err := domain.NewCard(uuid.Nil, uuid.New(), []byte(`{"front":"test","back":"test"}`))
 	assert.Error(t, err, "Should error with nil user ID")
-	assert.Equal(t, domain.ErrEmptyCardUserID, err, "Error should be ErrEmptyCardUserID")
+	assert.Equal(t, domain.ErrCardUserIDEmpty, err, "Error should be ErrCardUserIDEmpty")
 
 	// Test nil memo ID
 	_, err = domain.NewCard(uuid.New(), uuid.Nil, []byte(`{"front":"test","back":"test"}`))
 	assert.Error(t, err, "Should error with nil memo ID")
-	assert.Equal(t, domain.ErrEmptyCardMemoID, err, "Error should be ErrEmptyCardMemoID")
+	assert.Equal(t, domain.ErrCardMemoIDEmpty, err, "Error should be ErrCardMemoIDEmpty")
 
 	// Test empty content
 	_, err = domain.NewCard(uuid.New(), uuid.New(), []byte{})
 	assert.Error(t, err, "Should error with empty content")
-	assert.Equal(t, domain.ErrEmptyCardContent, err, "Error should be ErrEmptyCardContent")
+	assert.Equal(t, domain.ErrCardContentEmpty, err, "Error should be ErrCardContentEmpty")
 
 	// Test invalid JSON content
 	_, err = domain.NewCard(uuid.New(), uuid.New(), []byte("not json"))

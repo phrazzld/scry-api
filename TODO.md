@@ -27,7 +27,7 @@
     - **Estimated Story Points:** 1
     - **Resolution:** Completed audit and created T026-inventory.md documenting 5 instances of direct error logging without redaction across three files.
 
-- [ ] **T027 · Refactor · P1: replace direct error logging with redacted versions**
+- [x] **T027 · Refactor · P1: replace direct error logging with redacted versions**
     - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 3)
     - **Action:**
         1. Modify each location identified in T026.
@@ -38,6 +38,7 @@
         2. Code passes all tests and linting.
     - **Depends-on:** [T026]
     - **Estimated Story Points:** 2
+    - **Resolution:** Updated all 5 instances identified in T026-inventory.md to use redact.Error(). Added missing import statements and verified tests pass.
 
 - [ ] **T028 · Chore · P1: audit handlers for direct error response generation**
     - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 1)

@@ -13,6 +13,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/redact"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/store"
 )
@@ -40,7 +41,7 @@ func (h *AuthHandler) generateTokenResponse(
 	accessToken, err = h.jwtService.GenerateToken(ctx, userID)
 	if err != nil {
 		log.Error("failed to generate access token",
-			slog.String("error", err.Error()),
+			slog.String("error", redact.Error(err)),
 			slog.String("token_type", "access"),
 			slog.Int("lifetime_minutes", h.authConfig.TokenLifetimeMinutes))
 		return "", "", "", fmt.Errorf("failed to generate access token: %w", err)
@@ -50,7 +51,7 @@ func (h *AuthHandler) generateTokenResponse(
 	refreshToken, err = h.jwtService.GenerateRefreshToken(ctx, userID)
 	if err != nil {
 		log.Error("failed to generate refresh token",
-			slog.String("error", err.Error()),
+			slog.String("error", redact.Error(err)),
 			slog.String("token_type", "refresh"),
 			slog.Int("lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes))
 		return "", "", "", fmt.Errorf("failed to generate refresh token: %w", err)

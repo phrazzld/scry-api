@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
+	"github.com/phrazzld/scry-api/internal/redact"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 )
 
@@ -52,7 +53,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			case auth.ErrInvalidToken:
 				shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid token")
 			default:
-				slog.Error("failed to validate token", "error", err)
+				slog.Error("failed to validate token", "error", redact.Error(err))
 				shared.RespondWithError(
 					w,
 					r,

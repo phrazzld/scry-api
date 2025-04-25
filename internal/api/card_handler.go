@@ -14,6 +14,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
+	"github.com/phrazzld/scry-api/internal/redact"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 )
 
@@ -153,7 +154,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	var req SubmitAnswerRequest
 	if err := shared.DecodeJSON(r, &req); err != nil {
 		log.Warn("invalid request format",
-			slog.String("error", err.Error()),
+			slog.String("error", redact.Error(err)),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
 		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
@@ -163,7 +164,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	// Validate request
 	if err := shared.Validate.Struct(req); err != nil {
 		log.Warn("validation error",
-			slog.String("error", err.Error()),
+			slog.String("error", redact.Error(err)),
 			slog.String("user_id", userID.String()),
 			slog.String("card_id", cardID.String()))
 

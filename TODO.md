@@ -55,7 +55,7 @@
   - Estimated Story Points: 3
 
 ### [Priority 3] Testability & Maintainability
-- [ ] [T022] Refactor brittle shared tests
+- [x] [T022] Refactor brittle shared tests
   - Description: Improve test quality in the shared package by using struct-based JSON assertions instead of string comparisons, implementing more realistic mocks, and ensuring log checks are robust against format changes.
   - Acceptance Criteria:
     - AC1: JSON response tests unmarshal to structs for field assertions rather than comparing strings.

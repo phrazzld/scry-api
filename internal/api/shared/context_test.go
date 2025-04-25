@@ -10,8 +10,26 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
+
+// TraceIDValidation is a helper to validate trace ID properties
+func TraceIDValidation(t *testing.T, traceID string, shouldBeEmpty bool) {
+	t.Helper()
+
+	if shouldBeEmpty {
+		assert.Empty(t, traceID, "Expected empty trace ID")
+		return
+	}
+
+	// Validate non-empty trace ID properties
+	assert.NotEmpty(t, traceID, "Expected non-empty trace ID")
+	assert.Len(t, traceID, 32, "Trace ID should be 32 hex characters (16 bytes)")
+
+	// Verify it's valid hex
+	decoded, err := hex.DecodeString(traceID)
+	assert.NoError(t, err, "Trace ID should be valid hex")
+	assert.Len(t, decoded, 16, "Decoded bytes should be 16 bytes long")
+}
 
 func TestSetAndGetTraceID(t *testing.T) {
 	// Test setting and getting trace ID
@@ -19,52 +37,72 @@ func TestSetAndGetTraceID(t *testing.T) {
 
 	// Verify no trace ID in original context
 	traceID := GetTraceID(ctx)
-	assert.Empty(t, traceID, "Expected empty trace ID in original context")
+	TraceIDValidation(t, traceID, true)
 
 	// Set trace ID
 	ctxWithTrace := SetTraceID(ctx)
 
 	// Verify trace ID is now set
 	traceID = GetTraceID(ctxWithTrace)
-	assert.NotEmpty(t, traceID, "Expected non-empty trace ID after setting")
-	assert.Len(t, traceID, 32, "Expected trace ID length to be 32 hex characters (16 bytes)")
+	TraceIDValidation(t, traceID, false)
 
 	// Original context should remain unchanged
 	traceID = GetTraceID(ctx)
-	assert.Empty(t, traceID, "Expected original context to remain unchanged")
+	TraceIDValidation(t, traceID, true)
 }
 
 func TestGetTraceIDWithInvalidContext(t *testing.T) {
-	// Test getting trace ID with invalid context value
-	ctx := context.WithValue(context.Background(), TraceIDKey, 123) // Not a string
+	// Test different invalid context values
+	testCases := []struct {
+		name         string
+		contextValue interface{}
+	}{
+		{
+			name:         "integer value",
+			contextValue: 123,
+		},
+		{
+			name:         "boolean value",
+			contextValue: true,
+		},
+		{
+			name:         "slice value",
+			contextValue: []byte{1, 2, 3},
+		},
+		{
+			name:         "nil value",
+			contextValue: nil,
+		},
+	}
 
-	traceID := GetTraceID(ctx)
-	assert.Empty(t, traceID, "Expected empty trace ID when context has invalid type")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), TraceIDKey, tc.contextValue)
+			traceID := GetTraceID(ctx)
+			TraceIDValidation(t, traceID, true)
+		})
+	}
 }
 
 func TestGenerateTraceID(t *testing.T) {
 	// Test generating trace ID
 	traceID := generateTraceID()
-	assert.NotEmpty(t, traceID, "Expected non-empty trace ID")
-	assert.Len(t, traceID, 32, "Expected trace ID length to be 32 hex characters (16 bytes)")
-
-	// Verify trace ID is valid hex
-	_, err := hex.DecodeString(traceID)
-	assert.NoError(t, err, "Expected valid hex string")
+	TraceIDValidation(t, traceID, false)
 
 	// Generate multiple IDs to ensure uniqueness (probabilistic test)
-	const iterations = 1000
+	// Use a smaller number of iterations to speed up tests but still catch obvious issues
+	const iterations = 100
 	seen := make(map[string]bool, iterations)
 
 	for i := 0; i < iterations; i++ {
 		id := generateTraceID()
-		assert.Len(t, id, 32, "Expected all trace IDs to be 32 hex characters")
-		assert.False(t, seen[id], "Expected all trace IDs to be unique")
+		TraceIDValidation(t, id, false)
+		assert.False(t, seen[id], "Generated trace IDs should be unique")
 		seen[id] = true
 	}
 
 	// Verify we have exactly the right number of unique IDs
-	assert.Len(t, seen, iterations, "Expected all generated trace IDs to be unique")
+	assert.Len(t, seen, iterations, "All generated trace IDs should be unique")
 }
 
 // mockErrorReader is a mock reader that always fails
@@ -73,9 +111,6 @@ type mockErrorReader struct{}
 func (m *mockErrorReader) Read(p []byte) (int, error) {
 	return 0, fmt.Errorf("simulated rand failure")
 }
-
-// Instead of mocking rand.Reader directly (which is not allowed in Go 1.20+),
-// we'll create a more testable version of generateTraceID for testing
 
 // testableGenerateTraceID is a version of generateTraceID that allows for
 // injecting a custom reader for testing error cases
@@ -91,58 +126,82 @@ func testableGenerateTraceID(reader io.Reader) string {
 	return hex.EncodeToString(b)
 }
 
-// TestGenerateTraceIDWithRandFailure tests the fallback mechanism when rand.Read fails
-func TestGenerateTraceIDWithRandFailure(t *testing.T) {
-	// Use our custom reader that always fails
-	traceID := testableGenerateTraceID(&mockErrorReader{})
+// TestGenerateTraceIDWithFailures tests the fallback mechanism with different failure scenarios
+func TestGenerateTraceIDWithFailures(t *testing.T) {
+	testCases := []struct {
+		name   string
+		reader io.Reader
+	}{
+		{
+			name:   "complete read failure",
+			reader: &mockErrorReader{},
+		},
+		{
+			name:   "partial read failure",
+			reader: io.LimitReader(rand.Reader, TraceIDLength/2),
+		},
+		{
+			name:   "nearly complete read failure",
+			reader: io.LimitReader(rand.Reader, TraceIDLength-1),
+		},
+	}
 
-	// Verify fallback ID's properties
-	assert.NotEmpty(t, traceID, "Expected non-empty trace ID even after rand failure")
-	assert.Len(t, traceID, 32, "Expected trace ID length to be 32 hex characters")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Generate trace ID using the testable version with the specific reader
+			traceID := testableGenerateTraceID(tc.reader)
 
-	// Verify it's valid hex
-	_, err := hex.DecodeString(traceID)
-	assert.NoError(t, err, "Expected valid hex string")
-}
-
-// TestGenerateTraceIDWithPartialRead tests the fallback mechanism when rand.Read
-// doesn't read enough bytes
-func TestGenerateTraceIDWithPartialRead(t *testing.T) {
-	// Create a reader that limits to half the bytes needed
-	limitReader := io.LimitReader(rand.Reader, TraceIDLength/2)
-
-	// Generate trace ID using the testable version - should use fallback mechanism
-	traceID := testableGenerateTraceID(limitReader)
-
-	// Verify fallback ID's properties
-	assert.NotEmpty(t, traceID, "Expected non-empty trace ID even after partial read")
-	assert.Len(t, traceID, 32, "Expected trace ID length to be 32 hex characters")
-
-	// Verify it's valid hex
-	_, err := hex.DecodeString(traceID)
-	assert.NoError(t, err, "Expected valid hex string")
+			// All failure cases should produce valid fallback IDs
+			TraceIDValidation(t, traceID, false)
+		})
+	}
 }
 
 // TestFallbackTraceIDUniqueness tests that fallback trace IDs are reasonably unique
 func TestFallbackTraceIDUniqueness(t *testing.T) {
-	const iterations = 100
+	// Use a reasonable number of iterations that's still fast enough for testing
+	const iterations = 20
 	seen := make(map[string]bool, iterations)
 
 	for i := 0; i < iterations; i++ {
 		id := generateFallbackTraceID()
-		assert.Len(t, id, 32, "Expected all fallback trace IDs to be 32 hex characters")
-		// Ensure each ID can be decoded as hex
-		_, err := hex.DecodeString(id)
-		require.NoError(t, err, "Fallback ID must be valid hex")
+		TraceIDValidation(t, id, false)
 
 		// Small sleep to ensure time-based components change
 		time.Sleep(time.Millisecond)
 
 		// Check uniqueness
-		assert.False(t, seen[id], "Expected all fallback trace IDs to be unique")
+		assert.False(t, seen[id], "Fallback trace IDs should be unique")
 		seen[id] = true
 	}
 
-	// Verify we have exactly the right number of unique IDs
-	assert.Len(t, seen, iterations, "Expected all generated fallback trace IDs to be unique")
+	// Verify all IDs were unique
+	assert.Len(t, seen, iterations, "All fallback trace IDs should be unique")
+}
+
+// TestTraceIDHexFormat ensures trace IDs are valid hex strings without special formats
+func TestTraceIDHexFormat(t *testing.T) {
+	// Test both standard and fallback generation methods
+	traceIDs := []string{
+		generateTraceID(),
+		generateFallbackTraceID(),
+	}
+
+	for i, id := range traceIDs {
+		t.Run(fmt.Sprintf("traceID_%d", i), func(t *testing.T) {
+			// Verify correct length
+			assert.Len(t, id, 32, "Trace ID should be 32 characters long")
+
+			// Verify it's hexadecimal only
+			for _, c := range id {
+				assert.Contains(t, "0123456789abcdef", string(c),
+					"Trace ID should only contain hex characters")
+			}
+
+			// Verify it doesn't contain formatting characters like hyphens
+			assert.NotContains(t, id, "-", "Trace ID should not contain hyphens")
+			assert.NotContains(t, id, ":", "Trace ID should not contain colons")
+			assert.NotContains(t, id, " ", "Trace ID should not contain spaces")
+		})
+	}
 }

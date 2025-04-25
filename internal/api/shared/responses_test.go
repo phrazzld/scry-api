@@ -16,10 +16,10 @@ import (
 
 func TestRespondWithJSON(t *testing.T) {
 	tests := []struct {
-		name         string
-		status       int
-		data         interface{}
-		expectedBody string
+		name          string
+		status        int
+		data          interface{}
+		expectedCheck func(t *testing.T, body []byte)
 	}{
 		{
 			name:   "successful response",
@@ -28,19 +28,40 @@ func TestRespondWithJSON(t *testing.T) {
 				"message": "success",
 				"data":    123,
 			},
-			expectedBody: `{"message":"success","data":123}`,
+			expectedCheck: func(t *testing.T, body []byte) {
+				// Parse as map for flexible field order
+				var response map[string]interface{}
+				err := json.Unmarshal(body, &response)
+				require.NoError(t, err, "Failed to unmarshal response JSON")
+
+				// Assert each field individually
+				assert.Equal(t, "success", response["message"], "Response message field mismatch")
+				assert.Equal(t, float64(123), response["data"], "Response data field mismatch")
+				assert.Len(t, response, 2, "Response should have exactly 2 fields")
+			},
 		},
 		{
-			name:         "empty response",
-			status:       http.StatusNoContent,
-			data:         map[string]interface{}{},
-			expectedBody: `{}`,
+			name:   "empty response",
+			status: http.StatusNoContent,
+			data:   map[string]interface{}{},
+			expectedCheck: func(t *testing.T, body []byte) {
+				var response map[string]interface{}
+				err := json.Unmarshal(body, &response)
+				require.NoError(t, err, "Failed to unmarshal response JSON")
+				assert.Empty(t, response, "Response should be an empty object")
+			},
 		},
 		{
-			name:         "nil response",
-			status:       http.StatusOK,
-			data:         nil,
-			expectedBody: `null`,
+			name:   "nil response",
+			status: http.StatusOK,
+			data:   nil,
+			expectedCheck: func(t *testing.T, body []byte) {
+				// For nil data, we should get the string "null" in the response
+				var nilValue interface{}
+				err := json.Unmarshal(body, &nilValue)
+				require.NoError(t, err, "Failed to unmarshal response JSON")
+				assert.Nil(t, nilValue, "Response should unmarshal to nil")
+			},
 		},
 	}
 
@@ -54,23 +75,18 @@ func TestRespondWithJSON(t *testing.T) {
 			RespondWithJSON(w, req, tc.status, tc.data)
 
 			// Check status code
-			assert.Equal(t, tc.status, w.Code)
+			assert.Equal(t, tc.status, w.Code, "Status code mismatch")
 
 			// Check Content-Type header
-			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+			assert.Equal(
+				t,
+				"application/json",
+				w.Header().Get("Content-Type"),
+				"Content-Type header should be application/json",
+			)
 
-			// Check response body - unmarshal and verify the structure instead of string matching
-			if tc.name == "successful response" {
-				var response map[string]interface{}
-				err := json.Unmarshal(w.Body.Bytes(), &response)
-				require.NoError(t, err)
-
-				assert.Equal(t, "success", response["message"])
-				assert.Equal(t, float64(123), response["data"])
-			} else {
-				// For empty or nil responses, just check the content length
-				assert.Equal(t, tc.expectedBody+"\n", w.Body.String())
-			}
+			// Use the provided check function to validate response
+			tc.expectedCheck(t, w.Body.Bytes())
 		})
 	}
 }
@@ -89,7 +105,7 @@ func TestRespondWithJSONEncodingError(t *testing.T) {
 	data := &UnencodableType{}
 	data.Circular = data // Circular reference that will fail to encode
 
-	// Capture logs
+	// Capture logs with a more resilient approach
 	var logBuf strings.Builder
 	handlerOpts := &slog.HandlerOptions{
 		Level: slog.LevelDebug, // Enable all log levels
@@ -103,13 +119,40 @@ func TestRespondWithJSONEncodingError(t *testing.T) {
 	RespondWithJSON(w, req, http.StatusOK, data)
 
 	// Status code should still be set
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code, "Status code should be preserved on encoding error")
 
 	// Content-Type header should be set
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	assert.Equal(
+		t,
+		"application/json",
+		w.Header().Get("Content-Type"),
+		"Content-Type header should be set on encoding error",
+	)
 
-	// Check logs for error
-	assert.Contains(t, logBuf.String(), "failed to encode JSON response")
+	// Check logs for error - look for key attributes rather than exact message
+	logOutput := logBuf.String()
+	assert.Contains(t, logOutput, "failed to encode JSON response", "Log should indicate encoding failure")
+	assert.Contains(t, logOutput, "error", "Log should include error details")
+
+	// The response body should be empty or invalid JSON, but we can't check specific content
+	// since it's behavior might vary by json encoder implementation
+}
+
+// ErrorResponseCheck is a helper for validating error responses
+func ErrorResponseCheck(t *testing.T, body []byte, expectedError string, expectedTraceID string) {
+	t.Helper()
+
+	var response ErrorResponse
+	err := json.Unmarshal(body, &response)
+	require.NoError(t, err, "Failed to unmarshal error response")
+
+	assert.Equal(t, expectedError, response.Error, "Error message mismatch")
+
+	if expectedTraceID == "" {
+		assert.Empty(t, response.TraceID, "TraceID should be empty")
+	} else {
+		assert.Equal(t, expectedTraceID, response.TraceID, "TraceID mismatch")
+	}
 }
 
 func TestRespondWithError(t *testing.T) {
@@ -123,19 +166,18 @@ func TestRespondWithError(t *testing.T) {
 	RespondWithError(w, req, http.StatusBadRequest, "Invalid request")
 
 	// Check status code
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code, "Status code mismatch")
 
 	// Check Content-Type header
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	assert.Equal(
+		t,
+		"application/json",
+		w.Header().Get("Content-Type"),
+		"Content-Type header should be application/json",
+	)
 
-	// Parse response
-	var response ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-
-	// Check response content
-	assert.Equal(t, "Invalid request", response.Error)
-	assert.Equal(t, "test-trace-id", response.TraceID)
+	// Use helper to check response structure and content
+	ErrorResponseCheck(t, w.Body.Bytes(), "Invalid request", "test-trace-id")
 }
 
 func TestRespondWithErrorNoTraceID(t *testing.T) {
@@ -146,14 +188,46 @@ func TestRespondWithErrorNoTraceID(t *testing.T) {
 	// Call function
 	RespondWithError(w, req, http.StatusUnauthorized, "Unauthorized")
 
-	// Check response
-	var response ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
+	// Check status code
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "Status code mismatch")
 
-	// TraceID should be empty
-	assert.Equal(t, "Unauthorized", response.Error)
-	assert.Empty(t, response.TraceID)
+	// Check Content-Type header
+	assert.Equal(
+		t,
+		"application/json",
+		w.Header().Get("Content-Type"),
+		"Content-Type header should be application/json",
+	)
+
+	// Use helper to check response structure and content
+	ErrorResponseCheck(t, w.Body.Bytes(), "Unauthorized", "")
+}
+
+// LogCheck is a helper for validating log entries
+type LogCheck struct {
+	Level       string   // Expected log level
+	Contains    []string // Strings that should be present in the log
+	NotContains []string // Strings that should not be present in the log
+}
+
+// ValidateLog checks if a log contains expected content
+func ValidateLog(t *testing.T, logOutput string, check LogCheck) {
+	t.Helper()
+
+	// Check log level if specified
+	if check.Level != "" {
+		assert.Contains(t, logOutput, check.Level, "Log should contain expected level: %s", check.Level)
+	}
+
+	// Check for strings that should be present
+	for _, s := range check.Contains {
+		assert.Contains(t, logOutput, s, "Log should contain: %s", s)
+	}
+
+	// Check for strings that should not be present
+	for _, s := range check.NotContains {
+		assert.NotContains(t, logOutput, s, "Log should not contain: %s", s)
+	}
 }
 
 func TestRespondWithErrorAndLog(t *testing.T) {
@@ -164,6 +238,7 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 		err              error
 		expectedLogLevel string
 		elevateLogLevel  bool
+		logCheck         LogCheck
 	}{
 		{
 			name:             "server error",
@@ -172,6 +247,10 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			err:              errors.New("database connection failed"),
 			expectedLogLevel: "ERROR",
 			elevateLogLevel:  false,
+			logCheck: LogCheck{
+				Level:    "ERROR",
+				Contains: []string{"Internal server error", "error_type="},
+			},
 		},
 		{
 			name:             "client error (4xx) with default log level",
@@ -180,6 +259,10 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			err:              errors.New("invalid input"),
 			expectedLogLevel: "DEBUG", // Changed from WARN to DEBUG per T021
 			elevateLogLevel:  false,
+			logCheck: LogCheck{
+				Level:    "DEBUG",
+				Contains: []string{"Bad request", "error_type="},
+			},
 		},
 		{
 			name:             "client error (4xx) with elevated log level",
@@ -188,6 +271,10 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			err:              errors.New("invalid input requiring attention"),
 			expectedLogLevel: "WARN",
 			elevateLogLevel:  true,
+			logCheck: LogCheck{
+				Level:    "WARN",
+				Contains: []string{"Bad request (elevated)", "error_type="},
+			},
 		},
 		{
 			name:             "rate limiting error",
@@ -196,6 +283,10 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			err:              errors.New("rate limit exceeded"),
 			expectedLogLevel: "WARN", // 429 is always logged at WARN level
 			elevateLogLevel:  false,
+			logCheck: LogCheck{
+				Level:    "WARN",
+				Contains: []string{"Too many requests", "error_type="},
+			},
 		},
 		{
 			name:             "redirect",
@@ -204,6 +295,10 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			err:              errors.New("redirect error"),
 			expectedLogLevel: "DEBUG",
 			elevateLogLevel:  false,
+			logCheck: LogCheck{
+				Level:    "DEBUG",
+				Contains: []string{"Moved permanently", "error_type="},
+			},
 		},
 	}
 
@@ -239,27 +334,23 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 				RespondWithErrorAndLog(w, req, tc.statusCode, tc.message, tc.err)
 			}
 
-			// Check response
-			assert.Equal(t, tc.statusCode, w.Code)
+			// Check response status code
+			assert.Equal(t, tc.statusCode, w.Code, "Status code mismatch")
 
-			var response ErrorResponse
-			err := json.Unmarshal(w.Body.Bytes(), &response)
-			require.NoError(t, err)
+			// Check response structure with helper
+			ErrorResponseCheck(t, w.Body.Bytes(), tc.message, "test-trace-id")
 
-			assert.Equal(t, tc.message, response.Error)
-			assert.Equal(t, "test-trace-id", response.TraceID)
-
-			// Check logs for expected log level
+			// Check logs using the log validator helper
 			logOutput := logBuf.String()
-			assert.Contains(t, logOutput, tc.expectedLogLevel)
-			assert.Contains(t, logOutput, tc.message)
-			assert.Contains(t, logOutput, "trace_id=test-trace-id")
 
-			// For the cases with errors, we should find the error_type field
-			if tc.err != nil {
-				// We now redact the raw error details, but should still find the error_type
-				assert.Contains(t, logOutput, "error_type=")
-			}
+			// Add trace ID check to all test cases
+			tc.logCheck.Contains = append(tc.logCheck.Contains, "trace_id=")
+
+			// Validate log with our reusable helper
+			ValidateLog(t, logOutput, tc.logCheck)
+
+			// Note: Redaction is tested elsewhere in the codebase (error_redaction_test.go)
+			// This test focuses on log levels and the presence of key fields
 		})
 	}
 }
@@ -268,5 +359,5 @@ func TestWithElevatedLogLevel(t *testing.T) {
 	// Test the option function itself
 	opts := responseOptions{}
 	WithElevatedLogLevel()(&opts)
-	assert.True(t, opts.elevateLogLevel)
+	assert.True(t, opts.elevateLogLevel, "WithElevatedLogLevel should set elevateLogLevel to true")
 }

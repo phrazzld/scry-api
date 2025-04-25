@@ -1,87 +1,129 @@
 # TODO List
 
-## Backlog
+## Error Handling Improvements
 
-### [Priority 1] Security Remediation
-- [x] [T017] Harden error log output [SECURITY]
-  - Description: Refactor `RespondWithErrorAndLog` to sanitize and redact sensitive information (stack traces, connection strings, PII) before logging or returning error responses. Implement a central redaction utility for known sensitive patterns.
-  - Acceptance Criteria:
-    - AC1: All calls to `RespondWithErrorAndLog` log only sanitized messages; no raw error strings.
-    - AC2: A central redaction utility is implemented that handles common sensitive patterns (connection strings, passwords, API keys, file paths, stack traces).
-    - AC3: No direct logging of raw `error.Error()` strings in API handlers or shared response logic.
-    - AC4: Integration tests verify no sensitive data appears in logs or HTTP responses under various error conditions.
-  - Depends On: []
-  - Estimated Story Points: 5
+### [Priority 1] Security & Consistency
+- [x] **T025 · Refactor · P1: update `shared.RespondWithErrorAndLog` to use `redact.Error()`**
+    - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 1)
+    - **Action:**
+        1. Modify `shared.RespondWithErrorAndLog` function in `internal/api/shared/responses.go`.
+        2. Wrap the error passed to the logger with `redact.Error(err)` before logging.
+        3. Ensure structured logging integrity is maintained.
+    - **Done-when:**
+        1. `shared.RespondWithErrorAndLog` uses `redact.Error()` for all error logging.
+        2. Tests for the function continue to pass.
+    - **Depends-on:** none
+    - **Estimated Story Points:** 1
+    - **Resolution:** Upon inspection, `shared.RespondWithErrorAndLog` already correctly uses `redact.Error(err)` on line 112 of `responses.go`. Tests were run to verify functionality.
 
-- [x] [T018] Strengthen trace ID generation & error handling [SECURITY]
-  - Description: Replace the 8-byte trace ID with a 16-byte (32 hex chars) or UUIDv4 implementation. Implement robust error handling for trace ID generation with proper logging and secure fallback mechanism.
-  - Acceptance Criteria:
-    - AC1: `generateTraceID` produces 32-char hex strings or valid UUIDv4.
-    - AC2: Errors during trace ID generation are logged at ERROR level with context.
-    - AC3: On failure, a securely generated non-constant ID is returned; no static fallback.
-    - AC4: Tests verify trace ID uniqueness, format, and proper error handling.
-  - Depends On: []
-  - Estimated Story Points: 3
+- [ ] **T026 · Chore · P1: audit API handlers for direct error logging**
+    - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 2)
+    - **Action:**
+        1. Review all API handler implementations (auth_handler.go, card_handler.go, memo_handler.go).
+        2. Document all instances where error objects are logged directly (e.g., `logger.Error(..., "error", err)`).
+    - **Done-when:**
+        1. Complete inventory of all direct error logging locations is produced.
+    - **Depends-on:** none
+    - **Estimated Story Points:** 1
 
-### [Priority 2] Logging & Observability Improvements
-- [x] [T019] Enforce injected logger pattern
-  - Description: Remove implicit `slog.Default` usage in handlers. Modify all handler constructors to require a non-nil `Logger` parameter and enforce this requirement at compile time.
-  - Acceptance Criteria:
-    - AC1: All API handler constructors (auth, memo, card) require a non-nil logger.
-    - AC2: No fallback logic to `slog.Default` in any handler code.
-    - AC3: Server setup and all tests inject explicit logger instances.
-    - AC4: Static analysis confirms absence of `slog.Default` usage in handler packages.
-  - Depends On: []
-  - Estimated Story Points: 5
+- [ ] **T027 · Refactor · P1: replace direct error logging with redacted versions**
+    - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 3)
+    - **Action:**
+        1. Modify each location identified in T026.
+        2. Replace direct logging of errors with `redact.Error(err)`.
+        3. Update any tests that may be affected.
+    - **Done-when:**
+        1. All direct error logging instances use redaction.
+        2. Code passes all tests and linting.
+    - **Depends-on:** [T026]
+    - **Estimated Story Points:** 2
 
-- [x] [T020] Centralize error mapping logic
-  - Description: Move duplicated error-to-HTTP status mapping and sanitization logic into shared helpers in `errors.go`. Ensure all handlers use these consistent, centralized error mapping functions.
-  - Acceptance Criteria:
-    - AC1: `MapErrorToStatusCode` function in `errors.go` handles all error types used in the API.
-    - AC2: All handlers use the centralized error mapping functions.
-    - AC3: Unit tests verify correct mapping for each error type.
-    - AC4: Integration tests confirm consistent error responses after refactoring.
-  - Depends On: [T017]
-  - Estimated Story Points: 3
+- [ ] **T028 · Chore · P1: audit handlers for direct error response generation**
+    - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 1)
+    - **Action:**
+        1. Systematically review all API handler implementations.
+        2. Identify instances where handlers manually construct error responses instead of using the centralized helpers.
+        3. Document each location for refactoring.
+    - **Done-when:**
+        1. Complete inventory of all manual error response code is produced.
+    - **Depends-on:** none
+    - **Estimated Story Points:** 1
 
-- [x] [T021] Correct 4xx log level strategy
-  - Description: Modify `RespondWithErrorAndLog` to log client errors (4xx) at DEBUG level by default, elevating only specific operational issues to WARN level.
-  - Acceptance Criteria:
-    - AC1: Default log level for 4xx errors is DEBUG, not WARN.
-    - AC2: Selected operational 4xx scenarios (rate limiting, repeated auth failures) still log at WARN.
-    - AC3: Tests verify correct log levels for various error scenarios.
-    - AC4: Documentation updated to reflect the new log level strategy.
-  - Depends On: []
-  - Estimated Story Points: 3
+- [ ] **T029 · Refactor · P1: implement centralized validation error handling**
+    - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 2)
+    - **Action:**
+        1. Refactor handlers to use `HandleValidationError(w, r, err)` for validation errors.
+        2. Remove manual validation error handling code.
+    - **Done-when:**
+        1. All validation error handling uses the centralized helper.
+        2. Tests pass.
+    - **Depends-on:** [T028]
+    - **Estimated Story Points:** 2
 
-### [Priority 3] Testability & Maintainability
-- [x] [T022] Refactor brittle shared tests
-  - Description: Improve test quality in the shared package by using struct-based JSON assertions instead of string comparisons, implementing more realistic mocks, and ensuring log checks are robust against format changes.
-  - Acceptance Criteria:
-    - AC1: JSON response tests unmarshal to structs for field assertions rather than comparing strings.
-    - AC2: Log tests check for presence of key attributes rather than exact string matches.
-    - AC3: Mock implementations accurately reflect the interfaces they're replacing.
-    - AC4: Tests pass regardless of JSON field ordering or minor format changes.
-  - Depends On: []
-  - Estimated Story Points: 3
+- [ ] **T030 · Refactor · P1: implement centralized general error handling**
+    - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 3)
+    - **Action:**
+        1. Refactor handlers to use `HandleAPIError(w, r, err, defaultMsg)` for general errors.
+        2. Use appropriate default messages for internal server errors.
+    - **Done-when:**
+        1. All non-validation error handling uses `HandleAPIError`.
+        2. Tests pass.
+    - **Depends-on:** [T028]
+    - **Estimated Story Points:** 2
 
-### [Priority 4] Code Cleanup & Conventions
-- [x] [T023] Implement singleton validator in requests
-  - Description: Replace per-call validator creation with a package-level singleton instance to improve performance and reduce allocations.
-  - Acceptance Criteria:
-    - AC1: Package-level validator instance defined in `internal/api/shared/requests.go`.
-    - AC2: `ValidateRequest` uses the singleton validator.
-    - AC3: No validator creation per validation call.
-    - AC4: Tests verify validator behavior still works correctly.
-  - Depends On: []
-  - Estimated Story Points: 1
+### [Priority 2] Tests & Cleanup
 
-- [x] [T024] Make handler mutation immutable or test-only
-  - Description: Address the non-idiomatic mutable handler pattern (`WithTimeFunc`) by either making it return a new instance or clearly documenting it as test-only with appropriate safeguards.
-  - Acceptance Criteria:
-    - AC1: Either: `WithTimeFunc` returns a new handler instance, leaving the original unchanged
-           Or: Clear documentation marks it as test-only with code comments.
-    - AC2: If kept mutable, a test verifies no concurrency issues can occur.
-    - AC3: No production code mutates handlers in place.
-  - Depends On: []
-  - Estimated Story Points: 1
+- [ ] **T031 · Refactor · P2: remove redundant error mapping logic**
+    - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 4)
+    - **Action:**
+        1. Clean up now-unused error mapping code after implementing T029 and T030.
+        2. Remove any manual status code mapping or response formatting.
+    - **Done-when:**
+        1. No redundant error handling code remains.
+        2. All tests pass.
+    - **Depends-on:** [T029, T030]
+    - **Estimated Story Points:** 1
+
+- [ ] **T032 · Test · P2: verify error handling consistency across handlers**
+    - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 5)
+    - **Action:**
+        1. Add or enhance tests that verify error responses are consistent.
+        2. Assert error responses match expected format and status codes.
+    - **Done-when:**
+        1. Tests confirm consistent error handling across all handlers.
+        2. All tests pass.
+    - **Depends-on:** [T029, T030, T031]
+    - **Estimated Story Points:** 2
+
+- [ ] **T033 · Test · P2: implement tests for error redaction**
+    - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 4)
+    - **Action:**
+        1. Create tests that trigger error logging scenarios.
+        2. Assert logs do not contain sensitive information.
+    - **Done-when:**
+        1. Tests verify errors in logs are properly redacted.
+        2. All tests pass.
+    - **Depends-on:** [T025, T027]
+    - **Estimated Story Points:** 2
+
+- [ ] **T034 · Refactor · P2: refactor `AuthHandler.WithTimeFunc` to return new instance**
+    - **Context:** PLAN.md > cr‑03 Fix Non-idiomatic Handler Mutability (Steps 1-3)
+    - **Action:**
+        1. Modify `AuthHandler.WithTimeFunc` signature to return `*AuthHandler`.
+        2. Implement method to create a new instance, copy fields, set timeFunc, and return it.
+    - **Done-when:**
+        1. `WithTimeFunc` returns a new handler instance instead of mutating.
+        2. Tests pass.
+    - **Depends-on:** none
+    - **Estimated Story Points:** 1
+
+- [ ] **T035 · Refactor · P2: update callers of `WithTimeFunc` to use returned instance**
+    - **Context:** PLAN.md > cr‑03 Fix Non-idiomatic Handler Mutability (Step 4)
+    - **Action:**
+        1. Find all code (likely tests) that calls `WithTimeFunc`.
+        2. Update to capture and use the returned handler.
+    - **Done-when:**
+        1. All callsites use the returned instance.
+        2. Tests pass.
+    - **Depends-on:** [T034]
+    - **Estimated Story Points:** 1

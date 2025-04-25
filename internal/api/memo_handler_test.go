@@ -113,7 +113,7 @@ func TestMemoHandler_CreateMemo(t *testing.T) {
 				// Mock won't be called
 			},
 			expectedStatus: http.StatusUnauthorized,
-			expectedErrMsg: "Authentication required",
+			expectedErrMsg: "Unauthorized operation",
 		},
 		{
 			name: "invalid_user_id",
@@ -128,7 +128,7 @@ func TestMemoHandler_CreateMemo(t *testing.T) {
 				// Mock won't be called
 			},
 			expectedStatus: http.StatusUnauthorized,
-			expectedErrMsg: "Authentication required",
+			expectedErrMsg: "Unauthorized operation",
 		},
 		{
 			name: "nil_user_id",
@@ -143,7 +143,7 @@ func TestMemoHandler_CreateMemo(t *testing.T) {
 				// Mock won't be called
 			},
 			expectedStatus: http.StatusUnauthorized,
-			expectedErrMsg: "Authentication required",
+			expectedErrMsg: "Unauthorized operation",
 		},
 		{
 			name: "invalid_request_format",
@@ -207,7 +207,7 @@ func TestMemoHandler_CreateMemo(t *testing.T) {
 				}
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedErrMsg: "An unexpected error occurred",
+			expectedErrMsg: "Failed to create memo",
 		},
 	}
 

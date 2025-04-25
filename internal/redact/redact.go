@@ -28,6 +28,8 @@ var (
 		`(?i)(api[_-]?key|token|secret|key|access|auth)(['"\s:=]+)[A-Za-z0-9_\-.~+/]{8,}`,
 	)
 	awsKeyRegex = regexp.MustCompile(`(AKIA|AccessKey(Id)?)([^a-zA-Z0-9])?[A-Z0-9]{8,}`)
+	// JWT token pattern - matches the standard three-part base64url-encoded JWT token format
+	jwtTokenRegex = regexp.MustCompile(`eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+`)
 
 	// File paths
 	unixPathRegex = regexp.MustCompile(`(/[\w.-]+){2,}`)
@@ -56,7 +58,7 @@ var (
 
 	// All patterns and their placeholders
 	patterns = []*regexp.Regexp{
-		dbConnRegex, passwordRegex, apiKeyRegex, awsKeyRegex,
+		dbConnRegex, passwordRegex, apiKeyRegex, awsKeyRegex, jwtTokenRegex,
 		unixPathRegex, winPathRegex, stackTraceRegex, emailRegex, sqlRegex,
 		lineNumberRegex, syntaxErrorRegex, hostPortRegex, fileErrorRegex,
 	}
@@ -66,6 +68,7 @@ var (
 		passwordRegex:    RedactedCredentialPlaceholder,
 		apiKeyRegex:      RedactedKeyPlaceholder,
 		awsKeyRegex:      RedactedKeyPlaceholder,
+		jwtTokenRegex:    "[REDACTED_JWT]",
 		unixPathRegex:    RedactedPathPlaceholder,
 		winPathRegex:     RedactedPathPlaceholder,
 		stackTraceRegex:  "[STACK_TRACE_REDACTED]",

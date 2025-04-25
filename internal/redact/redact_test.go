@@ -46,6 +46,11 @@ func TestRedactString(t *testing.T) {
 			expected: "AWS credentials: [REDACTED_KEY]",
 		},
 		{
+			name:     "JWT token",
+			input:    "Invalid token format: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+			expected: "Invalid token format: Bearer [REDACTED_JWT]",
+		},
+		{
 			name:     "file path",
 			input:    "File not found at /var/lib/postgresql/data/pg_hba.conf",
 			expected: "[REDACTED_FILE_ERROR] at [REDACTED_PATH]",
@@ -103,5 +108,17 @@ func TestRedactError(t *testing.T) {
 			"service layer: db error: [REDACTED_CREDENTIAL]localhost:5432/app",
 			redact.Error(wrappedErr),
 		)
+	})
+
+	t.Run("JWT token in error", func(t *testing.T) {
+		err := errors.New(
+			"Invalid token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+		)
+		// Because of pattern matching priority, the token: part matches the apiKeyRegex first
+		// The word "token" is recognized by the API key regex, but the actual token should still get redacted
+		assert.Equal(t, "Invalid [REDACTED_KEY]", redact.Error(err))
+
+		// Verify that the JWT token is still properly redacted
+		assert.NotContains(t, redact.Error(err), "eyJhbGci")
 	})
 }

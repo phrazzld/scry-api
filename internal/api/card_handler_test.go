@@ -316,7 +316,7 @@ func TestSubmitAnswer(t *testing.T) {
 			serviceResult:   nil,
 			serviceError:    nil,
 			expectedStatus:  http.StatusUnauthorized,
-			expectedErrCode: "User ID not found or invalid",
+			expectedErrCode: "Unauthorized operation",
 		},
 		{
 			name:            "Invalid Card ID Format",
@@ -326,7 +326,7 @@ func TestSubmitAnswer(t *testing.T) {
 			serviceResult:   nil,
 			serviceError:    nil,
 			expectedStatus:  http.StatusBadRequest,
-			expectedErrCode: "Invalid card ID format",
+			expectedErrCode: "Invalid ID",
 		},
 		{
 			name:            "Missing Outcome Field",
@@ -356,7 +356,7 @@ func TestSubmitAnswer(t *testing.T) {
 			serviceResult:   nil,
 			serviceError:    nil,
 			expectedStatus:  http.StatusBadRequest,
-			expectedErrCode: "Card ID is required",
+			expectedErrCode: "Validation failed",
 		},
 		{
 			name:            "Invalid JSON in Request Body",

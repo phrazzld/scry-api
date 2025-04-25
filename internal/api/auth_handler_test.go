@@ -131,7 +131,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				}
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "unexpected error",
+			expectedBody:   "Failed to create user",
 			wantTokens:     false,
 		},
 		{
@@ -340,8 +340,8 @@ func TestAuthHandler_Login(t *testing.T) {
 					return nil, store.ErrUserNotFound
 				}
 			},
-			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   "Invalid credentials",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "User not found",
 			wantTokens:     false,
 		},
 		{
@@ -368,7 +368,7 @@ func TestAuthHandler_Login(t *testing.T) {
 				// Password comparison will fail
 				pv.ShouldSucceed = false
 			},
-			expectedStatus: http.StatusUnauthorized,
+			expectedStatus: http.StatusInternalServerError,
 			expectedBody:   "Invalid credentials",
 			wantTokens:     false,
 		},

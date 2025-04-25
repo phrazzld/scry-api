@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -31,7 +30,6 @@ type CardResponse struct {
 // CardHandler handles card-related HTTP requests
 type CardHandler struct {
 	cardReviewService card_review.CardReviewService
-	validator         *validator.Validate
 	logger            *slog.Logger
 }
 
@@ -47,7 +45,6 @@ func NewCardHandler(
 
 	return &CardHandler{
 		cardReviewService: cardReviewService,
-		validator:         validator.New(),
 		logger:            logger.With(slog.String("component", "card_handler")),
 	}
 }
@@ -164,7 +161,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
+	if err := shared.Validate.Struct(req); err != nil {
 		log.Warn("validation error",
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID.String()),

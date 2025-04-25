@@ -66,7 +66,7 @@
   - Estimated Story Points: 3
 
 ### [Priority 4] Code Cleanup & Conventions
-- [ ] [T023] Implement singleton validator in requests
+- [x] [T023] Implement singleton validator in requests
   - Description: Replace per-call validator creation with a package-level singleton instance to improve performance and reduce allocations.
   - Acceptance Criteria:
     - AC1: Package-level validator instance defined in `internal/api/shared/requests.go`.

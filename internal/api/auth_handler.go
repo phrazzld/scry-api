@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	"github.com/phrazzld/scry-api/internal/api/shared"
@@ -23,7 +22,6 @@ type AuthHandler struct {
 	userStore        store.UserStore
 	jwtService       auth.JWTService
 	passwordVerifier auth.PasswordVerifier
-	validator        *validator.Validate
 	authConfig       *config.AuthConfig // For accessing token lifetime and other auth settings
 	timeFunc         func() time.Time   // Injectable time source for testing
 	logger           *slog.Logger       // Added logger field
@@ -90,7 +88,6 @@ func NewAuthHandler(
 		userStore:        userStore,
 		jwtService:       jwtService,
 		passwordVerifier: passwordVerifier,
-		validator:        validator.New(),
 		authConfig:       authConfig,
 		timeFunc:         time.Now, // Default to system time
 		logger:           logger.With(slog.String("component", "auth_handler")),
@@ -115,7 +112,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
+	if err := shared.Validate.Struct(req); err != nil {
 		sanitizedError := SanitizeValidationError(err)
 		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)
 		return
@@ -171,7 +168,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
+	if err := shared.Validate.Struct(req); err != nil {
 		sanitizedError := SanitizeValidationError(err)
 		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)
 		return
@@ -222,7 +219,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
+	if err := shared.Validate.Struct(req); err != nil {
 		sanitizedError := SanitizeValidationError(err)
 		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)
 		return

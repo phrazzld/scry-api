@@ -998,7 +998,7 @@ func TestAuthHandler_NewAuthHandler(t *testing.T) {
 		assert.Equal(t, mockJWTService, handler.jwtService)
 		assert.Equal(t, mockPasswordVerifier, handler.passwordVerifier)
 		assert.Equal(t, authConfig, handler.authConfig)
-		assert.NotNil(t, handler.validator)
+		// Validator now uses shared.Validate singleton
 		assert.NotNil(t, handler.logger)
 		// Check that timeFunc is set (can't compare functions directly)
 		assert.NotNil(t, handler.timeFunc) // Default time function should be set

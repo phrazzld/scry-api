@@ -313,7 +313,7 @@ func TestMemoHandler_NewMemoHandler(t *testing.T) {
 
 		assert.NotNil(t, handler)
 		assert.Equal(t, mockService, handler.memoService)
-		assert.NotNil(t, handler.validator)
+		// Validator now uses shared.Validate singleton
 		assert.NotNil(t, handler.logger)
 	})
 

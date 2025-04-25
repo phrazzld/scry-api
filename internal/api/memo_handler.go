@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -31,7 +30,6 @@ type MemoResponse struct {
 // MemoHandler handles memo-related HTTP requests
 type MemoHandler struct {
 	memoService service.MemoService
-	validator   *validator.Validate
 	logger      *slog.Logger
 }
 
@@ -44,7 +42,6 @@ func NewMemoHandler(memoService service.MemoService, logger *slog.Logger) *MemoH
 
 	return &MemoHandler{
 		memoService: memoService,
-		validator:   validator.New(),
 		logger:      logger.With(slog.String("component", "memo_handler")),
 	}
 }
@@ -70,7 +67,7 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
+	if err := shared.Validate.Struct(req); err != nil {
 		// Sanitize validation error message
 		sanitizedError := SanitizeValidationError(err)
 		shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err)

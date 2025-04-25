@@ -529,9 +529,7 @@ func TestNewCardHandler(t *testing.T) {
 	if handler.cardReviewService == nil {
 		t.Error("expected cardReviewService to be set")
 	}
-	if handler.validator == nil {
-		t.Error("expected validator to be initialized")
-	}
+	// Validator now uses shared.Validate
 	if handler.logger == nil {
 		t.Error("expected default logger to be set")
 	}

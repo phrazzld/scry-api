@@ -81,6 +81,65 @@ func AssertErrorResponse(
 		"Error message should contain '%s' but got '%s'", expectedErrorMsgPart, errResp.Error)
 }
 
+// AssertValidationError checks that a response contains a validation error with the expected information.
+// It parses the response, verifies the status code is 400 Bad Request, and checks that the error message
+// contains the expected field and/or message parts.
+//
+// This function is especially useful for testing validation errors where exact message formats may change,
+// but the key information (field name, validation issue) should still be present.
+//
+// Parameters:
+//   - t: The testing context
+//   - resp: The HTTP response to check
+//   - field: The field name that failed validation (e.g., "Email", "Outcome"). Can be empty to skip field check.
+//   - msgPart: The expected validation message part (e.g., "required", "invalid format"). Can be empty to skip message check.
+//
+// Examples:
+//
+//	// Check for a required field error
+//	AssertValidationError(t, resp, "Outcome", "required")
+//
+//	// Check for an invalid format error
+//	AssertValidationError(t, resp, "Email", "invalid format")
+//
+//	// Check only for field presence
+//	AssertValidationError(t, resp, "Password", "")
+//
+//	// Check only for message content
+//	AssertValidationError(t, resp, "", "too short")
+func AssertValidationError(
+	t *testing.T,
+	resp *http.Response,
+	field string,
+	msgPart string,
+) {
+	t.Helper()
+
+	// Check status code is 400 Bad Request
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode,
+		"Expected status code 400 for validation error but got %d", resp.StatusCode)
+
+	// Read and parse the response body
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "Failed to read response body")
+
+	var errResp shared.ErrorResponse
+	err = json.Unmarshal(body, &errResp)
+	require.NoError(t, err, "Failed to unmarshal error response: %s", string(body))
+
+	// Check that the error message contains the expected field
+	if field != "" {
+		assert.Contains(t, errResp.Error, field,
+			"Error should mention field '%s' but got: %s", field, errResp.Error)
+	}
+
+	// Check that the error message contains the expected message part
+	if msgPart != "" {
+		assert.Contains(t, errResp.Error, msgPart,
+			"Error should contain '%s' but got: %s", msgPart, errResp.Error)
+	}
+}
+
 // ExecuteInvalidJSONRequest sends a request with an invalid JSON body to test error handling.
 // Automatically registers cleanup for the response body so callers don't need to manually close it.
 func ExecuteInvalidJSONRequest(

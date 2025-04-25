@@ -297,25 +297,37 @@ func TestInvalidRequestBody(t *testing.T) {
 
 	// Define test cases
 	tests := []struct {
-		name             string
-		testType         string
-		path             string
-		expectedStatus   int
-		expectedErrorMsg string
+		name       string
+		testType   string
+		path       string
+		validation struct {
+			field   string
+			msgPart string
+		}
 	}{
 		{
-			name:             "Submit Answer - Invalid JSON",
-			testType:         "invalid-json",
-			path:             "/api/cards/" + cardID.String() + "/answer",
-			expectedStatus:   http.StatusBadRequest,
-			expectedErrorMsg: "Validation error",
+			name:     "Submit Answer - Invalid JSON",
+			testType: "invalid-json",
+			path:     "/api/cards/" + cardID.String() + "/answer",
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "", // No specific field for malformed JSON
+				msgPart: "Validation error",
+			},
 		},
 		{
-			name:             "Submit Answer - Empty Body",
-			testType:         "empty-body",
-			path:             "/api/cards/" + cardID.String() + "/answer",
-			expectedStatus:   http.StatusBadRequest,
-			expectedErrorMsg: "Invalid Outcome: required field",
+			name:     "Submit Answer - Empty Body",
+			testType: "empty-body",
+			path:     "/api/cards/" + cardID.String() + "/answer",
+			validation: struct {
+				field   string
+				msgPart string
+			}{
+				field:   "Outcome",
+				msgPart: "required field",
+			},
 		},
 	}
 
@@ -341,8 +353,8 @@ func TestInvalidRequestBody(t *testing.T) {
 
 			require.NoError(t, err)
 
-			// Verify response using the helper
-			testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedErrorMsg)
+			// Verify response using the new validation error helper
+			testutils.AssertValidationError(t, resp, tc.validation.field, tc.validation.msgPart)
 		})
 	}
 }

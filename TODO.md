@@ -153,7 +153,7 @@
     - **Estimated Story Points:** 1
     - **Resolution:** Updated the empty body test case in TestInvalidRequestBody to expect "Invalid Outcome: required field" instead of "Validation error" to match the specific validation error message now returned by the API. Added a comment explaining the distinction between JSON parsing errors and field validation errors.
 
-- [ ] **T037 · Refactor · P2: Introduce helper for robust validation error matching**
+- [x] **T037 · Refactor · P2: Introduce helper for robust validation error matching**
     - **Context:** Direct string comparisons in tests are brittle; a helper will centralize and simplify error matching.
     - **Action:**
         1. Create a test utility function (e.g., `assertValidationError(resp, code, substring)`) that parses JSON and checks error fields.
@@ -164,6 +164,7 @@
         2. Tests remain green and are easier to maintain.
     - **Depends-on:** [T036]
     - **Estimated Story Points:** 2
+    - **Resolution:** Added new `AssertValidationError` function to `internal/testutils/http_helpers.go` that checks for field and message substrings instead of exact matches. Updated `TestInvalidRequestBody` to use the new function, making it more resilient to future error format changes. All tests are passing.
 
 - [ ] **T038 · Test · P2: Add regression tests for edge-case validation errors**
     - **Context:** Ensuring comprehensive coverage prevents future regressions in validation logic.

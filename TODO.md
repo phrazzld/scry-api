@@ -40,7 +40,7 @@
     - **Estimated Story Points:** 2
     - **Resolution:** Updated all 5 instances identified in T026-inventory.md to use redact.Error(). Added missing import statements and verified tests pass.
 
-- [ ] **T028 · Chore · P1: audit handlers for direct error response generation**
+- [x] **T028 · Chore · P1: audit handlers for direct error response generation**
     - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 1)
     - **Action:**
         1. Systematically review all API handler implementations.
@@ -50,6 +50,7 @@
         1. Complete inventory of all manual error response code is produced.
     - **Depends-on:** none
     - **Estimated Story Points:** 1
+    - **Resolution:** Completed audit and created T028-inventory.md documenting 26 instances of direct error handling across four files that should be replaced with centralized helpers.
 
 - [ ] **T029 · Refactor · P1: implement centralized validation error handling**
     - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 2)

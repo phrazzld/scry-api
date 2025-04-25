@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
@@ -288,4 +289,60 @@ func getValidationTagMessage(tag string) string {
 	default:
 		return "validation failed"
 	}
+}
+
+// HandleAPIError is a centralized helper function that handles API errors consistently.
+// It maps the error to an HTTP status code, generates a user-friendly message,
+// and responds with an appropriate HTTP error.
+//
+// Parameters:
+// - w: The HTTP response writer
+// - r: The HTTP request
+// - err: The error to handle
+// - defaultMsg: An optional default message to use for internal server errors
+// - opts: Optional response options (like WithElevatedLogLevel)
+//
+// This centralized function reduces duplication across handlers and ensures
+// consistent error handling throughout the API.
+func HandleAPIError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+	defaultMsg string,
+	opts ...shared.ResponseOption,
+) {
+	// Map error to appropriate HTTP status code
+	statusCode := MapErrorToStatusCode(err)
+
+	// Get a safe, user-friendly message
+	safeMessage := GetSafeErrorMessage(err)
+
+	// For internal server errors, use the default message if provided
+	if statusCode == http.StatusInternalServerError && defaultMsg != "" {
+		safeMessage = defaultMsg
+	}
+
+	// Respond with error using centralized shared function
+	shared.RespondWithErrorAndLog(w, r, statusCode, safeMessage, err, opts...)
+}
+
+// HandleValidationError is a specialized version of HandleAPIError for validation errors.
+// It sanitizes the validation error and responds with a BadRequest status.
+//
+// Parameters:
+// - w: The HTTP response writer
+// - r: The HTTP request
+// - err: The validation error to handle
+// - opts: Optional response options (like WithElevatedLogLevel)
+func HandleValidationError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+	opts ...shared.ResponseOption,
+) {
+	// Sanitize the validation error message
+	sanitizedError := SanitizeValidationError(err)
+
+	// Always use BadRequest status for validation errors
+	shared.RespondWithErrorAndLog(w, r, http.StatusBadRequest, sanitizedError, err, opts...)
 }

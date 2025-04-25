@@ -1,16 +1,20 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMapErrorToStatusCode(t *testing.T) {
@@ -433,6 +437,151 @@ func TestSanitizeValidationErrorWithCustomTypes(t *testing.T) {
 					"Sanitized message should not contain raw error details",
 				)
 			}
+		})
+	}
+}
+
+// TestHandleAPIError tests the HandleAPIError function which provides centralized
+// error handling for API endpoints.
+func TestHandleAPIError(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            error
+		defaultMsg     string
+		useOptions     bool
+		expectedStatus int
+		expectedMsg    string
+	}{
+		{
+			name:           "validation error",
+			err:            domain.NewValidationError("email", "must be valid format", nil),
+			defaultMsg:     "",
+			useOptions:     false,
+			expectedStatus: http.StatusBadRequest,
+			expectedMsg:    "Invalid email: must be valid format",
+		},
+		{
+			name:           "not found error",
+			err:            store.ErrCardNotFound,
+			defaultMsg:     "",
+			useOptions:     false,
+			expectedStatus: http.StatusNotFound,
+			expectedMsg:    "Card not found",
+		},
+		{
+			name:           "auth error",
+			err:            auth.ErrInvalidToken,
+			defaultMsg:     "",
+			useOptions:     false,
+			expectedStatus: http.StatusUnauthorized,
+			expectedMsg:    "Invalid token",
+		},
+		{
+			name:           "auth error with elevated logging",
+			err:            auth.ErrInvalidToken,
+			defaultMsg:     "",
+			useOptions:     true,
+			expectedStatus: http.StatusUnauthorized,
+			expectedMsg:    "Invalid token",
+		},
+		{
+			name:           "generic error with default message",
+			err:            errors.New("database connection error"),
+			defaultMsg:     "Failed to process request",
+			useOptions:     false,
+			expectedStatus: http.StatusInternalServerError,
+			expectedMsg:    "Failed to process request", // Uses default message for 500 errors
+		},
+		{
+			name:           "nil error with default message",
+			err:            nil,
+			defaultMsg:     "Something went wrong",
+			useOptions:     false,
+			expectedStatus: http.StatusInternalServerError,
+			expectedMsg:    "Something went wrong", // Uses default message for nil error
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a response recorder to capture the HTTP response
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+			// Call the HandleAPIError function
+			if tt.useOptions {
+				HandleAPIError(w, r, tt.err, tt.defaultMsg, shared.WithElevatedLogLevel())
+			} else {
+				HandleAPIError(w, r, tt.err, tt.defaultMsg)
+			}
+
+			// Check status code
+			assert.Equal(t, tt.expectedStatus, w.Code, "Incorrect status code")
+
+			// Parse response body
+			var resp map[string]interface{}
+			err := json.NewDecoder(w.Body).Decode(&resp)
+			require.NoError(t, err, "Failed to decode response body")
+
+			// Check error message
+			assert.Equal(t, tt.expectedMsg, resp["error"], "Incorrect error message")
+		})
+	}
+}
+
+// TestHandleValidationError tests the specialized validation error handling function.
+func TestHandleValidationError(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		useOptions  bool
+		expectedMsg string
+	}{
+		{
+			name:        "domain validation error",
+			err:         domain.NewValidationError("email", "must be valid format", nil),
+			useOptions:  false,
+			expectedMsg: "Invalid email: must be valid format",
+		},
+		{
+			name: "validator library error",
+			err: errors.New(
+				"Key: 'UserRequest.Password' Error:Field validation for 'Password' failed on the 'min' tag",
+			),
+			useOptions:  false,
+			expectedMsg: "Invalid Password: too short",
+		},
+		{
+			name:        "generic validation error with elevated logging",
+			err:         errors.New("validation failed for some reason"),
+			useOptions:  true,
+			expectedMsg: "Validation error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a response recorder to capture the HTTP response
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodPost, "/test", nil)
+
+			// Call the HandleValidationError function
+			if tt.useOptions {
+				HandleValidationError(w, r, tt.err, shared.WithElevatedLogLevel())
+			} else {
+				HandleValidationError(w, r, tt.err)
+			}
+
+			// Check status code - should always be 400 Bad Request for validation errors
+			assert.Equal(t, http.StatusBadRequest, w.Code, "Incorrect status code")
+
+			// Parse response body
+			var resp map[string]interface{}
+			err := json.NewDecoder(w.Body).Decode(&resp)
+			require.NoError(t, err, "Failed to decode response body")
+
+			// Check error message
+			assert.Equal(t, tt.expectedMsg, resp["error"], "Incorrect error message")
 		})
 	}
 }

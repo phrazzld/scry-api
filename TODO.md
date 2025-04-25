@@ -34,7 +34,7 @@
   - Depends On: []
   - Estimated Story Points: 5
 
-- [ ] [T020] Centralize error mapping logic
+- [x] [T020] Centralize error mapping logic
   - Description: Move duplicated error-to-HTTP status mapping and sanitization logic into shared helpers in `errors.go`. Ensure all handlers use these consistent, centralized error mapping functions.
   - Acceptance Criteria:
     - AC1: `MapErrorToStatusCode` function in `errors.go` handles all error types used in the API.

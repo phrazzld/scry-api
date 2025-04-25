@@ -16,7 +16,7 @@
     - **Estimated Story Points:** 1
     - **Resolution:** Upon inspection, `shared.RespondWithErrorAndLog` already correctly uses `redact.Error(err)` on line 112 of `responses.go`. Tests were run to verify functionality.
 
-- [ ] **T026 · Chore · P1: audit API handlers for direct error logging**
+- [x] **T026 · Chore · P1: audit API handlers for direct error logging**
     - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 2)
     - **Action:**
         1. Review all API handler implementations (auth_handler.go, card_handler.go, memo_handler.go).
@@ -25,6 +25,7 @@
         1. Complete inventory of all direct error logging locations is produced.
     - **Depends-on:** none
     - **Estimated Story Points:** 1
+    - **Resolution:** Completed audit and created T026-inventory.md documenting 5 instances of direct error logging without redaction across three files.
 
 - [ ] **T027 · Refactor · P1: replace direct error logging with redacted versions**
     - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 3)

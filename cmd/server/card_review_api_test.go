@@ -214,7 +214,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			},
 			executeRequest: false, // We'll handle this case differently
 			expectedStatus: http.StatusBadRequest,
-			expectedError:  "Invalid card ID format",
+			expectedError:  "Invalid ID",
 		},
 		{
 			name:    "Unauthorized - No Valid JWT",
@@ -287,6 +287,9 @@ func TestSubmitAnswerAPI(t *testing.T) {
 }
 
 // TestInvalidRequestBody tests submitting an invalid JSON request body
+// Note: Different validation error types produce different error messages:
+// - Invalid JSON syntax - Returns the generic "Validation error" message
+// - Empty body with missing required fields - Returns specific field validation errors
 func TestInvalidRequestBody(t *testing.T) {
 	// Test user and card ID
 	userID := uuid.New()
@@ -312,7 +315,7 @@ func TestInvalidRequestBody(t *testing.T) {
 			testType:         "empty-body",
 			path:             "/api/cards/" + cardID.String() + "/answer",
 			expectedStatus:   http.StatusBadRequest,
-			expectedErrorMsg: "Validation error",
+			expectedErrorMsg: "Invalid Outcome: required field",
 		},
 	}
 

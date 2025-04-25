@@ -89,7 +89,10 @@ func NewTestCard(userID, memoID uuid.UUID, options *CardWithStatsOptions) (*doma
 //
 // DEPRECATED: Use CreateStatsForAPITest instead. This function is maintained
 // for backward compatibility and will be removed in a future version.
-func NewTestUserCardStats(userID, cardID uuid.UUID, options *CardWithStatsOptions) (*domain.UserCardStats, error) {
+func NewTestUserCardStats(
+	userID, cardID uuid.UUID,
+	options *CardWithStatsOptions,
+) (*domain.UserCardStats, error) {
 	// Convert struct options to functional options
 	var opts []StatsOption
 
@@ -116,7 +119,11 @@ func NewTestUserCardStats(userID, cardID uuid.UUID, options *CardWithStatsOption
 //
 // DEPRECATED: Use MustCreateCardForTest instead. This function is maintained
 // for backward compatibility and will be removed in a future version.
-func MustNewTestCard(t *testing.T, userID, memoID uuid.UUID, options *CardWithStatsOptions) *domain.Card {
+func MustNewTestCard(
+	t *testing.T,
+	userID, memoID uuid.UUID,
+	options *CardWithStatsOptions,
+) *domain.Card {
 	t.Helper()
 	card, err := NewTestCard(userID, memoID, options)
 	require.NoError(t, err, "Failed to create test card")
@@ -166,7 +173,12 @@ func CreateTestMemo(t *testing.T, userID uuid.UUID) *domain.Memo {
 //
 //	// The memo ID can then be used to create related objects
 //	card := testutils.MustInsertCard(ctx, t, tx, userID, memo.ID)
-func MustInsertMemo(ctx context.Context, t *testing.T, tx store.DBTX, userID uuid.UUID) *domain.Memo {
+func MustInsertMemo(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	userID uuid.UUID,
+) *domain.Memo {
 	t.Helper()
 
 	// Create a test memo using the new helper
@@ -200,7 +212,12 @@ func MustInsertMemo(ctx context.Context, t *testing.T, tx store.DBTX, userID uui
 //
 //	// The card ID can then be used for further operations
 //	stats := testutils.MustInsertUserCardStats(ctx, t, tx, userID, card.ID)
-func MustInsertCard(ctx context.Context, t *testing.T, tx store.DBTX, userID, memoID uuid.UUID) *domain.Card {
+func MustInsertCard(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	userID, memoID uuid.UUID,
+) *domain.Card {
 	t.Helper()
 
 	// Create a test card using the new helper
@@ -276,7 +293,13 @@ func MustInsertUserCardStats(
 //	// Count pending memos
 //	pendingCount := testutils.CountMemos(ctx, t, tx, "status = $1", domain.MemoStatusPending)
 //	assert.Equal(t, 2, pendingCount, "Should have 2 pending memos")
-func CountMemos(ctx context.Context, t *testing.T, tx store.DBTX, whereClause string, args ...interface{}) int {
+func CountMemos(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
 	t.Helper()
 
 	query := "SELECT COUNT(*) FROM memos"
@@ -307,7 +330,13 @@ func CountMemos(ctx context.Context, t *testing.T, tx store.DBTX, whereClause st
 //	recentCount := testutils.CountCards(ctx, t, tx,
 //	    "user_id = $1 AND created_at > $2",
 //	    userID, time.Now().Add(-1*time.Hour))
-func CountCards(ctx context.Context, t *testing.T, tx store.DBTX, whereClause string, args ...interface{}) int {
+func CountCards(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
 	t.Helper()
 
 	query := "SELECT COUNT(*) FROM cards"
@@ -338,7 +367,13 @@ func CountCards(ctx context.Context, t *testing.T, tx store.DBTX, whereClause st
 //	dueCount := testutils.CountUserCardStats(ctx, t, tx,
 //	    "next_review_at < $1", time.Now())
 //	assert.Equal(t, 3, dueCount, "Should have 3 cards due for review")
-func CountUserCardStats(ctx context.Context, t *testing.T, tx store.DBTX, whereClause string, args ...interface{}) int {
+func CountUserCardStats(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
 	t.Helper()
 
 	query := "SELECT COUNT(*) FROM user_card_stats"

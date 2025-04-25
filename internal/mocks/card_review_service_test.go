@@ -121,7 +121,12 @@ func TestMockCardReviewService(t *testing.T) {
 
 		// Make some calls
 		_, _ = mock.GetNextCard(ctx, userID)
-		_, _ = mock.SubmitAnswer(ctx, userID, cardID, card_review.ReviewAnswer{Outcome: domain.ReviewOutcomeGood})
+		_, _ = mock.SubmitAnswer(
+			ctx,
+			userID,
+			cardID,
+			card_review.ReviewAnswer{Outcome: domain.ReviewOutcomeGood},
+		)
 
 		// Verify counts
 		assert.Equal(t, 1, mock.GetNextCardCalls.Count)

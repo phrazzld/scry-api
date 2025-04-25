@@ -745,7 +745,13 @@ func TestLogWithContext(t *testing.T) {
 		ctxWithID := logger.WithRequestID(baseCtx, testRequestID)
 
 		// Act: Log through the LogWithContext function
-		logger.LogWithContext(ctxWithID, slog.LevelWarn, "warning message with context", testAttrKey, testAttrValue)
+		logger.LogWithContext(
+			ctxWithID,
+			slog.LevelWarn,
+			"warning message with context",
+			testAttrKey,
+			testAttrValue,
+		)
 
 		// Assert: Verify the log output
 		output := logBuf.String()
@@ -802,7 +808,13 @@ func TestLogWithContext(t *testing.T) {
 		logBuf.Reset()
 
 		// Act: Log through LogWithContext with empty context
-		logger.LogWithContext(baseCtx, slog.LevelInfo, "info message without context", testAttrKey, testAttrValue)
+		logger.LogWithContext(
+			baseCtx,
+			slog.LevelInfo,
+			"info message without context",
+			testAttrKey,
+			testAttrValue,
+		)
 
 		// Assert: Verify the log output
 		output := logBuf.String()
@@ -858,7 +870,13 @@ func TestLogWithContext(t *testing.T) {
 
 		// Act: Log through LogWithContext with nil context (should not panic)
 		var nilCtx context.Context
-		logger.LogWithContext(nilCtx, slog.LevelError, "error message with nil context", testAttrKey, testAttrValue)
+		logger.LogWithContext(
+			nilCtx,
+			slog.LevelError,
+			"error message with nil context",
+			testAttrKey,
+			testAttrValue,
+		)
 
 		// Assert: Verify the log output
 		output := logBuf.String()

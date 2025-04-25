@@ -59,7 +59,11 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "No Cards Due",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(t, userID, card_review.ErrNoCardsDue)
+				return testutils.SetupCardReviewTestServerWithError(
+					t,
+					userID,
+					card_review.ErrNoCardsDue,
+				)
 			},
 			expectedStatus: http.StatusNoContent,
 			expectedError:  "",
@@ -67,7 +71,11 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "Unauthorized - No Valid JWT",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithAuthError(t, userID, auth.ErrInvalidToken)
+				return testutils.SetupCardReviewTestServerWithAuthError(
+					t,
+					userID,
+					auth.ErrInvalidToken,
+				)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedError:  "Invalid token",
@@ -75,7 +83,11 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "Server Error",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(t, userID, errors.New("database error"))
+				return testutils.SetupCardReviewTestServerWithError(
+					t,
+					userID,
+					errors.New("database error"),
+				)
 			},
 			expectedStatus: http.StatusInternalServerError,
 			expectedError:  "Failed to get next review card",
@@ -152,7 +164,11 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  uuid.New(), // Different card ID
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(t, userID, card_review.ErrCardNotFound)
+				return testutils.SetupCardReviewTestServerWithError(
+					t,
+					userID,
+					card_review.ErrCardNotFound,
+				)
 			},
 			executeRequest: true,
 			expectedStatus: http.StatusNotFound,
@@ -163,7 +179,11 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(t, userID, card_review.ErrCardNotOwned)
+				return testutils.SetupCardReviewTestServerWithError(
+					t,
+					userID,
+					card_review.ErrCardNotOwned,
+				)
 			},
 			executeRequest: true,
 			expectedStatus: http.StatusForbidden,
@@ -174,7 +194,11 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(t, userID, card_review.ErrInvalidAnswer)
+				return testutils.SetupCardReviewTestServerWithError(
+					t,
+					userID,
+					card_review.ErrInvalidAnswer,
+				)
 			},
 			executeRequest: true,
 			expectedStatus: http.StatusBadRequest,
@@ -197,7 +221,11 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithAuthError(t, userID, auth.ErrInvalidToken)
+				return testutils.SetupCardReviewTestServerWithAuthError(
+					t,
+					userID,
+					auth.ErrInvalidToken,
+				)
 			},
 			executeRequest: true,
 			expectedStatus: http.StatusUnauthorized,
@@ -208,7 +236,11 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(t, userID, errors.New("database error"))
+				return testutils.SetupCardReviewTestServerWithError(
+					t,
+					userID,
+					errors.New("database error"),
+				)
 			},
 			executeRequest: true,
 			expectedStatus: http.StatusInternalServerError,

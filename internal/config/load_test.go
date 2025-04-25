@@ -105,8 +105,18 @@ func TestLoadFromEnv(t *testing.T) {
 	// Verify
 	require.NoError(t, err, "Load() should not return an error with valid environment variables")
 	require.NotNil(t, cfg, "Load() should return a non-nil config")
-	assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
-	assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
+	assert.Equal(
+		t,
+		9090,
+		cfg.Server.Port,
+		"Server port should be loaded from environment variables",
+	)
+	assert.Equal(
+		t,
+		"debug",
+		cfg.Server.LogLevel,
+		"Log level should be loaded from environment variables",
+	)
 	assert.Equal(
 		t,
 		"postgresql://user:pass@localhost:5432/testdb",
@@ -119,24 +129,54 @@ func TestLoadFromEnv(t *testing.T) {
 		cfg.Auth.JWTSecret,
 		"JWT secret should be loaded from environment variables",
 	)
-	assert.Equal(t, 12, cfg.Auth.BCryptCost, "Bcrypt cost should be loaded from environment variables")
-	assert.Equal(t, 120, cfg.Auth.TokenLifetimeMinutes, "Token lifetime should be loaded from environment variables")
+	assert.Equal(
+		t,
+		12,
+		cfg.Auth.BCryptCost,
+		"Bcrypt cost should be loaded from environment variables",
+	)
+	assert.Equal(
+		t,
+		120,
+		cfg.Auth.TokenLifetimeMinutes,
+		"Token lifetime should be loaded from environment variables",
+	)
 	assert.Equal(
 		t,
 		20160,
 		cfg.Auth.RefreshTokenLifetimeMinutes,
 		"Refresh token lifetime should be loaded from environment variables",
 	)
-	assert.Equal(t, "test-api-key", cfg.LLM.GeminiAPIKey, "Gemini API key should be loaded from environment variables")
-	assert.Equal(t, "gemini-1.5-pro", cfg.LLM.ModelName, "Model name should be loaded from environment variables")
+	assert.Equal(
+		t,
+		"test-api-key",
+		cfg.LLM.GeminiAPIKey,
+		"Gemini API key should be loaded from environment variables",
+	)
+	assert.Equal(
+		t,
+		"gemini-1.5-pro",
+		cfg.LLM.ModelName,
+		"Model name should be loaded from environment variables",
+	)
 	assert.Equal(
 		t,
 		"/path/to/custom-template.txt",
 		cfg.LLM.PromptTemplatePath,
 		"Prompt template path should be loaded from environment variables",
 	)
-	assert.Equal(t, 4, cfg.LLM.MaxRetries, "Max retries should be loaded from environment variables")
-	assert.Equal(t, 5, cfg.LLM.RetryDelaySeconds, "Retry delay should be loaded from environment variables")
+	assert.Equal(
+		t,
+		4,
+		cfg.LLM.MaxRetries,
+		"Max retries should be loaded from environment variables",
+	)
+	assert.Equal(
+		t,
+		5,
+		cfg.LLM.RetryDelaySeconds,
+		"Retry delay should be loaded from environment variables",
+	)
 }
 
 // TestLoadValidationErrors verifies that the Load function correctly validates the configuration.

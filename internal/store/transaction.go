@@ -45,6 +45,7 @@ func RunInTransaction(ctx context.Context, db *sql.DB, fn TxFn) error {
 					slog.Any("panic", p))
 			}
 			// Re-panic to maintain the behavior
+			// ALLOW-PANIC: Propagating caught panic from transaction
 			panic(p)
 		}
 	}()
@@ -59,7 +60,11 @@ func RunInTransaction(ctx context.Context, db *sql.DB, fn TxFn) error {
 				slog.String("rollback_error", rollbackErr.Error()),
 				slog.String("original_error", err.Error()))
 			// Return the combined errors to provide complete information
-			return fmt.Errorf("error rolling back transaction: %v (original error: %w)", rollbackErr, err)
+			return fmt.Errorf(
+				"error rolling back transaction: %v (original error: %w)",
+				rollbackErr,
+				err,
+			)
 		}
 		log.Debug("rolled back transaction due to error",
 			slog.String("error", err.Error()))

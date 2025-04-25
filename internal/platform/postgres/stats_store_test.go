@@ -88,7 +88,10 @@ func TestUserCardStatsStoreIntegration(t *testing.T) {
 
 	// Test all methods
 	t.Run("TestPostgresUserCardStatsStore_Get", TestPostgresUserCardStatsStore_Get)
-	t.Run("TestPostgresUserCardStatsStore_GetForUpdate", TestPostgresUserCardStatsStore_GetForUpdate)
+	t.Run(
+		"TestPostgresUserCardStatsStore_GetForUpdate",
+		TestPostgresUserCardStatsStore_GetForUpdate,
+	)
 	t.Run("TestPostgresUserCardStatsStore_Update", TestPostgresUserCardStatsStore_Update)
 	t.Run("TestPostgresUserCardStatsStore_Delete", TestPostgresUserCardStatsStore_Delete)
 }
@@ -121,12 +124,20 @@ func TestPostgresUserCardStatsStore_Get(t *testing.T) {
 		// Create a test user
 		testUser, err := domain.NewUser("testgetstats@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a test memo
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo for stats tests")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		// Create a test card
 		content := json.RawMessage(`{"front":"Stats test front","back":"Stats test back"}`)
@@ -146,7 +157,12 @@ func TestPostgresUserCardStatsStore_Get(t *testing.T) {
 			stats, err := statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.NoError(t, err, "Get should find existing stats")
 			assert.NotNil(t, stats, "Retrieved stats should not be nil")
-			assert.Equal(t, testUser.ID, stats.UserID, "Retrieved stats should have correct user ID")
+			assert.Equal(
+				t,
+				testUser.ID,
+				stats.UserID,
+				"Retrieved stats should have correct user ID",
+			)
 			assert.Equal(t, card.ID, stats.CardID, "Retrieved stats should have correct card ID")
 		})
 
@@ -161,13 +177,33 @@ func TestPostgresUserCardStatsStore_Get(t *testing.T) {
 			// Try to retrieve non-existent stats
 			_, err := statsStore.Get(ctx, nonExistentUserID, card.ID)
 			assert.Error(t, err, "Get should return error for non-existent user ID")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 
 			_, err = statsStore.Get(ctx, testUser.ID, nonExistentCardID)
 			assert.Error(t, err, "Get should return error for non-existent card ID")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 		})
 	})
 }
@@ -200,15 +236,25 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 		// Create a test user
 		testUser, err := domain.NewUser("testupdatestats@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a test memo
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo for stats update tests")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		// Create a test card
-		content := json.RawMessage(`{"front":"Stats update test front","back":"Stats update test back"}`)
+		content := json.RawMessage(
+			`{"front":"Stats update test front","back":"Stats update test back"}`,
+		)
 		card, err := domain.NewCard(testUser.ID, testMemo.ID, content)
 		require.NoError(t, err, "Failed to create test card")
 		require.NoError(
@@ -322,13 +368,33 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 			// Try to update non-existent stats
 			err := statsStore.Update(ctx, statsNonexistentUser)
 			assert.Error(t, err, "Update should return error for non-existent user ID")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 
 			err = statsStore.Update(ctx, statsNonexistentCard)
 			assert.Error(t, err, "Update should return error for non-existent card ID")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 		})
 
 		t.Run("invalid_stats", func(t *testing.T) {
@@ -347,7 +413,12 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 			err = statsStore.Update(ctx, &statsInvalid)
 			assert.Error(t, err, "Update should return error for invalid stats")
 			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
-			assert.ErrorContains(t, err, "invalid interval", "Error should contain domain validation error")
+			assert.ErrorContains(
+				t,
+				err,
+				"invalid interval",
+				"Error should contain domain validation error",
+			)
 
 			// Create invalid stats with invalid ease factor
 			statsInvalid = *statsOriginal
@@ -357,7 +428,12 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 			err = statsStore.Update(ctx, &statsInvalid)
 			assert.Error(t, err, "Update should return error for invalid stats")
 			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
-			assert.ErrorContains(t, err, "invalid ease factor", "Error should contain domain validation error")
+			assert.ErrorContains(
+				t,
+				err,
+				"invalid ease factor",
+				"Error should contain domain validation error",
+			)
 		})
 	})
 }
@@ -390,15 +466,25 @@ func TestPostgresUserCardStatsStore_GetForUpdate(t *testing.T) {
 		// Create a test user
 		testUser, err := domain.NewUser("testgetforupdatestats@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a test memo
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo for stats GetForUpdate tests")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		// Create a test card
-		content := json.RawMessage(`{"front":"Stats GetForUpdate test front","back":"Stats GetForUpdate test back"}`)
+		content := json.RawMessage(
+			`{"front":"Stats GetForUpdate test front","back":"Stats GetForUpdate test back"}`,
+		)
 		card, err := domain.NewCard(testUser.ID, testMemo.ID, content)
 		require.NoError(t, err, "Failed to create test card")
 		require.NoError(
@@ -415,7 +501,12 @@ func TestPostgresUserCardStatsStore_GetForUpdate(t *testing.T) {
 			stats, err := statsStore.GetForUpdate(ctx, testUser.ID, card.ID)
 			assert.NoError(t, err, "GetForUpdate should find existing stats with lock")
 			assert.NotNil(t, stats, "Retrieved stats should not be nil")
-			assert.Equal(t, testUser.ID, stats.UserID, "Retrieved stats should have correct user ID")
+			assert.Equal(
+				t,
+				testUser.ID,
+				stats.UserID,
+				"Retrieved stats should have correct user ID",
+			)
 			assert.Equal(t, card.ID, stats.CardID, "Retrieved stats should have correct card ID")
 		})
 
@@ -430,13 +521,33 @@ func TestPostgresUserCardStatsStore_GetForUpdate(t *testing.T) {
 			// Try to retrieve non-existent stats with lock
 			_, err := statsStore.GetForUpdate(ctx, nonExistentUserID, card.ID)
 			assert.Error(t, err, "GetForUpdate should return error for non-existent user ID")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 
 			_, err = statsStore.GetForUpdate(ctx, testUser.ID, nonExistentCardID)
 			assert.Error(t, err, "GetForUpdate should return error for non-existent card ID")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 		})
 
 		t.Run("update_after_get_for_update", func(t *testing.T) {
@@ -462,15 +573,30 @@ func TestPostgresUserCardStatsStore_GetForUpdate(t *testing.T) {
 			// Verify update was successful
 			updatedStats, err := statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.NoError(t, err, "Get should find updated stats")
-			assert.Equal(t, stats.Interval, updatedStats.Interval, "Stats should have updated interval")
-			assert.Equal(t, stats.EaseFactor, updatedStats.EaseFactor, "Stats should have updated ease factor")
+			assert.Equal(
+				t,
+				stats.Interval,
+				updatedStats.Interval,
+				"Stats should have updated interval",
+			)
+			assert.Equal(
+				t,
+				stats.EaseFactor,
+				updatedStats.EaseFactor,
+				"Stats should have updated ease factor",
+			)
 			assert.Equal(
 				t,
 				stats.ConsecutiveCorrect,
 				updatedStats.ConsecutiveCorrect,
 				"Stats should have updated consecutive correct",
 			)
-			assert.Equal(t, stats.ReviewCount, updatedStats.ReviewCount, "Stats should have updated review count")
+			assert.Equal(
+				t,
+				stats.ReviewCount,
+				updatedStats.ReviewCount,
+				"Stats should have updated review count",
+			)
 			assert.WithinDuration(
 				t,
 				stats.LastReviewedAt,
@@ -517,22 +643,36 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 		// Create a test user
 		testUser, err := domain.NewUser("testdeletestats@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a test memo
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo for stats delete tests")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		t.Run("successful_delete", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), testStatsTimeout)
 			defer cancel()
 
 			// Create a test card - this will also create stats
-			content := json.RawMessage(`{"front":"Stats delete test front","back":"Stats delete test back"}`)
+			content := json.RawMessage(
+				`{"front":"Stats delete test front","back":"Stats delete test back"}`,
+			)
 			card, err := domain.NewCard(testUser.ID, testMemo.ID, content)
 			require.NoError(t, err, "Failed to create test card")
-			require.NoError(t, cardStore.CreateMultiple(ctx, []*domain.Card{card}), "Failed to create test card in DB")
+			require.NoError(
+				t,
+				cardStore.CreateMultiple(ctx, []*domain.Card{card}),
+				"Failed to create test card in DB",
+			)
 
 			// Verify stats exist
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
@@ -545,8 +685,18 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			// Verify stats no longer exist
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.Error(t, err, "Stats should not exist after deletion")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 		})
 
 		t.Run("non_existent_stats", func(t *testing.T) {
@@ -560,8 +710,18 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			// Try to delete non-existent stats
 			err := statsStore.Delete(ctx, nonExistentUserID, nonExistentCardID)
 			assert.Error(t, err, "Delete should return error for non-existent stats")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 		})
 
 		t.Run("cascade_delete_through_card", func(t *testing.T) {
@@ -569,10 +729,16 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			defer cancel()
 
 			// Create a test card - this will also create stats
-			content := json.RawMessage(`{"front":"Stats cascade test front","back":"Stats cascade test back"}`)
+			content := json.RawMessage(
+				`{"front":"Stats cascade test front","back":"Stats cascade test back"}`,
+			)
 			card, err := domain.NewCard(testUser.ID, testMemo.ID, content)
 			require.NoError(t, err, "Failed to create test card")
-			require.NoError(t, cardStore.CreateMultiple(ctx, []*domain.Card{card}), "Failed to create test card in DB")
+			require.NoError(
+				t,
+				cardStore.CreateMultiple(ctx, []*domain.Card{card}),
+				"Failed to create test card in DB",
+			)
 
 			// Verify stats exist
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
@@ -585,8 +751,18 @@ func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
 			// Verify stats no longer exist
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.Error(t, err, "Stats should not exist after card deletion")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
-			assert.ErrorContains(t, err, "user card stats", "Error should mention 'user card stats'")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
+			assert.ErrorContains(
+				t,
+				err,
+				"user card stats",
+				"Error should mention 'user card stats'",
+			)
 		})
 	})
 }

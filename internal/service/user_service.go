@@ -93,7 +93,10 @@ func (s *UserServiceImpl) GetUserByEmail(ctx context.Context, email string) (*do
 
 // CreateUser creates a new user with the specified email and password
 // Uses a transaction to ensure atomicity of the operation
-func (s *UserServiceImpl) CreateUser(ctx context.Context, email, password string) (*domain.User, error) {
+func (s *UserServiceImpl) CreateUser(
+	ctx context.Context,
+	email, password string,
+) (*domain.User, error) {
 	user, err := domain.NewUser(email, password)
 	if err != nil {
 		s.logger.Error("failed to create user object",
@@ -133,7 +136,11 @@ func (s *UserServiceImpl) CreateUser(ctx context.Context, email, password string
 // UpdateUserEmail updates a user's email address
 // Following the pattern of getting the complete user first, then updating the specific field
 // Uses a transaction to ensure atomicity of the operation
-func (s *UserServiceImpl) UpdateUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) error {
+func (s *UserServiceImpl) UpdateUserEmail(
+	ctx context.Context,
+	userID uuid.UUID,
+	newEmail string,
+) error {
 	return store.RunInTransaction(ctx, s.db, func(ctx context.Context, tx *sql.Tx) error {
 		// Get a transaction-aware store
 		txStore := s.userStore.WithTx(tx)
@@ -178,7 +185,11 @@ func (s *UserServiceImpl) UpdateUserEmail(ctx context.Context, userID uuid.UUID,
 // UpdateUserPassword updates a user's password
 // Following the pattern of getting the complete user first, then updating only the specific field
 // Uses a transaction to ensure atomicity of the operation
-func (s *UserServiceImpl) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPassword string) error {
+func (s *UserServiceImpl) UpdateUserPassword(
+	ctx context.Context,
+	userID uuid.UUID,
+	newPassword string,
+) error {
 	return store.RunInTransaction(ctx, s.db, func(ctx context.Context, tx *sql.Tx) error {
 		// Get a transaction-aware store
 		txStore := s.userStore.WithTx(tx)

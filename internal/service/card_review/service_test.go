@@ -60,7 +60,10 @@ func (m *MockCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func (m *MockCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
+func (m *MockCardStore) GetNextReviewCard(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*domain.Card, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -183,13 +186,23 @@ func TestNewCardReviewService(t *testing.T) {
 
 	// Test cases
 	t.Run("valid dependencies", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(mockCardStore, mockStatsStore, mockSrsService, logger)
+		service, err := card_review.NewCardReviewService(
+			mockCardStore,
+			mockStatsStore,
+			mockSrsService,
+			logger,
+		)
 		assert.NoError(t, err)
 		assert.NotNil(t, service)
 	})
 
 	t.Run("nil card store", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(nil, mockStatsStore, mockSrsService, logger)
+		service, err := card_review.NewCardReviewService(
+			nil,
+			mockStatsStore,
+			mockSrsService,
+			logger,
+		)
 		assert.Error(t, err)
 		assert.Nil(t, service)
 
@@ -222,7 +235,12 @@ func TestNewCardReviewService(t *testing.T) {
 	})
 
 	t.Run("nil logger", func(t *testing.T) {
-		service, err := card_review.NewCardReviewService(mockCardStore, mockStatsStore, mockSrsService, nil)
+		service, err := card_review.NewCardReviewService(
+			mockCardStore,
+			mockStatsStore,
+			mockSrsService,
+			nil,
+		)
 		assert.NoError(t, err)
 		assert.NotNil(t, service)
 		// Logger should be defaulted, not error
@@ -253,7 +271,8 @@ func TestGetNextCard(t *testing.T) {
 			name:   "no cards due",
 			userID: uuid.New(),
 			setupMock: func(store *MockCardStore, userID uuid.UUID) {
-				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, store.ErrCardNotFound)
+				store.On("GetNextReviewCard", mock.Anything, userID).
+					Return(nil, store.ErrCardNotFound)
 			},
 			expectedError: card_review.ErrNoCardsDue,
 			checkError:    nil,
@@ -262,7 +281,8 @@ func TestGetNextCard(t *testing.T) {
 			name:   "repository error",
 			userID: uuid.New(),
 			setupMock: func(store *MockCardStore, userID uuid.UUID) {
-				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, errors.New("database error"))
+				store.On("GetNextReviewCard", mock.Anything, userID).
+					Return(nil, errors.New("database error"))
 			},
 			expectedError: nil,
 			checkError: func(t *testing.T, err error) {
@@ -277,7 +297,8 @@ func TestGetNextCard(t *testing.T) {
 			name:   "nil uuid",
 			userID: uuid.Nil,
 			setupMock: func(store *MockCardStore, userID uuid.UUID) {
-				store.On("GetNextReviewCard", mock.Anything, userID).Return(nil, store.ErrCardNotFound)
+				store.On("GetNextReviewCard", mock.Anything, userID).
+					Return(nil, store.ErrCardNotFound)
 			},
 			expectedError: card_review.ErrNoCardsDue,
 			checkError:    nil,

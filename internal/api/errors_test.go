@@ -106,8 +106,11 @@ func TestGetSafeErrorMessage(t *testing.T) {
 			expectedMessage: "An unexpected error occurred", // Database error details are hidden
 		},
 		{
-			name:            "wrapped database error with SQL details",
-			err:             fmt.Errorf("SQL error: %w", errors.New("syntax error at line 42 in SELECT * FROM users")),
+			name: "wrapped database error with SQL details",
+			err: fmt.Errorf(
+				"SQL error: %w",
+				errors.New("syntax error at line 42 in SELECT * FROM users"),
+			),
 			expectedMessage: "An unexpected error occurred", // SQL details are hidden
 		},
 	}
@@ -120,7 +123,12 @@ func TestGetSafeErrorMessage(t *testing.T) {
 			// Verify no sensitive details are leaked
 			if tt.err != nil {
 				if tt.expectedMessage == "An unexpected error occurred" {
-					assert.NotContains(t, message, tt.err.Error(), "Error message should not contain the actual error")
+					assert.NotContains(
+						t,
+						message,
+						tt.err.Error(),
+						"Error message should not contain the actual error",
+					)
 				}
 			}
 		})
@@ -128,7 +136,9 @@ func TestGetSafeErrorMessage(t *testing.T) {
 }
 
 func TestSanitizeValidationError(t *testing.T) {
-	testError := errors.New("Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag")
+	testError := errors.New(
+		"Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag",
+	)
 	safeMessage := SanitizeValidationError(testError)
 
 	// The sanitized message should not contain the full error details
@@ -182,8 +192,13 @@ func TestMapErrorToStatusCodeWithCustomErrorTypes(t *testing.T) {
 			expectedStatus: http.StatusNotFound, // Should check the wrapped error
 		},
 		{
-			name:           "store error wrapping validation",
-			err:            store.NewStoreError("user", "create", "validation failed", domain.ErrValidation),
+			name: "store error wrapping validation",
+			err: store.NewStoreError(
+				"user",
+				"create",
+				"validation failed",
+				domain.ErrValidation,
+			),
 			expectedStatus: http.StatusBadRequest, // Should check the wrapped domain.ErrValidation
 		},
 		{
@@ -192,20 +207,33 @@ func TestMapErrorToStatusCodeWithCustomErrorTypes(t *testing.T) {
 			expectedStatus: http.StatusNotFound, // Should check the wrapped store.ErrCardNotFound
 		},
 		{
-			name:           "store error wrapping duplicate",
-			err:            store.NewStoreError("user", "create", "already exists", store.ErrEmailExists),
+			name: "store error wrapping duplicate",
+			err: store.NewStoreError(
+				"user",
+				"create",
+				"already exists",
+				store.ErrEmailExists,
+			),
 			expectedStatus: http.StatusConflict, // Should check the wrapped store.ErrEmailExists
 		},
 		{
-			name:           "store error with no specific wrapped error",
-			err:            store.NewStoreError("memo", "update", "database error", errors.New("connection refused")),
+			name: "store error with no specific wrapped error",
+			err: store.NewStoreError(
+				"memo",
+				"update",
+				"database error",
+				errors.New("connection refused"),
+			),
 			expectedStatus: http.StatusInternalServerError, // Generic error
 		},
 		{
 			name: "deeply nested error",
 			err: fmt.Errorf(
 				"outer: %w",
-				fmt.Errorf("middle: %w", store.NewStoreError("user", "get", "lookup failed", store.ErrUserNotFound)),
+				fmt.Errorf(
+					"middle: %w",
+					store.NewStoreError("user", "get", "lookup failed", store.ErrUserNotFound),
+				),
 			),
 			expectedStatus: http.StatusNotFound, // Should unwrap to the store.ErrUserNotFound
 		},
@@ -232,8 +260,12 @@ func TestGetSafeErrorMessageWithCustomErrorTypes(t *testing.T) {
 			expectedMessage: "Invalid email: must be valid format",
 		},
 		{
-			name:            "domain validation error without field",
-			err:             domain.NewValidationError("", "validation failed", domain.ErrValidation),
+			name: "domain validation error without field",
+			err: domain.NewValidationError(
+				"",
+				"validation failed",
+				domain.ErrValidation,
+			),
 			expectedMessage: "validation failed", // Now matches the ValidationError.Message directly
 		},
 		{
@@ -260,8 +292,13 @@ func TestGetSafeErrorMessageWithCustomErrorTypes(t *testing.T) {
 			expectedMessage: "Card not found", // Should check the wrapped error
 		},
 		{
-			name:            "store error wrapping validation",
-			err:             store.NewStoreError("user", "create", "validation failed", domain.ErrValidation),
+			name: "store error wrapping validation",
+			err: store.NewStoreError(
+				"user",
+				"create",
+				"validation failed",
+				domain.ErrValidation,
+			),
 			expectedMessage: "Validation failed", // Should check the wrapped domain.ErrValidation
 		},
 		{
@@ -270,20 +307,33 @@ func TestGetSafeErrorMessageWithCustomErrorTypes(t *testing.T) {
 			expectedMessage: "Card not found", // Should check the wrapped store.ErrCardNotFound
 		},
 		{
-			name:            "store error wrapping email exists",
-			err:             store.NewStoreError("user", "create", "already exists", store.ErrEmailExists),
+			name: "store error wrapping email exists",
+			err: store.NewStoreError(
+				"user",
+				"create",
+				"already exists",
+				store.ErrEmailExists,
+			),
 			expectedMessage: "Email already exists", // Should check the wrapped store.ErrEmailExists
 		},
 		{
-			name:            "store error with generic error",
-			err:             store.NewStoreError("memo", "update", "database error", errors.New("connection refused")),
+			name: "store error with generic error",
+			err: store.NewStoreError(
+				"memo",
+				"update",
+				"database error",
+				errors.New("connection refused"),
+			),
 			expectedMessage: "Operation failed: database error", // Now matches the StoreError message format
 		},
 		{
 			name: "deeply nested error",
 			err: fmt.Errorf(
 				"outer: %w",
-				fmt.Errorf("middle: %w", store.NewStoreError("user", "get", "lookup failed", store.ErrUserNotFound)),
+				fmt.Errorf(
+					"middle: %w",
+					store.NewStoreError("user", "get", "lookup failed", store.ErrUserNotFound),
+				),
 			),
 			expectedMessage: "User not found", // Should unwrap to the store.ErrUserNotFound
 		},
@@ -296,7 +346,12 @@ func TestGetSafeErrorMessageWithCustomErrorTypes(t *testing.T) {
 
 			// For errors that should return a generic message, ensure no sensitive details are leaked
 			if tt.expectedMessage == "An unexpected error occurred" {
-				assert.NotContains(t, message, tt.err.Error(), "Error message should not contain the actual error")
+				assert.NotContains(
+					t,
+					message,
+					tt.err.Error(),
+					"Error message should not contain the actual error",
+				)
 			}
 		})
 	}
@@ -320,13 +375,21 @@ func TestSanitizeValidationErrorWithCustomTypes(t *testing.T) {
 			expectedMessage: "validation failed",
 		},
 		{
-			name:            "domain validation error with nil wrapped error",
-			err:             domain.NewValidationError("password", "must be at least 8 characters", nil),
+			name: "domain validation error with nil wrapped error",
+			err: domain.NewValidationError(
+				"password",
+				"must be at least 8 characters",
+				nil,
+			),
 			expectedMessage: "Invalid password: must be at least 8 characters",
 		},
 		{
-			name:            "domain validation error with specific wrapped error",
-			err:             domain.NewValidationError("username", "must be unique", store.ErrDuplicate),
+			name: "domain validation error with specific wrapped error",
+			err: domain.NewValidationError(
+				"username",
+				"must be unique",
+				store.ErrDuplicate,
+			),
 			expectedMessage: "Invalid username: must be unique",
 		},
 		{
@@ -363,7 +426,12 @@ func TestSanitizeValidationErrorWithCustomTypes(t *testing.T) {
 
 			// Verify no sensitive error details are leaked
 			if !errors.As(tt.err, new(*domain.ValidationError)) {
-				assert.NotContains(t, message, tt.err.Error(), "Sanitized message should not contain raw error details")
+				assert.NotContains(
+					t,
+					message,
+					tt.err.Error(),
+					"Sanitized message should not contain raw error details",
+				)
 			}
 		})
 	}

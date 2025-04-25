@@ -164,7 +164,12 @@ func TestFixedTimeJWTService(t *testing.T) {
 	exp, ok := mapClaims["exp"].(float64)
 	require.True(t, ok)
 	expectedExp := futureTime.Add(TestTokenLifetime).Unix()
-	assert.Equal(t, float64(expectedExp), exp, "ExpiresAt time should match fixed time + token lifetime")
+	assert.Equal(
+		t,
+		float64(expectedExp),
+		exp,
+		"ExpiresAt time should match fixed time + token lifetime",
+	)
 
 	// Use the same service for validation as for generation
 	claims, err := service.ValidateToken(ctx, token)

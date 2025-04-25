@@ -32,6 +32,7 @@ type PostgresUserCardStatsStore struct {
 func NewPostgresUserCardStatsStore(db store.DBTX, logger *slog.Logger) *PostgresUserCardStatsStore {
 	// Validate inputs
 	if db == nil {
+		// ALLOW-PANIC: Constructor enforcing required dependency
 		panic("db cannot be nil")
 	}
 
@@ -52,7 +53,10 @@ var _ store.UserCardStatsStore = (*PostgresUserCardStatsStore)(nil)
 // Create implements store.UserCardStatsStore.Create
 // It saves a new user card statistics entry.
 // Returns validation errors from the domain UserCardStats if data is invalid.
-func (s *PostgresUserCardStatsStore) Create(ctx context.Context, stats *domain.UserCardStats) error {
+func (s *PostgresUserCardStatsStore) Create(
+	ctx context.Context,
+	stats *domain.UserCardStats,
+) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
@@ -106,8 +110,12 @@ func (s *PostgresUserCardStatsStore) Create(ctx context.Context, stats *domain.U
 				slog.String("error", err.Error()),
 				slog.String("user_id", stats.UserID.String()),
 				slog.String("card_id", stats.CardID.String()))
-			return fmt.Errorf("user card stats entry already exists for user_id=%s and card_id=%s: %w",
-				stats.UserID, stats.CardID, store.ErrDuplicate)
+			return fmt.Errorf(
+				"user card stats entry already exists for user_id=%s and card_id=%s: %w",
+				stats.UserID,
+				stats.CardID,
+				store.ErrDuplicate,
+			)
 		}
 
 		// Check for foreign key violation
@@ -149,7 +157,10 @@ func (s *PostgresUserCardStatsStore) Create(ctx context.Context, stats *domain.U
 // IMPORTANT: This implementation does NOT use row locking. If you need to read
 // and then update a row within a transaction with concurrency protection, use
 // GetForUpdate instead.
-func (s *PostgresUserCardStatsStore) Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error) {
+func (s *PostgresUserCardStatsStore) Get(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
@@ -212,7 +223,10 @@ func (s *PostgresUserCardStatsStore) Get(ctx context.Context, userID, cardID uui
 // It modifies an existing statistics entry.
 // Returns store.ErrUserCardStatsNotFound if the statistics entry does not exist.
 // Returns validation errors from the domain UserCardStats if data is invalid.
-func (s *PostgresUserCardStatsStore) Update(ctx context.Context, stats *domain.UserCardStats) error {
+func (s *PostgresUserCardStatsStore) Update(
+	ctx context.Context,
+	stats *domain.UserCardStats,
+) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 

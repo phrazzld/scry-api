@@ -63,7 +63,12 @@ func TestPostgresUserStore_Update(t *testing.T) {
 
 			// Verify the updated fields
 			assert.Equal(t, newEmail, updatedUser.Email, "User email should be updated")
-			assert.NotEqual(t, user.HashedPassword, updatedUser.HashedPassword, "Password hash should be different")
+			assert.NotEqual(
+				t,
+				user.HashedPassword,
+				updatedUser.HashedPassword,
+				"Password hash should be different",
+			)
 			assert.True(
 				t,
 				updatedUser.UpdatedAt.After(user.CreatedAt),
@@ -105,7 +110,12 @@ func TestPostgresUserStore_Update(t *testing.T) {
 
 			// Verify the updated fields
 			assert.Equal(t, newEmail, updatedUser.Email, "User email should be updated")
-			assert.Equal(t, originalHash, updatedUser.HashedPassword, "Password hash should not change")
+			assert.Equal(
+				t,
+				originalHash,
+				updatedUser.HashedPassword,
+				"Password hash should not change",
+			)
 		})
 
 		// Test Case 3: Update with non-existent user
@@ -236,7 +246,12 @@ func TestPostgresUserStore_Delete(t *testing.T) {
 
 			// Attempting to retrieve the deleted user should return not found
 			_, err = userStore.GetByID(ctx, userID)
-			assert.ErrorIs(t, err, store.ErrUserNotFound, "GetByID should return ErrUserNotFound after deletion")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserNotFound,
+				"GetByID should return ErrUserNotFound after deletion",
+			)
 		})
 
 		// Test Case 2: Attempt to delete a non-existent user

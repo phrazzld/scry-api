@@ -93,7 +93,13 @@ func getUserByID(ctx context.Context, t *testing.T, db store.DBTX, id uuid.UUID)
 }
 
 // countUsers uses the centralized testutils.CountUsers function
-func countUsers(ctx context.Context, t *testing.T, db store.DBTX, whereClause string, args ...interface{}) int {
+func countUsers(
+	ctx context.Context,
+	t *testing.T,
+	db store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
 	return testutils.CountUsers(ctx, t, db, whereClause, args...)
 }
 
@@ -137,7 +143,8 @@ func TestBasicDatabaseConnectivity(t *testing.T) {
 
 		// Direct SQL query to verify insertion
 		var count int
-		err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE email = $1", email).Scan(&count)
+		err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE email = $1", email).
+			Scan(&count)
 		require.NoError(t, err, "Failed to query test record")
 		assert.Equal(t, 1, count, "Should have inserted exactly one record")
 	})
@@ -267,7 +274,12 @@ func TestPostgresUserStore_Create(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Creating user with weak password should fail")
-			assert.Equal(t, domain.ErrUserPasswordTooShort, err, "Error should be ErrUserPasswordTooShort")
+			assert.Equal(
+				t,
+				domain.ErrUserPasswordTooShort,
+				err,
+				"Error should be ErrUserPasswordTooShort",
+			)
 
 			// Verify no user was created
 			count := countUsers(ctx, t, tx, "email = $1", user.Email)
@@ -298,7 +310,12 @@ func TestPostgresUserStore_Create(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Creating user with too long password should fail")
-			assert.Equal(t, domain.ErrUserPasswordTooLong, err, "Error should be ErrUserPasswordTooLong")
+			assert.Equal(
+				t,
+				domain.ErrUserPasswordTooLong,
+				err,
+				"Error should be ErrUserPasswordTooLong",
+			)
 
 			// Verify no user was created
 			count := countUsers(ctx, t, tx, "email = $1", user.Email)

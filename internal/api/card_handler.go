@@ -36,7 +36,10 @@ type CardHandler struct {
 }
 
 // NewCardHandler creates a new CardHandler
-func NewCardHandler(cardReviewService card_review.CardReviewService, logger *slog.Logger) *CardHandler {
+func NewCardHandler(
+	cardReviewService card_review.CardReviewService,
+	logger *slog.Logger,
+) *CardHandler {
 	if logger == nil {
 		// ALLOW-PANIC: Constructor enforcing required dependency
 		panic("logger cannot be nil for CardHandler")
@@ -82,7 +85,8 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 		safeMessage := GetSafeErrorMessage(err)
 
 		// For generic server errors in GetNextReviewCard, use a specific message
-		if statusCode == http.StatusInternalServerError && !errors.Is(err, card_review.ErrNoCardsDue) {
+		if statusCode == http.StatusInternalServerError &&
+			!errors.Is(err, card_review.ErrNoCardsDue) {
 			safeMessage = "Failed to get next review card"
 		}
 

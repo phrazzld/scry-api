@@ -53,7 +53,13 @@ func setupTestServer(t *testing.T, db *sql.DB) *httptest.Server {
 		TokenLifetimeMinutes: 60, // 1 hour for tests
 	}
 	logger := slog.Default()
-	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, testAuthConfig, logger)
+	authHandler := api.NewAuthHandler(
+		userStore,
+		jwtService,
+		passwordVerifier,
+		testAuthConfig,
+		logger,
+	)
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 
 	// Create a test handler for protected routes

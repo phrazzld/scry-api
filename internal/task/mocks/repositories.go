@@ -68,7 +68,11 @@ type Generator struct {
 }
 
 // GenerateCards creates flashcards from memo text.
-func (m *Generator) GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error) {
+func (m *Generator) GenerateCards(
+	ctx context.Context,
+	memoText string,
+	userID uuid.UUID,
+) ([]*domain.Card, error) {
 	if m.GenerateCardsFunc != nil {
 		return m.GenerateCardsFunc(ctx, memoText, userID)
 	}

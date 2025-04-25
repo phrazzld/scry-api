@@ -17,7 +17,9 @@ var (
 	ErrMissingUpdateMethod = errors.New(
 		"repository must implement Update(ctx context.Context, memo *domain.Memo) error",
 	)
-	ErrRepositoryMethodsUnavailable = errors.New("repository must implement both GetByID and Update methods")
+	ErrRepositoryMethodsUnavailable = errors.New(
+		"repository must implement both GetByID and Update methods",
+	)
 )
 
 // MemoServiceAdapter adapts a repository to the MemoService interface
@@ -79,7 +81,11 @@ func (a *MemoServiceAdapter) GetMemo(ctx context.Context, memoID uuid.UUID) (*do
 
 // UpdateMemoStatus updates a memo's status
 // This implements the business logic required by the task execution
-func (a *MemoServiceAdapter) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
+func (a *MemoServiceAdapter) UpdateMemoStatus(
+	ctx context.Context,
+	memoID uuid.UUID,
+	status domain.MemoStatus,
+) error {
 	// Retrieve the memo first
 	memo, err := a.getByIDFn(ctx, memoID)
 	if err != nil {

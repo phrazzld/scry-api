@@ -56,7 +56,11 @@ type GeminiGenerator struct {
 //
 // Returns:
 //   - A properly initialized GeminiGenerator or an error if initialization fails
-func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.LLMConfig) (*GeminiGenerator, error) {
+func NewGeminiGenerator(
+	ctx context.Context,
+	logger *slog.Logger,
+	config config.LLMConfig,
+) (*GeminiGenerator, error) {
 	if logger == nil {
 		return nil, errors.New("logger cannot be nil")
 	}
@@ -71,7 +75,10 @@ func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.
 	}
 
 	if config.PromptTemplatePath == "" {
-		return nil, fmt.Errorf("%w: prompt template path cannot be empty", generation.ErrInvalidConfig)
+		return nil, fmt.Errorf(
+			"%w: prompt template path cannot be empty",
+			generation.ErrInvalidConfig,
+		)
 	}
 
 	// Load and parse prompt template
@@ -138,7 +145,10 @@ func (g *GeminiGenerator) createPrompt(ctx context.Context, memoText string) (st
 // Returns:
 //   - The response from the Gemini API, mapped to the ResponseSchema structure
 //   - An error if all retries fail or if a permanent error occurs
-func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string) (*ResponseSchema, error) {
+func (g *GeminiGenerator) callGeminiWithRetry(
+	ctx context.Context,
+	prompt string,
+) (*ResponseSchema, error) {
 	if prompt == "" {
 		return nil, ErrEmptyMemoText
 	}
@@ -151,7 +161,12 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 
 	// Validate retry configuration
 	if maxRetries < 0 {
-		g.logger.WarnContext(ctx, "Invalid max retries value, using default", "max_retries", defaultMaxRetries)
+		g.logger.WarnContext(
+			ctx,
+			"Invalid max retries value, using default",
+			"max_retries",
+			defaultMaxRetries,
+		)
 		maxRetries = defaultMaxRetries
 	}
 
@@ -237,7 +252,8 @@ func (g *GeminiGenerator) callGeminiWithRetry(ctx context.Context, prompt string
 			"error", err)
 
 		// Determine if the error is transient or permanent
-		if errors.Is(err, generation.ErrContentBlocked) || errors.Is(err, generation.ErrInvalidResponse) {
+		if errors.Is(err, generation.ErrContentBlocked) ||
+			errors.Is(err, generation.ErrInvalidResponse) {
 			// Permanent error, return immediately
 			g.logger.WarnContext(ctx, "Permanent error occurred, not retrying",
 				"error_type", err)

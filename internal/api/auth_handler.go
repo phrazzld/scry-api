@@ -59,7 +59,8 @@ func (h *AuthHandler) generateTokenResponse(
 	}
 
 	// Calculate access token expiration time using the injected time source
-	expiresAtTime := h.timeFunc().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
+	expiresAtTime := h.timeFunc().
+		Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
 
 	// Format expiration time in RFC3339 format (standard for JSON API responses)
 	expiresAt = expiresAtTime.Format(time.RFC3339)
@@ -232,7 +233,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, store.ErrUserNotFound) {
 			// Use generic error message for security (don't reveal if email exists)
-			shared.RespondWithErrorAndLog(w, r, http.StatusUnauthorized, "Invalid credentials", err)
+			// Elevate to WARN level as repeated auth failures are operationally important
+			shared.RespondWithErrorAndLog(
+				w,
+				r,
+				http.StatusUnauthorized,
+				"Invalid credentials",
+				err,
+				shared.WithElevatedLogLevel(),
+			)
 			return
 		}
 		shared.RespondWithErrorAndLog(w, r, http.StatusInternalServerError,
@@ -243,7 +252,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Verify password using the injected verifier
 	if err := h.passwordVerifier.Compare(user.HashedPassword, req.Password); err != nil {
 		// Use same generic error message as above for security
-		shared.RespondWithErrorAndLog(w, r, http.StatusUnauthorized, "Invalid credentials", err)
+		// Elevate to WARN level as repeated auth failures are operationally important
+		shared.RespondWithErrorAndLog(
+			w,
+			r,
+			http.StatusUnauthorized,
+			"Invalid credentials",
+			err,
+			shared.WithElevatedLogLevel(),
+		)
 		return
 	}
 

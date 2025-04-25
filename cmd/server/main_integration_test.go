@@ -106,9 +106,24 @@ func TestSuccessfulInitialization(t *testing.T) {
 		require.NotNil(t, cfg, "Configuration should not be nil")
 
 		// Verify config values were loaded correctly
-		assert.Equal(t, 9090, cfg.Server.Port, "Server port should be loaded from environment variables")
-		assert.Equal(t, "debug", cfg.Server.LogLevel, "Log level should be loaded from environment variables")
-		assert.Equal(t, dbURL, cfg.Database.URL, "Database URL should be loaded from environment variables")
+		assert.Equal(
+			t,
+			9090,
+			cfg.Server.Port,
+			"Server port should be loaded from environment variables",
+		)
+		assert.Equal(
+			t,
+			"debug",
+			cfg.Server.LogLevel,
+			"Log level should be loaded from environment variables",
+		)
+		assert.Equal(
+			t,
+			dbURL,
+			cfg.Database.URL,
+			"Database URL should be loaded from environment variables",
+		)
 		assert.Equal(
 			t,
 			"thisisasecretkeythatis32charslong!!",
@@ -195,7 +210,12 @@ func TestValidationErrors(t *testing.T) {
 	assert.Contains(t, errorMsg, "Server.LogLevel", "Error should mention invalid log level")
 	assert.Contains(t, errorMsg, "Database.URL", "Error should mention missing URL")
 	assert.Contains(t, errorMsg, "Auth.JWTSecret", "Error should mention invalid JWT secret")
-	assert.Contains(t, errorMsg, "Auth.TokenLifetimeMinutes", "Error should mention invalid token lifetime")
+	assert.Contains(
+		t,
+		errorMsg,
+		"Auth.TokenLifetimeMinutes",
+		"Error should mention invalid token lifetime",
+	)
 	assert.Contains(t, errorMsg, "LLM.GeminiAPIKey", "Error should mention missing API key")
 }
 
@@ -276,7 +296,8 @@ func TestDatabaseConnection(t *testing.T) {
 
 		// Check if we can query any system table to further verify connection
 		var currentDatabase string
-		err = tx.QueryRowContext(context.Background(), "SELECT current_database()").Scan(&currentDatabase)
+		err = tx.QueryRowContext(context.Background(), "SELECT current_database()").
+			Scan(&currentDatabase)
 		require.NoError(t, err, "Should be able to query current database name")
 		assert.NotEmpty(t, currentDatabase, "Current database name should not be empty")
 

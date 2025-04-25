@@ -44,10 +44,19 @@ func NewTaskFactoryEventHandler(
 // HandleEvent processes events by creating and submitting tasks.
 // It extracts the payload from the event, creates the appropriate task,
 // and submits it to the runner for execution.
-func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+func (h *TaskFactoryEventHandler) HandleEvent(
+	ctx context.Context,
+	event *events.TaskRequestEvent,
+) error {
 	// Only handle memo generation events for now
 	if event.Type != "memo_generation" { // Using string literal instead of constant to avoid circular imports
-		h.logger.Debug("ignoring event with unsupported type", "event_type", event.Type, "event_id", event.ID)
+		h.logger.Debug(
+			"ignoring event with unsupported type",
+			"event_type",
+			event.Type,
+			"event_id",
+			event.ID,
+		)
 		return nil
 	}
 
@@ -64,7 +73,15 @@ func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events
 	// Parse the memo ID
 	memoID, err := uuid.Parse(payload.MemoID)
 	if err != nil {
-		h.logger.Error("invalid memo ID", "error", err, "memo_id", payload.MemoID, "event_id", event.ID)
+		h.logger.Error(
+			"invalid memo ID",
+			"error",
+			err,
+			"memo_id",
+			payload.MemoID,
+			"event_id",
+			event.ID,
+		)
 		return fmt.Errorf("invalid memo ID: %w", err)
 	}
 
@@ -72,7 +89,15 @@ func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events
 	h.logger.Debug("creating task for memo", "memo_id", memoID, "event_id", event.ID)
 	task, err := h.taskFactory.CreateTask(memoID)
 	if err != nil {
-		h.logger.Error("failed to create task", "error", err, "memo_id", memoID, "event_id", event.ID)
+		h.logger.Error(
+			"failed to create task",
+			"error",
+			err,
+			"memo_id",
+			memoID,
+			"event_id",
+			event.ID,
+		)
 		return fmt.Errorf("failed to create task: %w", err)
 	}
 
@@ -80,7 +105,15 @@ func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events
 	taskID := task.(interface{ ID() uuid.UUID }).ID()
 
 	// Submit the task to the runner
-	h.logger.Debug("submitting task to runner", "task_id", taskID, "memo_id", memoID, "event_id", event.ID)
+	h.logger.Debug(
+		"submitting task to runner",
+		"task_id",
+		taskID,
+		"memo_id",
+		memoID,
+		"event_id",
+		event.ID,
+	)
 	if err := h.taskRunner.Submit(ctx, task); err != nil {
 		h.logger.Error(
 			"failed to submit task",

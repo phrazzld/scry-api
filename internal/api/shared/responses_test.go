@@ -59,11 +59,18 @@ func TestRespondWithJSON(t *testing.T) {
 			// Check Content-Type header
 			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
-			// Check response body - JSON field order might vary, so check for contains instead
-			assert.Contains(t, w.Body.String(), "message")
-			assert.Contains(t, w.Body.String(), "success")
-			assert.Contains(t, w.Body.String(), "data")
-			assert.Contains(t, w.Body.String(), "123")
+			// Check response body - unmarshal and verify the structure instead of string matching
+			if tc.name == "successful response" {
+				var response map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				assert.Equal(t, "success", response["message"])
+				assert.Equal(t, float64(123), response["data"])
+			} else {
+				// For empty or nil responses, just check the content length
+				assert.Equal(t, tc.expectedBody+"\n", w.Body.String())
+			}
 		})
 	}
 }
@@ -84,7 +91,10 @@ func TestRespondWithJSONEncodingError(t *testing.T) {
 
 	// Capture logs
 	var logBuf strings.Builder
-	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	handlerOpts := &slog.HandlerOptions{
+		Level: slog.LevelDebug, // Enable all log levels
+	}
+	logger := slog.New(slog.NewTextHandler(&logBuf, handlerOpts))
 	oldLogger := slog.Default()
 	slog.SetDefault(logger)
 	defer slog.SetDefault(oldLogger)
@@ -148,32 +158,52 @@ func TestRespondWithErrorNoTraceID(t *testing.T) {
 
 func TestRespondWithErrorAndLog(t *testing.T) {
 	tests := []struct {
-		name       string
-		statusCode int
-		message    string
-		err        error
-		logLevel   string
+		name             string
+		statusCode       int
+		message          string
+		err              error
+		expectedLogLevel string
+		elevateLogLevel  bool
 	}{
 		{
-			name:       "server error",
-			statusCode: http.StatusInternalServerError,
-			message:    "Internal server error",
-			err:        errors.New("database connection failed"),
-			logLevel:   "ERROR",
+			name:             "server error",
+			statusCode:       http.StatusInternalServerError,
+			message:          "Internal server error",
+			err:              errors.New("database connection failed"),
+			expectedLogLevel: "ERROR",
+			elevateLogLevel:  false,
 		},
 		{
-			name:       "client error",
-			statusCode: http.StatusBadRequest,
-			message:    "Bad request",
-			err:        errors.New("invalid input"),
-			logLevel:   "WARN",
+			name:             "client error (4xx) with default log level",
+			statusCode:       http.StatusBadRequest,
+			message:          "Bad request",
+			err:              errors.New("invalid input"),
+			expectedLogLevel: "DEBUG", // Changed from WARN to DEBUG per T021
+			elevateLogLevel:  false,
 		},
 		{
-			name:       "redirect",
-			statusCode: http.StatusMovedPermanently,
-			message:    "Moved permanently",
-			err:        nil,
-			logLevel:   "DEBUG",
+			name:             "client error (4xx) with elevated log level",
+			statusCode:       http.StatusBadRequest,
+			message:          "Bad request (elevated)",
+			err:              errors.New("invalid input requiring attention"),
+			expectedLogLevel: "WARN",
+			elevateLogLevel:  true,
+		},
+		{
+			name:             "rate limiting error",
+			statusCode:       http.StatusTooManyRequests,
+			message:          "Too many requests",
+			err:              errors.New("rate limit exceeded"),
+			expectedLogLevel: "WARN", // 429 is always logged at WARN level
+			elevateLogLevel:  false,
+		},
+		{
+			name:             "redirect",
+			statusCode:       http.StatusMovedPermanently,
+			message:          "Moved permanently",
+			err:              errors.New("redirect error"),
+			expectedLogLevel: "DEBUG",
+			elevateLogLevel:  false,
 		},
 	}
 
@@ -185,15 +215,29 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			req = req.WithContext(ctx)
 			w := httptest.NewRecorder()
 
-			// Capture logs
+			// Capture logs with debug level enabled
 			var logBuf strings.Builder
-			logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+			handlerOpts := &slog.HandlerOptions{
+				Level: slog.LevelDebug, // Enable all log levels
+			}
+			logger := slog.New(slog.NewTextHandler(&logBuf, handlerOpts))
 			oldLogger := slog.Default()
 			slog.SetDefault(logger)
 			defer slog.SetDefault(oldLogger)
 
-			// Call function
-			RespondWithErrorAndLog(w, req, tc.statusCode, tc.message, tc.err)
+			// Call function with or without the elevated log level option
+			if tc.elevateLogLevel {
+				RespondWithErrorAndLog(
+					w,
+					req,
+					tc.statusCode,
+					tc.message,
+					tc.err,
+					WithElevatedLogLevel(),
+				)
+			} else {
+				RespondWithErrorAndLog(w, req, tc.statusCode, tc.message, tc.err)
+			}
 
 			// Check response
 			assert.Equal(t, tc.statusCode, w.Code)
@@ -205,15 +249,24 @@ func TestRespondWithErrorAndLog(t *testing.T) {
 			assert.Equal(t, tc.message, response.Error)
 			assert.Equal(t, "test-trace-id", response.TraceID)
 
-			// Check logs
+			// Check logs for expected log level
 			logOutput := logBuf.String()
-			assert.Contains(t, logOutput, tc.logLevel)
+			assert.Contains(t, logOutput, tc.expectedLogLevel)
 			assert.Contains(t, logOutput, tc.message)
 			assert.Contains(t, logOutput, "trace_id=test-trace-id")
 
+			// For the cases with errors, we should find the error_type field
 			if tc.err != nil {
-				assert.Contains(t, logOutput, tc.err.Error())
+				// We now redact the raw error details, but should still find the error_type
+				assert.Contains(t, logOutput, "error_type=")
 			}
 		})
 	}
+}
+
+func TestWithElevatedLogLevel(t *testing.T) {
+	// Test the option function itself
+	opts := responseOptions{}
+	WithElevatedLogLevel()(&opts)
+	assert.True(t, opts.elevateLogLevel)
 }

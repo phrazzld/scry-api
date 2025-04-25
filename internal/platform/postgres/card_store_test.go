@@ -128,17 +128,29 @@ func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
 		// Create a test user
 		testUser, err := domain.NewUser("getnextreview@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a second test user for multi-user isolation tests
 		otherUser, err := domain.NewUser("othergetnextreview@example.com", "password123")
 		require.NoError(t, err, "Failed to create other test user")
-		require.NoError(t, userStore.Create(context.Background(), otherUser), "Failed to create other test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), otherUser),
+			"Failed to create other test user in DB",
+		)
 
 		// Create a test memo
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo for cards")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		// Create a memo for the other user
 		otherMemo, err := domain.NewMemo(otherUser.ID, "Other user's memo for cards")
@@ -270,12 +282,20 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 		// Create a test user first to satisfy foreign key constraints
 		testUser, err := domain.NewUser("test@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a test memo to satisfy foreign key constraints
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo text")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		t.Run("empty_cards_list", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -303,8 +323,18 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			retrievedCard, err := cardStore.GetByID(ctx, card.ID)
 			assert.NoError(t, err, "GetByID should find the created card")
 			assert.Equal(t, card.ID, retrievedCard.ID, "Retrieved card should have same ID")
-			assert.Equal(t, testUser.ID, retrievedCard.UserID, "Retrieved card should have correct user ID")
-			assert.Equal(t, testMemo.ID, retrievedCard.MemoID, "Retrieved card should have correct memo ID")
+			assert.Equal(
+				t,
+				testUser.ID,
+				retrievedCard.UserID,
+				"Retrieved card should have correct user ID",
+			)
+			assert.Equal(
+				t,
+				testMemo.ID,
+				retrievedCard.MemoID,
+				"Retrieved card should have correct memo ID",
+			)
 			assert.JSONEq(
 				t,
 				string(content),
@@ -317,7 +347,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			// no longer creates associated UserCardStats entries
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.Error(t, err, "Should not find stats for created card")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
 		})
 
 		t.Run("multiple_cards", func(t *testing.T) {
@@ -328,7 +363,11 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			cards := make([]*domain.Card, 3)
 			for i := 0; i < 3; i++ {
 				content := json.RawMessage(
-					`{"front":"Test front ` + string(rune('A'+i)) + `","back":"Test back ` + string(rune('A'+i)) + `"}`,
+					`{"front":"Test front ` + string(
+						rune('A'+i),
+					) + `","back":"Test back ` + string(
+						rune('A'+i),
+					) + `"}`,
 				)
 				card, err := domain.NewCard(testUser.ID, testMemo.ID, content)
 				require.NoError(t, err, "Failed to create test card")
@@ -348,7 +387,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 				// Verify that user card stats are NOT created anymore
 				_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 				assert.Error(t, err, "Should not find stats for created card")
-				assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+				assert.ErrorIs(
+					t,
+					err,
+					store.ErrUserCardStatsNotFound,
+					"Error should be ErrUserCardStatsNotFound",
+				)
 			}
 		})
 
@@ -424,7 +468,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			err = cardStore.CreateMultiple(ctx, []*domain.Card{card})
 			assert.Error(t, err, "CreateMultiple should fail with invalid JSON content")
 			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
-			assert.ErrorContains(t, err, "invalid card content", "Error should mention invalid content")
+			assert.ErrorContains(
+				t,
+				err,
+				"invalid card content",
+				"Error should mention invalid content",
+			)
 		})
 
 		t.Run("transaction_rollback", func(t *testing.T) {

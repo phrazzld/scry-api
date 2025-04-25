@@ -106,15 +106,22 @@ func (s *TestJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (s
 }
 
 // ValidateToken validates a JWT access token and returns the claims if valid
-func (s *TestJWTService) ValidateToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
+func (s *TestJWTService) ValidateToken(
+	ctx context.Context,
+	tokenString string,
+) (*auth.Claims, error) {
 	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &jwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.secret), nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&jwtCustomClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			// Validate the signing method
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(s.secret), nil
+		},
+	)
 
 	// Handle parsing errors
 	if err != nil {
@@ -146,7 +153,10 @@ func (s *TestJWTService) ValidateToken(ctx context.Context, tokenString string) 
 }
 
 // GenerateRefreshToken creates a signed JWT refresh token for the given user ID
-func (s *TestJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+func (s *TestJWTService) GenerateRefreshToken(
+	ctx context.Context,
+	userID uuid.UUID,
+) (string, error) {
 	now := s.timeFunc()
 
 	// Create the claims with user ID and standard JWT claims
@@ -172,15 +182,22 @@ func (s *TestJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.U
 }
 
 // ValidateRefreshToken validates a JWT refresh token and returns the claims if valid
-func (s *TestJWTService) ValidateRefreshToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
+func (s *TestJWTService) ValidateRefreshToken(
+	ctx context.Context,
+	tokenString string,
+) (*auth.Claims, error) {
 	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &jwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.secret), nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&jwtCustomClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			// Validate the signing method
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(s.secret), nil
+		},
+	)
 
 	// Handle parsing errors
 	if err != nil {
@@ -212,7 +229,10 @@ func (s *TestJWTService) ValidateRefreshToken(ctx context.Context, tokenString s
 }
 
 // GenerateTokenWithClaims creates a test access token with custom claims
-func GenerateTokenWithClaims(userID uuid.UUID, customClaims map[string]interface{}) (string, error) {
+func GenerateTokenWithClaims(
+	userID uuid.UUID,
+	customClaims map[string]interface{},
+) (string, error) {
 	// Create a JWT service with default settings
 	service := NewTestJWTService()
 

@@ -131,50 +131,54 @@ func (s *cardServiceImpl) CreateCards(ctx context.Context, cards []*domain.Card)
 		slog.Int("card_count", len(cards)))
 
 	// Run all operations in a single transaction for atomicity
-	return store.RunInTransaction(ctx, s.cardRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
-		// Get transactional repositories
-		txCardRepo := s.cardRepo.WithTx(tx)
-		txStatsRepo := s.statsRepo.WithTx(tx)
+	return store.RunInTransaction(
+		ctx,
+		s.cardRepo.DB(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			// Get transactional repositories
+			txCardRepo := s.cardRepo.WithTx(tx)
+			txStatsRepo := s.statsRepo.WithTx(tx)
 
-		// 1. Create the cards within the transaction
-		err := txCardRepo.CreateMultiple(ctx, cards)
-		if err != nil {
-			log.Error("failed to create cards in transaction",
-				slog.String("error", err.Error()))
-			return NewCardServiceError("create_cards", "failed to save cards", err)
-		}
-
-		// 2. Create a UserCardStats entry for each card
-		for _, card := range cards {
-			// Create a new UserCardStats with default values
-			stats, err := domain.NewUserCardStats(card.UserID, card.ID)
+			// 1. Create the cards within the transaction
+			err := txCardRepo.CreateMultiple(ctx, cards)
 			if err != nil {
-				log.Error("failed to create user card stats object",
-					slog.String("error", err.Error()),
-					slog.String("user_id", card.UserID.String()),
-					slog.String("card_id", card.ID.String()))
-				return NewCardServiceError("create_cards", "failed to create stats object", err)
+				log.Error("failed to create cards in transaction",
+					slog.String("error", err.Error()))
+				return NewCardServiceError("create_cards", "failed to save cards", err)
 			}
 
-			// Save the stats
-			err = txStatsRepo.Create(ctx, stats)
-			if err != nil {
-				log.Error("failed to save user card stats in transaction",
-					slog.String("error", err.Error()),
+			// 2. Create a UserCardStats entry for each card
+			for _, card := range cards {
+				// Create a new UserCardStats with default values
+				stats, err := domain.NewUserCardStats(card.UserID, card.ID)
+				if err != nil {
+					log.Error("failed to create user card stats object",
+						slog.String("error", err.Error()),
+						slog.String("user_id", card.UserID.String()),
+						slog.String("card_id", card.ID.String()))
+					return NewCardServiceError("create_cards", "failed to create stats object", err)
+				}
+
+				// Save the stats
+				err = txStatsRepo.Create(ctx, stats)
+				if err != nil {
+					log.Error("failed to save user card stats in transaction",
+						slog.String("error", err.Error()),
+						slog.String("user_id", card.UserID.String()),
+						slog.String("card_id", card.ID.String()))
+					return NewCardServiceError("create_cards", "failed to save stats", err)
+				}
+
+				log.Debug("created user card stats",
 					slog.String("user_id", card.UserID.String()),
 					slog.String("card_id", card.ID.String()))
-				return NewCardServiceError("create_cards", "failed to save stats", err)
 			}
 
-			log.Debug("created user card stats",
-				slog.String("user_id", card.UserID.String()),
-				slog.String("card_id", card.ID.String()))
-		}
-
-		log.Info("successfully created cards and stats in transaction",
-			slog.Int("card_count", len(cards)))
-		return nil
-	})
+			log.Info("successfully created cards and stats in transaction",
+				slog.Int("card_count", len(cards)))
+			return nil
+		},
+	)
 }
 
 // GetCard implements CardService.GetCard

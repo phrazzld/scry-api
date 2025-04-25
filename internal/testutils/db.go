@@ -85,7 +85,13 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 		}
 
 		// Path to migrations directory
-		migrationsDir := filepath.Join(projectRoot, "internal", "platform", "postgres", "migrations")
+		migrationsDir := filepath.Join(
+			projectRoot,
+			"internal",
+			"platform",
+			"postgres",
+			"migrations",
+		)
 
 		// Verify migrations directory exists
 		if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
@@ -270,7 +276,11 @@ func GetTestDB() (*sql.DB, error) {
 	if err := db.Ping(); err != nil {
 		// Close the connection to avoid leaking resources
 		if closeErr := db.Close(); closeErr != nil {
-			return nil, fmt.Errorf("database ping failed: %w (and failed to close connection: %v)", err, closeErr)
+			return nil, fmt.Errorf(
+				"database ping failed: %w (and failed to close connection: %v)",
+				err,
+				closeErr,
+			)
 		}
 		return nil, fmt.Errorf("database ping failed: %w", err)
 	}

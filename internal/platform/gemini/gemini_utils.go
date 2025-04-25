@@ -28,7 +28,11 @@ import (
 // Returns:
 //   - A generation.Generator implementation
 //   - An error if initialization fails
-func NewGenerator(ctx context.Context, logger *slog.Logger, config config.LLMConfig) (generation.Generator, error) {
+func NewGenerator(
+	ctx context.Context,
+	logger *slog.Logger,
+	config config.LLMConfig,
+) (generation.Generator, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("logger cannot be nil")
 	}
@@ -39,7 +43,10 @@ func NewGenerator(ctx context.Context, logger *slog.Logger, config config.LLMCon
 	// Validate configuration (performed differently based on build tags)
 	// General configuration validation that applies to all environments
 	if config.PromptTemplatePath == "" {
-		return nil, fmt.Errorf("%w: prompt template path cannot be empty", generation.ErrInvalidConfig)
+		return nil, fmt.Errorf(
+			"%w: prompt template path cannot be empty",
+			generation.ErrInvalidConfig,
+		)
 	}
 
 	// Additional validation for production environments
@@ -162,11 +169,19 @@ func parseResponseToCards(
 	for i, cardSchema := range response.Cards {
 		// Validate required fields
 		if cardSchema.Front == "" {
-			return nil, fmt.Errorf("%w: card %d missing front side", generation.ErrInvalidResponse, i)
+			return nil, fmt.Errorf(
+				"%w: card %d missing front side",
+				generation.ErrInvalidResponse,
+				i,
+			)
 		}
 
 		if cardSchema.Back == "" {
-			return nil, fmt.Errorf("%w: card %d missing back side", generation.ErrInvalidResponse, i)
+			return nil, fmt.Errorf(
+				"%w: card %d missing back side",
+				generation.ErrInvalidResponse,
+				i,
+			)
 		}
 
 		// Create domain.CardContent structure

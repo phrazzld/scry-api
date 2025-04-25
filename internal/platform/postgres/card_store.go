@@ -35,6 +35,7 @@ type PostgresCardStore struct {
 func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore {
 	// Validate inputs
 	if db == nil {
+		// ALLOW-PANIC: Constructor enforcing required dependency
 		panic("db cannot be nil")
 	}
 
@@ -308,7 +309,10 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 // GetNextReviewCard implements store.CardStore.GetNextReviewCard
 // It retrieves the next card due for review for a user.
 // This is based on the UserCardStats.NextReviewAt field.
-func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
+func (s *PostgresCardStore) GetNextReviewCard(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*domain.Card, error) {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 

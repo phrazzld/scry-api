@@ -546,6 +546,11 @@ func AssertNoErrorLeakage(t *testing.T, err error) {
 
 	// In a production app, also verify it doesn't leak too much technical information
 	// by keeping error messages to a reasonable length
-	assert.Less(t, len(errMsg), 200,
-		"Error message is suspiciously long which may indicate leakage of internal details: %q", errMsg)
+	assert.Less(
+		t,
+		len(errMsg),
+		200,
+		"Error message is suspiciously long which may indicate leakage of internal details: %q",
+		errMsg,
+	)
 }

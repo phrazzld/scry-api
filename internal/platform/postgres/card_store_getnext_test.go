@@ -139,7 +139,11 @@ func TestGetNextReviewCardExtended(t *testing.T) {
 		// Call GetNextReviewCard - should not return the orphaned stats
 		// due to inner join with cards table
 		card, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
-		assert.NoError(t, err, "GetNextReviewCard should succeed with valid cards, ignoring orphaned stats")
+		assert.NoError(
+			t,
+			err,
+			"GetNextReviewCard should succeed with valid cards, ignoring orphaned stats",
+		)
 
 		// Should return one of the previously created cards, not the orphaned one
 		assert.NotEqual(t, nonExistentCardID, card.ID, "Should not return the orphaned stats")
@@ -151,7 +155,9 @@ func TestGetNextReviewCardExtended(t *testing.T) {
 
 		// Create 10 cards with different review times
 		for i := 0; i < 10; i++ {
-			reviewTime := now.Add(time.Duration(-i-10) * time.Hour) // All in the past but with different times
+			reviewTime := now.Add(
+				time.Duration(-i-10) * time.Hour,
+			) // All in the past but with different times
 			_, _, err := createCardWithStats(testUser.ID, testMemo.ID, reviewTime)
 			require.NoError(t, err, "Failed to create card with stats")
 		}
@@ -166,7 +172,12 @@ func TestGetNextReviewCardExtended(t *testing.T) {
 		// Get next card, which should be the one with the oldest review time
 		card, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
 		assert.NoError(t, err, "GetNextReviewCard should succeed")
-		assert.Equal(t, oldestCard.ID, card.ID, "Should return the card with the oldest review time")
+		assert.Equal(
+			t,
+			oldestCard.ID,
+			card.ID,
+			"Should return the card with the oldest review time",
+		)
 	})
 
 	t.Run("handles_nil_user_id", func(t *testing.T) {

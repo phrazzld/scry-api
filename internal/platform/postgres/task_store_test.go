@@ -112,7 +112,8 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 
 		// Verify task was saved correctly
 		var count int
-		err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE id = $1", testTask.ID()).Scan(&count)
+		err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks WHERE id = $1", testTask.ID()).
+			Scan(&count)
 		require.NoError(t, err, "Failed to count tasks")
 		assert.Equal(t, 1, count, "Task should be saved in the database")
 
@@ -135,7 +136,12 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 		require.NoError(t, err, "Failed to save task")
 
 		// Update task status
-		err = store.UpdateTaskStatus(ctx, testTask.ID(), task.TaskStatusProcessing, "test error message")
+		err = store.UpdateTaskStatus(
+			ctx,
+			testTask.ID(),
+			task.TaskStatusProcessing,
+			"test error message",
+		)
 		require.NoError(t, err, "Failed to update task status")
 
 		// Verify task status was updated
@@ -160,7 +166,10 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 		require.NoError(t, store.SaveTask(ctx, processingTask))
 
 		// Update one task to processing status
-		require.NoError(t, store.UpdateTaskStatus(ctx, processingTask.ID(), task.TaskStatusProcessing, ""))
+		require.NoError(
+			t,
+			store.UpdateTaskStatus(ctx, processingTask.ID(), task.TaskStatusProcessing, ""),
+		)
 
 		// Get pending tasks
 		pendingTasks, err := store.GetPendingTasks(ctx)
@@ -191,8 +200,14 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 		require.NoError(t, store.SaveTask(ctx, oldProcessingTask))
 
 		// Update to processing status
-		require.NoError(t, store.UpdateTaskStatus(ctx, newProcessingTask.ID(), task.TaskStatusProcessing, ""))
-		require.NoError(t, store.UpdateTaskStatus(ctx, oldProcessingTask.ID(), task.TaskStatusProcessing, ""))
+		require.NoError(
+			t,
+			store.UpdateTaskStatus(ctx, newProcessingTask.ID(), task.TaskStatusProcessing, ""),
+		)
+		require.NoError(
+			t,
+			store.UpdateTaskStatus(ctx, oldProcessingTask.ID(), task.TaskStatusProcessing, ""),
+		)
 
 		// Make the old processing task's updated_at field older
 		_, err := tx.ExecContext(ctx,
@@ -211,8 +226,16 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 		}
 
 		// Should include both processing tasks
-		assert.True(t, allProcessingIDs[newProcessingTask.ID()], "New processing task should be returned")
-		assert.True(t, allProcessingIDs[oldProcessingTask.ID()], "Old processing task should be returned")
+		assert.True(
+			t,
+			allProcessingIDs[newProcessingTask.ID()],
+			"New processing task should be returned",
+		)
+		assert.True(
+			t,
+			allProcessingIDs[oldProcessingTask.ID()],
+			"Old processing task should be returned",
+		)
 		assert.False(t, allProcessingIDs[pendingTask.ID()], "Pending task should not be returned")
 
 		// Test getting only old processing tasks
@@ -226,8 +249,16 @@ func TestPostgresTaskStore_Integration(t *testing.T) {
 		}
 
 		// Should include only the old processing task
-		assert.False(t, oldProcessingIDs[newProcessingTask.ID()], "New processing task should not be returned")
-		assert.True(t, oldProcessingIDs[oldProcessingTask.ID()], "Old processing task should be returned")
+		assert.False(
+			t,
+			oldProcessingIDs[newProcessingTask.ID()],
+			"New processing task should not be returned",
+		)
+		assert.True(
+			t,
+			oldProcessingIDs[oldProcessingTask.ID()],
+			"Old processing task should be returned",
+		)
 		assert.False(t, oldProcessingIDs[pendingTask.ID()], "Pending task should not be returned")
 	})
 }

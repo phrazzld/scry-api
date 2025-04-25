@@ -53,7 +53,12 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 				shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid token")
 			default:
 				slog.Error("failed to validate token", "error", err)
-				shared.RespondWithError(w, r, http.StatusInternalServerError, "Authentication error")
+				shared.RespondWithError(
+					w,
+					r,
+					http.StatusInternalServerError,
+					"Authentication error",
+				)
 			}
 			return
 		}

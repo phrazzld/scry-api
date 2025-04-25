@@ -28,7 +28,10 @@ func (a *statsRepositoryAdapter) Create(ctx context.Context, stats *domain.UserC
 }
 
 // Get implements StatsRepository.Get
-func (a *statsRepositoryAdapter) Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error) {
+func (a *statsRepositoryAdapter) Get(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
 	return a.statsStore.Get(ctx, userID, cardID)
 }
 

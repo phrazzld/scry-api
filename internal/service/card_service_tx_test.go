@@ -31,14 +31,20 @@ type MockFailingCardRepository struct {
 	dbConn            *sql.DB // Renamed to avoid naming conflict with DB method
 }
 
-func (m *MockFailingCardRepository) CreateMultiple(ctx context.Context, cards []*domain.Card) error {
+func (m *MockFailingCardRepository) CreateMultiple(
+	ctx context.Context,
+	cards []*domain.Card,
+) error {
 	if m.FailOnCreateCards {
 		return errors.New("simulated card creation failure")
 	}
 	return m.CardStore.CreateMultiple(ctx, cards)
 }
 
-func (m *MockFailingCardRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error) {
+func (m *MockFailingCardRepository) GetByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*domain.Card, error) {
 	return m.CardStore.GetByID(ctx, id)
 }
 
@@ -61,7 +67,10 @@ type MockFailingStatsRepository struct {
 	FailOnCreate bool
 }
 
-func (m *MockFailingStatsRepository) Create(ctx context.Context, stats *domain.UserCardStats) error {
+func (m *MockFailingStatsRepository) Create(
+	ctx context.Context,
+	stats *domain.UserCardStats,
+) error {
 	if m.FailOnCreate {
 		return errors.New("simulated stats creation failure")
 	}
@@ -103,11 +112,17 @@ func (m *MockFailingStatsRepository) Create(ctx context.Context, stats *domain.U
 	return nil
 }
 
-func (m *MockFailingStatsRepository) Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error) {
+func (m *MockFailingStatsRepository) Get(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
 	return m.StatsStore.Get(ctx, userID, cardID)
 }
 
-func (m *MockFailingStatsRepository) Update(ctx context.Context, stats *domain.UserCardStats) error {
+func (m *MockFailingStatsRepository) Update(
+	ctx context.Context,
+	stats *domain.UserCardStats,
+) error {
 	return m.StatsStore.Update(ctx, stats)
 }
 
@@ -150,9 +165,16 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			CreatedAt: time.Now().UTC(),
 			UpdatedAt: time.Now().UTC(),
 		}
-		_, err := tx.ExecContext(ctx,
+		_, err := tx.ExecContext(
+			ctx,
 			"INSERT INTO memos (id, user_id, text, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
-			memo.ID, memo.UserID, memo.Text, memo.Status, memo.CreatedAt, memo.UpdatedAt)
+			memo.ID,
+			memo.UserID,
+			memo.Text,
+			memo.Status,
+			memo.CreatedAt,
+			memo.UpdatedAt,
+		)
 		require.NoError(t, err, "Failed to create test memo")
 
 		// Setup base stores with transaction
@@ -203,7 +225,12 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 
 			// Verify the operation failed
 			assert.Error(t, createErr, "Operation should fail")
-			assert.Contains(t, createErr.Error(), "simulated card creation failure", "Error should be from our mock")
+			assert.Contains(
+				t,
+				createErr.Error(),
+				"simulated card creation failure",
+				"Error should be from our mock",
+			)
 
 			// Verify no cards were created
 			var cardCount int
@@ -212,7 +239,12 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 				userID, memoID,
 			).Scan(&cardCount)
 			require.NoError(t, err, "Failed to count cards")
-			assert.Equal(t, 0, cardCount, "No cards should exist in the database due to transaction rollback")
+			assert.Equal(
+				t,
+				0,
+				cardCount,
+				"No cards should exist in the database due to transaction rollback",
+			)
 
 			// Verify no stats were created
 			var statsCount int
@@ -221,7 +253,12 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 				userID,
 			).Scan(&statsCount)
 			require.NoError(t, err, "Failed to count user card stats")
-			assert.Equal(t, 0, statsCount, "No stats should exist in the database due to transaction rollback")
+			assert.Equal(
+				t,
+				0,
+				statsCount,
+				"No stats should exist in the database due to transaction rollback",
+			)
 		})
 
 		t.Run("Transaction_Rollback_On_Stats_Failure", func(t *testing.T) {
@@ -250,7 +287,12 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 
 			// Verify the operation failed
 			assert.Error(t, createErr, "Operation should fail")
-			assert.Contains(t, createErr.Error(), "simulated stats creation failure", "Error should be from our mock")
+			assert.Contains(
+				t,
+				createErr.Error(),
+				"simulated stats creation failure",
+				"Error should be from our mock",
+			)
 
 			// Verify no cards were created due to transaction rollback
 			var cardCount int
@@ -259,7 +301,12 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 				userID, memoID,
 			).Scan(&cardCount)
 			require.NoError(t, err, "Failed to count cards")
-			assert.Equal(t, 0, cardCount, "No cards should exist in the database due to transaction rollback")
+			assert.Equal(
+				t,
+				0,
+				cardCount,
+				"No cards should exist in the database due to transaction rollback",
+			)
 
 			// Verify no stats were created
 			var statsCount int
@@ -268,7 +315,12 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 				userID,
 			).Scan(&statsCount)
 			require.NoError(t, err, "Failed to count user card stats")
-			assert.Equal(t, 0, statsCount, "No stats should exist in the database due to transaction rollback")
+			assert.Equal(
+				t,
+				0,
+				statsCount,
+				"No stats should exist in the database due to transaction rollback",
+			)
 		})
 
 		t.Run("Transaction_Commit_On_Success", func(t *testing.T) {
@@ -342,7 +394,10 @@ func (a *statsRepositoryAdapter) Create(ctx context.Context, stats *domain.UserC
 }
 
 // Get implements service.StatsRepository
-func (a *statsRepositoryAdapter) Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error) {
+func (a *statsRepositoryAdapter) Get(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
 	return a.statsStore.Get(ctx, userID, cardID)
 }
 

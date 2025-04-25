@@ -130,7 +130,9 @@ func TestUpdateContent(t *testing.T) {
 	}
 
 	// Test valid content update
-	newContent := json.RawMessage(`{"front": "What is Python?", "back": "Another programming language"}`)
+	newContent := json.RawMessage(
+		`{"front": "What is Python?", "back": "Another programming language"}`,
+	)
 	origUpdatedAt := card.UpdatedAt
 
 	err := card.UpdateContent(newContent)

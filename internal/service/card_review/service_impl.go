@@ -124,78 +124,86 @@ func (s *cardReviewServiceImpl) SubmitAnswer(
 	var updatedStats *domain.UserCardStats
 
 	// Use the standard store.RunInTransaction helper for consistent transaction handling
-	err := store.RunInTransaction(ctx, s.cardStore.DB(), func(ctx context.Context, tx *sql.Tx) error {
-		// Get transactional stores
-		txCardStore := s.cardStore.WithTx(tx)
-		txStatsStore := s.statsStore.WithTx(tx)
+	err := store.RunInTransaction(
+		ctx,
+		s.cardStore.DB(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			// Get transactional stores
+			txCardStore := s.cardStore.WithTx(tx)
+			txStatsStore := s.statsStore.WithTx(tx)
 
-		// First, verify that the card exists
-		card, err := txCardStore.GetByID(ctx, cardID)
-		if err != nil {
-			if errors.Is(err, store.ErrCardNotFound) {
-				log.Warn("card not found for review",
-					slog.String("user_id", userID.String()),
-					slog.String("card_id", cardID.String()))
-				return ErrCardNotFound
+			// First, verify that the card exists
+			card, err := txCardStore.GetByID(ctx, cardID)
+			if err != nil {
+				if errors.Is(err, store.ErrCardNotFound) {
+					log.Warn("card not found for review",
+						slog.String("user_id", userID.String()),
+						slog.String("card_id", cardID.String()))
+					return ErrCardNotFound
+				}
+				return NewSubmitAnswerError("failed to retrieve card", err)
 			}
-			return NewSubmitAnswerError("failed to retrieve card", err)
-		}
 
-		// Verify that the user owns the card
-		if card.UserID != userID {
-			log.Warn("user does not own card",
-				slog.String("user_id", userID.String()),
-				slog.String("card_id", cardID.String()),
-				slog.String("owner_id", card.UserID.String()))
-			return ErrCardNotOwned
-		}
+			// Verify that the user owns the card
+			if card.UserID != userID {
+				log.Warn("user does not own card",
+					slog.String("user_id", userID.String()),
+					slog.String("card_id", cardID.String()),
+					slog.String("owner_id", card.UserID.String()))
+				return ErrCardNotOwned
+			}
 
-		// Get the current stats with a row-level lock to prevent concurrent updates
-		stats, err := txStatsStore.GetForUpdate(ctx, userID, cardID)
-		if err != nil {
-			if errors.Is(err, store.ErrUserCardStatsNotFound) {
-				log.Warn("stats not found for card",
+			// Get the current stats with a row-level lock to prevent concurrent updates
+			stats, err := txStatsStore.GetForUpdate(ctx, userID, cardID)
+			if err != nil {
+				if errors.Is(err, store.ErrUserCardStatsNotFound) {
+					log.Warn("stats not found for card",
+						slog.String("user_id", userID.String()),
+						slog.String("card_id", cardID.String()))
+					// Create new stats with default values
+					stats, err = domain.NewUserCardStats(userID, cardID)
+					if err != nil {
+						return NewSubmitAnswerError("failed to create new stats", err)
+					}
+				} else {
+					return NewSubmitAnswerError("failed to retrieve stats", err)
+				}
+			}
+
+			// Calculate new review schedule using SRS algorithm
+			newStats, err := s.srsService.CalculateNextReview(
+				stats,
+				answer.Outcome,
+				time.Now().UTC(),
+			)
+			if err != nil {
+				log.Error("failed to calculate next review",
+					slog.String("error", err.Error()),
 					slog.String("user_id", userID.String()),
 					slog.String("card_id", cardID.String()))
-				// Create new stats with default values
-				stats, err = domain.NewUserCardStats(userID, cardID)
+				return NewSubmitAnswerError("failed to calculate next review", err)
+			}
+
+			// Save or update the stats
+			if stats.LastReviewedAt.IsZero() {
+				// This is a new card that hasn't been reviewed yet
+				err = txStatsStore.Create(ctx, newStats)
 				if err != nil {
-					return NewSubmitAnswerError("failed to create new stats", err)
+					return NewSubmitAnswerError("failed to create stats record", err)
 				}
 			} else {
-				return NewSubmitAnswerError("failed to retrieve stats", err)
+				// This is an existing card that has been reviewed before
+				err = txStatsStore.Update(ctx, newStats)
+				if err != nil {
+					return NewSubmitAnswerError("failed to update stats record", err)
+				}
 			}
-		}
 
-		// Calculate new review schedule using SRS algorithm
-		newStats, err := s.srsService.CalculateNextReview(stats, answer.Outcome, time.Now().UTC())
-		if err != nil {
-			log.Error("failed to calculate next review",
-				slog.String("error", err.Error()),
-				slog.String("user_id", userID.String()),
-				slog.String("card_id", cardID.String()))
-			return NewSubmitAnswerError("failed to calculate next review", err)
-		}
-
-		// Save or update the stats
-		if stats.LastReviewedAt.IsZero() {
-			// This is a new card that hasn't been reviewed yet
-			err = txStatsStore.Create(ctx, newStats)
-			if err != nil {
-				return NewSubmitAnswerError("failed to create stats record", err)
-			}
-		} else {
-			// This is an existing card that has been reviewed before
-			err = txStatsStore.Update(ctx, newStats)
-			if err != nil {
-				return NewSubmitAnswerError("failed to update stats record", err)
-			}
-		}
-
-		// Store the updated stats for the return value
-		updatedStats = newStats
-		return nil
-	})
+			// Store the updated stats for the return value
+			updatedStats = newStats
+			return nil
+		},
+	)
 
 	if err != nil {
 		// If the error is already one of our service errors, pass it through

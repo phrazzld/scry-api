@@ -193,7 +193,13 @@ func TestAuthHandler_Register(t *testing.T) {
 
 			// Create auth handler with fixed time function for predictable expirations
 			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
-			handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
 			handler = handler.WithTimeFunc(func() time.Time {
 				return fixedTime
 			})
@@ -211,7 +217,11 @@ func TestAuthHandler_Register(t *testing.T) {
 			}
 
 			// Create request and response recorder
-			req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewReader(reqBody))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/auth/register",
+				bytes.NewReader(reqBody),
+			)
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -237,8 +247,18 @@ func TestAuthHandler_Register(t *testing.T) {
 			if tc.wantTokens {
 				// Check response structure
 				assert.Contains(t, respBody, "token", "Response should contain access token")
-				assert.Contains(t, respBody, "refresh_token", "Response should contain refresh token")
-				assert.Contains(t, respBody, "expires_at", "Response should contain expiration time")
+				assert.Contains(
+					t,
+					respBody,
+					"refresh_token",
+					"Response should contain refresh token",
+				)
+				assert.Contains(
+					t,
+					respBody,
+					"expires_at",
+					"Response should contain expiration time",
+				)
 				assert.Contains(t, respBody, "user_id", "Response should contain user ID")
 
 				// Verify token values
@@ -389,7 +409,13 @@ func TestAuthHandler_Login(t *testing.T) {
 
 			// Create auth handler with fixed time function
 			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
-			handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
 			handler = handler.WithTimeFunc(func() time.Time {
 				return fixedTime
 			})
@@ -433,8 +459,18 @@ func TestAuthHandler_Login(t *testing.T) {
 			if tc.wantTokens {
 				// Check response structure
 				assert.Contains(t, respBody, "token", "Response should contain access token")
-				assert.Contains(t, respBody, "refresh_token", "Response should contain refresh token")
-				assert.Contains(t, respBody, "expires_at", "Response should contain expiration time")
+				assert.Contains(
+					t,
+					respBody,
+					"refresh_token",
+					"Response should contain refresh token",
+				)
+				assert.Contains(
+					t,
+					respBody,
+					"expires_at",
+					"Response should contain expiration time",
+				)
 				assert.Contains(t, respBody, "user_id", "Response should contain user ID")
 
 				// Verify token values
@@ -569,7 +605,13 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 
 			// Create auth handler with fixed time function
 			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
-			handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
 			handler = handler.WithTimeFunc(func() time.Time {
 				return fixedTime
 			})
@@ -587,7 +629,11 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			}
 
 			// Create request and response recorder
-			req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", bytes.NewReader(reqBody))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/auth/refresh",
+				bytes.NewReader(reqBody),
+			)
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -613,8 +659,18 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			if tc.wantTokens {
 				// Check response structure
 				assert.Contains(t, respBody, "access_token", "Response should contain access token")
-				assert.Contains(t, respBody, "refresh_token", "Response should contain refresh token")
-				assert.Contains(t, respBody, "expires_at", "Response should contain expiration time")
+				assert.Contains(
+					t,
+					respBody,
+					"refresh_token",
+					"Response should contain refresh token",
+				)
+				assert.Contains(
+					t,
+					respBody,
+					"expires_at",
+					"Response should contain expiration time",
+				)
 
 				// Verify token values
 				assert.Equal(t, fixedToken, respBody["access_token"])
@@ -693,7 +749,13 @@ func TestAuthHandler_GenerateTokenResponse(t *testing.T) {
 
 			// Create auth handler with fixed time function
 			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
-			handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
 			handler = handler.WithTimeFunc(func() time.Time {
 				return fixedTime
 			})
@@ -815,7 +877,13 @@ func TestAuthHandler_Integration(t *testing.T) {
 
 	// Create auth handler
 	logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
-	handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+	handler := NewAuthHandler(
+		mockUserStore,
+		mockJWTService,
+		mockPasswordVerifier,
+		authConfig,
+		logger,
+	)
 
 	// Set up routes
 	r.Route("/api/auth", func(r chi.Router) {
@@ -917,7 +985,13 @@ func TestAuthHandler_NewAuthHandler(t *testing.T) {
 
 	t.Run("with_logger", func(t *testing.T) {
 		logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
-		handler := NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, logger)
+		handler := NewAuthHandler(
+			mockUserStore,
+			mockJWTService,
+			mockPasswordVerifier,
+			authConfig,
+			logger,
+		)
 
 		assert.NotNil(t, handler)
 		assert.Equal(t, mockUserStore, handler.userStore)

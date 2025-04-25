@@ -150,7 +150,12 @@ func TestUserService_CreateUser_Atomicity(t *testing.T) {
 				email,
 			).Scan(&count)
 			require.NoError(t, err, "Failed to count users")
-			assert.Equal(t, 0, count, "No user should exist in the database due to transaction rollback")
+			assert.Equal(
+				t,
+				0,
+				count,
+				"No user should exist in the database due to transaction rollback",
+			)
 		})
 
 		t.Run("Transaction_Commit_On_Success", func(t *testing.T) {
@@ -223,7 +228,12 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated GetByID failure", "Error should be from our mock")
+			assert.Contains(
+				t,
+				err.Error(),
+				"simulated GetByID failure",
+				"Error should be from our mock",
+			)
 
 			// Verify the email was NOT changed due to transaction rollback
 			var email string
@@ -252,7 +262,12 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated update failure", "Error should be from our mock")
+			assert.Contains(
+				t,
+				err.Error(),
+				"simulated update failure",
+				"Error should be from our mock",
+			)
 
 			// Verify the email was NOT changed due to transaction rollback
 			var email string
@@ -425,7 +440,12 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated delete failure", "Error should be from our mock")
+			assert.Contains(
+				t,
+				err.Error(),
+				"simulated delete failure",
+				"Error should be from our mock",
+			)
 
 			// Verify the user was NOT deleted due to transaction rollback
 			var count int

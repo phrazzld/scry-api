@@ -42,15 +42,30 @@ func Load() (*Config, error) {
 	// These defaults are used if the setting is not found in any other source
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.log_level", "info")
-	v.SetDefault("auth.bcrypt_cost", 10)                       // Default bcrypt cost (same as bcrypt.DefaultCost)
-	v.SetDefault("auth.token_lifetime_minutes", 60)            // Default access token lifetime (1 hour)
-	v.SetDefault("auth.refresh_token_lifetime_minutes", 10080) // Default refresh token lifetime (7 days)
-	v.SetDefault("llm.model_name", "gemini-2.0-flash")         // Default Gemini model
-	v.SetDefault("llm.max_retries", 3)                         // Default number of retries for transient errors
-	v.SetDefault("llm.retry_delay_seconds", 2)                 // Default base delay between retries
-	v.SetDefault("task.worker_count", 2)                       // Default worker count
-	v.SetDefault("task.queue_size", 100)                       // Default queue size
-	v.SetDefault("task.stuck_task_age_minutes", 30)            // Default stuck task age (30 minutes)
+	v.SetDefault(
+		"auth.bcrypt_cost",
+		10,
+	) // Default bcrypt cost (same as bcrypt.DefaultCost)
+	v.SetDefault(
+		"auth.token_lifetime_minutes",
+		60,
+	) // Default access token lifetime (1 hour)
+	v.SetDefault(
+		"auth.refresh_token_lifetime_minutes",
+		10080,
+	) // Default refresh token lifetime (7 days)
+	v.SetDefault("llm.model_name", "gemini-2.0-flash") // Default Gemini model
+	v.SetDefault(
+		"llm.max_retries",
+		3,
+	) // Default number of retries for transient errors
+	v.SetDefault("llm.retry_delay_seconds", 2) // Default base delay between retries
+	v.SetDefault("task.worker_count", 2)       // Default worker count
+	v.SetDefault("task.queue_size", 100)       // Default queue size
+	v.SetDefault(
+		"task.stuck_task_age_minutes",
+		30,
+	) // Default stuck task age (30 minutes)
 
 	// --- Configure config file (optional, for local dev) ---
 	// Looks for config.yaml in the working directory
@@ -73,9 +88,11 @@ func Load() (*Config, error) {
 
 	// --- Configure environment variables ---
 	// Environment variables take precedence over config file values
-	v.SetEnvPrefix("SCRY")                             // all env vars must be prefixed with SCRY_
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // maps nested config keys to env vars with underscores
-	v.AutomaticEnv()                                   // read in environment variables that match
+	v.SetEnvPrefix("SCRY") // all env vars must be prefixed with SCRY_
+	v.SetEnvKeyReplacer(
+		strings.NewReplacer(".", "_"),
+	) // maps nested config keys to env vars with underscores
+	v.AutomaticEnv() // read in environment variables that match
 
 	// Explicitly bind critical environment variables to ensure they are properly mapped
 	// This provides more reliable binding for essential configuration values

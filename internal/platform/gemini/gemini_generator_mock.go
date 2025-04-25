@@ -51,14 +51,21 @@ func (g *GeminiGenerator) Client() *MockGenAIClient {
 //
 // Returns:
 //   - A properly initialized GeminiGenerator or an error if initialization fails
-func NewGeminiGenerator(ctx context.Context, logger *slog.Logger, config config.LLMConfig) (*GeminiGenerator, error) {
+func NewGeminiGenerator(
+	ctx context.Context,
+	logger *slog.Logger,
+	config config.LLMConfig,
+) (*GeminiGenerator, error) {
 	if logger == nil {
 		return nil, errors.New("logger cannot be nil")
 	}
 
 	// In test mode, we still validate the prompt template path
 	if config.PromptTemplatePath == "" {
-		return nil, fmt.Errorf("%w: prompt template path cannot be empty", generation.ErrInvalidConfig)
+		return nil, fmt.Errorf(
+			"%w: prompt template path cannot be empty",
+			generation.ErrInvalidConfig,
+		)
 	}
 
 	// Load and parse prompt template

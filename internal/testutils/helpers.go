@@ -133,7 +133,13 @@ func GetUserByID(ctx context.Context, t *testing.T, db store.DBTX, id uuid.UUID)
 }
 
 // CountUsers counts the number of users in the database matching the given criteria.
-func CountUsers(ctx context.Context, t *testing.T, db store.DBTX, whereClause string, args ...interface{}) int {
+func CountUsers(
+	ctx context.Context,
+	t *testing.T,
+	db store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
 	t.Helper()
 
 	query := "SELECT COUNT(*) FROM users"

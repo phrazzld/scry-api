@@ -124,7 +124,10 @@ func TestTaskFactoryEventHandler_HandleEvent(t *testing.T) {
 		handler := NewTaskFactoryEventHandler(mockFactory, mockRunner, logger)
 
 		// Create an event with an unsupported type
-		event, err := events.NewTaskRequestEvent("unsupported_type", map[string]string{"key": "value"})
+		event, err := events.NewTaskRequestEvent(
+			"unsupported_type",
+			map[string]string{"key": "value"},
+		)
 		require.NoError(t, err)
 
 		// Test the handler

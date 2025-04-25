@@ -39,7 +39,10 @@ type MockCardReviewService struct {
 }
 
 // GetNextCard implements the card_review.CardReviewService interface
-func (m *MockCardReviewService) GetNextCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
+func (m *MockCardReviewService) GetNextCard(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*domain.Card, error) {
 	// Track call details for verification
 	m.GetNextCardCalls.mu.Lock()
 	m.GetNextCardCalls.Count++
@@ -125,7 +128,9 @@ func WithError(err error) MockOption {
 }
 
 // WithGetNextCardFn sets a custom function for GetNextCard
-func WithGetNextCardFn(fn func(ctx context.Context, userID uuid.UUID) (*domain.Card, error)) MockOption {
+func WithGetNextCardFn(
+	fn func(ctx context.Context, userID uuid.UUID) (*domain.Card, error),
+) MockOption {
 	return func(m *MockCardReviewService) {
 		m.GetNextCardFn = fn
 	}

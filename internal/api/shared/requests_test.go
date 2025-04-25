@@ -47,7 +47,11 @@ func TestDecodeJSON(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create request with body
-			req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(tc.requestBody))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/test",
+				bytes.NewBufferString(tc.requestBody),
+			)
 
 			// Call function
 			err := DecodeJSON(req, tc.target)

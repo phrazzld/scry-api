@@ -48,7 +48,11 @@ type MemoGenerationTaskFactory interface {
 // MemoService provides memo-related operations
 type MemoService interface {
 	// CreateMemoAndEnqueueTask creates a new memo and enqueues it for processing
-	CreateMemoAndEnqueueTask(ctx context.Context, userID uuid.UUID, text string) (*domain.Memo, error)
+	CreateMemoAndEnqueueTask(
+		ctx context.Context,
+		userID uuid.UUID,
+		text string,
+	) (*domain.Memo, error)
 
 	// UpdateMemoStatus updates a memo's status and handles related business logic
 	UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error
@@ -191,46 +195,54 @@ func (s *memoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domai
 // UpdateMemoStatus updates a memo's status and handles related business logic
 // This centralizes all status transition logic in the service layer and uses transactions
 // to ensure atomicity of the operation.
-func (s *memoServiceImpl) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
+func (s *memoServiceImpl) UpdateMemoStatus(
+	ctx context.Context,
+	memoID uuid.UUID,
+	status domain.MemoStatus,
+) error {
 	// Use a transaction to ensure atomicity
-	return store.RunInTransaction(ctx, s.memoRepo.DB(), func(ctx context.Context, tx *sql.Tx) error {
-		// Get a transactional repo
-		txRepo := s.memoRepo.WithTx(tx)
+	return store.RunInTransaction(
+		ctx,
+		s.memoRepo.DB(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			// Get a transactional repo
+			txRepo := s.memoRepo.WithTx(tx)
 
-		// Retrieve the memo first
-		memo, err := txRepo.GetByID(ctx, memoID)
-		if err != nil {
-			s.logger.Error("failed to retrieve memo for status update",
-				"error", err,
-				"memo_id", memoID,
-				"target_status", status)
-			return fmt.Errorf("failed to retrieve memo for status update: %w", err)
-		}
+			// Retrieve the memo first
+			memo, err := txRepo.GetByID(ctx, memoID)
+			if err != nil {
+				s.logger.Error("failed to retrieve memo for status update",
+					"error", err,
+					"memo_id", memoID,
+					"target_status", status)
+				return fmt.Errorf("failed to retrieve memo for status update: %w", err)
+			}
 
-		// Update the memo's status
-		err = memo.UpdateStatus(status)
-		if err != nil {
-			s.logger.Error("failed to update memo status",
-				"error", err,
-				"memo_id", memoID,
-				"current_status", memo.Status,
-				"target_status", status)
-			return fmt.Errorf("failed to update memo status to %s: %w", status, err)
-		}
+			// Update the memo's status
+			err = memo.UpdateStatus(status)
+			if err != nil {
+				s.logger.Error("failed to update memo status",
+					"error", err,
+					"memo_id", memoID,
+					"current_status", memo.Status,
+					"target_status", status)
+				return fmt.Errorf("failed to update memo status to %s: %w", status, err)
+			}
 
-		// Save the updated memo using the transactional repo
-		err = txRepo.Update(ctx, memo)
-		if err != nil {
-			s.logger.Error("failed to save updated memo status",
-				"error", err,
+			// Save the updated memo using the transactional repo
+			err = txRepo.Update(ctx, memo)
+			if err != nil {
+				s.logger.Error("failed to save updated memo status",
+					"error", err,
+					"memo_id", memoID,
+					"status", status)
+				return fmt.Errorf("failed to save memo status %s: %w", status, err)
+			}
+
+			s.logger.Info("memo status updated successfully in transaction",
 				"memo_id", memoID,
 				"status", status)
-			return fmt.Errorf("failed to save memo status %s: %w", status, err)
-		}
-
-		s.logger.Info("memo status updated successfully in transaction",
-			"memo_id", memoID,
-			"status", status)
-		return nil
-	})
+			return nil
+		},
+	)
 }

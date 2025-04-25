@@ -122,7 +122,12 @@ func TestRealJWTWithMiddleware(t *testing.T) {
 
 			// If success, verify user ID was extracted
 			if tt.expectedStatus == http.StatusOK {
-				assert.NotEqual(t, uuid.Nil, capturedUserID, "User ID should be extracted from token")
+				assert.NotEqual(
+					t,
+					uuid.Nil,
+					capturedUserID,
+					"User ID should be extracted from token",
+				)
 			}
 		})
 	}

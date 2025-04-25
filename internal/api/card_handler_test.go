@@ -27,7 +27,10 @@ type mockCardReviewService struct {
 	submitAnswerFn func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error)
 }
 
-func (m *mockCardReviewService) GetNextCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
+func (m *mockCardReviewService) GetNextCard(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*domain.Card, error) {
 	return m.nextCardFn(ctx, userID)
 }
 
@@ -149,7 +152,11 @@ func TestGetNextReviewCard(t *testing.T) {
 
 			// Check status code
 			if status := rr.Code; status != tc.expectedStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v", status, tc.expectedStatus)
+				t.Errorf(
+					"handler returned wrong status code: got %v want %v",
+					status,
+					tc.expectedStatus,
+				)
 			}
 
 			// Check body existence
@@ -169,13 +176,25 @@ func TestGetNextReviewCard(t *testing.T) {
 
 				// Validate the key fields
 				if response.ID != cardID.String() {
-					t.Errorf("wrong card ID in response: got %v want %v", response.ID, cardID.String())
+					t.Errorf(
+						"wrong card ID in response: got %v want %v",
+						response.ID,
+						cardID.String(),
+					)
 				}
 				if response.UserID != userID.String() {
-					t.Errorf("wrong user ID in response: got %v want %v", response.UserID, userID.String())
+					t.Errorf(
+						"wrong user ID in response: got %v want %v",
+						response.UserID,
+						userID.String(),
+					)
 				}
 				if response.MemoID != memoID.String() {
-					t.Errorf("wrong memo ID in response: got %v want %v", response.MemoID, memoID.String())
+					t.Errorf(
+						"wrong memo ID in response: got %v want %v",
+						response.MemoID,
+						memoID.String(),
+					)
 				}
 
 				// Validate content for valid JSON case
@@ -197,7 +216,10 @@ func TestGetNextReviewCard(t *testing.T) {
 				if tc.name == "Service Returns Card But With Unmarshalable Content" {
 					_, ok := response.Content.(string)
 					if !ok {
-						t.Errorf("expected string content for invalid JSON, got %T", response.Content)
+						t.Errorf(
+							"expected string content for invalid JSON, got %T",
+							response.Content,
+						)
 					}
 				}
 			}
@@ -354,15 +376,24 @@ func TestSubmitAnswer(t *testing.T) {
 			mockService := &mockCardReviewService{
 				submitAnswerFn: func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error) {
 					// Only check these in the success case
-					if tc.serviceError == nil && tc.userIDInCtx != uuid.Nil && tc.cardIDInPath != "" &&
+					if tc.serviceError == nil && tc.userIDInCtx != uuid.Nil &&
+						tc.cardIDInPath != "" &&
 						tc.cardIDInPath != "not-a-uuid" &&
 						tc.requestBody != nil {
 						if userID != tc.userIDInCtx {
-							t.Errorf("wrong user ID passed to service: got %v want %v", userID, tc.userIDInCtx)
+							t.Errorf(
+								"wrong user ID passed to service: got %v want %v",
+								userID,
+								tc.userIDInCtx,
+							)
 						}
 						expectedCardID, _ := uuid.Parse(tc.cardIDInPath)
 						if cardID != expectedCardID {
-							t.Errorf("wrong card ID passed to service: got %v want %v", cardID, expectedCardID)
+							t.Errorf(
+								"wrong card ID passed to service: got %v want %v",
+								cardID,
+								expectedCardID,
+							)
 						}
 						if string(answer.Outcome) != tc.requestBody["outcome"] {
 							t.Errorf(
@@ -387,7 +418,11 @@ func TestSubmitAnswer(t *testing.T) {
 
 			if tc.requestBody != nil {
 				jsonBody, _ = json.Marshal(tc.requestBody)
-				req, err = http.NewRequest("POST", "/cards/"+tc.cardIDInPath+"/answer", bytes.NewBuffer(jsonBody))
+				req, err = http.NewRequest(
+					"POST",
+					"/cards/"+tc.cardIDInPath+"/answer",
+					bytes.NewBuffer(jsonBody),
+				)
 			} else {
 				// Send invalid JSON
 				req, err = http.NewRequest("POST", "/cards/"+tc.cardIDInPath+"/answer", bytes.NewBuffer([]byte(`{"outcome": invalid-json`)))
@@ -419,7 +454,11 @@ func TestSubmitAnswer(t *testing.T) {
 
 			// Check status code
 			if status := rr.Code; status != tc.expectedStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v", status, tc.expectedStatus)
+				t.Errorf(
+					"handler returned wrong status code: got %v want %v",
+					status,
+					tc.expectedStatus,
+				)
 			}
 
 			// For non-success responses, check the error message

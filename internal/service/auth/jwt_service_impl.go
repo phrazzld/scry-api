@@ -100,13 +100,17 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 		}),
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &jwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method is what we expect
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return s.signingKey, nil
-	}, parserOpts...)
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&jwtCustomClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			// Validate the signing method is what we expect
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return s.signingKey, nil
+		},
+		parserOpts...)
 
 	// Handle parsing errors
 	if err != nil {
@@ -175,7 +179,10 @@ func (s *hmacJWTService) ValidateToken(ctx context.Context, tokenString string) 
 
 // GenerateRefreshToken creates a signed JWT refresh token with user claims.
 // Refresh tokens have longer lifetime than access tokens and are used to obtain new token pairs.
-func (s *hmacJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+func (s *hmacJWTService) GenerateRefreshToken(
+	ctx context.Context,
+	userID uuid.UUID,
+) (string, error) {
 	log := logger.FromContext(ctx)
 	now := s.timeFunc()
 
@@ -209,7 +216,10 @@ func (s *hmacJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.U
 // ValidateRefreshToken validates a JWT refresh token and returns the claims if valid.
 // It verifies the token has type "refresh" and returns ErrWrongTokenType if not.
 // Returns appropriate errors for expiration and invalid signatures.
-func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString string) (*Claims, error) {
+func (s *hmacJWTService) ValidateRefreshToken(
+	ctx context.Context,
+	tokenString string,
+) (*Claims, error) {
 	log := logger.FromContext(ctx)
 
 	// Parse and validate the token
@@ -224,13 +234,17 @@ func (s *hmacJWTService) ValidateRefreshToken(ctx context.Context, tokenString s
 		}),
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &jwtCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method is what we expect
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return s.signingKey, nil
-	}, parserOpts...)
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&jwtCustomClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			// Validate the signing method is what we expect
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return s.signingKey, nil
+		},
+		parserOpts...)
 
 	// Handle parsing errors
 	if err != nil {

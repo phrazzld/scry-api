@@ -44,7 +44,7 @@
   - Depends On: [T017]
   - Estimated Story Points: 3
 
-- [ ] [T021] Correct 4xx log level strategy
+- [x] [T021] Correct 4xx log level strategy
   - Description: Modify `RespondWithErrorAndLog` to log client errors (4xx) at DEBUG level by default, elevating only specific operational issues to WARN level.
   - Acceptance Criteria:
     - AC1: Default log level for 4xx errors is DEBUG, not WARN.

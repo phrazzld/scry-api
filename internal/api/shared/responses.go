@@ -2,8 +2,11 @@ package shared
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/phrazzld/scry-api/internal/redact"
 )
 
 // ErrorResponse defines the standard error response structure.
@@ -11,6 +14,23 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 	Code    int    `json:"-"` // Not serialized to JSON, used for logging
 	TraceID string `json:"trace_id,omitempty"`
+}
+
+// ResponseOption defines a function to customize response behavior.
+type ResponseOption func(*responseOptions)
+
+// responseOptions holds configurable options for error responses.
+type responseOptions struct {
+	elevateLogLevel bool
+}
+
+// WithElevatedLogLevel returns a ResponseOption that raises 4xx errors to WARN level
+// instead of the default DEBUG level. Use for important operational issues like
+// rate limiting or repeated auth failures.
+func WithElevatedLogLevel() ResponseOption {
+	return func(opts *responseOptions) {
+		opts.elevateLogLevel = true
+	}
 }
 
 // RespondWithJSON writes a JSON response with the given status code and data.
@@ -49,7 +69,23 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, status int, messag
 // RespondWithErrorAndLog writes a JSON error response and also logs the detailed error.
 // This is useful for handling errors where you want to log the full error but only
 // expose a sanitized version to the client.
-func RespondWithErrorAndLog(w http.ResponseWriter, r *http.Request, status int, userMessage string, err error) {
+//
+// Log level strategy:
+// - 5xx errors: Always logged at ERROR level
+// - 4xx errors: By default logged at DEBUG level
+// - 429 Too Many Requests: Logged at WARN level (operational concern)
+// - Other status codes: Logged at DEBUG level
+//
+// For special cases where 4xx errors need higher visibility (e.g., repeated auth failures),
+// use the WithElevatedLogLevel() option to elevate to WARN level.
+func RespondWithErrorAndLog(
+	w http.ResponseWriter,
+	r *http.Request,
+	status int,
+	userMessage string,
+	err error,
+	opts ...ResponseOption,
+) {
 	// Get trace ID from context if available
 	traceID := GetTraceID(r.Context())
 
@@ -70,18 +106,34 @@ func RespondWithErrorAndLog(w http.ResponseWriter, r *http.Request, status int, 
 		slog.String("user_message", userMessage),
 	}
 
-	// Include the full error details (but only in the logs)
+	// Include the redacted error details (but only in the logs)
 	if err != nil {
-		logAttrs = append(logAttrs, slog.Any("error", err))
+		// Log the redacted error message
+		redactedError := redact.Error(err)
+		logAttrs = append(logAttrs, slog.String("error", redactedError))
+
+		// Include the error type for debugging context (safe)
+		logAttrs = append(logAttrs, slog.String("error_type", fmt.Sprintf("%T", err)))
 	}
 
-	// Set appropriate log level based on status code
+	// Initialize response options with defaults
+	responseOpts := responseOptions{}
+
+	// Apply any option overrides
+	for _, opt := range opts {
+		opt(&responseOpts)
+	}
+
+	// Set appropriate log level based on status code and options
 	logLevel := slog.LevelDebug
 	if status >= http.StatusInternalServerError {
 		// Log server errors (5xx) at ERROR level
 		logLevel = slog.LevelError
-	} else if status >= http.StatusBadRequest {
-		// Log client errors (4xx) at WARN level
+	} else if status == http.StatusTooManyRequests {
+		// Rate limiting (429) is always an operational concern, log at WARN
+		logLevel = slog.LevelWarn
+	} else if responseOpts.elevateLogLevel && status >= http.StatusBadRequest && status < http.StatusInternalServerError {
+		// Elevated 4xx errors (e.g., repeated auth failures) at WARN level when explicitly requested
 		logLevel = slog.LevelWarn
 	}
 

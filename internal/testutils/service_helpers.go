@@ -74,10 +74,19 @@ func NewTaskFactoryEventHandler(
 }
 
 // HandleEvent processes TaskRequestEvents by creating and submitting tasks
-func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+func (h *TaskFactoryEventHandler) HandleEvent(
+	ctx context.Context,
+	event *events.TaskRequestEvent,
+) error {
 	// Only handle memo generation events
 	if event.Type != task.TaskTypeMemoGeneration {
-		h.logger.Debug("ignoring event with unsupported type", "event_type", event.Type, "event_id", event.ID)
+		h.logger.Debug(
+			"ignoring event with unsupported type",
+			"event_type",
+			event.Type,
+			"event_id",
+			event.ID,
+		)
 		return nil
 	}
 

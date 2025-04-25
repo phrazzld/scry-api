@@ -85,7 +85,13 @@ type StoreError struct {
 // Error implements the error interface for StoreError.
 func (e *StoreError) Error() string {
 	if e.Err != nil {
-		return fmt.Sprintf("%s operation on %s failed: %s: %v", e.Operation, e.Entity, e.Message, e.Err)
+		return fmt.Sprintf(
+			"%s operation on %s failed: %s: %v",
+			e.Operation,
+			e.Entity,
+			e.Message,
+			e.Err,
+		)
 	}
 	return fmt.Sprintf("%s operation on %s failed: %s", e.Operation, e.Entity, e.Message)
 }

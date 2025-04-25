@@ -232,8 +232,11 @@ func TestGenerateCards_ErrorPropagation(t *testing.T) {
 			expectedError: generation.ErrTransientFailure,
 		},
 		{
-			name:          "wrapped content blocked error",
-			mockError:     fmt.Errorf("%w: content blocked by safety filters", generation.ErrContentBlocked),
+			name: "wrapped content blocked error",
+			mockError: fmt.Errorf(
+				"%w: content blocked by safety filters",
+				generation.ErrContentBlocked,
+			),
 			expectedError: generation.ErrContentBlocked,
 		},
 		{

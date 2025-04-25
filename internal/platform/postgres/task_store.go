@@ -124,7 +124,10 @@ func (s *PostgresTaskStore) GetPendingTasks(ctx context.Context) ([]task.Task, e
 }
 
 // GetProcessingTasks retrieves tasks with "processing" status
-func (s *PostgresTaskStore) GetProcessingTasks(ctx context.Context, olderThan time.Duration) ([]task.Task, error) {
+func (s *PostgresTaskStore) GetProcessingTasks(
+	ctx context.Context,
+	olderThan time.Duration,
+) ([]task.Task, error) {
 	return s.getTasksByStatus(ctx, task.TaskStatusProcessing, olderThan)
 }
 

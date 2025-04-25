@@ -128,7 +128,7 @@
     - **Estimated Story Points:** 1
     - **Resolution:** Upon inspection, the WithTimeFunc method already correctly implemented the immutable pattern, returning a new instance rather than modifying the original. Enhanced the documentation to make this pattern more explicit and confirmed that all test usages correctly capture and use the returned instance.
 
-- [ ] **T035 · Refactor · P2: update callers of `WithTimeFunc` to use returned instance**
+- [x] **T035 · Refactor · P2: update callers of `WithTimeFunc` to use returned instance**
     - **Context:** PLAN.md > cr‑03 Fix Non-idiomatic Handler Mutability (Step 4)
     - **Action:**
         1. Find all code (likely tests) that calls `WithTimeFunc`.
@@ -138,3 +138,4 @@
         2. Tests pass.
     - **Depends-on:** [T034]
     - **Estimated Story Points:** 1
+    - **Resolution:** After inspecting all usages of `WithTimeFunc` in the codebase, confirmed that all callsites already correctly capture and use the returned instance. For example: `handler = handler.WithTimeFunc(func() time.Time { return fixedTime })`. No code changes were needed.

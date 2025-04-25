@@ -116,7 +116,7 @@
         1. `error_log_redaction_test.go` - Tests centralized error handlers with various sensitive data
         2. `middleware/auth_redaction_test.go` - Tests middleware error redaction
 
-- [ ] **T034 · Refactor · P2: refactor `AuthHandler.WithTimeFunc` to return new instance**
+- [x] **T034 · Refactor · P2: refactor `AuthHandler.WithTimeFunc` to return new instance**
     - **Context:** PLAN.md > cr‑03 Fix Non-idiomatic Handler Mutability (Steps 1-3)
     - **Action:**
         1. Modify `AuthHandler.WithTimeFunc` signature to return `*AuthHandler`.
@@ -126,6 +126,7 @@
         2. Tests pass.
     - **Depends-on:** none
     - **Estimated Story Points:** 1
+    - **Resolution:** Upon inspection, the WithTimeFunc method already correctly implemented the immutable pattern, returning a new instance rather than modifying the original. Enhanced the documentation to make this pattern more explicit and confirmed that all test usages correctly capture and use the returned instance.
 
 - [ ] **T035 · Refactor · P2: update callers of `WithTimeFunc` to use returned instance**
     - **Context:** PLAN.md > cr‑03 Fix Non-idiomatic Handler Mutability (Step 4)

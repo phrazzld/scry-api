@@ -97,7 +97,17 @@ func NewAuthHandler(
 
 // WithTimeFunc returns a new AuthHandler with the given time function.
 // This is useful for testing with a fixed time source.
-// The original handler remains unchanged (immutable pattern).
+// Following the immutable pattern, this method creates and returns a completely new
+// handler instance instead of modifying the original instance. The original handler
+// remains unchanged and the caller must use the returned handler for subsequent operations.
+//
+// Example usage:
+//
+//	// Create a handler with a fixed time function
+//	handler := NewAuthHandler(...)
+//	handler = handler.WithTimeFunc(func() time.Time {
+//	    return fixedTime
+//	})
 func (h *AuthHandler) WithTimeFunc(timeFunc func() time.Time) *AuthHandler {
 	// Create a new handler that's a copy of the current one
 	newHandler := &AuthHandler{

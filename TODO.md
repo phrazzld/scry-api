@@ -90,7 +90,7 @@
     - **Estimated Story Points:** 1
     - **Resolution:** After thorough analysis of the codebase, confirmed that all error handling code has been properly centralized in T029 and T030. No redundant error mapping code was found - all handlers are using the centralized error handling functions. Test failures are expected and will be addressed in task T032.
 
-- [ ] **T032 · Test · P2: verify error handling consistency across handlers**
+- [x] **T032 · Test · P2: verify error handling consistency across handlers**
     - **Context:** PLAN.md > cr‑01 Enforce Centralized Error Handling (Step 5)
     - **Action:**
         1. Add or enhance tests that verify error responses are consistent.
@@ -100,6 +100,7 @@
         2. All tests pass.
     - **Depends-on:** [T029, T030, T031]
     - **Estimated Story Points:** 2
+    - **Resolution:** Added comprehensive tests to verify error handling consistency, including tests for consistent error formats, message generation, and status code mapping across all handlers. Fixed an inconsistency in the error message for auth.ErrWrongTokenType.
 
 - [x] **T033 · Test · P2: implement tests for error redaction**
     - **Context:** PLAN.md > cr‑02 Implement Safe Error Logging (Step 4)

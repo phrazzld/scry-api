@@ -66,7 +66,7 @@
     - **Depends-on:** [T005]
 
 ## internal/platform/postgres
-- [ ] **T007 · Feature · P2: implement PostgresCardStore.GetByID**
+- [x] **T007 · Feature · P2: implement PostgresCardStore.GetByID**
     - **Context:** PLAN.md > Detailed Build Steps > 3a & 3f
     - **Action:**
         1. In `internal/platform/postgres/card_store.go`, implement `GetByID` using `SELECT * FROM cards WHERE id=$1`.
@@ -76,7 +76,7 @@
         2. Returns `store.ErrNotFound` on missing row.
     - **Depends-on:** [T001]
 
-- [ ] **T008 · Feature · P2: implement PostgresCardStore.UpdateContent**
+- [x] **T008 · Feature · P2: implement PostgresCardStore.UpdateContent**
     - **Context:** PLAN.md > Detailed Build Steps > 3b
     - **Action:**
         1. Implement `UPDATE cards SET content=$1, updated_at=now() WHERE id=$2` in `card_store.go`.
@@ -86,7 +86,7 @@
         2. `updated_at` is set correctly.
     - **Depends-on:** [T001]
 
-- [ ] **T009 · Feature · P2: implement PostgresCardStore.Delete**
+- [x] **T009 · Feature · P2: implement PostgresCardStore.Delete**
     - **Context:** PLAN.md > Detailed Build Steps > 3c
     - **Action:**
         1. Implement `DELETE FROM cards WHERE id=$1` in `card_store.go`.
@@ -94,7 +94,7 @@
         1. Method compiles.
     - **Depends-on:** [T001]
 
-- [ ] **T010 · Feature · P2: implement PostgresUserCardStatsStore.GetForUpdate**
+- [x] **T010 · Feature · P2: implement PostgresUserCardStatsStore.GetForUpdate**
     - **Context:** PLAN.md > Detailed Build Steps > 3d & 3f
     - **Action:**
         1. In `internal/platform/postgres/user_card_stats_store.go`, implement `SELECT ... FOR UPDATE`.
@@ -104,7 +104,7 @@
         2. Locks row and returns correctly.
     - **Depends-on:** [T002]
 
-- [ ] **T011 · Feature · P2: implement PostgresUserCardStatsStore.Update**
+- [x] **T011 · Feature · P2: implement PostgresUserCardStatsStore.Update**
     - **Context:** PLAN.md > Detailed Build Steps > 3e
     - **Action:**
         1. Implement `UPDATE user_card_stats SET next_review_at=$1, updated_at=now() WHERE user_id=$2 AND card_id=$3`.

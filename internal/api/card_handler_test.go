@@ -695,6 +695,15 @@ func TestEditCard(t *testing.T) {
 			expectedStatusCode:  http.StatusUnauthorized,
 			expectedErrContains: "Unauthorized",
 		},
+		{
+			name:                "Missing Card ID in Path",
+			requestCardID:       "", // No card ID in path params
+			requestUserID:       userID,
+			requestBody:         []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn:       nil,
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedErrContains: "Validation failed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -718,7 +727,9 @@ func TestEditCard(t *testing.T) {
 
 			// Use chi router to get URL parameters
 			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("id", tt.requestCardID)
+			if tt.requestCardID != "" {
+				rctx.URLParams.Add("id", tt.requestCardID)
+			}
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 			// Add user ID to context if needed

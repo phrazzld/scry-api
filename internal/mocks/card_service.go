@@ -24,7 +24,11 @@ type MockCardService struct {
 }
 
 // UpdateCardContent implements the CardService.UpdateCardContent method
-func (m *MockCardService) UpdateCardContent(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error {
+func (m *MockCardService) UpdateCardContent(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+	content json.RawMessage,
+) error {
 	if m.UpdateCardContentFn != nil {
 		return m.UpdateCardContentFn(ctx, userID, cardID, content)
 	}
@@ -40,7 +44,11 @@ func (m *MockCardService) DeleteCard(ctx context.Context, userID, cardID uuid.UU
 }
 
 // PostponeCard implements the CardService.PostponeCard method
-func (m *MockCardService) PostponeCard(ctx context.Context, userID, cardID uuid.UUID, days int) (*domain.UserCardStats, error) {
+func (m *MockCardService) PostponeCard(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+	days int,
+) (*domain.UserCardStats, error) {
 	if m.PostponeCardFn != nil {
 		return m.PostponeCardFn(ctx, userID, cardID, days)
 	}

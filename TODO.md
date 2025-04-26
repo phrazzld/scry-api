@@ -215,7 +215,7 @@
         2. Unit tests cover 200, 400, 404, 500.
     - **Depends-on:** [T016]
 
-- [ ] **T021 · Test · P2: add unit tests for API handlers**
+- [x] **T021 · Test · P2: add unit tests for API handlers**
     - **Context:** PLAN.md > Testing Strategy > Unit Tests
     - **Action:**
         1. In `internal/api/card_handler_test.go`, mock `CardService`.

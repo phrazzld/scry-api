@@ -97,7 +97,11 @@ func TestPostponeCard(t *testing.T) {
 			requestUserID: userID,
 			requestBody:   []byte(`{"days": 7}`),
 			mockServiceFn: func(ctx context.Context, userId, cardId uuid.UUID, days int) (*domain.UserCardStats, error) {
-				return nil, service.NewCardServiceError("postpone_card", "user card statistics not found", service.ErrStatsNotFound)
+				return nil, service.NewCardServiceError(
+					"postpone_card",
+					"user card statistics not found",
+					service.ErrStatsNotFound,
+				)
 			},
 			expectedStatusCode:  http.StatusNotFound,
 			expectedErrContains: "not found",
@@ -108,7 +112,11 @@ func TestPostponeCard(t *testing.T) {
 			requestUserID: userID,
 			requestBody:   []byte(`{"days": 7}`),
 			mockServiceFn: func(ctx context.Context, userId, cardId uuid.UUID, days int) (*domain.UserCardStats, error) {
-				return nil, service.NewCardServiceError("postpone_card", "card is owned by another user", service.ErrNotOwned)
+				return nil, service.NewCardServiceError(
+					"postpone_card",
+					"card is owned by another user",
+					service.ErrNotOwned,
+				)
 			},
 			expectedStatusCode:  http.StatusForbidden,
 			expectedErrContains: "do not own",
@@ -193,7 +201,11 @@ func TestPostponeCard(t *testing.T) {
 			handler := NewCardHandler(mockCardReviewService, mockCardService, testLogger)
 
 			// Create request
-			req, err := http.NewRequest(http.MethodPost, "/cards/"+tt.requestCardID+"/postpone", bytes.NewBuffer(tt.requestBody))
+			req, err := http.NewRequest(
+				http.MethodPost,
+				"/cards/"+tt.requestCardID+"/postpone",
+				bytes.NewBuffer(tt.requestBody),
+			)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -346,6 +346,8 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 
 			// Card management endpoints
 			r.Put("/cards/{id}", cardHandler.EditCard)
+			r.Delete("/cards/{id}", cardHandler.DeleteCard)
+			r.Post("/cards/{id}/postpone", cardHandler.PostponeCard)
 		})
 	})
 

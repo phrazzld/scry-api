@@ -225,7 +225,7 @@
     - **Depends-on:** [T018, T019, T020]
 
 ## cmd/server
-- [ ] **T022 · Chore · P1: register card management API routes**
+- [x] **T022 · Chore · P1: register card management API routes**
     - **Context:** PLAN.md > Detailed Build Steps > 6a
     - **Action:**
         1. In `cmd/server/main.go` (or router setup), add:

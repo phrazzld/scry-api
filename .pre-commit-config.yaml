@@ -51,11 +51,11 @@ repos:
         types: [go]
         pass_filenames: false  # Run once per commit, not per file
 
-      # Run glance after commit to update directory overviews
+      # Run glance after commit to update directory overviews (async)
       - id: run-glance
-        name: Run glance to update directory overviews
-        entry: .pre-commit-hooks/run_glance.sh
-        language: script
+        name: Run glance to update directory overviews (async)
+        entry: bash -c '.pre-commit-hooks/run_glance.sh &>/dev/null &'
+        language: system
         stages: [post-commit]  # Run after commit is completed
         pass_filenames: false  # Run once per commit, not per file
         always_run: true       # Run even when no files match
@@ -77,5 +77,25 @@ repos:
         language: python
         entry: .pre-commit-hooks/fail_extremely_long_files.py
         types: [text]  # Run on all text files
+        pass_filenames: true  # Pass each file to the script
+        verbose: true  # Ensure errors are visible
+
+      # Prevent direct use of panic() in production code
+      - id: check-for-panics
+        name: Check for panic() usage
+        description: Prevents committing code with direct panic() calls without exemption
+        language: python
+        entry: .pre-commit-hooks/check_for_panics.py
+        types: [go]  # Run only on Go files
+        pass_filenames: true  # Pass each file to the script
+        verbose: true  # Ensure errors are visible
+
+      # Ensure SQL queries have deterministic ordering
+      - id: check-sql-ordering
+        name: Check SQL queries for deterministic ordering
+        description: Ensures all ORDER BY clauses include a secondary sort key for deterministic results
+        language: python
+        entry: .pre-commit-hooks/check_sql_ordering.py
+        types: [go]  # Run only on Go files
         pass_filenames: true  # Pass each file to the script
         verbose: true  # Ensure errors are visible

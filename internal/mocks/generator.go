@@ -39,7 +39,11 @@ type MockGenerator struct {
 }
 
 // GenerateCards implements the generation.Generator interface
-func (m *MockGenerator) GenerateCards(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error) {
+func (m *MockGenerator) GenerateCards(
+	ctx context.Context,
+	memoText string,
+	userID uuid.UUID,
+) ([]*domain.Card, error) {
 	// Track call details for verification
 	m.GenerateCardsCalls.mu.Lock()
 	m.GenerateCardsCalls.Count++

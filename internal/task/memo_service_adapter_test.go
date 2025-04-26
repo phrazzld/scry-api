@@ -140,7 +140,11 @@ func TestNewMemoServiceAdapter(t *testing.T) {
 		require.NotNil(t, adapter)
 
 		// Act
-		err = adapter.UpdateMemoStatus(context.Background(), testMemoID, domain.MemoStatusProcessing)
+		err = adapter.UpdateMemoStatus(
+			context.Background(),
+			testMemoID,
+			domain.MemoStatusProcessing,
+		)
 
 		// Assert
 		assert.NoError(t, err)
@@ -166,7 +170,11 @@ func TestNewMemoServiceAdapter(t *testing.T) {
 		require.NotNil(t, adapter)
 
 		// Act
-		err = adapter.UpdateMemoStatus(context.Background(), testMemoID, domain.MemoStatusProcessing)
+		err = adapter.UpdateMemoStatus(
+			context.Background(),
+			testMemoID,
+			domain.MemoStatusProcessing,
+		)
 
 		// Assert
 		assert.Error(t, err)
@@ -196,7 +204,11 @@ func TestNewMemoServiceAdapter(t *testing.T) {
 		require.NotNil(t, adapter)
 
 		// Act
-		err = adapter.UpdateMemoStatus(context.Background(), testMemoID, domain.MemoStatusProcessing)
+		err = adapter.UpdateMemoStatus(
+			context.Background(),
+			testMemoID,
+			domain.MemoStatusProcessing,
+		)
 
 		// Assert
 		assert.Error(t, err)

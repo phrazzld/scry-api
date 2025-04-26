@@ -44,14 +44,14 @@ func TestNewMemo(t *testing.T) {
 
 	// Test invalid userID
 	_, err = NewMemo(uuid.Nil, text)
-	if err != ErrEmptyMemoUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyMemoUserID, err)
+	if err != ErrMemoUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrMemoUserIDEmpty, err)
 	}
 
 	// Test invalid text
 	_, err = NewMemo(userID, "")
-	if err != ErrEmptyMemoText {
-		t.Errorf("Expected error %v, got %v", ErrEmptyMemoText, err)
+	if err != ErrMemoTextEmpty {
+		t.Errorf("Expected error %v, got %v", ErrMemoTextEmpty, err)
 	}
 }
 
@@ -72,29 +72,29 @@ func TestMemoValidate(t *testing.T) {
 	// Test invalid ID
 	invalidMemo := validMemo
 	invalidMemo.ID = uuid.Nil
-	if err := invalidMemo.Validate(); err != ErrEmptyMemoID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyMemoID, err)
+	if err := invalidMemo.Validate(); err != ErrMemoIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrMemoIDEmpty, err)
 	}
 
 	// Test invalid UserID
 	invalidMemo = validMemo
 	invalidMemo.UserID = uuid.Nil
-	if err := invalidMemo.Validate(); err != ErrEmptyMemoUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyMemoUserID, err)
+	if err := invalidMemo.Validate(); err != ErrMemoUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrMemoUserIDEmpty, err)
 	}
 
 	// Test invalid Text
 	invalidMemo = validMemo
 	invalidMemo.Text = ""
-	if err := invalidMemo.Validate(); err != ErrEmptyMemoText {
-		t.Errorf("Expected error %v, got %v", ErrEmptyMemoText, err)
+	if err := invalidMemo.Validate(); err != ErrMemoTextEmpty {
+		t.Errorf("Expected error %v, got %v", ErrMemoTextEmpty, err)
 	}
 
 	// Test invalid Status
 	invalidMemo = validMemo
 	invalidMemo.Status = "invalid_status"
-	if err := invalidMemo.Validate(); err != ErrInvalidMemoStatus {
-		t.Errorf("Expected error %v, got %v", ErrInvalidMemoStatus, err)
+	if err := invalidMemo.Validate(); err != ErrMemoStatusInvalid {
+		t.Errorf("Expected error %v, got %v", ErrMemoStatusInvalid, err)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestUpdateStatus(t *testing.T) {
 
 	// Test invalid status
 	err = memo.UpdateStatus("invalid_status")
-	if err != ErrInvalidMemoStatus {
-		t.Errorf("Expected error %v, got %v", ErrInvalidMemoStatus, err)
+	if err != ErrMemoStatusInvalid {
+		t.Errorf("Expected error %v, got %v", ErrMemoStatusInvalid, err)
 	}
 }

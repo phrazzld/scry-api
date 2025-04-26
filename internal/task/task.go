@@ -71,7 +71,12 @@ type TaskStore interface {
 	SaveTask(ctx context.Context, task Task) error
 
 	// UpdateTaskStatus updates the status of a task
-	UpdateTaskStatus(ctx context.Context, taskID uuid.UUID, status TaskStatus, errorMsg string) error
+	UpdateTaskStatus(
+		ctx context.Context,
+		taskID uuid.UUID,
+		status TaskStatus,
+		errorMsg string,
+	) error
 
 	// GetPendingTasks retrieves all tasks with "pending" status
 	GetPendingTasks(ctx context.Context) ([]Task, error)

@@ -54,7 +54,10 @@ func WithMockAPIKey(apiKey string) MockClientOption {
 }
 
 // GenerateContent mocks ModelService.GenerateContent
-func (s *MockModelsService) GenerateContent(modelName string, req interface{}) *MockGenerateContentCall {
+func (s *MockModelsService) GenerateContent(
+	modelName string,
+	req interface{},
+) *MockGenerateContentCall {
 	return &MockGenerateContentCall{}
 }
 

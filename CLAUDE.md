@@ -31,6 +31,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Document Why, Not How:** Code should be self-documenting
 - **TDD Approach:** Write tests before implementation when possible
 - **Conventional Commits:** Follow specification for version control, always write detailed multiline commit messages
-- **Do not sign your commit messages**
+- **NEVER sign your commit messages. Your commit messages should ALWAYS and ONLY be detailed multiline conventional commits**
 
 Refer to DEVELOPMENT_PHILOSOPHY.md for complete guidelines.

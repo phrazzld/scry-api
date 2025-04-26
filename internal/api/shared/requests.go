@@ -7,6 +7,10 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// Validate is a global singleton validator instance for reuse across the application.
+// It is safe for concurrent use.
+var Validate = validator.New()
+
 // DecodeJSON decodes the request body into the given struct.
 func DecodeJSON(r *http.Request, v interface{}) error {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
@@ -17,6 +21,11 @@ func DecodeJSON(r *http.Request, v interface{}) error {
 
 // ValidateRequest validates the given struct using the validator package.
 func ValidateRequest(v interface{}) error {
-	validate := validator.New()
-	return validate.Struct(v)
+	// Check if the object implements the Validate interface
+	if validator, ok := v.(interface{ Validate() error }); ok {
+		return validator.Validate()
+	}
+
+	// Otherwise, use the struct validator
+	return Validate.Struct(v)
 }

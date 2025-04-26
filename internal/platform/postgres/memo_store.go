@@ -30,6 +30,7 @@ type PostgresMemoStore struct {
 func NewPostgresMemoStore(db store.DBTX, logger *slog.Logger) *PostgresMemoStore {
 	// Validate inputs
 	if db == nil {
+		// ALLOW-PANIC: Constructor enforcing required dependency
 		panic("db cannot be nil")
 	}
 
@@ -156,7 +157,11 @@ func (s *PostgresMemoStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 // It updates the status of an existing memo.
 // Returns store.ErrMemoNotFound if the memo does not exist.
 // Returns validation errors if the status is invalid.
-func (s *PostgresMemoStore) UpdateStatus(ctx context.Context, id uuid.UUID, status domain.MemoStatus) error {
+func (s *PostgresMemoStore) UpdateStatus(
+	ctx context.Context,
+	id uuid.UUID,
+	status domain.MemoStatus,
+) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 

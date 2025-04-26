@@ -50,14 +50,12 @@ dist/
 
 # Architecture planning outputs
 architect_output/
+thinktank_output/
 
 # Planning and task tracking files
 CONSULT-REQUEST.md
 CONSULTANT-PLAN.md
 *-PLAN.md
 **/glance.md
-
-# Development philosophy and documentation
-DEVELOPMENT_PHILOSOPHY.md
-DEVELOPMENT_PHILOSOPHY_APPENDIX_GO.md
 docs/prompts
+CODE_REVIEW.md

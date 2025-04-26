@@ -23,7 +23,12 @@ func TestTemplateExecution(t *testing.T) {
 	require.NoError(t, err, "Failed to execute template")
 	output = buf.String()
 
-	assert.Equal(t, "Generate flashcards for: This is a test memo.", output, "Template output should match")
+	assert.Equal(
+		t,
+		"Generate flashcards for: This is a test memo.",
+		output,
+		"Template output should match",
+	)
 }
 
 // Test template with invalid syntax

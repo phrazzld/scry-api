@@ -56,3 +56,57 @@ var (
 	// This is returned when attempting to create a user with an email that's already in use.
 	ErrEmailExists = fmt.Errorf("%w: email", ErrDuplicate)
 )
+
+// IsNotFoundError checks if the error is any kind of "not found" error.
+// This includes the generic ErrNotFound and all entity-specific not found errors.
+func IsNotFoundError(err error) bool {
+	return errors.Is(err, ErrNotFound) ||
+		errors.Is(err, ErrUserNotFound) ||
+		errors.Is(err, ErrMemoNotFound) ||
+		errors.Is(err, ErrCardNotFound) ||
+		errors.Is(err, ErrUserCardStatsNotFound)
+}
+
+// IsDuplicateError checks if the error is any kind of "duplicate" error.
+// This includes the generic ErrDuplicate and all entity-specific duplicate errors.
+func IsDuplicateError(err error) bool {
+	return errors.Is(err, ErrDuplicate) ||
+		errors.Is(err, ErrEmailExists)
+}
+
+// StoreError is a custom error type for store-specific errors with additional context.
+type StoreError struct {
+	Entity    string // The entity type (e.g., "user", "card")
+	Operation string // The operation that failed (e.g., "create", "update")
+	Message   string // Error message
+	Err       error  // Original error
+}
+
+// Error implements the error interface for StoreError.
+func (e *StoreError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf(
+			"%s operation on %s failed: %s: %v",
+			e.Operation,
+			e.Entity,
+			e.Message,
+			e.Err,
+		)
+	}
+	return fmt.Sprintf("%s operation on %s failed: %s", e.Operation, e.Entity, e.Message)
+}
+
+// Unwrap returns the wrapped error to support errors.Is/errors.As.
+func (e *StoreError) Unwrap() error {
+	return e.Err
+}
+
+// NewStoreError creates a new StoreError with the given entity, operation, message, and wrapped error.
+func NewStoreError(entity, operation, message string, err error) *StoreError {
+	return &StoreError{
+		Entity:    entity,
+		Operation: operation,
+		Message:   message,
+		Err:       err,
+	}
+}

@@ -110,7 +110,11 @@ func TestParallelIsolation(t *testing.T) {
 					INSERT INTO users (id, email, hashed_password, created_at, updated_at)
 					VALUES ($1, 'same-email@example.com', 'hash2', NOW(), NOW())
 				`, id2)
-				require.NoError(t, err, "Should be able to insert record with same email in Transaction2")
+				require.NoError(
+					t,
+					err,
+					"Should be able to insert record with same email in Transaction2",
+				)
 
 				// Verify the record exists in this transaction
 				var count int

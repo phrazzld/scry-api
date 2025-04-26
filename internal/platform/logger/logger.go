@@ -175,3 +175,19 @@ func FromContextOrDefault(ctx context.Context, defaultLogger *slog.Logger) *slog
 	}
 	return defaultLogger
 }
+
+// WithLogger adds a logger to the context.
+//
+// Parameters:
+//   - ctx: The parent context
+//   - logger: The logger to add to the context
+//
+// Returns:
+//   - context.Context: A new context containing the logger
+func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
+	if logger == nil {
+		// ALLOW-PANIC: Enforcing required dependency for context enrichment
+		panic("logger cannot be nil for WithLogger")
+	}
+	return context.WithValue(ctx, loggerKey{}, logger)
+}

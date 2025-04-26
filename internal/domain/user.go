@@ -7,15 +7,28 @@ import (
 	"github.com/google/uuid"
 )
 
-// Common validation errors
+// User-specific validation errors
 var (
-	ErrEmptyUserID         = errors.New("user ID cannot be empty")
-	ErrInvalidEmail        = errors.New("invalid email format")
-	ErrEmptyEmail          = errors.New("email cannot be empty")
-	ErrPasswordTooShort    = errors.New("password must be at least 12 characters long")
-	ErrPasswordTooLong     = errors.New("password must be at most 72 characters long")
-	ErrEmptyPassword       = errors.New("password cannot be empty")
-	ErrEmptyHashedPassword = errors.New("hashed password cannot be empty")
+	// ErrUserIDEmpty is returned when a user ID is empty or nil.
+	ErrUserIDEmpty = errors.New("user ID cannot be empty")
+
+	// ErrUserEmailInvalid is returned when an email address is malformed.
+	ErrUserEmailInvalid = errors.New("invalid email format")
+
+	// ErrUserEmailEmpty is returned when an email is empty.
+	ErrUserEmailEmpty = errors.New("email cannot be empty")
+
+	// ErrUserPasswordTooShort is returned when a password is too short.
+	ErrUserPasswordTooShort = errors.New("password must be at least 12 characters long")
+
+	// ErrUserPasswordTooLong is returned when a password is too long.
+	ErrUserPasswordTooLong = errors.New("password must be at most 72 characters long")
+
+	// ErrUserPasswordEmpty is returned when a password is empty.
+	ErrUserPasswordEmpty = errors.New("password cannot be empty")
+
+	// ErrUserHashedPasswordEmpty is returned when a hashed password is empty.
+	ErrUserHashedPasswordEmpty = errors.New("hashed password cannot be empty")
 )
 
 // User represents a registered user of the Scry application.
@@ -63,22 +76,22 @@ func NewUser(email, password string) (*User, error) {
 // Returns an error if any field fails validation.
 func (u *User) Validate() error {
 	if u.ID == uuid.Nil {
-		return ErrEmptyUserID
+		return ErrUserIDEmpty
 	}
 
 	if u.Email == "" {
-		return ErrEmptyEmail
+		return ErrUserEmailEmpty
 	}
 
 	// Basic email format validation
 	if !validateEmailFormat(u.Email) {
-		return ErrInvalidEmail
+		return ErrUserEmailInvalid
 	}
 
 	// For persistence, we need either a plaintext password (which will be hashed)
 	// or a hashed password to be present
 	if u.Password == "" && u.HashedPassword == "" {
-		return ErrEmptyHashedPassword
+		return ErrUserHashedPasswordEmpty
 	}
 
 	return nil
@@ -150,10 +163,10 @@ func validateEmailFormat(email string) bool {
 func ValidatePassword(password string) error {
 	passLen := len(password)
 	if passLen < 12 {
-		return ErrPasswordTooShort
+		return ErrUserPasswordTooShort
 	}
 	if passLen > 72 {
-		return ErrPasswordTooLong
+		return ErrUserPasswordTooLong
 	}
 	return nil
 }

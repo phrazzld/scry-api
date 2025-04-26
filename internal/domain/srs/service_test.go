@@ -6,11 +6,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDefaultService(t *testing.T) {
 	t.Parallel() // Enable parallel execution
-	service := NewDefaultService()
+	service, err := NewDefaultService()
+	require.NoError(t, err, "Failed to create SRS service")
 	if service == nil {
 		t.Fatal("Expected non-nil service")
 	}
@@ -28,7 +30,8 @@ func TestNewDefaultService(t *testing.T) {
 
 func TestCalculateNextReview(t *testing.T) {
 	t.Parallel() // Enable parallel execution
-	service := NewDefaultService()
+	service, err := NewDefaultService()
+	require.NoError(t, err, "Failed to create SRS service")
 	userID := uuid.New()
 	cardID := uuid.New()
 	now := time.Now().UTC()
@@ -161,7 +164,8 @@ func TestCalculateNextReview(t *testing.T) {
 
 func TestPostponeReview(t *testing.T) {
 	t.Parallel() // Enable parallel execution
-	service := NewDefaultService()
+	service, err := NewDefaultService()
+	require.NoError(t, err, "Failed to create SRS service")
 	userID := uuid.New()
 	cardID := uuid.New()
 	now := time.Now().UTC()

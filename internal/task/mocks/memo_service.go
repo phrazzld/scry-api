@@ -22,7 +22,11 @@ func (m *MockMemoService) GetMemo(ctx context.Context, memoID uuid.UUID) (*domai
 }
 
 // UpdateMemoStatus implements task.MemoService
-func (m *MockMemoService) UpdateMemoStatus(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error {
+func (m *MockMemoService) UpdateMemoStatus(
+	ctx context.Context,
+	memoID uuid.UUID,
+	status domain.MemoStatus,
+) error {
 	if m.UpdateMemoStatusFn != nil {
 		return m.UpdateMemoStatusFn(ctx, memoID, status)
 	}

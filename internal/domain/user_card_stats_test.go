@@ -64,14 +64,14 @@ func TestNewUserCardStats(t *testing.T) {
 
 	// Test invalid userID
 	_, err = NewUserCardStats(uuid.Nil, cardID)
-	if err != ErrEmptyStatsUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyStatsUserID, err)
+	if err != ErrStatsUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrStatsUserIDEmpty, err)
 	}
 
 	// Test invalid cardID
 	_, err = NewUserCardStats(userID, uuid.Nil)
-	if err != ErrEmptyStatsCardID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyStatsCardID, err)
+	if err != ErrStatsCardIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrStatsCardIDEmpty, err)
 	}
 }
 
@@ -92,29 +92,29 @@ func TestUserCardStatsValidate(t *testing.T) {
 	// Test invalid UserID
 	invalidStats := validStats
 	invalidStats.UserID = uuid.Nil
-	if err := invalidStats.Validate(); err != ErrEmptyStatsUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyStatsUserID, err)
+	if err := invalidStats.Validate(); err != ErrStatsUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrStatsUserIDEmpty, err)
 	}
 
 	// Test invalid CardID
 	invalidStats = validStats
 	invalidStats.CardID = uuid.Nil
-	if err := invalidStats.Validate(); err != ErrEmptyStatsCardID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyStatsCardID, err)
+	if err := invalidStats.Validate(); err != ErrStatsCardIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrStatsCardIDEmpty, err)
 	}
 
 	// Test invalid Interval
 	invalidStats = validStats
 	invalidStats.Interval = -1
-	if err := invalidStats.Validate(); err != ErrInvalidInterval {
-		t.Errorf("Expected error %v, got %v", ErrInvalidInterval, err)
+	if err := invalidStats.Validate(); err != ErrStatsIntervalInvalid {
+		t.Errorf("Expected error %v, got %v", ErrStatsIntervalInvalid, err)
 	}
 
 	// Test invalid EaseFactor
 	invalidStats = validStats
 	invalidStats.EaseFactor = 0.5
-	if err := invalidStats.Validate(); err != ErrInvalidEaseFactor {
-		t.Errorf("Expected error %v, got %v", ErrInvalidEaseFactor, err)
+	if err := invalidStats.Validate(); err != ErrStatsEaseFactorInvalid {
+		t.Errorf("Expected error %v, got %v", ErrStatsEaseFactorInvalid, err)
 	}
 }
 

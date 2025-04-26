@@ -40,7 +40,13 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 			stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 
 			// 1. Create a user
-			userID := testutils.MustInsertUser(ctx, t, tx, "transaction-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"transaction-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// 2. Create a memo for this user
 			memo := &domain.Memo{
@@ -60,7 +66,12 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 			retrievedMemo, err := stores.MemoStore.GetByID(ctx, memo.ID)
 			require.NoError(t, err, "Failed to retrieve memo")
 			assert.Equal(t, memo.ID, retrievedMemo.ID, "Retrieved memo should have the same ID")
-			assert.Equal(t, memo.Text, retrievedMemo.Text, "Retrieved memo should have the same text")
+			assert.Equal(
+				t,
+				memo.Text,
+				retrievedMemo.Text,
+				"Retrieved memo should have the same text",
+			)
 
 			// The transaction will be automatically rolled back at the end of this function
 			// No need to worry about cleanup!

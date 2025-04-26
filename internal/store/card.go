@@ -56,13 +56,31 @@ type CardStore interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// GetNextReviewCard retrieves the next card due for review for a user.
-	// This is based on the UserCardStats.NextReviewAt field.
-	// Returns ErrNotImplemented for stub implementations.
-	// Returns ErrNotFound if there are no cards due for review.
-	// This method may involve complex sorting/filtering logic based on SRS.
+	// It determines which card is due next based on the UserCardStats.NextReviewAt field,
+	// returning the card with the earliest NextReviewAt that is <= current time.
+	//
+	// The method queries both the cards and user_card_stats tables, joining them to find
+	// cards owned by the specified user that are due for review (based on NextReviewAt).
+	// Results are ordered by NextReviewAt ascending (oldest due cards first).
+	//
+	// Parameters:
+	//   - ctx: Context for the operation, which can be used for cancellation
+	//   - userID: UUID of the user whose cards to check for review
+	//
+	// Returns:
+	//   - (*domain.Card, nil): The next card due for review if one exists
+	//   - (nil, store.ErrCardNotFound): If no cards are due for review
+	//   - (nil, error): Any other error, typically from the database
+	//
+	// Error Handling:
+	//   - Returns store.ErrCardNotFound (which wraps store.ErrNotFound) when no cards are due
+	//   - Database errors are mapped to appropriate store errors via MapError or similar
+	//
+	// This method is central to the spaced repetition system (SRS) functionality and
+	// should be optimized for performance, as it may be called frequently during review sessions.
 	GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
 
-	// WithTxCardStore returns a new CardStore instance that uses the provided transaction.
+	// WithTx returns a new CardStore instance that uses the provided transaction.
 	// This allows for multiple operations to be executed within a single transaction.
 	// The transaction should be created and managed by the caller (typically a service).
 	//
@@ -72,8 +90,12 @@ type CardStore interface {
 	//
 	// Example usage:
 	//   err := store.RunInTransaction(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-	//       txCardStore := cardStore.WithTxCardStore(tx)
+	//       txCardStore := cardStore.WithTx(tx)
 	//       return txCardStore.CreateMultiple(ctx, cards)
 	//   })
-	WithTxCardStore(tx *sql.Tx) CardStore
+	WithTx(tx *sql.Tx) CardStore
+
+	// DB returns the underlying database connection.
+	// This is used for transaction management with store.RunInTransaction.
+	DB() *sql.DB
 }

@@ -93,7 +93,10 @@ func (s *MockTaskStore) GetPendingTasks(ctx context.Context) ([]Task, error) {
 }
 
 // GetProcessingTasks retrieves tasks with "processing" status
-func (s *MockTaskStore) GetProcessingTasks(ctx context.Context, olderThan time.Duration) ([]Task, error) {
+func (s *MockTaskStore) GetProcessingTasks(
+	ctx context.Context,
+	olderThan time.Duration,
+) ([]Task, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 

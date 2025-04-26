@@ -61,7 +61,9 @@ func TestMain(m *testing.M) {
 					// Get the project root directory for migrations
 					_, thisFile, _, ok := runtime.Caller(0)
 					if !ok {
-						fmt.Println("Failed to get current file path from runtime.Caller - skipping integration tests")
+						fmt.Println(
+							"Failed to get current file path from runtime.Caller - skipping integration tests",
+						)
 					} else {
 						// Get the directory containing this file (cmd/server)
 						thisDir := filepath.Dir(thisFile)

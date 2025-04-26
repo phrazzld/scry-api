@@ -59,7 +59,11 @@ func (g *TestableGeminiGenerator) Client() *gemini.MockGenAIClient {
 // Returns:
 //   - The formatted prompt string
 //   - An error if formatting fails or if memoText is empty
-func CreatePromptForTest(g *TestableGeminiGenerator, ctx context.Context, memoText string) (string, error) {
+func CreatePromptForTest(
+	g *TestableGeminiGenerator,
+	ctx context.Context,
+	memoText string,
+) (string, error) {
 	if memoText == "" {
 		return "", gemini.ErrEmptyMemoText
 	}

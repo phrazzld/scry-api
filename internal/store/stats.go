@@ -20,7 +20,15 @@ type UserCardStatsStore interface {
 	// Get retrieves user card statistics by the combination of user ID and card ID.
 	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.
 	// This method retrieves a single entry that matches both IDs exactly.
+	// NOTE: This method does NOT provide any row locking, so it should not be used
+	// when you plan to update the row and need concurrency protection.
 	Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
+
+	// GetForUpdate retrieves user card statistics with a row-level lock using SELECT FOR UPDATE.
+	// This should be used within a transaction when you plan to update the row
+	// and need protection from concurrent modifications.
+	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.
+	GetForUpdate(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
 
 	// Update modifies an existing statistics entry.
 	// It handles domain validation internally.

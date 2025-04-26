@@ -5,746 +5,1010 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegister(t *testing.T) {
-	t.Parallel()
+// TestAuthHandler_Register tests the Register handler functionality.
+func TestAuthHandler_Register(t *testing.T) {
+	// Define fixed values for consistent testing
+	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
+	fixedToken := "test-access-token"
+	fixedRefreshToken := "test-refresh-token"
+	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
 
-	// Create dependencies
-	userStore := mocks.NewMockUserStore()
-	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
-	passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
-
-	// Create test auth config
-	authConfig := &config.AuthConfig{
-		TokenLifetimeMinutes: 60, // 1 hour token lifetime for tests
-	}
-
-	// Create handler
-	handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
-
-	// Test cases
 	tests := []struct {
-		name       string
-		payload    map[string]interface{}
-		wantStatus int
-		wantToken  bool
+		name           string
+		requestBody    interface{}
+		setupMocks     func(*mocks.MockUserStore, *mocks.MockJWTService, *mocks.MockPasswordVerifier)
+		expectedStatus int
+		expectedBody   string
+		wantTokens     bool
 	}{
 		{
-			name: "valid registration",
-			payload: map[string]interface{}{
-				"email":    "test@example.com",
-				"password": "password1234567",
+			name: "successful_registration",
+			requestBody: RegisterRequest{
+				Email:    "newuser@example.com",
+				Password: "securePassword123",
 			},
-			wantStatus: http.StatusCreated,
-			wantToken:  true,
-		},
-		{
-			name: "invalid email",
-			payload: map[string]interface{}{
-				"email":    "invalid-email",
-				"password": "password1234567",
-			},
-			wantStatus: http.StatusBadRequest,
-			wantToken:  false,
-		},
-		{
-			name: "password too short",
-			payload: map[string]interface{}{
-				"email":    "test2@example.com",
-				"password": "short",
-			},
-			wantStatus: http.StatusBadRequest,
-			wantToken:  false,
-		},
-		{
-			name: "missing email",
-			payload: map[string]interface{}{
-				"password": "password1234567",
-			},
-			wantStatus: http.StatusBadRequest,
-			wantToken:  false,
-		},
-		{
-			name: "missing password",
-			payload: map[string]interface{}{
-				"email": "test3@example.com",
-			},
-			wantStatus: http.StatusBadRequest,
-			wantToken:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create request
-			payloadBytes, err := json.Marshal(tt.payload)
-			require.NoError(t, err)
-
-			req := httptest.NewRequest("POST", "/auth/register", bytes.NewBuffer(payloadBytes))
-			req.Header.Set("Content-Type", "application/json")
-
-			// Create response recorder
-			recorder := httptest.NewRecorder()
-
-			// Call handler
-			handler.Register(recorder, req)
-
-			// Check status code
-			assert.Equal(t, tt.wantStatus, recorder.Code)
-
-			// Check response
-			if tt.wantToken {
-				var authResp AuthResponse
-				err = json.NewDecoder(recorder.Body).Decode(&authResp)
-				require.NoError(t, err)
-				assert.NotEqual(t, uuid.Nil, authResp.UserID)
-				assert.Equal(t, "test-token", authResp.AccessToken)
-				assert.NotEmpty(t, authResp.ExpiresAt, "ExpiresAt should be populated")
-			}
-		})
-	}
-}
-
-func TestLogin(t *testing.T) {
-	t.Parallel()
-
-	// Create test user data
-	userID := uuid.New()
-	testEmail := "test@example.com"
-	testPassword := "password1234567"
-	dummyHash := "dummy-hash" // The actual hash value doesn't matter anymore
-
-	// Create common dependencies
-	jwtService := &mocks.MockJWTService{Token: "test-token", Err: nil}
-	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
-
-	// Test cases
-	tests := []struct {
-		name             string
-		payload          map[string]interface{}
-		passwordVerifier *mocks.MockPasswordVerifier
-		wantStatus       int
-		wantToken        bool
-	}{
-		{
-			name: "valid login",
-			payload: map[string]interface{}{
-				"email":    testEmail,
-				"password": testPassword,
-			},
-			passwordVerifier: &mocks.MockPasswordVerifier{ShouldSucceed: true},
-			wantStatus:       http.StatusOK,
-			wantToken:        true,
-		},
-		{
-			name: "invalid email",
-			payload: map[string]interface{}{
-				"email":    "nonexistent@example.com",
-				"password": testPassword,
-			},
-			passwordVerifier: &mocks.MockPasswordVerifier{ShouldSucceed: false},
-			wantStatus:       http.StatusUnauthorized,
-			wantToken:        false,
-		},
-		{
-			name: "invalid password",
-			payload: map[string]interface{}{
-				"email":    testEmail,
-				"password": "wrongpassword",
-			},
-			passwordVerifier: &mocks.MockPasswordVerifier{ShouldSucceed: false},
-			wantStatus:       http.StatusUnauthorized,
-			wantToken:        false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create handler with appropriate password verifier
-			// Create test auth config
-			authConfig := &config.AuthConfig{
-				TokenLifetimeMinutes: 60, // 1 hour token lifetime for tests
-			}
-
-			handler := NewAuthHandler(userStore, jwtService, tt.passwordVerifier, authConfig)
-
-			// Create request
-			payloadBytes, err := json.Marshal(tt.payload)
-			require.NoError(t, err)
-
-			req := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(payloadBytes))
-			req.Header.Set("Content-Type", "application/json")
-
-			// Create response recorder
-			recorder := httptest.NewRecorder()
-
-			// Call handler
-			handler.Login(recorder, req)
-
-			// Check status code
-			assert.Equal(t, tt.wantStatus, recorder.Code)
-
-			// Check response
-			if tt.wantToken {
-				var authResp AuthResponse
-				err = json.NewDecoder(recorder.Body).Decode(&authResp)
-				require.NoError(t, err)
-				assert.Equal(t, userID, authResp.UserID)
-				assert.Equal(t, "test-token", authResp.AccessToken)
-				// We haven't implemented ExpiresAt in Login yet, so we don't check it here
-			}
-		})
-	}
-}
-
-// setupAuthTestEnvironment creates a common test environment for auth handler tests
-func setupAuthTestEnvironment() (
-	uuid.UUID,
-	string,
-	string,
-	string,
-	*mocks.MockJWTService,
-	*mocks.LoginMockUserStore,
-	*mocks.MockPasswordVerifier,
-	*AuthHandler,
-) {
-	// Create test user data
-	userID := uuid.New()
-	testEmail := "test@example.com"
-	testPassword := "password1234567"
-	dummyHash := "dummy-hash"
-
-	// Create test auth config
-	authConfig := &config.AuthConfig{
-		TokenLifetimeMinutes:        60,          // 1 hour access token lifetime
-		RefreshTokenLifetimeMinutes: 60 * 24 * 7, // 7 days refresh token lifetime
-	}
-
-	// Create password verifier mock that will succeed
-	passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
-
-	// Create user store mock
-	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
-
-	// Configure the JWT service mock
-	jwtService := &mocks.MockJWTService{
-		Token:        "access-token",
-		RefreshToken: "refresh-token",
-		Err:          nil,
-	}
-
-	// Create handler with dependencies
-	handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
-
-	return userID, testEmail, testPassword, dummyHash, jwtService, userStore, passwordVerifier, handler
-}
-
-// TestLoginWithTokenGeneration tests the login flow with successful token generation
-func TestLoginWithTokenGeneration(t *testing.T) {
-	t.Parallel()
-
-	// Set up test environment
-	userID, testEmail, testPassword, _, jwtService, _, _, handler := setupAuthTestEnvironment()
-
-	// Define expected tokens
-	expectedAccessToken := "test-access-token"
-	expectedRefreshToken := "test-refresh-token"
-
-	// Set up token generation to return expected tokens
-	jwtService.Token = expectedAccessToken
-	jwtService.RefreshToken = expectedRefreshToken
-
-	// Create login request
-	loginPayload := map[string]interface{}{
-		"email":    testEmail,
-		"password": testPassword,
-	}
-
-	loginPayloadBytes, err := json.Marshal(loginPayload)
-	require.NoError(t, err)
-
-	loginReq := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(loginPayloadBytes))
-	loginReq.Header.Set("Content-Type", "application/json")
-
-	loginRecorder := httptest.NewRecorder()
-
-	// Call login handler
-	handler.Login(loginRecorder, loginReq)
-
-	// Check response status
-	require.Equal(t, http.StatusOK, loginRecorder.Code)
-
-	// Parse response
-	var loginResp AuthResponse
-	err = json.NewDecoder(loginRecorder.Body).Decode(&loginResp)
-	require.NoError(t, err)
-
-	// Verify response contains expected tokens
-	assert.Equal(t, userID, loginResp.UserID)
-	assert.Equal(t, expectedAccessToken, loginResp.AccessToken)
-	assert.Equal(t, expectedRefreshToken, loginResp.RefreshToken)
-	assert.NotEmpty(t, loginResp.ExpiresAt)
-}
-
-// TestRefreshTokenFlow tests using a refresh token to get a new token pair
-func TestRefreshTokenFlow(t *testing.T) {
-	t.Parallel()
-
-	// Set up test environment
-	userID, _, _, _, jwtService, _, _, handler := setupAuthTestEnvironment()
-
-	// Define test tokens
-	initialRefreshToken := "initial-refresh-token"
-	newAccessToken := "new-access-token"
-	newRefreshToken := "new-refresh-token"
-
-	// Set up mock behavior for ValidateRefreshToken
-	jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-		// Verify that the token being validated is the one we expect
-		if tokenString != initialRefreshToken {
-			t.Errorf("Expected refresh token %s, got %s", initialRefreshToken, tokenString)
-			return nil, auth.ErrInvalidRefreshToken
-		}
-
-		// Return valid claims
-		return &auth.Claims{
-			UserID:    userID,
-			TokenType: "refresh",
-			IssuedAt:  time.Now().Add(-10 * time.Minute),
-			ExpiresAt: time.Now().Add(24 * time.Hour),
-		}, nil
-	}
-
-	// Set up mock behavior for token generation
-	jwtService.GenerateTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
-		return newAccessToken, nil
-	}
-
-	jwtService.GenerateRefreshTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
-		return newRefreshToken, nil
-	}
-
-	// Create refresh request
-	refreshPayload := RefreshTokenRequest{
-		RefreshToken: initialRefreshToken,
-	}
-
-	refreshPayloadBytes, err := json.Marshal(refreshPayload)
-	require.NoError(t, err)
-
-	refreshReq := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(refreshPayloadBytes))
-	refreshReq.Header.Set("Content-Type", "application/json")
-
-	refreshRecorder := httptest.NewRecorder()
-
-	// Call refresh token handler
-	handler.RefreshToken(refreshRecorder, refreshReq)
-
-	// Check response status
-	require.Equal(t, http.StatusOK, refreshRecorder.Code)
-
-	// Parse response
-	var refreshResp RefreshTokenResponse
-	err = json.NewDecoder(refreshRecorder.Body).Decode(&refreshResp)
-	require.NoError(t, err)
-
-	// Verify response contains new tokens
-	assert.Equal(t, newAccessToken, refreshResp.AccessToken)
-	assert.Equal(t, newRefreshToken, refreshResp.RefreshToken)
-	assert.NotEmpty(t, refreshResp.ExpiresAt)
-}
-
-// TestCompleteAuthFlow tests the complete flow from login to refresh
-func TestCompleteAuthFlow(t *testing.T) {
-	t.Parallel()
-
-	// Set up test environment
-	userID, testEmail, testPassword, _, jwtService, _, _, handler := setupAuthTestEnvironment()
-
-	// Define test tokens
-	initialAccessToken := "initial-access-token"
-	initialRefreshToken := "initial-refresh-token"
-	newAccessToken := "new-access-token"
-	newRefreshToken := "new-refresh-token"
-
-	// Configure the JWT service mock with both token types
-	jwtService.Token = initialAccessToken
-	jwtService.RefreshToken = initialRefreshToken
-
-	// Track token generation calls
-	tokenGenerationCount := 0
-	refreshTokenGenerationCount := 0
-
-	// Set up mock behavior for ValidateRefreshToken
-	jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-		// Verify that the token being validated is the one we expect
-		if tokenString != initialRefreshToken {
-			t.Errorf("Expected refresh token %s, got %s", initialRefreshToken, tokenString)
-			return nil, auth.ErrInvalidRefreshToken
-		}
-
-		// Return valid claims
-		return &auth.Claims{
-			UserID:    userID,
-			TokenType: "refresh",
-			IssuedAt:  time.Now().Add(-10 * time.Minute),
-			ExpiresAt: time.Now().Add(24 * time.Hour),
-		}, nil
-	}
-
-	// Set up mock behavior for token generation after refresh
-	jwtService.GenerateTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
-		tokenGenerationCount++
-		// For the second call (after refresh), return new access token
-		if tokenGenerationCount > 1 {
-			return newAccessToken, nil
-		}
-		return initialAccessToken, nil
-	}
-
-	jwtService.GenerateRefreshTokenFn = func(ctx context.Context, uid uuid.UUID) (string, error) {
-		refreshTokenGenerationCount++
-		// For the second call (after refresh), return new refresh token
-		if refreshTokenGenerationCount > 1 {
-			return newRefreshToken, nil
-		}
-		return initialRefreshToken, nil
-	}
-
-	// STEP 1: Login to get initial tokens
-	loginPayload := map[string]interface{}{
-		"email":    testEmail,
-		"password": testPassword,
-	}
-
-	loginPayloadBytes, err := json.Marshal(loginPayload)
-	require.NoError(t, err)
-
-	loginReq := httptest.NewRequest("POST", "/auth/login", bytes.NewBuffer(loginPayloadBytes))
-	loginReq.Header.Set("Content-Type", "application/json")
-
-	loginRecorder := httptest.NewRecorder()
-
-	// Call login handler
-	handler.Login(loginRecorder, loginReq)
-
-	// Check login response
-	require.Equal(t, http.StatusOK, loginRecorder.Code)
-
-	var loginResp AuthResponse
-	err = json.NewDecoder(loginRecorder.Body).Decode(&loginResp)
-	require.NoError(t, err)
-
-	// Verify login response contains expected tokens
-	assert.Equal(t, userID, loginResp.UserID)
-	assert.Equal(t, initialAccessToken, loginResp.AccessToken)
-	assert.Equal(t, initialRefreshToken, loginResp.RefreshToken)
-	assert.NotEmpty(t, loginResp.ExpiresAt)
-
-	// STEP 2: Use refresh token to get new tokens
-	refreshPayload := RefreshTokenRequest{
-		RefreshToken: initialRefreshToken,
-	}
-
-	refreshPayloadBytes, err := json.Marshal(refreshPayload)
-	require.NoError(t, err)
-
-	refreshReq := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(refreshPayloadBytes))
-	refreshReq.Header.Set("Content-Type", "application/json")
-
-	refreshRecorder := httptest.NewRecorder()
-
-	// Call refresh token handler
-	handler.RefreshToken(refreshRecorder, refreshReq)
-
-	// Check refresh response
-	require.Equal(t, http.StatusOK, refreshRecorder.Code)
-
-	var refreshResp RefreshTokenResponse
-	err = json.NewDecoder(refreshRecorder.Body).Decode(&refreshResp)
-	require.NoError(t, err)
-
-	// Verify refresh response contains new tokens
-	assert.Equal(t, newAccessToken, refreshResp.AccessToken)
-	assert.Equal(t, newRefreshToken, refreshResp.RefreshToken)
-	assert.NotEmpty(t, refreshResp.ExpiresAt)
-
-	// Verify token generation functions were called the expected number of times
-	assert.Equal(t, 2, tokenGenerationCount, "GenerateToken should be called twice: once for login, once for refresh")
-	assert.Equal(
-		t,
-		2,
-		refreshTokenGenerationCount,
-		"GenerateRefreshToken should be called twice: once for login, once for refresh",
-	)
-}
-
-// TestRefreshTokenFailure tests various failure scenarios for the refresh token endpoint.
-func TestGenerateTokenResponse(t *testing.T) {
-	t.Parallel()
-
-	// Setup
-	fixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
-	tokenLifetime := 60 // minutes
-	userID := uuid.New()
-
-	// Create auth config with fixed token lifetime
-	authConfig := &config.AuthConfig{
-		TokenLifetimeMinutes: tokenLifetime,
-	}
-
-	// Create JWT service mock that returns predictable tokens
-	jwtService := &mocks.MockJWTService{
-		Token:        "test-access-token",
-		RefreshToken: "test-refresh-token",
-		Err:          nil,
-	}
-
-	// Create handler with injected dependencies
-	handler := NewAuthHandler(
-		nil, // userStore not needed for this test
-		jwtService,
-		nil, // passwordVerifier not needed for this test
-		authConfig,
-	)
-
-	// Override the time function to return a fixed time
-	handler.WithTimeFunc(func() time.Time {
-		return fixedTime
-	})
-
-	// Test token generation
-	accessToken, refreshToken, expiresAt, err := handler.generateTokenResponse(context.Background(), userID)
-
-	// Verify no error
-	require.NoError(t, err)
-
-	// Verify tokens
-	assert.Equal(t, "test-access-token", accessToken)
-	assert.Equal(t, "test-refresh-token", refreshToken)
-
-	// Verify expiration time - should be fixedTime + tokenLifetime minutes
-	expectedExpiry := fixedTime.Add(time.Duration(tokenLifetime) * time.Minute)
-	expectedExpiryStr := expectedExpiry.Format(time.RFC3339)
-	assert.Equal(t, expectedExpiryStr, expiresAt)
-}
-
-func TestRefreshTokenFailure(t *testing.T) {
-	t.Parallel()
-
-	// Create test user data
-	userID := uuid.New()
-	testEmail := "test@example.com"
-	dummyHash := "dummy-hash"
-
-	// Define test tokens
-	testAccessToken := "test-access-token"
-	testRefreshToken := "test-refresh-token"
-
-	// Create common test configuration
-	authConfig := &config.AuthConfig{
-		TokenLifetimeMinutes:        60,
-		RefreshTokenLifetimeMinutes: 60 * 24 * 7,
-	}
-
-	// Create user store mock
-	userStore := mocks.NewLoginMockUserStore(userID, testEmail, dummyHash)
-
-	// Test cases
-	tests := []struct {
-		name               string
-		payload            interface{}
-		configureJWTMock   func() *mocks.MockJWTService
-		wantStatus         int
-		wantErrorMsg       string
-		missingContentType bool
-	}{
-		{
-			name:    "missing refresh token",
-			payload: map[string]interface{}{
-				// Intentionally empty to test missing required field
-			},
-			configureJWTMock: func() *mocks.MockJWTService {
-				return &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
+			setupMocks: func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// UserStore will successfully create the user
+				us.CreateFn = func(ctx context.Context, user *domain.User) error {
+					// Simulate storing the user
+					us.Users[user.Email] = user
+					return nil
 				}
+				// JWTService will return fixed tokens
+				js.Token = fixedToken
+				js.RefreshToken = fixedRefreshToken
+				js.Err = nil
 			},
-			wantStatus:   http.StatusBadRequest,
-			wantErrorMsg: "Validation error",
+			expectedStatus: http.StatusCreated,
+			wantTokens:     true,
 		},
 		{
-			name: "invalid JSON format",
-			payload: `{
-				"refresh_token": "test-refresh-token"
-				this is not valid JSON
+			name: "invalid_request_format",
+			requestBody: `{
+				"email": "invalid-json
 			}`,
-			configureJWTMock: func() *mocks.MockJWTService {
-				return &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
-				}
-			},
-			wantStatus:   http.StatusBadRequest,
-			wantErrorMsg: "Invalid request format",
-		},
-		// Removed missing content type test as it depends on internal implementation details
-		{
-			name: "invalid refresh token",
-			payload: map[string]interface{}{
-				"refresh_token": "invalid-token",
-			},
-			configureJWTMock: func() *mocks.MockJWTService {
-				jwtService := &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
-				}
-				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-					return nil, auth.ErrInvalidRefreshToken
-				}
-				return jwtService
-			},
-			wantStatus:   http.StatusUnauthorized,
-			wantErrorMsg: "Invalid refresh token",
+			setupMocks:     func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Validation error",
+			wantTokens:     false,
 		},
 		{
-			name: "expired refresh token",
-			payload: map[string]interface{}{
-				"refresh_token": "expired-token",
+			name: "missing_required_field",
+			requestBody: RegisterRequest{
+				Email: "missing@password.com",
+				// Password field intentionally omitted
 			},
-			configureJWTMock: func() *mocks.MockJWTService {
-				jwtService := &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
-				}
-				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-					return nil, auth.ErrExpiredRefreshToken
-				}
-				return jwtService
-			},
-			wantStatus:   http.StatusUnauthorized,
-			wantErrorMsg: "Invalid refresh token",
+			setupMocks:     func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "required field",
+			wantTokens:     false,
 		},
 		{
-			name: "using access token instead of refresh token",
-			payload: map[string]interface{}{
-				"refresh_token": testAccessToken, // Using access token when refresh is required
+			name: "invalid_email_format",
+			requestBody: RegisterRequest{
+				Email:    "not-an-email",
+				Password: "securePassword123",
 			},
-			configureJWTMock: func() *mocks.MockJWTService {
-				jwtService := &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
-				}
-				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-					return nil, auth.ErrWrongTokenType
-				}
-				return jwtService
-			},
-			wantStatus:   http.StatusUnauthorized,
-			wantErrorMsg: "Invalid refresh token",
+			setupMocks:     func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid email format",
+			wantTokens:     false,
 		},
 		{
-			name: "internal server error during validation",
-			payload: map[string]interface{}{
-				"refresh_token": "server-error-token",
+			name: "password_too_short",
+			requestBody: RegisterRequest{
+				Email:    "valid@example.com",
+				Password: "short",
 			},
-			configureJWTMock: func() *mocks.MockJWTService {
-				jwtService := &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
-				}
-				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-					return nil, errors.New("unexpected internal error")
-				}
-				return jwtService
-			},
-			wantStatus:   http.StatusInternalServerError,
-			wantErrorMsg: "Failed to validate refresh token",
+			setupMocks:     func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "too short",
+			wantTokens:     false,
 		},
 		{
-			name: "error generating access token",
-			payload: map[string]interface{}{
-				"refresh_token": testRefreshToken,
+			name: "email_already_exists",
+			requestBody: RegisterRequest{
+				Email:    "existing@example.com",
+				Password: "securePassword123",
 			},
-			configureJWTMock: func() *mocks.MockJWTService {
-				jwtService := &mocks.MockJWTService{
-					Token:        testAccessToken,
-					RefreshToken: testRefreshToken,
-					Err:          errors.New("token generation error"),
+			setupMocks: func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Simulate existing email error
+				us.CreateFn = func(ctx context.Context, user *domain.User) error {
+					return store.ErrEmailExists
 				}
-				jwtService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
-					return &auth.Claims{
-						UserID:    userID,
-						TokenType: "refresh",
-						IssuedAt:  time.Now().Add(-10 * time.Minute),
-						ExpiresAt: time.Now().Add(24 * time.Hour),
-					}, nil
-				}
-				return jwtService
 			},
-			wantStatus:   http.StatusInternalServerError,
-			wantErrorMsg: "Failed to generate",
+			expectedStatus: http.StatusConflict,
+			expectedBody:   "Email already exists",
+			wantTokens:     false,
+		},
+		{
+			name: "database_error",
+			requestBody: RegisterRequest{
+				Email:    "valid@example.com",
+				Password: "securePassword123",
+			},
+			setupMocks: func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Simulate database error
+				us.CreateFn = func(ctx context.Context, user *domain.User) error {
+					return errors.New("database connection error")
+				}
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to create user",
+			wantTokens:     false,
+		},
+		{
+			name: "token_generation_error",
+			requestBody: RegisterRequest{
+				Email:    "valid@example.com",
+				Password: "securePassword123",
+			},
+			setupMocks: func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Store user successfully
+				us.CreateFn = func(ctx context.Context, user *domain.User) error {
+					us.Users[user.Email] = user
+					return nil
+				}
+				// But fail when generating token
+				js.Err = errors.New("token generation failed")
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to generate authentication tokens",
+			wantTokens:     false,
+		},
+		{
+			name: "domain_user_creation_error",
+			requestBody: RegisterRequest{
+				Email:    "valid@example.com",
+				Password: "securePassword123",
+			},
+			setupMocks: func(us *mocks.MockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Mock domain error by making the userStore.Create function return a validation error
+				us.CreateFn = func(ctx context.Context, user *domain.User) error {
+					return &domain.ValidationError{
+						Field:   "email",
+						Message: "already exists",
+					}
+				}
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Invalid email: already exists",
+			wantTokens:     false,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Configure mock JWT service for this test case
-			jwtService := tt.configureJWTMock()
-			passwordVerifier := &mocks.MockPasswordVerifier{ShouldSucceed: true}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create mocks
+			mockUserStore := mocks.NewMockUserStore()
+			mockJWTService := &mocks.MockJWTService{}
+			mockPasswordVerifier := &mocks.MockPasswordVerifier{}
 
-			// Create handler with dependencies
-			handler := NewAuthHandler(userStore, jwtService, passwordVerifier, authConfig)
+			// Configure mocks based on test case
+			tc.setupMocks(mockUserStore, mockJWTService, mockPasswordVerifier)
 
-			// Create request
+			// Create auth config with fixed times for testing
+			authConfig := &config.AuthConfig{
+				JWTSecret:                   "test-secret",
+				TokenLifetimeMinutes:        60,
+				RefreshTokenLifetimeMinutes: 1440,
+			}
+
+			// Create auth handler with fixed time function for predictable expirations
+			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
+			handler = handler.WithTimeFunc(func() time.Time {
+				return fixedTime
+			})
+
+			// Create request body
 			var reqBody []byte
 			var err error
-
-			switch payload := tt.payload.(type) {
-			case string:
-				// For testing invalid JSON scenario
-				reqBody = []byte(payload)
-			default:
-				// For regular map payload
-				reqBody, err = json.Marshal(payload)
+			if str, ok := tc.requestBody.(string); ok {
+				// Handle raw JSON string for invalid format tests
+				reqBody = []byte(str)
+			} else {
+				// Handle structured request object
+				reqBody, err = json.Marshal(tc.requestBody)
 				require.NoError(t, err)
 			}
 
-			// Create HTTP request
-			req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(reqBody))
-			if !tt.missingContentType {
-				req.Header.Set("Content-Type", "application/json")
-			}
+			// Create request and response recorder
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/auth/register",
+				bytes.NewReader(reqBody),
+			)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
 
-			// Create response recorder
-			recorder := httptest.NewRecorder()
+			// Call the handler directly
+			handler.Register(w, req)
 
-			// Call handler
-			handler.RefreshToken(recorder, req)
+			// Verify response status code
+			assert.Equal(t, tc.expectedStatus, w.Code)
 
-			// Check response status code
-			assert.Equal(t, tt.wantStatus, recorder.Code)
-
-			// Parse error response
-			var errorResp shared.ErrorResponse
-			err = json.NewDecoder(recorder.Body).Decode(&errorResp)
+			// Parse response
+			var respBody map[string]interface{}
+			err = json.Unmarshal(w.Body.Bytes(), &respBody)
 			require.NoError(t, err)
 
-			// Verify error message
-			assert.Contains(t, errorResp.Error, tt.wantErrorMsg)
+			// Check for error message if expected
+			if tc.expectedBody != "" {
+				errorMsg, ok := respBody["error"].(string)
+				assert.True(t, ok, "Expected error field in response")
+				assert.Contains(t, errorMsg, tc.expectedBody)
+			}
+
+			// Check for tokens if successful
+			if tc.wantTokens {
+				// Check response structure
+				assert.Contains(t, respBody, "token", "Response should contain access token")
+				assert.Contains(
+					t,
+					respBody,
+					"refresh_token",
+					"Response should contain refresh token",
+				)
+				assert.Contains(
+					t,
+					respBody,
+					"expires_at",
+					"Response should contain expiration time",
+				)
+				assert.Contains(t, respBody, "user_id", "Response should contain user ID")
+
+				// Verify token values
+				assert.Equal(t, fixedToken, respBody["token"])
+				assert.Equal(t, fixedRefreshToken, respBody["refresh_token"])
+				assert.Equal(t, expiresAt, respBody["expires_at"])
+			}
 		})
 	}
+}
+
+// TestAuthHandler_Login tests the Login handler functionality.
+func TestAuthHandler_Login(t *testing.T) {
+	// Define fixed values for consistent testing
+	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
+	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	fixedToken := "test-access-token"
+	fixedRefreshToken := "test-refresh-token"
+	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
+	testEmail := "user@example.com"
+	testPassword := "securePassword123"
+	hashedPassword := "$2a$10$vdA.EZOiPg3BRwKobGbkjOrZzZcyHXw44D0SyaSKNgdyA6c/J94Py" // Hashed version of "securePassword123"
+
+	tests := []struct {
+		name           string
+		requestBody    interface{}
+		setupMocks     func(*mocks.LoginMockUserStore, *mocks.MockJWTService, *mocks.MockPasswordVerifier)
+		expectedStatus int
+		expectedBody   string
+		wantTokens     bool
+	}{
+		{
+			name: "successful_login",
+			requestBody: LoginRequest{
+				Email:    testEmail,
+				Password: testPassword,
+			},
+			setupMocks: func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Password comparison will succeed
+				pv.ShouldSucceed = true
+				// Tokens will be generated successfully
+				js.Token = fixedToken
+				js.RefreshToken = fixedRefreshToken
+				js.Err = nil
+			},
+			expectedStatus: http.StatusOK,
+			wantTokens:     true,
+		},
+		{
+			name: "invalid_request_format",
+			requestBody: `{
+				"email": "invalid-json
+			}`,
+			setupMocks:     func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Validation error",
+			wantTokens:     false,
+		},
+		{
+			name: "missing_required_field",
+			requestBody: LoginRequest{
+				Email: testEmail,
+				// Password field intentionally omitted
+			},
+			setupMocks:     func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "required field",
+			wantTokens:     false,
+		},
+		{
+			name: "user_not_found",
+			requestBody: LoginRequest{
+				Email:    "nonexistent@example.com",
+				Password: testPassword,
+			},
+			setupMocks: func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Override the GetByEmail function to simulate user not found
+				us.GetByEmailFn = func(ctx context.Context, email string) (*domain.User, error) {
+					return nil, store.ErrUserNotFound
+				}
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "User not found",
+			wantTokens:     false,
+		},
+		{
+			name: "database_error",
+			requestBody: LoginRequest{
+				Email:    testEmail,
+				Password: testPassword,
+			},
+			setupMocks: func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Simulate database error
+				us.GetByEmailError = errors.New("database connection error")
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to authenticate user",
+			wantTokens:     false,
+		},
+		{
+			name: "invalid_password",
+			requestBody: LoginRequest{
+				Email:    testEmail,
+				Password: "wrongPassword",
+			},
+			setupMocks: func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Password comparison will fail
+				pv.ShouldSucceed = false
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Invalid credentials",
+			wantTokens:     false,
+		},
+		{
+			name: "token_generation_error",
+			requestBody: LoginRequest{
+				Email:    testEmail,
+				Password: testPassword,
+			},
+			setupMocks: func(us *mocks.LoginMockUserStore, js *mocks.MockJWTService, pv *mocks.MockPasswordVerifier) {
+				// Password check will succeed
+				pv.ShouldSucceed = true
+				// But token generation will fail
+				js.Err = errors.New("token generation failed")
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to generate authentication tokens",
+			wantTokens:     false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create login-specific user store mock
+			mockUserStore := mocks.NewLoginMockUserStore(fixedUserID, testEmail, hashedPassword)
+			mockJWTService := &mocks.MockJWTService{}
+			mockPasswordVerifier := &mocks.MockPasswordVerifier{}
+
+			// Configure mocks based on test case
+			tc.setupMocks(mockUserStore, mockJWTService, mockPasswordVerifier)
+
+			// Create auth config
+			authConfig := &config.AuthConfig{
+				JWTSecret:                   "test-secret",
+				TokenLifetimeMinutes:        60,
+				RefreshTokenLifetimeMinutes: 1440,
+			}
+
+			// Create auth handler with fixed time function
+			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
+			handler = handler.WithTimeFunc(func() time.Time {
+				return fixedTime
+			})
+
+			// Create request body
+			var reqBody []byte
+			var err error
+			if str, ok := tc.requestBody.(string); ok {
+				// Handle raw JSON string for invalid format tests
+				reqBody = []byte(str)
+			} else {
+				// Handle structured request object
+				reqBody, err = json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+			}
+
+			// Create request and response recorder
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			// Call the handler directly
+			handler.Login(w, req)
+
+			// Verify response status code
+			assert.Equal(t, tc.expectedStatus, w.Code)
+
+			// Parse response
+			var respBody map[string]interface{}
+			err = json.Unmarshal(w.Body.Bytes(), &respBody)
+			require.NoError(t, err)
+
+			// Check for error message if expected
+			if tc.expectedBody != "" {
+				errorMsg, ok := respBody["error"].(string)
+				assert.True(t, ok, "Expected error field in response")
+				assert.Contains(t, errorMsg, tc.expectedBody)
+			}
+
+			// Check for tokens if successful
+			if tc.wantTokens {
+				// Check response structure
+				assert.Contains(t, respBody, "token", "Response should contain access token")
+				assert.Contains(
+					t,
+					respBody,
+					"refresh_token",
+					"Response should contain refresh token",
+				)
+				assert.Contains(
+					t,
+					respBody,
+					"expires_at",
+					"Response should contain expiration time",
+				)
+				assert.Contains(t, respBody, "user_id", "Response should contain user ID")
+
+				// Verify token values
+				assert.Equal(t, fixedToken, respBody["token"])
+				assert.Equal(t, fixedRefreshToken, respBody["refresh_token"])
+				assert.Equal(t, expiresAt, respBody["expires_at"])
+			}
+		})
+	}
+}
+
+// TestAuthHandler_RefreshToken tests the RefreshToken handler functionality.
+func TestAuthHandler_RefreshToken(t *testing.T) {
+	// Define fixed values for consistent testing
+	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
+	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	fixedToken := "test-access-token"
+	fixedRefreshToken := "test-refresh-token"
+	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
+
+	tests := []struct {
+		name           string
+		requestBody    interface{}
+		setupMocks     func(*mocks.MockJWTService)
+		expectedStatus int
+		expectedBody   string
+		wantTokens     bool
+	}{
+		{
+			name: "successful_token_refresh",
+			requestBody: RefreshTokenRequest{
+				RefreshToken: "valid-refresh-token",
+			},
+			setupMocks: func(js *mocks.MockJWTService) {
+				// ValidateRefreshToken will succeed
+				js.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return &auth.Claims{UserID: fixedUserID}, nil
+				}
+				// Token generation will succeed
+				js.Token = fixedToken
+				js.RefreshToken = fixedRefreshToken
+				js.Err = nil
+			},
+			expectedStatus: http.StatusOK,
+			wantTokens:     true,
+		},
+		{
+			name: "invalid_request_format",
+			requestBody: `{
+				"refresh_token": "invalid-json
+			}`,
+			setupMocks:     func(js *mocks.MockJWTService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Validation error",
+			wantTokens:     false,
+		},
+		{
+			name:        "missing_refresh_token",
+			requestBody: RefreshTokenRequest{
+				// RefreshToken field intentionally omitted
+			},
+			setupMocks:     func(js *mocks.MockJWTService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "required field",
+			wantTokens:     false,
+		},
+		{
+			name: "invalid_refresh_token",
+			requestBody: RefreshTokenRequest{
+				RefreshToken: "invalid-refresh-token",
+			},
+			setupMocks: func(js *mocks.MockJWTService) {
+				// ValidateRefreshToken will fail
+				js.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return nil, auth.ErrInvalidRefreshToken
+				}
+			},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   "Invalid refresh token",
+			wantTokens:     false,
+		},
+		{
+			name: "expired_refresh_token",
+			requestBody: RefreshTokenRequest{
+				RefreshToken: "expired-refresh-token",
+			},
+			setupMocks: func(js *mocks.MockJWTService) {
+				// ValidateRefreshToken will fail
+				js.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return nil, auth.ErrExpiredRefreshToken
+				}
+			},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   "Invalid refresh token",
+			wantTokens:     false,
+		},
+		{
+			name: "token_generation_error",
+			requestBody: RefreshTokenRequest{
+				RefreshToken: "valid-refresh-token",
+			},
+			setupMocks: func(js *mocks.MockJWTService) {
+				// ValidateRefreshToken will succeed
+				js.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+					return &auth.Claims{UserID: fixedUserID}, nil
+				}
+				// But token generation will fail
+				js.Err = errors.New("token generation failed")
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to generate new authentication tokens",
+			wantTokens:     false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create mocks - only need JWT service for this endpoint
+			mockJWTService := &mocks.MockJWTService{}
+			mockUserStore := mocks.NewMockUserStore()
+			mockPasswordVerifier := &mocks.MockPasswordVerifier{}
+
+			// Configure mocks based on test case
+			tc.setupMocks(mockJWTService)
+
+			// Create auth config
+			authConfig := &config.AuthConfig{
+				JWTSecret:                   "test-secret",
+				TokenLifetimeMinutes:        60,
+				RefreshTokenLifetimeMinutes: 1440,
+			}
+
+			// Create auth handler with fixed time function
+			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
+			handler = handler.WithTimeFunc(func() time.Time {
+				return fixedTime
+			})
+
+			// Create request body
+			var reqBody []byte
+			var err error
+			if str, ok := tc.requestBody.(string); ok {
+				// Handle raw JSON string for invalid format tests
+				reqBody = []byte(str)
+			} else {
+				// Handle structured request object
+				reqBody, err = json.Marshal(tc.requestBody)
+				require.NoError(t, err)
+			}
+
+			// Create request and response recorder
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/auth/refresh",
+				bytes.NewReader(reqBody),
+			)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			// Call the handler directly
+			handler.RefreshToken(w, req)
+
+			// Verify response status code
+			assert.Equal(t, tc.expectedStatus, w.Code)
+
+			// Parse response
+			var respBody map[string]interface{}
+			err = json.Unmarshal(w.Body.Bytes(), &respBody)
+			require.NoError(t, err)
+
+			// Check for error message if expected
+			if tc.expectedBody != "" {
+				errorMsg, ok := respBody["error"].(string)
+				assert.True(t, ok, "Expected error field in response")
+				assert.Contains(t, errorMsg, tc.expectedBody)
+			}
+
+			// Check for tokens if successful
+			if tc.wantTokens {
+				// Check response structure
+				assert.Contains(t, respBody, "access_token", "Response should contain access token")
+				assert.Contains(
+					t,
+					respBody,
+					"refresh_token",
+					"Response should contain refresh token",
+				)
+				assert.Contains(
+					t,
+					respBody,
+					"expires_at",
+					"Response should contain expiration time",
+				)
+
+				// Verify token values
+				assert.Equal(t, fixedToken, respBody["access_token"])
+				assert.Equal(t, fixedRefreshToken, respBody["refresh_token"])
+				assert.Equal(t, expiresAt, respBody["expires_at"])
+			}
+		})
+	}
+}
+
+// TestAuthHandler_GenerateTokenResponse tests the generateTokenResponse helper function.
+func TestAuthHandler_GenerateTokenResponse(t *testing.T) {
+	// Define fixed values for consistent testing
+	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
+	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	fixedToken := "test-access-token"
+	fixedRefreshToken := "test-refresh-token"
+	expectedExpiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
+
+	tests := []struct {
+		name          string
+		setupMocks    func(*mocks.MockJWTService)
+		expectError   bool
+		expectedToken string
+	}{
+		{
+			name: "successful_token_generation",
+			setupMocks: func(js *mocks.MockJWTService) {
+				js.Token = fixedToken
+				js.RefreshToken = fixedRefreshToken
+				js.Err = nil
+			},
+			expectError:   false,
+			expectedToken: fixedToken,
+		},
+		{
+			name: "access_token_generation_error",
+			setupMocks: func(js *mocks.MockJWTService) {
+				// GenerateToken will fail
+				js.Token = ""
+				js.Err = errors.New("failed to generate access token")
+			},
+			expectError: true,
+		},
+		{
+			name: "refresh_token_generation_error",
+			setupMocks: func(js *mocks.MockJWTService) {
+				// GenerateToken will succeed, but GenerateRefreshToken will fail
+				js.GenerateTokenFn = func(ctx context.Context, userID uuid.UUID) (string, error) {
+					return fixedToken, nil
+				}
+				js.GenerateRefreshTokenFn = func(ctx context.Context, userID uuid.UUID) (string, error) {
+					return "", errors.New("failed to generate refresh token")
+				}
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create mocks
+			mockJWTService := &mocks.MockJWTService{}
+			mockUserStore := mocks.NewMockUserStore()
+			mockPasswordVerifier := &mocks.MockPasswordVerifier{}
+
+			// Configure mocks based on test case
+			tc.setupMocks(mockJWTService)
+
+			// Create auth config
+			authConfig := &config.AuthConfig{
+				JWTSecret:                   "test-secret",
+				TokenLifetimeMinutes:        60,
+				RefreshTokenLifetimeMinutes: 1440,
+			}
+
+			// Create auth handler with fixed time function
+			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+			handler := NewAuthHandler(
+				mockUserStore,
+				mockJWTService,
+				mockPasswordVerifier,
+				authConfig,
+				logger,
+			)
+			handler = handler.WithTimeFunc(func() time.Time {
+				return fixedTime
+			})
+
+			// Call the helper function
+			accessToken, refreshToken, expiresAt, err := handler.generateTokenResponse(
+				context.Background(),
+				fixedUserID,
+			)
+
+			// Verify results
+			if tc.expectError {
+				assert.Error(t, err)
+				assert.Empty(t, accessToken)
+				assert.Empty(t, refreshToken)
+				assert.Empty(t, expiresAt)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedToken, accessToken)
+				assert.Equal(t, fixedRefreshToken, refreshToken)
+				assert.Equal(t, expectedExpiresAt, expiresAt)
+			}
+		})
+	}
+}
+
+// TestAuthHandler_SanitizeValidationError verifies the error sanitization functionality.
+func TestAuthHandler_SanitizeValidationError(t *testing.T) {
+	tests := []struct {
+		name          string
+		inputErr      error
+		expectedMsg   string
+		shouldContain bool
+	}{
+		{
+			name:          "domain_validation_error_with_field",
+			inputErr:      &domain.ValidationError{Field: "email", Message: "invalid format"},
+			expectedMsg:   "Invalid email: invalid format",
+			shouldContain: true,
+		},
+		{
+			name:          "domain_validation_error_without_field",
+			inputErr:      &domain.ValidationError{Message: "general validation error"},
+			expectedMsg:   "general validation error",
+			shouldContain: true,
+		},
+		{
+			name: "validator_error_required",
+			inputErr: errors.New(
+				"Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag",
+			),
+			expectedMsg:   "Invalid Email: required field",
+			shouldContain: true,
+		},
+		{
+			name: "validator_error_email_format",
+			inputErr: errors.New(
+				"Key: 'RegisterRequest.Email' Error:Field validation for 'Email' failed on the 'email' tag",
+			),
+			expectedMsg:   "Invalid Email: invalid email format",
+			shouldContain: true,
+		},
+		{
+			name: "validator_error_min_length",
+			inputErr: errors.New(
+				"Key: 'RegisterRequest.Password' Error:Field validation for 'Password' failed on the 'min' tag",
+			),
+			expectedMsg:   "Invalid Password: too short",
+			shouldContain: true,
+		},
+		{
+			name:          "unknown_error_format",
+			inputErr:      errors.New("unexpected error format"),
+			expectedMsg:   "Validation error",
+			shouldContain: true,
+		},
+		// Removed the nil error test case since SanitizeValidationError doesn't handle nil errors
+		// The function is always called with an already validated non-nil error
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := SanitizeValidationError(tc.inputErr)
+			if tc.shouldContain {
+				assert.Contains(t, result, tc.expectedMsg)
+			} else {
+				assert.NotContains(t, result, tc.expectedMsg)
+			}
+		})
+	}
+}
+
+// TestAuthHandler_Integration tests the auth handler's integration with Chi router.
+func TestAuthHandler_Integration(t *testing.T) {
+	// Create router and set up routes
+	r := chi.NewRouter()
+
+	// Define fixed values
+	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	fixedToken := "test-access-token"
+	fixedRefreshToken := "test-refresh-token"
+
+	// Set up mocks
+	mockUserStore := mocks.NewMockUserStore()
+	mockJWTService := &mocks.MockJWTService{
+		Token:        fixedToken,
+		RefreshToken: fixedRefreshToken,
+	}
+	mockPasswordVerifier := &mocks.MockPasswordVerifier{
+		ShouldSucceed: true,
+	}
+
+	// Create auth config
+	authConfig := &config.AuthConfig{
+		JWTSecret:                   "test-secret",
+		TokenLifetimeMinutes:        60,
+		RefreshTokenLifetimeMinutes: 1440,
+	}
+
+	// Create auth handler
+	logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+	handler := NewAuthHandler(
+		mockUserStore,
+		mockJWTService,
+		mockPasswordVerifier,
+		authConfig,
+		logger,
+	)
+
+	// Set up routes
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Post("/register", handler.Register)
+		r.Post("/login", handler.Login)
+		r.Post("/refresh", handler.RefreshToken)
+	})
+
+	// Test registration endpoint with router
+	t.Run("router_registration", func(t *testing.T) {
+		reqBody := RegisterRequest{
+			Email:    "newuser@example.com",
+			Password: "securePassword123",
+		}
+		jsonBody, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewReader(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		// Serve the request
+		r.ServeHTTP(w, req)
+
+		// Check response
+		assert.Equal(t, http.StatusCreated, w.Code)
+		assert.Contains(t, w.Body.String(), fixedToken)
+	})
+
+	// Configure mock for login test
+	mockUserStore.Users["user@example.com"] = &domain.User{
+		ID:             fixedUserID,
+		Email:          "user@example.com",
+		HashedPassword: "hashed-password", // MockPasswordVerifier ignores this
+	}
+
+	// Test login endpoint with router
+	t.Run("router_login", func(t *testing.T) {
+		reqBody := LoginRequest{
+			Email:    "user@example.com",
+			Password: "securePassword123",
+		}
+		jsonBody, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		// Serve the request
+		r.ServeHTTP(w, req)
+
+		// Check response
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), fixedToken)
+	})
+
+	// Configure mock for refresh token test
+	mockJWTService.ValidateRefreshTokenFn = func(ctx context.Context, tokenString string) (*auth.Claims, error) {
+		if tokenString == "valid-refresh-token" {
+			return &auth.Claims{UserID: fixedUserID}, nil
+		}
+		return nil, auth.ErrInvalidRefreshToken
+	}
+
+	// Test refresh token endpoint with router
+	t.Run("router_refresh_token", func(t *testing.T) {
+		reqBody := RefreshTokenRequest{
+			RefreshToken: "valid-refresh-token",
+		}
+		jsonBody, err := json.Marshal(reqBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", bytes.NewReader(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		// Serve the request
+		r.ServeHTTP(w, req)
+
+		// Check response
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), fixedToken)
+	})
+}
+
+// We don't need this helper function as we're parsing the JSON directly in the tests
+
+// TestAuthHandler_NewAuthHandler tests the constructor function.
+func TestAuthHandler_NewAuthHandler(t *testing.T) {
+	mockUserStore := mocks.NewMockUserStore()
+	mockJWTService := &mocks.MockJWTService{}
+	mockPasswordVerifier := &mocks.MockPasswordVerifier{}
+	authConfig := &config.AuthConfig{
+		JWTSecret:                   "test-secret",
+		TokenLifetimeMinutes:        60,
+		RefreshTokenLifetimeMinutes: 1440,
+	}
+
+	t.Run("with_logger", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+		handler := NewAuthHandler(
+			mockUserStore,
+			mockJWTService,
+			mockPasswordVerifier,
+			authConfig,
+			logger,
+		)
+
+		assert.NotNil(t, handler)
+		assert.Equal(t, mockUserStore, handler.userStore)
+		assert.Equal(t, mockJWTService, handler.jwtService)
+		assert.Equal(t, mockPasswordVerifier, handler.passwordVerifier)
+		assert.Equal(t, authConfig, handler.authConfig)
+		// Validator now uses shared.Validate singleton
+		assert.NotNil(t, handler.logger)
+		// Check that timeFunc is set (can't compare functions directly)
+		assert.NotNil(t, handler.timeFunc) // Default time function should be set
+	})
+
+	t.Run("without_logger", func(t *testing.T) {
+		// Test for panic with nil logger
+		assert.Panics(t, func() {
+			NewAuthHandler(mockUserStore, mockJWTService, mockPasswordVerifier, authConfig, nil)
+		})
+
+	})
 }

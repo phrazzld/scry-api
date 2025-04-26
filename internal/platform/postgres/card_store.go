@@ -35,6 +35,7 @@ type PostgresCardStore struct {
 func NewPostgresCardStore(db store.DBTX, logger *slog.Logger) *PostgresCardStore {
 	// Validate inputs
 	if db == nil {
+		// ALLOW-PANIC: Constructor enforcing required dependency
 		panic("db cannot be nil")
 	}
 
@@ -308,50 +309,79 @@ func (s *PostgresCardStore) Delete(ctx context.Context, id uuid.UUID) error {
 // GetNextReviewCard implements store.CardStore.GetNextReviewCard
 // It retrieves the next card due for review for a user.
 // This is based on the UserCardStats.NextReviewAt field.
-//
-// TODO(card-review): Implement GetNextReviewCard with proper SRS algorithm integration:
-//  1. Add SQL query to fetch the next card due for review, using the UserCardStats.NextReviewAt
-//     field to determine which cards are ready for review
-//  2. Sort by NextReviewAt (ascending) to prioritize cards that are most overdue
-//  3. Apply additional filtering for card status if needed
-//  4. Join with cards table to return complete card data
-//  5. Add unit tests verifying correct card selection based on review times
-//
-// See docs/design/srs_algorithm.md for full implementation details and parameters.
-// Reference the domain/srs package for algorithm calculation functions.
-func (s *PostgresCardStore) GetNextReviewCard(ctx context.Context, userID uuid.UUID) (*domain.Card, error) {
+func (s *PostgresCardStore) GetNextReviewCard(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*domain.Card, error) {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
-	log.Warn("GetNextReviewCard not implemented",
+	log.Debug("retrieving next review card for user",
 		slog.String("user_id", userID.String()))
 
-	// Return standard error instead of panicking
-	// This follows proper error handling patterns for not-yet-implemented methods
-	return nil, store.ErrNotImplemented
+	// This query joins cards and user_card_stats tables to find cards that:
+	// 1. Belong to the specified user
+	// 2. Have user_card_stats records
+	// 3. Are due for review (next_review_at <= current time)
+	// The result is ordered by next_review_at ascending to prioritize oldest due cards first
+	// Secondary sort by card ID ensures deterministic ordering when timestamps match
+	query := `
+		SELECT c.id, c.user_id, c.memo_id, c.content, c.created_at, c.updated_at
+		FROM cards c
+		JOIN user_card_stats ucs ON c.id = ucs.card_id
+		WHERE c.user_id = $1
+		  AND ucs.user_id = $1
+		  AND ucs.next_review_at <= NOW()
+		ORDER BY ucs.next_review_at ASC, c.id ASC
+		LIMIT 1
+	`
+
+	var card domain.Card
+
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(
+		&card.ID,
+		&card.UserID,
+		&card.MemoID,
+		&card.Content,
+		&card.CreatedAt,
+		&card.UpdatedAt,
+	)
+
+	if err != nil {
+		if IsNotFoundError(err) {
+			log.Debug("no cards due for review",
+				slog.String("user_id", userID.String()))
+			return nil, store.ErrCardNotFound
+		}
+
+		log.Error("failed to get next review card",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()))
+		return nil, fmt.Errorf("failed to get next review card: %w", MapError(err))
+	}
+
+	log.Debug("next review card retrieved successfully",
+		slog.String("card_id", card.ID.String()),
+		slog.String("user_id", card.UserID.String()),
+		slog.String("memo_id", card.MemoID.String()))
+	return &card, nil
 }
 
-// WithTxCardStore implements store.CardStore.WithTxCardStore
+// WithTx implements store.CardStore.WithTx
 // It returns a new CardStore instance that uses the provided transaction.
 // This allows for multiple operations to be executed within a single transaction.
-func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
-	return &PostgresCardStore{
-		db:     tx,
-		logger: s.logger,
-		sqlDB:  s.sqlDB, // Preserve the original DB connection
-	}
-}
-
-// The following methods allow PostgresCardStore to be used with the task.CardRepository interface
-
-// WithTx returns a new CardStore instance that uses the provided transaction.
-// This is part of the task.CardRepository interface.
 func (s *PostgresCardStore) WithTx(tx *sql.Tx) store.CardStore {
 	return &PostgresCardStore{
 		db:     tx,
 		logger: s.logger,
 		sqlDB:  s.sqlDB, // Preserve the original DB connection
 	}
+}
+
+// WithTxCardStore is deprecated. Use WithTx instead.
+// This method is maintained for backward compatibility.
+func (s *PostgresCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
+	return s.WithTx(tx)
 }
 
 // DB returns the underlying database connection.

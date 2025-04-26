@@ -122,20 +122,134 @@ func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		cardStore := NewPostgresCardStore(tx, nil)
+		memoStore := NewPostgresMemoStore(tx, nil)
+		statsStore := NewPostgresUserCardStatsStore(tx, nil)
 
 		// Create a test user
 		testUser, err := domain.NewUser("getnextreview@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
-		t.Run("returns_not_implemented_error", func(t *testing.T) {
+		// Create a second test user for multi-user isolation tests
+		otherUser, err := domain.NewUser("othergetnextreview@example.com", "password123")
+		require.NoError(t, err, "Failed to create other test user")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), otherUser),
+			"Failed to create other test user in DB",
+		)
+
+		// Create a test memo
+		testMemo, err := domain.NewMemo(testUser.ID, "Test memo for cards")
+		require.NoError(t, err, "Failed to create test memo")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
+
+		// Create a memo for the other user
+		otherMemo, err := domain.NewMemo(otherUser.ID, "Other user's memo for cards")
+		require.NoError(t, err, "Failed to create other user's memo")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), otherMemo),
+			"Failed to create other user's memo in DB",
+		)
+
+		// Helper function to create a card with stats
+		createCardWithStats := func(userID, memoID uuid.UUID, nextReviewAt time.Time) (*domain.Card, *domain.UserCardStats, error) {
+			content := json.RawMessage(`{"front":"Test front","back":"Test back"}`)
+			card, err := domain.NewCard(userID, memoID, content)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to create card: %w", err)
+			}
+
+			err = cardStore.CreateMultiple(context.Background(), []*domain.Card{card})
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to insert card: %w", err)
+			}
+
+			// Create stats for the card with specified next review time
+			stats, err := domain.NewUserCardStats(userID, card.ID)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to create stats: %w", err)
+			}
+			stats.NextReviewAt = nextReviewAt
+
+			err = statsStore.Create(context.Background(), stats)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to insert stats: %w", err)
+			}
+
+			return card, stats, nil
+		}
+
+		t.Run("no_cards_due", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 			defer cancel()
 
-			// Call GetNextReviewCard which should return ErrNotImplemented
-			_, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
-			assert.Error(t, err, "GetNextReviewCard should return an error")
-			assert.ErrorIs(t, err, store.ErrNotImplemented, "Error should be ErrNotImplemented")
+			// Create a card with future review date (not due yet)
+			futureTime := time.Now().UTC().Add(24 * time.Hour) // Tomorrow
+			_, _, err := createCardWithStats(testUser.ID, testMemo.ID, futureTime)
+			require.NoError(t, err, "Failed to create card with future review date")
+
+			// Call GetNextReviewCard which should return ErrCardNotFound
+			_, err = cardStore.GetNextReviewCard(ctx, testUser.ID)
+			assert.Error(t, err, "GetNextReviewCard should return an error for no due cards")
+			assert.ErrorIs(t, err, store.ErrCardNotFound, "Error should be ErrCardNotFound")
+		})
+
+		t.Run("multiple_cards_returns_oldest_due", func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			defer cancel()
+
+			// Create three cards with different review times
+			now := time.Now().UTC()
+			pastTime1 := now.Add(-1 * time.Hour)    // 1 hour ago
+			pastTime2 := now.Add(-3 * time.Hour)    // 3 hours ago (oldest, should be returned)
+			pastTime3 := now.Add(-30 * time.Minute) // 30 minutes ago
+
+			_, _, err := createCardWithStats(testUser.ID, testMemo.ID, pastTime1)
+			require.NoError(t, err, "Failed to create card with past review date 1")
+
+			oldestCard, _, err := createCardWithStats(testUser.ID, testMemo.ID, pastTime2)
+			require.NoError(t, err, "Failed to create card with past review date 2")
+
+			_, _, err = createCardWithStats(testUser.ID, testMemo.ID, pastTime3)
+			require.NoError(t, err, "Failed to create card with past review date 3")
+
+			// Call GetNextReviewCard which should return the oldest due card
+			card, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
+			assert.NoError(t, err, "GetNextReviewCard should succeed with due cards")
+			assert.NotNil(t, card, "Returned card should not be nil")
+			assert.Equal(t, oldestCard.ID, card.ID, "Should return the oldest due card")
+		})
+
+		t.Run("user_isolation", func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			defer cancel()
+
+			// Create card for other user that's due earlier
+			otherUserPastTime := time.Now().UTC().Add(-5 * time.Hour) // 5 hours ago (earliest)
+			_, _, err := createCardWithStats(otherUser.ID, otherMemo.ID, otherUserPastTime)
+			require.NoError(t, err, "Failed to create card for other user")
+
+			// Create card for test user
+			userPastTime := time.Now().UTC().Add(-2 * time.Hour) // 2 hours ago
+			userCard, _, err := createCardWithStats(testUser.ID, testMemo.ID, userPastTime)
+			require.NoError(t, err, "Failed to create card for test user")
+
+			// Call GetNextReviewCard for the test user
+			// Should only return the test user's card, even though other user has earlier card
+			card, err := cardStore.GetNextReviewCard(ctx, testUser.ID)
+			assert.NoError(t, err, "GetNextReviewCard should succeed with due cards")
+			assert.NotNil(t, card, "Returned card should not be nil")
+			assert.Equal(t, userCard.ID, card.ID, "Should return only the test user's due card")
 		})
 	})
 }
@@ -168,12 +282,20 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 		// Create a test user first to satisfy foreign key constraints
 		testUser, err := domain.NewUser("test@example.com", "password123")
 		require.NoError(t, err, "Failed to create test user")
-		require.NoError(t, userStore.Create(context.Background(), testUser), "Failed to create test user in DB")
+		require.NoError(
+			t,
+			userStore.Create(context.Background(), testUser),
+			"Failed to create test user in DB",
+		)
 
 		// Create a test memo to satisfy foreign key constraints
 		testMemo, err := domain.NewMemo(testUser.ID, "Test memo text")
 		require.NoError(t, err, "Failed to create test memo")
-		require.NoError(t, memoStore.Create(context.Background(), testMemo), "Failed to create test memo in DB")
+		require.NoError(
+			t,
+			memoStore.Create(context.Background(), testMemo),
+			"Failed to create test memo in DB",
+		)
 
 		t.Run("empty_cards_list", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -201,8 +323,18 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			retrievedCard, err := cardStore.GetByID(ctx, card.ID)
 			assert.NoError(t, err, "GetByID should find the created card")
 			assert.Equal(t, card.ID, retrievedCard.ID, "Retrieved card should have same ID")
-			assert.Equal(t, testUser.ID, retrievedCard.UserID, "Retrieved card should have correct user ID")
-			assert.Equal(t, testMemo.ID, retrievedCard.MemoID, "Retrieved card should have correct memo ID")
+			assert.Equal(
+				t,
+				testUser.ID,
+				retrievedCard.UserID,
+				"Retrieved card should have correct user ID",
+			)
+			assert.Equal(
+				t,
+				testMemo.ID,
+				retrievedCard.MemoID,
+				"Retrieved card should have correct memo ID",
+			)
 			assert.JSONEq(
 				t,
 				string(content),
@@ -215,7 +347,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			// no longer creates associated UserCardStats entries
 			_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 			assert.Error(t, err, "Should not find stats for created card")
-			assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+			assert.ErrorIs(
+				t,
+				err,
+				store.ErrUserCardStatsNotFound,
+				"Error should be ErrUserCardStatsNotFound",
+			)
 		})
 
 		t.Run("multiple_cards", func(t *testing.T) {
@@ -226,7 +363,11 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			cards := make([]*domain.Card, 3)
 			for i := 0; i < 3; i++ {
 				content := json.RawMessage(
-					`{"front":"Test front ` + string(rune('A'+i)) + `","back":"Test back ` + string(rune('A'+i)) + `"}`,
+					`{"front":"Test front ` + string(
+						rune('A'+i),
+					) + `","back":"Test back ` + string(
+						rune('A'+i),
+					) + `"}`,
 				)
 				card, err := domain.NewCard(testUser.ID, testMemo.ID, content)
 				require.NoError(t, err, "Failed to create test card")
@@ -246,7 +387,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 				// Verify that user card stats are NOT created anymore
 				_, err = statsStore.Get(ctx, testUser.ID, card.ID)
 				assert.Error(t, err, "Should not find stats for created card")
-				assert.ErrorIs(t, err, store.ErrUserCardStatsNotFound, "Error should be ErrUserCardStatsNotFound")
+				assert.ErrorIs(
+					t,
+					err,
+					store.ErrUserCardStatsNotFound,
+					"Error should be ErrUserCardStatsNotFound",
+				)
 			}
 		})
 
@@ -322,7 +468,12 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 			err = cardStore.CreateMultiple(ctx, []*domain.Card{card})
 			assert.Error(t, err, "CreateMultiple should fail with invalid JSON content")
 			assert.ErrorIs(t, err, store.ErrInvalidEntity, "Error should be ErrInvalidEntity")
-			assert.ErrorContains(t, err, "invalid card content", "Error should mention invalid content")
+			assert.ErrorContains(
+				t,
+				err,
+				"invalid card content",
+				"Error should mention invalid content",
+			)
 		})
 
 		t.Run("transaction_rollback", func(t *testing.T) {

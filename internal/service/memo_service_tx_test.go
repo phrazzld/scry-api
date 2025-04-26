@@ -49,7 +49,10 @@ func (m *MockFailingMemoRepository) Create(ctx context.Context, memo *domain.Mem
 	return nil
 }
 
-func (m *MockFailingMemoRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
+func (m *MockFailingMemoRepository) GetByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*domain.Memo, error) {
 	if m.FailOnGetByID {
 		return nil, errors.New("simulated GetByID failure")
 	}
@@ -166,10 +169,18 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 			mockEventEmitter := new(MockEventEmitter)
 
 			// Setup expectations
-			mockEventEmitter.On("EmitEvent", mock.Anything, mock.Anything).Return(nil) // Should never be called
+			mockEventEmitter.On("EmitEvent", mock.Anything, mock.Anything).
+				Return(nil)
+				// Should never be called
 
 			// Create service with the failing repository
-			memoService := service.NewMemoService(failingRepo, mockRunner, mockEventEmitter, logger)
+			memoService, err := service.NewMemoService(
+				failingRepo,
+				mockRunner,
+				mockEventEmitter,
+				logger,
+			)
+			require.NoError(t, err, "Failed to create memo service")
 
 			// Attempt to create a memo - this should fail after committing the memo to DB but before committing the transaction
 			memoText := "Test memo for rollback verification"
@@ -186,7 +197,12 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 				userID, memoText,
 			).Scan(&count)
 			require.NoError(t, err, "Failed to count memos")
-			assert.Equal(t, 0, count, "No memo should exist in the database due to transaction rollback")
+			assert.Equal(
+				t,
+				0,
+				count,
+				"No memo should exist in the database due to transaction rollback",
+			)
 
 			// Verify event emission was never called
 			mockEventEmitter.AssertNotCalled(t, "EmitEvent", mock.Anything, mock.Anything)
@@ -207,7 +223,13 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 			mockEventEmitter.On("EmitEvent", mock.Anything, mock.Anything).Return(nil)
 
 			// Create service with the succeeding repository
-			memoService := service.NewMemoService(successRepo, mockRunner, mockEventEmitter, logger)
+			memoService, err := service.NewMemoService(
+				successRepo,
+				mockRunner,
+				mockEventEmitter,
+				logger,
+			)
+			require.NoError(t, err, "Failed to create memo service")
 
 			// Create a memo - this should succeed
 			memoText := "Test memo for commit verification"
@@ -283,14 +305,25 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing repository
-			memoService := service.NewMemoService(failingRepo, mockRunner, mockEventEmitter, logger)
+			memoService, err := service.NewMemoService(
+				failingRepo,
+				mockRunner,
+				mockEventEmitter,
+				logger,
+			)
+			require.NoError(t, err, "Failed to create memo service")
 
 			// Attempt to update the memo status - this should fail
-			err := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
+			updateErr := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
 
 			// Verify the operation failed
-			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated update failure", "Error should be from our mock")
+			assert.Error(t, updateErr, "Operation should fail")
+			assert.Contains(
+				t,
+				updateErr.Error(),
+				"simulated update failure",
+				"Error should be from our mock",
+			)
 
 			// Verify the memo status was NOT changed due to transaction rollback
 			var status string
@@ -312,14 +345,25 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing repository
-			memoService := service.NewMemoService(failingRepo, mockRunner, mockEventEmitter, logger)
+			memoService, err := service.NewMemoService(
+				failingRepo,
+				mockRunner,
+				mockEventEmitter,
+				logger,
+			)
+			require.NoError(t, err, "Failed to create memo service")
 
 			// Attempt to update the memo status - this should fail during GetByID
-			err := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
+			updateErr := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
 
 			// Verify the operation failed
-			assert.Error(t, err, "Operation should fail")
-			assert.Contains(t, err.Error(), "simulated GetByID failure", "Error should be from our mock")
+			assert.Error(t, updateErr, "Operation should fail")
+			assert.Contains(
+				t,
+				updateErr.Error(),
+				"simulated GetByID failure",
+				"Error should be from our mock",
+			)
 
 			// Verify the memo status was NOT changed due to transaction rollback
 			var status string
@@ -340,13 +384,19 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the succeeding repository
-			memoService := service.NewMemoService(successRepo, mockRunner, mockEventEmitter, logger)
+			memoService, err := service.NewMemoService(
+				successRepo,
+				mockRunner,
+				mockEventEmitter,
+				logger,
+			)
+			require.NoError(t, err, "Failed to create memo service")
 
 			// Update the memo status - this should succeed
-			err := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
+			updateErr := memoService.UpdateMemoStatus(ctx, memo.ID, domain.MemoStatusProcessing)
 
 			// Verify the operation succeeded
-			assert.NoError(t, err, "Operation should succeed")
+			assert.NoError(t, updateErr, "Operation should succeed")
 
 			// Verify the memo status was actually updated
 			var status string
@@ -355,7 +405,12 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 				memo.ID,
 			).Scan(&status)
 			require.NoError(t, err, "Failed to get memo status")
-			assert.Equal(t, string(domain.MemoStatusProcessing), status, "Memo status should be updated")
+			assert.Equal(
+				t,
+				string(domain.MemoStatusProcessing),
+				status,
+				"Memo status should be updated",
+			)
 		})
 	})
 }
@@ -380,7 +435,10 @@ func TestComplexTransactionWithMultipleStores(t *testing.T) {
 			memoStore := postgres.NewPostgresMemoStore(tx, slog.Default())
 
 			// 1. Create a user
-			user, err := domain.NewUser(fmt.Sprintf("complex-tx-%s@test.com", uuid.New().String()), "password123")
+			user, err := domain.NewUser(
+				fmt.Sprintf("complex-tx-%s@test.com", uuid.New().String()),
+				"password123",
+			)
 			if err != nil {
 				return err
 			}

@@ -26,12 +26,23 @@ func createTestMemo(t *testing.T, userID uuid.UUID) *domain.Memo {
 }
 
 // insertTestMemo uses the centralized testutils.MustInsertMemo function
-func insertTestMemo(ctx context.Context, t *testing.T, tx store.DBTX, userID uuid.UUID) *domain.Memo {
+func insertTestMemo(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	userID uuid.UUID,
+) *domain.Memo {
 	return testutils.MustInsertMemo(ctx, t, tx, userID)
 }
 
 // countMemos uses the centralized testutils.CountMemos function
-func countMemos(ctx context.Context, t *testing.T, tx store.DBTX, whereClause string, args ...interface{}) int {
+func countMemos(
+	ctx context.Context,
+	t *testing.T,
+	tx store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
 	return testutils.CountMemos(ctx, t, tx, whereClause, args...)
 }
 
@@ -62,7 +73,13 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "memo-test-user@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"memo-test-user@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Create a test memo
 			memo := createTestMemo(t, userID)
@@ -110,7 +127,13 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 			defer cancel()
 
 			// Create a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-memo-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"invalid-memo-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Create an invalid memo (empty text)
 			memo := &domain.Memo{
@@ -127,7 +150,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Creating memo with empty text should fail")
-			assert.Equal(t, domain.ErrEmptyMemoText, err, "Error should be ErrEmptyMemoText")
+			assert.Equal(t, domain.ErrMemoTextEmpty, err, "Error should be ErrMemoTextEmpty")
 
 			// Verify no memo was created
 			count := countMemos(ctx, t, tx, "id = $1", memo.ID)
@@ -188,7 +211,13 @@ func TestPostgresMemoStore_GetByID(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "get-memo-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"get-memo-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -256,13 +285,24 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "status-update-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"status-update-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
 
 			// Verify initial status
-			assert.Equal(t, domain.MemoStatusPending, memo.Status, "Initial status should be 'pending'")
+			assert.Equal(
+				t,
+				domain.MemoStatusPending,
+				memo.Status,
+				"Initial status should be 'pending'",
+			)
 
 			// Update status to 'processing'
 			err := memoStore.UpdateStatus(ctx, memo.ID, domain.MemoStatusProcessing)
@@ -287,7 +327,13 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-status-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"invalid-status-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -298,7 +344,12 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Updating memo with invalid status should fail")
-			assert.Equal(t, domain.ErrInvalidMemoStatus, err, "Error should be ErrInvalidMemoStatus")
+			assert.Equal(
+				t,
+				domain.ErrInvalidMemoStatus,
+				err,
+				"Error should be ErrInvalidMemoStatus",
+			)
 
 			// Verify the status was not updated
 			var statusStr string
@@ -358,7 +409,13 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "find-status-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"find-status-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert multiple memos with different statuses
 			memo1 := insertTestMemo(ctx, t, tx, userID)
@@ -379,12 +436,22 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			assert.Equal(t, 2, len(pendingMemos), "Should find 2 pending memos")
 
 			// Call FindMemosByStatus for 'processing' status
-			processingMemos, err := memoStore.FindMemosByStatus(ctx, domain.MemoStatusProcessing, 10, 0)
+			processingMemos, err := memoStore.FindMemosByStatus(
+				ctx,
+				domain.MemoStatusProcessing,
+				10,
+				0,
+			)
 
 			// Verify the result
 			require.NoError(t, err, "Finding memos by status should succeed")
 			assert.Equal(t, 1, len(processingMemos), "Should find 1 processing memo")
-			assert.Equal(t, memo2.ID, processingMemos[0].ID, "Should find the correct processing memo")
+			assert.Equal(
+				t,
+				memo2.ID,
+				processingMemos[0].ID,
+				"Should find the correct processing memo",
+			)
 		})
 
 		// Test Case 2: Pagination with limit and offset
@@ -396,7 +463,13 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "pagination-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"pagination-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert multiple memos with the same status
 			for i := 0; i < 5; i++ {
@@ -414,8 +487,18 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			assert.Equal(t, 2, len(memos2), "Should find 2 memos with limit 2, offset 2")
 
 			// Verify different memos are returned
-			assert.NotEqual(t, memos1[0].ID, memos2[0].ID, "Should return different memos for different offsets")
-			assert.NotEqual(t, memos1[1].ID, memos2[1].ID, "Should return different memos for different offsets")
+			assert.NotEqual(
+				t,
+				memos1[0].ID,
+				memos2[0].ID,
+				"Should return different memos for different offsets",
+			)
+			assert.NotEqual(
+				t,
+				memos1[1].ID,
+				memos2[1].ID,
+				"Should return different memos for different offsets",
+			)
 		})
 
 		// Test Case 3: Empty result
@@ -445,7 +528,13 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-pagination-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"invalid-pagination-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert a test memo
 			insertTestMemo(ctx, t, tx, userID)
@@ -458,7 +547,12 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			// Test with negative offset
 			memos2, err := memoStore.FindMemosByStatus(ctx, domain.MemoStatusPending, 10, -5)
 			require.NoError(t, err, "Finding memos with negative offset should use default")
-			assert.GreaterOrEqual(t, len(memos2), 1, "Should use default offset of 0 instead of negative")
+			assert.GreaterOrEqual(
+				t,
+				len(memos2),
+				1,
+				"Should use default offset of 0 instead of negative",
+			)
 		})
 	})
 }
@@ -490,7 +584,13 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "update-memo-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"update-memo-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -546,7 +646,13 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 			defer cancel()
 
 			// Insert a test user
-			userID := testutils.MustInsertUser(ctx, t, tx, "invalid-update-test@example.com", bcrypt.MinCost)
+			userID := testutils.MustInsertUser(
+				ctx,
+				t,
+				tx,
+				"invalid-update-test@example.com",
+				bcrypt.MinCost,
+			)
 
 			// Insert a test memo
 			memo := insertTestMemo(ctx, t, tx, userID)
@@ -560,7 +666,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 
 			// Verify the result
 			assert.Error(t, err, "Updating memo with empty text should fail")
-			assert.Equal(t, domain.ErrEmptyMemoText, err, "Error should be ErrEmptyMemoText")
+			assert.Equal(t, domain.ErrMemoTextEmpty, err, "Error should be ErrMemoTextEmpty")
 
 			// Verify the memo was not updated
 			var dbText string

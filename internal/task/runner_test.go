@@ -239,7 +239,12 @@ func TestTaskRunner_Recover(t *testing.T) {
 	err = store.SaveTask(context.Background(), processingTask)
 	require.NoError(t, err, "Failed to save processing task")
 
-	err = store.UpdateTaskStatus(context.Background(), processingTask.ID(), TaskStatusProcessing, "")
+	err = store.UpdateTaskStatus(
+		context.Background(),
+		processingTask.ID(),
+		TaskStatusProcessing,
+		"",
+	)
 	require.NoError(t, err, "Failed to update processing task status")
 
 	// Create a channel to track task execution

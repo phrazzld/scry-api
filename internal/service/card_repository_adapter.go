@@ -37,7 +37,7 @@ func (a *cardRepositoryAdapter) GetByID(ctx context.Context, id uuid.UUID) (*dom
 // WithTx implements CardRepository.WithTx
 func (a *cardRepositoryAdapter) WithTx(tx *sql.Tx) CardRepository {
 	return &cardRepositoryAdapter{
-		cardStore: a.cardStore.WithTxCardStore(tx),
+		cardStore: a.cardStore.WithTx(tx),
 		db:        a.db,
 	}
 }

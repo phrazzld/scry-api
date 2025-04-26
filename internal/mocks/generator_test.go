@@ -35,8 +35,18 @@ func TestMockGenerator(t *testing.T) {
 
 		// Verify call tracking
 		assert.Equal(t, 1, mockGen.GenerateCardsCalls.Count, "GenerateCards should be called once")
-		assert.Equal(t, "Test memo content", mockGen.GenerateCardsCalls.MemoTexts[0], "Should record correct memo text")
-		assert.Equal(t, userID, mockGen.GenerateCardsCalls.UserIDs[0], "Should record correct userID")
+		assert.Equal(
+			t,
+			"Test memo content",
+			mockGen.GenerateCardsCalls.MemoTexts[0],
+			"Should record correct memo text",
+		)
+		assert.Equal(
+			t,
+			userID,
+			mockGen.GenerateCardsCalls.UserIDs[0],
+			"Should record correct userID",
+		)
 	})
 
 	// Test error case

@@ -83,7 +83,8 @@ func TestLocalPostgresSetup(t *testing.T) {
 
 	// Check if pgvector extension is enabled
 	var extensionExists bool
-	err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')").Scan(&extensionExists)
+	err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')").
+		Scan(&extensionExists)
 	if err != nil {
 		t.Fatalf("Failed to check pgvector extension: %v", err)
 	}

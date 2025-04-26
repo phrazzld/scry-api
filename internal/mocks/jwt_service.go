@@ -41,7 +41,10 @@ func (m *MockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (s
 }
 
 // ValidateToken implements the auth.JWTService interface
-func (m *MockJWTService) ValidateToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
+func (m *MockJWTService) ValidateToken(
+	ctx context.Context,
+	tokenString string,
+) (*auth.Claims, error) {
 	// If a custom function is provided, use it
 	if m.ValidateTokenFn != nil {
 		return m.ValidateTokenFn(ctx, tokenString)
@@ -52,7 +55,10 @@ func (m *MockJWTService) ValidateToken(ctx context.Context, tokenString string) 
 }
 
 // GenerateRefreshToken implements the auth.JWTService interface
-func (m *MockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+func (m *MockJWTService) GenerateRefreshToken(
+	ctx context.Context,
+	userID uuid.UUID,
+) (string, error) {
 	// If a custom function is provided, use it
 	if m.GenerateRefreshTokenFn != nil {
 		return m.GenerateRefreshTokenFn(ctx, userID)
@@ -63,7 +69,10 @@ func (m *MockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.U
 }
 
 // ValidateRefreshToken implements the auth.JWTService interface
-func (m *MockJWTService) ValidateRefreshToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
+func (m *MockJWTService) ValidateRefreshToken(
+	ctx context.Context,
+	tokenString string,
+) (*auth.Claims, error) {
 	// If a custom function is provided, use it
 	if m.ValidateRefreshTokenFn != nil {
 		return m.ValidateRefreshTokenFn(ctx, tokenString)

@@ -18,14 +18,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api"
-	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+	apiMiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/events"
-	"github.com/phrazzld/scry-api/internal/mocks"
+	"github.com/phrazzld/scry-api/internal/platform/gemini"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/pressly/goose/v3"
@@ -45,10 +47,19 @@ type TaskFactoryEventHandler struct {
 }
 
 // HandleEvent processes events by creating and submitting tasks
-func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events.TaskRequestEvent) error {
+func (h *TaskFactoryEventHandler) HandleEvent(
+	ctx context.Context,
+	event *events.TaskRequestEvent,
+) error {
 	// Only handle memo generation events for now
 	if event.Type != task.TaskTypeMemoGeneration {
-		h.logger.Debug("ignoring event with unsupported type", "event_type", event.Type, "event_id", event.ID)
+		h.logger.Debug(
+			"ignoring event with unsupported type",
+			"event_type",
+			event.Type,
+			"event_id",
+			event.ID,
+		)
 		return nil
 	}
 
@@ -65,7 +76,15 @@ func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events
 	// Parse the memo ID
 	memoID, err := uuid.Parse(payload.MemoID)
 	if err != nil {
-		h.logger.Error("invalid memo ID", "error", err, "memo_id", payload.MemoID, "event_id", event.ID)
+		h.logger.Error(
+			"invalid memo ID",
+			"error",
+			err,
+			"memo_id",
+			payload.MemoID,
+			"event_id",
+			event.ID,
+		)
 		return fmt.Errorf("invalid memo ID: %w", err)
 	}
 
@@ -73,12 +92,28 @@ func (h *TaskFactoryEventHandler) HandleEvent(ctx context.Context, event *events
 	h.logger.Debug("creating task for memo", "memo_id", memoID, "event_id", event.ID)
 	task, err := h.taskFactory.CreateTask(memoID)
 	if err != nil {
-		h.logger.Error("failed to create task", "error", err, "memo_id", memoID, "event_id", event.ID)
+		h.logger.Error(
+			"failed to create task",
+			"error",
+			err,
+			"memo_id",
+			memoID,
+			"event_id",
+			event.ID,
+		)
 		return fmt.Errorf("failed to create task: %w", err)
 	}
 
 	// Submit the task to the runner
-	h.logger.Debug("submitting task to runner", "task_id", task.ID(), "memo_id", memoID, "event_id", event.ID)
+	h.logger.Debug(
+		"submitting task to runner",
+		"task_id",
+		task.ID(),
+		"memo_id",
+		memoID,
+		"event_id",
+		event.ID,
+	)
 	if err := h.taskRunner.Submit(ctx, task); err != nil {
 		h.logger.Error(
 			"failed to submit task",
@@ -127,10 +162,12 @@ type appDependencies struct {
 	CardRepository store.CardStore // Interface for card operations
 
 	// Services
-	JWTService       auth.JWTService
-	PasswordVerifier auth.PasswordVerifier
-	Generator        task.Generator   // Interface for card generation
-	CardService      task.CardService // Interface for card service operations
+	JWTService        auth.JWTService
+	PasswordVerifier  auth.PasswordVerifier
+	Generator         task.Generator                // Interface for card generation
+	CardService       task.CardService              // Interface for card service operations
+	MemoService       service.MemoService           // Interface for memo service operations
+	CardReviewService card_review.CardReviewService // Interface for card review operations
 
 	// Event system
 	EventEmitter events.EventEmitter
@@ -146,7 +183,11 @@ type appDependencies struct {
 func main() {
 	// Define migration-related command-line flags
 	// These will be used in a future task to implement the migration functionality
-	migrateCmd := flag.String("migrate", "", "Run database migrations (up|down|create|status|version)")
+	migrateCmd := flag.String(
+		"migrate",
+		"",
+		"Run database migrations (up|down|create|status|version)",
+	)
 	migrationName := flag.String("name", "", "Name for the new migration (only used with 'create')")
 	flag.Parse()
 
@@ -258,20 +299,28 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(
+		apiMiddleware.NewTraceMiddleware(deps.Logger),
+	) // Add trace IDs for improved error handling
 
 	// Create the password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
 
 	// Create API handlers (user service will be created later when needed)
-	authHandler := api.NewAuthHandler(deps.UserStore, deps.JWTService, passwordVerifier, &deps.Config.Auth)
-	authMiddleware := authmiddleware.NewAuthMiddleware(deps.JWTService)
+	authHandler := api.NewAuthHandler(
+		deps.UserStore,
+		deps.JWTService,
+		passwordVerifier,
+		&deps.Config.Auth,
+		deps.Logger,
+	)
+	authMiddleware := apiMiddleware.NewAuthMiddleware(deps.JWTService)
 
-	// Create adapter for the store to be used in the service layer
-	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
+	// Use memo service from dependencies, which has been properly initialized in startServer
+	memoHandler := api.NewMemoHandler(deps.MemoService, deps.Logger)
 
-	// Create the memo service with the event emitter from dependencies
-	memoService := service.NewMemoService(memoRepoAdapter, deps.TaskRunner, deps.EventEmitter, deps.Logger)
-	memoHandler := api.NewMemoHandler(memoService)
+	// Use the card review service from dependencies
+	cardHandler := api.NewCardHandler(deps.CardReviewService, deps.Logger)
 
 	// Register routes
 	r.Route("/api", func(r chi.Router) {
@@ -285,6 +334,10 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 			r.Use(authMiddleware.Authenticate)
 			// Memo endpoints
 			r.Post("/memos", memoHandler.CreateMemo)
+
+			// Card review endpoints
+			r.Get("/cards/next", cardHandler.GetNextReviewCard)
+			r.Post("/cards/{id}/answer", cardHandler.SubmitAnswer)
 		})
 	})
 
@@ -332,14 +385,25 @@ func startServer(cfg *config.Config) {
 
 	// Step 3: Initialize stores and other dependencies
 	userStore := postgres.NewPostgresUserStore(db, bcrypt.DefaultCost)
-	taskStore := postgres.NewPostgresTaskStore(db) // Concrete implementation that satisfies task.TaskStore
+	taskStore := postgres.NewPostgresTaskStore(
+		db,
+	) // Concrete implementation that satisfies task.TaskStore
 	memoStore := postgres.NewPostgresMemoStore(db, logger)
 	cardStore := postgres.NewPostgresCardStore(db, logger)
 	userCardStatsStore := postgres.NewPostgresUserCardStatsStore(db, logger)
 	passwordVerifier := auth.NewBcryptVerifier()
 
-	// Create a mock generator service for card generation
-	mockGenerator := mocks.NewMockGeneratorWithDefaultCards(uuid.Nil, uuid.Nil)
+	// Create the appropriate generator service for card generation based on build tags
+	generator, err := gemini.NewGenerator(
+		context.Background(),
+		logger.With("component", "llm_generator"),
+		cfg.LLM,
+	)
+	if err != nil {
+		logger.Error("Failed to initialize LLM generator", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("LLM generator initialized successfully")
 
 	// Step 4: Populate the application dependencies struct
 	deps := &appDependencies{
@@ -353,7 +417,7 @@ func startServer(cfg *config.Config) {
 		UserCardStatsStore: userCardStatsStore,
 		// MemoRepository removed - using MemoStore with adapter instead
 		CardRepository:   cardStore, // Now using the real CardStore implementation
-		Generator:        mockGenerator,
+		Generator:        generator,
 		JWTService:       jwtService,
 		PasswordVerifier: passwordVerifier,
 	}
@@ -370,11 +434,26 @@ func startServer(cfg *config.Config) {
 
 	// Step 6: Set up event emitter
 	eventEmitter := events.NewInMemoryEventEmitter(logger)
+	// Add event emitter to dependencies immediately so it can be used by services
+	deps.EventEmitter = eventEmitter
 
 	// Create a memo repository adapter
 	memoRepoAdapter := service.NewMemoRepositoryAdapter(deps.MemoStore, deps.DB)
 
-	// Create a memo service adapter
+	// Create memo service
+	memoService, err := service.NewMemoService(
+		memoRepoAdapter,
+		deps.TaskRunner,
+		deps.EventEmitter,
+		logger,
+	)
+	if err != nil {
+		logger.Error("Failed to create memo service", "error", err)
+		os.Exit(1)
+	}
+	deps.MemoService = memoService
+
+	// Create a memo service adapter for tasks
 	memoServiceAdapter, err := task.NewMemoServiceAdapter(memoRepoAdapter)
 	if err != nil {
 		logger.Error("Failed to create memo service adapter", "error", err)
@@ -386,10 +465,32 @@ func startServer(cfg *config.Config) {
 	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
 
 	// Create the card service
-	cardService := service.NewCardService(cardRepoAdapter, statsRepoAdapter, logger)
-
-	// Add the card service to dependencies
+	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, logger)
+	if err != nil {
+		logger.Error("Failed to create card service", "error", err)
+		os.Exit(1)
+	}
 	deps.CardService = cardService
+
+	// Create SRS service with default parameters
+	srsService, err := srs.NewDefaultService()
+	if err != nil {
+		logger.Error("Failed to create SRS service", "error", err)
+		os.Exit(1)
+	}
+
+	// Create card review service with direct store dependencies
+	cardReviewService, err := card_review.NewCardReviewService(
+		deps.CardStore,
+		deps.UserCardStatsStore,
+		srsService,
+		logger,
+	)
+	if err != nil {
+		logger.Error("Failed to create card review service", "error", err)
+		os.Exit(1)
+	}
+	deps.CardReviewService = cardReviewService
 
 	// Create the task factory
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
@@ -408,9 +509,6 @@ func startServer(cfg *config.Config) {
 
 	// Register the event handler with the event emitter
 	eventEmitter.RegisterHandler(taskFactoryHandler)
-
-	// Add event emitter to dependencies
-	deps.EventEmitter = eventEmitter
 
 	// Ensure task runner is stopped when the server shuts down
 	defer taskRunner.Stop()

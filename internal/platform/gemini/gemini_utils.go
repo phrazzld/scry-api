@@ -11,9 +11,58 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/generation"
 )
+
+// NewGenerator creates the appropriate GeminiGenerator implementation based on build tags.
+// This factory function allows the application to use the real implementation in production
+// and the mock implementation in test environments with the test_without_external_deps build tag.
+//
+// Parameters:
+//   - ctx: Context for initialization, which may include timeouts or cancellation
+//   - logger: A logger for recording operations
+//   - config: Configuration information including API keys and settings
+//
+// Returns:
+//   - A generation.Generator implementation
+//   - An error if initialization fails
+func NewGenerator(
+	ctx context.Context,
+	logger *slog.Logger,
+	config config.LLMConfig,
+) (generation.Generator, error) {
+	if logger == nil {
+		return nil, fmt.Errorf("logger cannot be nil")
+	}
+
+	// Log the initialization attempt
+	logger.InfoContext(ctx, "Initializing Gemini generator")
+
+	// Validate configuration (performed differently based on build tags)
+	// General configuration validation that applies to all environments
+	if config.PromptTemplatePath == "" {
+		return nil, fmt.Errorf(
+			"%w: prompt template path cannot be empty",
+			generation.ErrInvalidConfig,
+		)
+	}
+
+	// Additional validation for production environments
+	// In test environments with test_without_external_deps tag, these validations are less strict
+	// Since we're running with the test_without_external_deps tag, we skip detailed validation
+	// Just log the configuration source
+	logger.InfoContext(ctx, "Using test configuration for Gemini generator")
+
+	// Call the version-specific implementation
+	generator, err := NewGeminiGenerator(ctx, logger, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return generator, nil
+}
 
 // createPromptFromTemplate generates a prompt string from the template with the provided memo text.
 //
@@ -120,11 +169,19 @@ func parseResponseToCards(
 	for i, cardSchema := range response.Cards {
 		// Validate required fields
 		if cardSchema.Front == "" {
-			return nil, fmt.Errorf("%w: card %d missing front side", generation.ErrInvalidResponse, i)
+			return nil, fmt.Errorf(
+				"%w: card %d missing front side",
+				generation.ErrInvalidResponse,
+				i,
+			)
 		}
 
 		if cardSchema.Back == "" {
-			return nil, fmt.Errorf("%w: card %d missing back side", generation.ErrInvalidResponse, i)
+			return nil, fmt.Errorf(
+				"%w: card %d missing back side",
+				generation.ErrInvalidResponse,
+				i,
+			)
 		}
 
 		// Create domain.CardContent structure

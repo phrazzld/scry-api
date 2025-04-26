@@ -5,196 +5,323 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// MockMemoService is a mock implementation of the MemoService
+// MockMemoService is a mock implementation of service.MemoService for testing
 type MockMemoService struct {
-	mock.Mock
+	CreateMemoAndEnqueueTaskFn func(ctx context.Context, userID uuid.UUID, text string) (*domain.Memo, error)
+	UpdateMemoStatusFn         func(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error
+	GetMemoFn                  func(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error)
 }
 
+// CreateMemoAndEnqueueTask implements service.MemoService
 func (m *MockMemoService) CreateMemoAndEnqueueTask(
 	ctx context.Context,
 	userID uuid.UUID,
 	text string,
 ) (*domain.Memo, error) {
-	args := m.Called(ctx, userID, text)
-	memo, _ := args.Get(0).(*domain.Memo)
-	return memo, args.Error(1)
+	if m.CreateMemoAndEnqueueTaskFn != nil {
+		return m.CreateMemoAndEnqueueTaskFn(ctx, userID, text)
+	}
+	return nil, nil
 }
 
+// UpdateMemoStatus implements service.MemoService
 func (m *MockMemoService) UpdateMemoStatus(
 	ctx context.Context,
 	memoID uuid.UUID,
 	status domain.MemoStatus,
 ) error {
-	args := m.Called(ctx, memoID, status)
-	return args.Error(0)
+	if m.UpdateMemoStatusFn != nil {
+		return m.UpdateMemoStatusFn(ctx, memoID, status)
+	}
+	return nil
 }
 
-func (m *MockMemoService) GetMemo(
-	ctx context.Context,
-	memoID uuid.UUID,
-) (*domain.Memo, error) {
-	args := m.Called(ctx, memoID)
-	memo, _ := args.Get(0).(*domain.Memo)
-	return memo, args.Error(1)
+// GetMemo implements service.MemoService
+func (m *MockMemoService) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
+	if m.GetMemoFn != nil {
+		return m.GetMemoFn(ctx, memoID)
+	}
+	return nil, nil
 }
 
+// TestMemoHandler_CreateMemo tests the CreateMemo handler functionality.
 func TestMemoHandler_CreateMemo(t *testing.T) {
-	t.Run("successful creation", func(t *testing.T) {
-		// Setup
-		userID := uuid.New()
-		memoText := "This is a test memo"
-		mockService := &MockMemoService{}
+	// Setup fixed values for consistent testing
+	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	fixedMemoID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
 
-		// Setup mock response
+	tests := []struct {
+		name            string
+		setupContext    func(context.Context) context.Context
+		requestBody     interface{}
+		setupMock       func(*MockMemoService)
+		expectedStatus  int
+		expectedErrMsg  string
+		expectedMemoID  string
+		expectedUserID  string
+		expectedMemoTxt string
+	}{
+		{
+			name: "successful_memo_creation",
+			setupContext: func(ctx context.Context) context.Context {
+				return context.WithValue(ctx, shared.UserIDContextKey, fixedUserID)
+			},
+			requestBody: CreateMemoRequest{
+				Text: "Test memo content",
+			},
+			setupMock: func(ms *MockMemoService) {
+				ms.CreateMemoAndEnqueueTaskFn = func(ctx context.Context, userID uuid.UUID, text string) (*domain.Memo, error) {
+					return &domain.Memo{
+						ID:        fixedMemoID,
+						UserID:    userID,
+						Text:      text,
+						Status:    domain.MemoStatusPending,
+						CreatedAt: fixedTime,
+						UpdatedAt: fixedTime,
+					}, nil
+				}
+			},
+			expectedStatus:  http.StatusAccepted,
+			expectedMemoID:  fixedMemoID.String(),
+			expectedUserID:  fixedUserID.String(),
+			expectedMemoTxt: "Test memo content",
+		},
+		{
+			name: "missing_user_id",
+			setupContext: func(ctx context.Context) context.Context {
+				// No user ID in context
+				return ctx
+			},
+			requestBody: CreateMemoRequest{
+				Text: "Test memo content",
+			},
+			setupMock: func(ms *MockMemoService) {
+				// Mock won't be called
+			},
+			expectedStatus: http.StatusUnauthorized,
+			expectedErrMsg: "Unauthorized operation",
+		},
+		{
+			name: "invalid_user_id",
+			setupContext: func(ctx context.Context) context.Context {
+				// Invalid user ID type
+				return context.WithValue(ctx, shared.UserIDContextKey, "not-a-uuid")
+			},
+			requestBody: CreateMemoRequest{
+				Text: "Test memo content",
+			},
+			setupMock: func(ms *MockMemoService) {
+				// Mock won't be called
+			},
+			expectedStatus: http.StatusUnauthorized,
+			expectedErrMsg: "Unauthorized operation",
+		},
+		{
+			name: "nil_user_id",
+			setupContext: func(ctx context.Context) context.Context {
+				// Nil UUID (zero value)
+				return context.WithValue(ctx, shared.UserIDContextKey, uuid.Nil)
+			},
+			requestBody: CreateMemoRequest{
+				Text: "Test memo content",
+			},
+			setupMock: func(ms *MockMemoService) {
+				// Mock won't be called
+			},
+			expectedStatus: http.StatusUnauthorized,
+			expectedErrMsg: "Unauthorized operation",
+		},
+		{
+			name: "invalid_request_format",
+			setupContext: func(ctx context.Context) context.Context {
+				return context.WithValue(ctx, shared.UserIDContextKey, fixedUserID)
+			},
+			requestBody: `{
+				"text": "Invalid JSON
+			}`,
+			setupMock: func(ms *MockMemoService) {
+				// Mock won't be called
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Validation error",
+		},
+		{
+			name: "missing_required_text",
+			setupContext: func(ctx context.Context) context.Context {
+				return context.WithValue(ctx, shared.UserIDContextKey, fixedUserID)
+			},
+			requestBody: CreateMemoRequest{
+				// Text field intentionally omitted
+				Text: "",
+			},
+			setupMock: func(ms *MockMemoService) {
+				// Mock won't be called
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "required field",
+		},
+		{
+			name: "domain_validation_error",
+			setupContext: func(ctx context.Context) context.Context {
+				return context.WithValue(ctx, shared.UserIDContextKey, fixedUserID)
+			},
+			requestBody: CreateMemoRequest{
+				Text: "Test memo content",
+			},
+			setupMock: func(ms *MockMemoService) {
+				ms.CreateMemoAndEnqueueTaskFn = func(ctx context.Context, userID uuid.UUID, text string) (*domain.Memo, error) {
+					return nil, &domain.ValidationError{
+						Field:   "text",
+						Message: "contains invalid characters",
+					}
+				}
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Invalid text: contains invalid characters",
+		},
+		{
+			name: "service_error",
+			setupContext: func(ctx context.Context) context.Context {
+				return context.WithValue(ctx, shared.UserIDContextKey, fixedUserID)
+			},
+			requestBody: CreateMemoRequest{
+				Text: "Test memo content",
+			},
+			setupMock: func(ms *MockMemoService) {
+				ms.CreateMemoAndEnqueueTaskFn = func(ctx context.Context, userID uuid.UUID, text string) (*domain.Memo, error) {
+					return nil, errors.New("unexpected service error")
+				}
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedErrMsg: "Failed to create memo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a new mock service
+			mockService := &MockMemoService{}
+
+			// Configure the mock
+			tt.setupMock(mockService)
+
+			// Create a handler with the mock service
+			logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+			handler := NewMemoHandler(mockService, logger)
+
+			// Create request body
+			var reqBody []byte
+			var err error
+			if str, ok := tt.requestBody.(string); ok {
+				// Handle raw JSON string for invalid format tests
+				reqBody = []byte(str)
+			} else {
+				// Handle structured request object
+				reqBody, err = json.Marshal(tt.requestBody)
+				require.NoError(t, err)
+			}
+
+			// Create request
+			req := httptest.NewRequest(http.MethodPost, "/api/memos", bytes.NewReader(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Apply context setup
+			req = req.WithContext(tt.setupContext(req.Context()))
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call the handler
+			handler.CreateMemo(w, req)
+
+			// Check status code
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			// Parse response
+			var respBody map[string]interface{}
+			err = json.Unmarshal(w.Body.Bytes(), &respBody)
+			require.NoError(t, err)
+
+			// Check error response
+			if tt.expectedErrMsg != "" {
+				errorMsg, ok := respBody["error"].(string)
+				assert.True(t, ok, "Expected error field in response")
+				assert.Contains(t, errorMsg, tt.expectedErrMsg)
+			}
+
+			// Check success response
+			if tt.expectedMemoID != "" {
+				assert.Equal(t, tt.expectedMemoID, respBody["id"])
+				assert.Equal(t, tt.expectedUserID, respBody["user_id"])
+				assert.Equal(t, tt.expectedMemoTxt, respBody["text"])
+				assert.Equal(t, string(domain.MemoStatusPending), respBody["status"])
+			}
+		})
+	}
+}
+
+// TestMemoHandler_HelperFunctions tests the helper functions in the memo handler.
+func TestMemoHandler_HelperFunctions(t *testing.T) {
+	t.Run("memoToDTOResponse", func(t *testing.T) {
+		// Create a test memo
+		userID := uuid.New()
+		memoID := uuid.New()
+		now := time.Now().UTC()
 		memo := &domain.Memo{
-			ID:        uuid.New(),
+			ID:        memoID,
 			UserID:    userID,
-			Text:      memoText,
+			Text:      "Test memo content",
 			Status:    domain.MemoStatusPending,
-			CreatedAt: time.Now().UTC(),
-			UpdatedAt: time.Now().UTC(),
+			CreatedAt: now,
+			UpdatedAt: now,
 		}
 
-		mockService.On("CreateMemoAndEnqueueTask", mock.Anything, userID, memoText).Return(memo, nil)
+		// Convert to response
+		response := memoToDTOResponse(memo)
 
-		// Create handler
-		handler := NewMemoHandler(mockService)
+		// Verify correct conversion
+		assert.Equal(t, memoID.String(), response.ID)
+		assert.Equal(t, userID.String(), response.UserID)
+		assert.Equal(t, "Test memo content", response.Text)
+		assert.Equal(t, string(domain.MemoStatusPending), response.Status)
+		assert.Equal(t, now, response.CreatedAt)
+		assert.Equal(t, now, response.UpdatedAt)
+	})
+}
 
-		// Create request
-		requestBody := CreateMemoRequest{
-			Text: memoText,
-		}
-		jsonData, err := json.Marshal(requestBody)
-		require.NoError(t, err)
+// TestMemoHandler_NewMemoHandler tests the constructor function.
+func TestMemoHandler_NewMemoHandler(t *testing.T) {
+	mockService := &MockMemoService{}
 
-		req := httptest.NewRequest("POST", "/api/memos", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
+	t.Run("with_logger", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))
+		handler := NewMemoHandler(mockService, logger)
 
-		// Set userID in request context (simulating auth middleware)
-		rctx := chi.NewRouteContext()
-		req = req.WithContext(context.WithValue(req.Context(), shared.UserIDContextKey, userID))
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Call handler
-		handler.CreateMemo(w, req)
-
-		// Assertions
-		assert.Equal(t, http.StatusAccepted, w.Code)
-
-		var response MemoResponse
-		err = json.NewDecoder(w.Body).Decode(&response)
-		require.NoError(t, err)
-
-		assert.Equal(t, memo.ID.String(), response.ID)
-		assert.Equal(t, memo.UserID.String(), response.UserID)
-		assert.Equal(t, memo.Text, response.Text)
-		assert.Equal(t, string(memo.Status), response.Status)
-		assert.NotEmpty(t, response.CreatedAt)
-		assert.NotEmpty(t, response.UpdatedAt)
-
-		// Verify mocks
-		mockService.AssertExpectations(t)
+		assert.NotNil(t, handler)
+		assert.Equal(t, mockService, handler.memoService)
+		// Validator now uses shared.Validate singleton
+		assert.NotNil(t, handler.logger)
 	})
 
-	t.Run("missing user ID", func(t *testing.T) {
-		// Setup
-		mockService := &MockMemoService{}
-		handler := NewMemoHandler(mockService)
+	t.Run("without_logger", func(t *testing.T) {
+		// Test for panic with nil logger
+		assert.Panics(t, func() {
+			NewMemoHandler(mockService, nil)
+		})
 
-		// Create request with missing user ID in context
-		req := httptest.NewRequest("POST", "/api/memos", bytes.NewBufferString(`{"text":"Test memo"}`))
-		req.Header.Set("Content-Type", "application/json")
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Call handler
-		handler.CreateMemo(w, req)
-
-		// Assertions
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		mockService.AssertNotCalled(t, "CreateMemoAndEnqueueTask")
-	})
-
-	t.Run("invalid request body", func(t *testing.T) {
-		// Setup
-		userID := uuid.New()
-		mockService := &MockMemoService{}
-		handler := NewMemoHandler(mockService)
-
-		// Create invalid request (missing text field)
-		req := httptest.NewRequest("POST", "/api/memos", bytes.NewBufferString(`{}`))
-		req.Header.Set("Content-Type", "application/json")
-
-		// Set userID in request context
-		rctx := chi.NewRouteContext()
-		req = req.WithContext(context.WithValue(req.Context(), shared.UserIDContextKey, userID))
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Call handler
-		handler.CreateMemo(w, req)
-
-		// Assertions
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		mockService.AssertNotCalled(t, "CreateMemoAndEnqueueTask")
-	})
-
-	t.Run("service error", func(t *testing.T) {
-		// Setup
-		userID := uuid.New()
-		memoText := "This is a test memo"
-		mockService := &MockMemoService{}
-
-		// Setup mock to return error
-		mockError := errors.New("service error")
-		mockService.On("CreateMemoAndEnqueueTask", mock.Anything, userID, memoText).Return(nil, mockError)
-
-		// Create handler
-		handler := NewMemoHandler(mockService)
-
-		// Create request
-		requestBody := CreateMemoRequest{
-			Text: memoText,
-		}
-		jsonData, err := json.Marshal(requestBody)
-		require.NoError(t, err)
-
-		req := httptest.NewRequest("POST", "/api/memos", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-
-		// Set userID in request context
-		rctx := chi.NewRouteContext()
-		req = req.WithContext(context.WithValue(req.Context(), shared.UserIDContextKey, userID))
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Call handler
-		handler.CreateMemo(w, req)
-
-		// Assertions
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		mockService.AssertExpectations(t)
 	})
 }

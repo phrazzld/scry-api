@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/redact"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/store"
 )
@@ -23,9 +23,9 @@ type AuthHandler struct {
 	userStore        store.UserStore
 	jwtService       auth.JWTService
 	passwordVerifier auth.PasswordVerifier
-	validator        *validator.Validate
 	authConfig       *config.AuthConfig // For accessing token lifetime and other auth settings
 	timeFunc         func() time.Time   // Injectable time source for testing
+	logger           *slog.Logger       // Added logger field
 }
 
 // generateTokenResponse generates access and refresh tokens for a user, along with expiration time.
@@ -34,39 +34,40 @@ func (h *AuthHandler) generateTokenResponse(
 	ctx context.Context,
 	userID uuid.UUID,
 ) (accessToken, refreshToken, expiresAt string, err error) {
+	// Get logger from context or use default
+	log := h.logger.With(slog.String("user_id", userID.String()))
+
 	// Generate access token
 	accessToken, err = h.jwtService.GenerateToken(ctx, userID)
 	if err != nil {
-		slog.Error("failed to generate access token",
-			"error", err,
-			"user_id", userID,
-			"token_type", "access",
-			"lifetime_minutes", h.authConfig.TokenLifetimeMinutes)
+		log.Error("failed to generate access token",
+			slog.String("error", redact.Error(err)),
+			slog.String("token_type", "access"),
+			slog.Int("lifetime_minutes", h.authConfig.TokenLifetimeMinutes))
 		return "", "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	// Generate refresh token
 	refreshToken, err = h.jwtService.GenerateRefreshToken(ctx, userID)
 	if err != nil {
-		slog.Error("failed to generate refresh token",
-			"error", err,
-			"user_id", userID,
-			"token_type", "refresh",
-			"lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes)
+		log.Error("failed to generate refresh token",
+			slog.String("error", redact.Error(err)),
+			slog.String("token_type", "refresh"),
+			slog.Int("lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes))
 		return "", "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	// Calculate access token expiration time using the injected time source
-	expiresAtTime := h.timeFunc().Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
+	expiresAtTime := h.timeFunc().
+		Add(time.Duration(h.authConfig.TokenLifetimeMinutes) * time.Minute)
 
 	// Format expiration time in RFC3339 format (standard for JSON API responses)
 	expiresAt = expiresAtTime.Format(time.RFC3339)
 
 	// Log successful token generation with appropriate level
-	slog.Debug("successfully generated token pair",
-		"user_id", userID,
-		"access_token_expires_at", expiresAt,
-		"refresh_token_lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes)
+	log.Debug("successfully generated token pair",
+		slog.String("access_token_expires_at", expiresAt),
+		slog.Int("refresh_token_lifetime_minutes", h.authConfig.RefreshTokenLifetimeMinutes))
 
 	return accessToken, refreshToken, expiresAt, nil
 }
@@ -77,22 +78,47 @@ func NewAuthHandler(
 	jwtService auth.JWTService,
 	passwordVerifier auth.PasswordVerifier,
 	authConfig *config.AuthConfig,
+	logger *slog.Logger,
 ) *AuthHandler {
+	if logger == nil {
+		// ALLOW-PANIC: Constructor enforcing required dependency
+		panic("logger cannot be nil for AuthHandler")
+	}
+
 	return &AuthHandler{
 		userStore:        userStore,
 		jwtService:       jwtService,
 		passwordVerifier: passwordVerifier,
-		validator:        validator.New(),
 		authConfig:       authConfig,
 		timeFunc:         time.Now, // Default to system time
+		logger:           logger.With(slog.String("component", "auth_handler")),
 	}
 }
 
 // WithTimeFunc returns a new AuthHandler with the given time function.
 // This is useful for testing with a fixed time source.
+// Following the immutable pattern, this method creates and returns a completely new
+// handler instance instead of modifying the original instance. The original handler
+// remains unchanged and the caller must use the returned handler for subsequent operations.
+//
+// Example usage:
+//
+//	// Create a handler with a fixed time function
+//	handler := NewAuthHandler(...)
+//	handler = handler.WithTimeFunc(func() time.Time {
+//	    return fixedTime
+//	})
 func (h *AuthHandler) WithTimeFunc(timeFunc func() time.Time) *AuthHandler {
-	h.timeFunc = timeFunc
-	return h
+	// Create a new handler that's a copy of the current one
+	newHandler := &AuthHandler{
+		userStore:        h.userStore,
+		jwtService:       h.jwtService,
+		passwordVerifier: h.passwordVerifier,
+		authConfig:       h.authConfig,
+		timeFunc:         timeFunc, // Set the new time function
+		logger:           h.logger,
+	}
+	return newHandler
 }
 
 // Register handles the /auth/register endpoint.
@@ -101,41 +127,33 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request
 	if err := shared.DecodeJSON(r, &req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+	if err := shared.Validate.Struct(req); err != nil {
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Create user
 	user, err := domain.NewUser(req.Email, req.Password)
 	if err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid user data: "+err.Error())
+		HandleAPIError(w, r, err, "Invalid user data")
 		return
 	}
 
 	// Store user
 	if err := h.userStore.Create(r.Context(), user); err != nil {
-		if errors.Is(err, store.ErrEmailExists) {
-			shared.RespondWithError(w, r, http.StatusConflict, "Email already exists")
-			return
-		}
-		slog.Error("failed to create user", "error", err, "email", req.Email)
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to create user")
+		HandleAPIError(w, r, err, "Failed to create user")
 		return
 	}
 
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("token generation failed during registration",
-			"error", err,
-			"user_id", user.ID)
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
+		HandleAPIError(w, r, err, "Failed to generate authentication tokens")
 		return
 	}
 
@@ -155,30 +173,20 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request
 	if err := shared.DecodeJSON(r, &req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+	if err := shared.Validate.Struct(req); err != nil {
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Validate refresh token
 	claims, err := h.jwtService.ValidateRefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		// Map different error types to appropriate HTTP responses
-		switch {
-		case errors.Is(err, auth.ErrInvalidRefreshToken),
-			errors.Is(err, auth.ErrExpiredRefreshToken),
-			errors.Is(err, auth.ErrWrongTokenType):
-			slog.Debug("refresh token validation failed", "error", err)
-			shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid refresh token")
-		default:
-			slog.Error("unexpected error validating refresh token", "error", err)
-			shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to validate refresh token")
-		}
+		HandleAPIError(w, r, err, "Invalid refresh token")
 		return
 	}
 
@@ -186,17 +194,14 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	userID := claims.UserID
 
 	// Log successful refresh token validation
-	slog.Debug("refresh token validated successfully",
-		"user_id", userID,
-		"token_id", claims.ID)
+	h.logger.Debug("refresh token validated successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("token_id", claims.ID))
 
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), userID)
 	if err != nil {
-		slog.Error("token generation failed during refresh token operation",
-			"error", err,
-			"user_id", userID)
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate new authentication tokens")
+		HandleAPIError(w, r, err, "Failed to generate new authentication tokens")
 		return
 	}
 
@@ -214,13 +219,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request
 	if err := shared.DecodeJSON(r, &req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+	if err := shared.Validate.Struct(req); err != nil {
+		HandleValidationError(w, r, err)
 		return
 	}
 
@@ -228,27 +233,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userStore.GetByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, store.ErrUserNotFound) {
-			shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid credentials")
+			// Use generic error message for security (don't reveal if email exists)
+			// Elevate to WARN level as repeated auth failures are operationally important
+			HandleAPIError(w, r, err, "Invalid credentials", shared.WithElevatedLogLevel())
 			return
 		}
-		slog.Error("failed to get user by email", "error", err, "email", req.Email)
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to authenticate user")
+		HandleAPIError(w, r, err, "Failed to authenticate user")
 		return
 	}
 
 	// Verify password using the injected verifier
 	if err := h.passwordVerifier.Compare(user.HashedPassword, req.Password); err != nil {
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "Invalid credentials")
+		// Use same generic error message as above for security
+		// Elevate to WARN level as repeated auth failures are operationally important
+		HandleAPIError(w, r, err, "Invalid credentials", shared.WithElevatedLogLevel())
 		return
 	}
 
 	// Generate tokens
 	accessToken, refreshToken, expiresAt, err := h.generateTokenResponse(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("token generation failed during login",
-			"error", err,
-			"user_id", user.ID)
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to generate authentication tokens")
+		HandleAPIError(w, r, err, "Failed to generate authentication tokens")
 		return
 	}
 

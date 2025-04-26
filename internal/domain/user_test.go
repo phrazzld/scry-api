@@ -40,13 +40,13 @@ func TestNewUser(t *testing.T) {
 
 	// Test invalid email
 	_, err = NewUser("", validPassword)
-	if err != ErrEmptyEmail {
-		t.Errorf("Expected error %v, got %v", ErrEmptyEmail, err)
+	if err != ErrUserEmailEmpty {
+		t.Errorf("Expected error %v, got %v", ErrUserEmailEmpty, err)
 	}
 
 	_, err = NewUser("invalidemail", validPassword)
-	if err != ErrInvalidEmail {
-		t.Errorf("Expected error %v, got %v", ErrInvalidEmail, err)
+	if err != ErrUserEmailInvalid {
+		t.Errorf("Expected error %v, got %v", ErrUserEmailInvalid, err)
 	}
 
 	// Note: Password validation is now done by Validate() through User.Validate()
@@ -70,29 +70,29 @@ func TestUserValidate(t *testing.T) {
 	// Test invalid ID
 	invalidUser := validUser
 	invalidUser.ID = uuid.Nil
-	if err := invalidUser.Validate(); err != ErrEmptyUserID {
-		t.Errorf("Expected error %v, got %v", ErrEmptyUserID, err)
+	if err := invalidUser.Validate(); err != ErrUserIDEmpty {
+		t.Errorf("Expected error %v, got %v", ErrUserIDEmpty, err)
 	}
 
 	// Test invalid email
 	invalidUser = validUser
 	invalidUser.Email = ""
-	if err := invalidUser.Validate(); err != ErrEmptyEmail {
-		t.Errorf("Expected error %v, got %v", ErrEmptyEmail, err)
+	if err := invalidUser.Validate(); err != ErrUserEmailEmpty {
+		t.Errorf("Expected error %v, got %v", ErrUserEmailEmpty, err)
 	}
 
 	invalidUser = validUser
 	invalidUser.Email = "invalidemail"
-	if err := invalidUser.Validate(); err != ErrInvalidEmail {
-		t.Errorf("Expected error %v, got %v", ErrInvalidEmail, err)
+	if err := invalidUser.Validate(); err != ErrUserEmailInvalid {
+		t.Errorf("Expected error %v, got %v", ErrUserEmailInvalid, err)
 	}
 
 	// Test both password fields empty
 	invalidUser = validUser
 	invalidUser.HashedPassword = ""
 	invalidUser.Password = ""
-	if err := invalidUser.Validate(); err != ErrEmptyHashedPassword {
-		t.Errorf("Expected error %v, got %v", ErrEmptyHashedPassword, err)
+	if err := invalidUser.Validate(); err != ErrUserHashedPasswordEmpty {
+		t.Errorf("Expected error %v, got %v", ErrUserHashedPasswordEmpty, err)
 	}
 
 	// Test with Password present but HashedPassword empty - should pass validation
@@ -181,24 +181,24 @@ func TestValidatePassword(t *testing.T) {
 		{
 			name:     "password just below minimum length",
 			password: "12345678901", // 11 characters (one short)
-			wantErr:  ErrPasswordTooShort,
+			wantErr:  ErrUserPasswordTooShort,
 		},
 		{
 			name:     "password just above maximum length",
 			password: "1234567890123456789012345678901234567890123456789012345678901234567890123", // 73 characters (one over)
-			wantErr:  ErrPasswordTooLong,
+			wantErr:  ErrUserPasswordTooLong,
 		},
 
 		// Error cases
 		{
 			name:     "password very short",
 			password: "Pass1!", // 6 characters
-			wantErr:  ErrPasswordTooShort,
+			wantErr:  ErrUserPasswordTooShort,
 		},
 		{
 			name:     "password very long",
 			password: "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", // 100 characters
-			wantErr:  ErrPasswordTooLong,
+			wantErr:  ErrUserPasswordTooLong,
 		},
 	}
 

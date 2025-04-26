@@ -49,7 +49,11 @@ func DefaultWorkerPoolConfig() WorkerPoolConfig {
 }
 
 // NewWorkerPool creates a new worker pool with the specified configuration
-func NewWorkerPool(taskQueue TaskQueueReader, config WorkerPoolConfig, logger *slog.Logger) *WorkerPool {
+func NewWorkerPool(
+	taskQueue TaskQueueReader,
+	config WorkerPoolConfig,
+	logger *slog.Logger,
+) *WorkerPool {
 	// Apply defaults for invalid config values
 	workerCount := config.WorkerCount
 	if workerCount <= 0 {
@@ -118,13 +122,21 @@ func (p *WorkerPool) runWorker(workerID int) {
 		select {
 		case <-p.ctx.Done():
 			// Context was cancelled (Stop was called)
-			p.logger.Debug("worker shutting down due to context cancellation", "worker_id", workerID)
+			p.logger.Debug(
+				"worker shutting down due to context cancellation",
+				"worker_id",
+				workerID,
+			)
 			return
 
 		case task, ok := <-p.taskQueue.GetChannel():
 			// Check if channel was closed
 			if !ok {
-				p.logger.Debug("worker shutting down due to closed task queue", "worker_id", workerID)
+				p.logger.Debug(
+					"worker shutting down due to closed task queue",
+					"worker_id",
+					workerID,
+				)
 				return
 			}
 

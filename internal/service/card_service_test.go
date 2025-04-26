@@ -58,7 +58,10 @@ func (m *MockStatsRepository) Create(ctx context.Context, stats *domain.UserCard
 }
 
 // Get implements StatsRepository
-func (m *MockStatsRepository) Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error) {
+func (m *MockStatsRepository) Get(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
 	args := m.Called(ctx, userID, cardID)
 	stats, _ := args.Get(0).(*domain.UserCardStats)
 	return stats, args.Error(1)

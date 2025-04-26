@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/service"
 )
 
@@ -30,53 +30,52 @@ type MemoResponse struct {
 // MemoHandler handles memo-related HTTP requests
 type MemoHandler struct {
 	memoService service.MemoService
-	validator   *validator.Validate
+	logger      *slog.Logger
 }
 
 // NewMemoHandler creates a new MemoHandler
-func NewMemoHandler(memoService service.MemoService) *MemoHandler {
+func NewMemoHandler(memoService service.MemoService, logger *slog.Logger) *MemoHandler {
+	if logger == nil {
+		// ALLOW-PANIC: Constructor enforcing required dependency
+		panic("logger cannot be nil for MemoHandler")
+	}
+
 	return &MemoHandler{
 		memoService: memoService,
-		validator:   validator.New(),
+		logger:      logger.With(slog.String("component", "memo_handler")),
 	}
 }
 
 // CreateMemo handles POST /api/memos requests
 func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(r.Context(), h.logger)
+
 	// Extract user ID from context (set by auth middleware)
 	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
 	if !ok || userID == uuid.Nil {
-		shared.RespondWithError(w, r, http.StatusUnauthorized, "User ID not found or invalid")
+		log.Warn("user ID not found or invalid in request context")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "Authentication required")
 		return
 	}
 
 	// Parse request body
 	var req CreateMemoRequest
 	if err := shared.DecodeJSON(r, &req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Invalid request format")
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Validate request
-	if err := h.validator.Struct(req); err != nil {
-		shared.RespondWithError(w, r, http.StatusBadRequest, "Validation error: "+err.Error())
+	if err := shared.Validate.Struct(req); err != nil {
+		HandleValidationError(w, r, err)
 		return
 	}
 
 	// Create memo and enqueue task
 	memo, err := h.memoService.CreateMemoAndEnqueueTask(r.Context(), userID, req.Text)
 	if err != nil {
-		slog.Error("Failed to create memo", "error", err, "user_id", userID)
-		// TODO(api-error-handling): Add more specific error handling based on error types:
-		// 1. Create an errors.go file in the api package with:
-		//    - A function to map domain errors to HTTP status codes (e.g., domain.ErrInvalidMemo -> 400)
-		//    - A function to map service errors to HTTP status codes (e.g., service.ErrPermissionDenied -> 403)
-		//    - A function to extract user-safe error messages
-		// 2. Implement error handling middleware that uses error wrapping (errors.Is, errors.As)
-		// 3. Update shared.RespondWithError to accept error types and handle mapping internally
-		// 4. Replace all direct status code assignments with the new mapping function
-		// 5. Add tests verifying correct status code mapping for each error type
-		shared.RespondWithError(w, r, http.StatusInternalServerError, "Failed to create memo")
+		HandleAPIError(w, r, err, "Failed to create memo")
 		return
 	}
 

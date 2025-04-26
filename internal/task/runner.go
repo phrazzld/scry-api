@@ -134,7 +134,10 @@ func (r *TaskRunner) Recover() error {
 	}
 
 	// Get tasks that were in "processing" state (potentially interrupted by a crash)
-	processingTasks, err := r.store.GetProcessingTasks(ctx, 0) // Get all processing tasks regardless of age
+	processingTasks, err := r.store.GetProcessingTasks(
+		ctx,
+		0,
+	) // Get all processing tasks regardless of age
 	if err != nil {
 		return fmt.Errorf("failed to get processing tasks: %w", err)
 	}

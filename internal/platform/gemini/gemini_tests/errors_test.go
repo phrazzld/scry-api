@@ -15,8 +15,17 @@ func TestErrorWrapping(t *testing.T) {
 	origErr := errors.New("some underlying error")
 	wrappedErr := fmt.Errorf("%w: %v", generation.ErrGenerationFailed, origErr)
 
-	assert.True(t, errors.Is(wrappedErr, generation.ErrGenerationFailed), "Wrapped error should be ErrGenerationFailed")
-	assert.Contains(t, wrappedErr.Error(), origErr.Error(), "Wrapped error should contain the original error")
+	assert.True(
+		t,
+		errors.Is(wrappedErr, generation.ErrGenerationFailed),
+		"Wrapped error should be ErrGenerationFailed",
+	)
+	assert.Contains(
+		t,
+		wrappedErr.Error(),
+		origErr.Error(),
+		"Wrapped error should contain the original error",
+	)
 }
 
 // Test that error types are distinct
@@ -64,7 +73,12 @@ func TestErrorMessageFormat(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			wrappedErr := fmt.Errorf("%w: %s", tc.baseErr, tc.details)
-			assert.Equal(t, tc.expected, wrappedErr.Error(), "Error message formatting should match expected")
+			assert.Equal(
+				t,
+				tc.expected,
+				wrappedErr.Error(),
+				"Error message formatting should match expected",
+			)
 		})
 	}
 }

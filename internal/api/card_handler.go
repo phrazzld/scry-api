@@ -14,6 +14,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/redact"
+	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 )
 
@@ -30,12 +31,14 @@ type CardResponse struct {
 // CardHandler handles card-related HTTP requests
 type CardHandler struct {
 	cardReviewService card_review.CardReviewService
+	cardService       service.CardService
 	logger            *slog.Logger
 }
 
 // NewCardHandler creates a new CardHandler
 func NewCardHandler(
 	cardReviewService card_review.CardReviewService,
+	cardService service.CardService,
 	logger *slog.Logger,
 ) *CardHandler {
 	if logger == nil {
@@ -45,6 +48,7 @@ func NewCardHandler(
 
 	return &CardHandler{
 		cardReviewService: cardReviewService,
+		cardService:       cardService,
 		logger:            logger.With(slog.String("component", "card_handler")),
 	}
 }
@@ -89,6 +93,11 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", card.ID.String()))
 	shared.RespondWithJSON(w, r, http.StatusOK, response)
+}
+
+// EditCardRequest represents the request body for editing a card's content
+type EditCardRequest struct {
+	Content json.RawMessage `json:"content" validate:"required"`
 }
 
 // SubmitAnswerRequest represents the request body for submitting a card review answer
@@ -199,6 +208,75 @@ func statsToResponse(stats *domain.UserCardStats) UserCardStatsResponse {
 		NextReviewAt:       stats.NextReviewAt,
 		ReviewCount:        stats.ReviewCount,
 	}
+}
+
+// EditCard handles PUT /cards/{id} requests
+// It updates the content of an existing card after validating user ownership
+func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(r.Context(), h.logger)
+
+	// Extract card ID from URL path using chi router
+	pathCardID := chi.URLParam(r, "id")
+	if pathCardID == "" {
+		log.Warn("card ID not found in URL path")
+		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
+		return
+	}
+
+	// Parse card ID as UUID
+	cardID, err := uuid.Parse(pathCardID)
+	if err != nil {
+		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
+		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
+		return
+	}
+
+	// Extract user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		log.Warn("user ID not found or invalid in request context")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+		return
+	}
+
+	// Parse request body
+	var req EditCardRequest
+	if err := shared.DecodeJSON(r, &req); err != nil {
+		log.Warn("invalid request format",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		HandleValidationError(w, r, err)
+		return
+	}
+
+	// Validate request
+	if err := shared.Validate.Struct(req); err != nil {
+		log.Warn("validation error",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		HandleValidationError(w, r, err)
+		return
+	}
+
+	// Call service to update card content
+	err = h.cardService.UpdateCardContent(r.Context(), userID, cardID, req.Content)
+	if err != nil {
+		log.Error("failed to update card content",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		HandleAPIError(w, r, err, "Failed to update card content")
+		return
+	}
+
+	// Return success with 204 No Content status
+	log.Debug("card content updated successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // cardToResponse converts a domain.Card to a CardResponse

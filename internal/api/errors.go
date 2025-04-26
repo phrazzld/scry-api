@@ -8,6 +8,7 @@ import (
 
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -28,7 +29,8 @@ func MapErrorToStatusCode(err error) int {
 		return http.StatusUnauthorized
 
 	// Authorization errors
-	case errors.Is(err, card_review.ErrCardNotOwned):
+	case errors.Is(err, card_review.ErrCardNotOwned),
+		errors.Is(err, service.ErrNotOwned):
 		return http.StatusForbidden
 
 	// Not found errors
@@ -137,7 +139,8 @@ func GetSafeErrorMessage(err error) string {
 		return "Unauthorized operation"
 
 	// Authorization errors
-	case errors.Is(err, card_review.ErrCardNotOwned):
+	case errors.Is(err, card_review.ErrCardNotOwned),
+		errors.Is(err, service.ErrNotOwned):
 		return "You do not own this card"
 
 	// Not found errors

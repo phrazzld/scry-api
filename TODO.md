@@ -168,7 +168,7 @@
         2. Appropriate errors returned and logged.
     - **Depends-on:** [T005, T010, T011, T013]
 
-- [ ] **T017 · Test · P1: add unit tests for CardService methods**
+- [x] **T017 · Test · P1: add unit tests for CardService methods**
     - **Context:** PLAN.md > Detailed Build Steps > 4f; Testing Strategy
     - **Action:**
         1. In `internal/service/card_service_impl_test.go`, mock dependencies.
@@ -178,7 +178,7 @@
     - **Depends-on:** [T014, T015, T016]
 
 ## internal/api/card_handler
-- [ ] **T018 · Feature · P2: implement EditCard HTTP handler**
+- [x] **T018 · Feature · P2: implement EditCard HTTP handler**
     - **Context:** PLAN.md > Detailed Build Steps > 5a–d; Validation; Logging
     - **Action:**
         1. In `internal/api/card_handler.go`, add `EditCard`.

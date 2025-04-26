@@ -319,8 +319,13 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Use memo service from dependencies, which has been properly initialized in startServer
 	memoHandler := api.NewMemoHandler(deps.MemoService, deps.Logger)
 
-	// Use the card review service from dependencies
-	cardHandler := api.NewCardHandler(deps.CardReviewService, deps.Logger)
+	// Directly get the card service from appDependencies to avoid type casting
+	cardService, ok := deps.CardService.(service.CardService)
+	if !ok {
+		slog.Error("Failed to cast CardService to service.CardService")
+		os.Exit(1)
+	}
+	cardHandler := api.NewCardHandler(deps.CardReviewService, cardService, deps.Logger)
 
 	// Register routes
 	r.Route("/api", func(r chi.Router) {
@@ -338,6 +343,9 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 			// Card review endpoints
 			r.Get("/cards/next", cardHandler.GetNextReviewCard)
 			r.Post("/cards/{id}/answer", cardHandler.SubmitAnswer)
+
+			// Card management endpoints
+			r.Put("/cards/{id}", cardHandler.EditCard)
 		})
 	})
 

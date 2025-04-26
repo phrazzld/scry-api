@@ -17,7 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,6 +27,50 @@ import (
 type mockCardReviewService struct {
 	nextCardFn     func(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
 	submitAnswerFn func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error)
+}
+
+// mockCardService is a mock implementation of the CardService interface
+type mockCardService struct {
+	updateCardContentFn func(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error
+	deleteCardFn        func(ctx context.Context, userID, cardID uuid.UUID) error
+	postponeCardFn      func(ctx context.Context, userID, cardID uuid.UUID, days int) (*domain.UserCardStats, error)
+	createCardsFn       func(ctx context.Context, cards []*domain.Card) error
+	getCardFn           func(ctx context.Context, cardID uuid.UUID) (*domain.Card, error)
+}
+
+func (m *mockCardService) UpdateCardContent(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error {
+	if m.updateCardContentFn != nil {
+		return m.updateCardContentFn(ctx, userID, cardID, content)
+	}
+	return nil
+}
+
+func (m *mockCardService) DeleteCard(ctx context.Context, userID, cardID uuid.UUID) error {
+	if m.deleteCardFn != nil {
+		return m.deleteCardFn(ctx, userID, cardID)
+	}
+	return nil
+}
+
+func (m *mockCardService) PostponeCard(ctx context.Context, userID, cardID uuid.UUID, days int) (*domain.UserCardStats, error) {
+	if m.postponeCardFn != nil {
+		return m.postponeCardFn(ctx, userID, cardID, days)
+	}
+	return nil, nil
+}
+
+func (m *mockCardService) CreateCards(ctx context.Context, cards []*domain.Card) error {
+	if m.createCardsFn != nil {
+		return m.createCardsFn(ctx, cards)
+	}
+	return nil
+}
+
+func (m *mockCardService) GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error) {
+	if m.getCardFn != nil {
+		return m.getCardFn(ctx, cardID)
+	}
+	return nil, nil
 }
 
 func (m *mockCardReviewService) GetNextCard(
@@ -130,7 +176,8 @@ func TestGetNextReviewCard(t *testing.T) {
 
 			// Create the handler
 			testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-			handler := NewCardHandler(mockService, testLogger)
+			mockCardService := &mockCardService{}
+			handler := NewCardHandler(mockService, mockCardService, testLogger)
 
 			// Create a request
 			req, err := http.NewRequest("GET", "/cards/next", nil)
@@ -409,7 +456,8 @@ func TestSubmitAnswer(t *testing.T) {
 
 			// Create the handler
 			testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-			handler := NewCardHandler(mockService, testLogger)
+			mockCardService := &mockCardService{}
+			handler := NewCardHandler(mockService, mockCardService, testLogger)
 
 			// Create request body
 			var jsonBody []byte
@@ -511,11 +559,12 @@ func TestSubmitAnswer(t *testing.T) {
 }
 
 func TestNewCardHandler(t *testing.T) {
-	mockService := &mockCardReviewService{}
+	mockReviewService := &mockCardReviewService{}
+	mockCardService := &mockCardService{}
 
 	// Test with valid logger
 	testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	handler := NewCardHandler(mockService, testLogger)
+	handler := NewCardHandler(mockReviewService, mockCardService, testLogger)
 
 	if handler == nil {
 		t.Fatal("expected handler to be created")
@@ -523,14 +572,164 @@ func TestNewCardHandler(t *testing.T) {
 
 	// Test with nil logger should panic
 	assert.Panics(t, func() {
-		NewCardHandler(mockService, nil)
+		NewCardHandler(mockReviewService, mockCardService, nil)
 	})
 
 	if handler.cardReviewService == nil {
 		t.Error("expected cardReviewService to be set")
 	}
+
+	if handler.cardService == nil {
+		t.Error("expected cardService to be set")
+	}
+
 	// Validator now uses shared.Validate
 	if handler.logger == nil {
 		t.Error("expected default logger to be set")
+	}
+}
+
+func TestEditCard(t *testing.T) {
+	// Setup common test variables
+	userID := uuid.New()
+	cardID := uuid.New()
+
+	tests := []struct {
+		name                string
+		requestCardID       string
+		requestUserID       uuid.UUID
+		requestBody         []byte
+		mockServiceFn       func(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error
+		expectedStatusCode  int
+		expectedErrContains string // Partial error message for checking
+	}{
+		{
+			name:          "Success",
+			requestCardID: cardID.String(),
+			requestUserID: userID,
+			requestBody:   []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn: func(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error {
+				return nil
+			},
+			expectedStatusCode:  http.StatusNoContent,
+			expectedErrContains: "",
+		},
+		{
+			name:                "Invalid Card ID",
+			requestCardID:       "not-a-uuid",
+			requestUserID:       userID,
+			requestBody:         []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn:       nil, // No mock behavior needed
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedErrContains: "Invalid ID",
+		},
+		{
+			name:          "Card Not Found",
+			requestCardID: cardID.String(),
+			requestUserID: userID,
+			requestBody:   []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn: func(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error {
+				return service.NewCardServiceError("update_card_content", "card not found", store.ErrCardNotFound)
+			},
+			expectedStatusCode:  http.StatusNotFound,
+			expectedErrContains: "not found",
+		},
+		{
+			name:          "Not Owned By User",
+			requestCardID: cardID.String(),
+			requestUserID: userID,
+			requestBody:   []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn: func(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error {
+				return service.NewCardServiceError("update_card_content", "card is owned by another user", service.ErrNotOwned)
+			},
+			expectedStatusCode:  http.StatusForbidden,
+			expectedErrContains: "do not own",
+		},
+		{
+			name:                "Invalid Request Body",
+			requestCardID:       cardID.String(),
+			requestUserID:       userID,
+			requestBody:         []byte(`{invalid json`),
+			mockServiceFn:       nil,
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedErrContains: "Validation error",
+		},
+		{
+			name:                "Missing Content Field",
+			requestCardID:       cardID.String(),
+			requestUserID:       userID,
+			requestBody:         []byte(`{}`),
+			mockServiceFn:       nil,
+			expectedStatusCode:  http.StatusBadRequest,
+			expectedErrContains: "Content",
+		},
+		{
+			name:          "Internal Server Error",
+			requestCardID: cardID.String(),
+			requestUserID: userID,
+			requestBody:   []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn: func(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error {
+				return errors.New("unexpected error")
+			},
+			expectedStatusCode:  http.StatusInternalServerError,
+			expectedErrContains: "Failed to update",
+		},
+		{
+			name:                "Missing User ID",
+			requestCardID:       cardID.String(),
+			requestUserID:       uuid.Nil,
+			requestBody:         []byte(`{"content": {"front": "Question", "back": "Answer"}}`),
+			mockServiceFn:       nil,
+			expectedStatusCode:  http.StatusUnauthorized,
+			expectedErrContains: "Unauthorized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup mocks
+			mockCardReviewService := &mockCardReviewService{}
+			mockCardService := &mockCardService{
+				updateCardContentFn: tt.mockServiceFn,
+			}
+
+			// Create handler
+			testLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			handler := NewCardHandler(mockCardReviewService, mockCardService, testLogger)
+
+			// Create request
+			req, err := http.NewRequest(http.MethodPut, "/cards/"+tt.requestCardID, bytes.NewBuffer(tt.requestBody))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			// Use chi router to get URL parameters
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tt.requestCardID)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+			// Add user ID to context if needed
+			if tt.requestUserID != uuid.Nil {
+				req = req.WithContext(context.WithValue(req.Context(), shared.UserIDContextKey, tt.requestUserID))
+			}
+
+			// Create response recorder
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			handler.EditCard(rr, req)
+
+			// Assert
+			assert.Equal(t, tt.expectedStatusCode, rr.Code)
+
+			// For error responses, check the error message
+			if tt.expectedStatusCode != http.StatusNoContent && tt.expectedErrContains != "" {
+				var errResp shared.ErrorResponse
+				if err := json.NewDecoder(rr.Body).Decode(&errResp); err == nil {
+					assert.Contains(t, errResp.Error, tt.expectedErrContains)
+				}
+			}
+		})
 	}
 }

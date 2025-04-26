@@ -50,6 +50,9 @@ type CardRepository interface {
 	// GetByID retrieves a card by its unique ID
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error)
 
+	// UpdateContent modifies an existing card's content field
+	UpdateContent(ctx context.Context, id uuid.UUID, content json.RawMessage) error
+
 	// WithTx returns a new repository instance that uses the provided transaction
 	// This is used for transactional operations
 	WithTx(tx *sql.Tx) CardRepository
@@ -229,14 +232,59 @@ func (s *cardServiceImpl) GetCard(ctx context.Context, cardID uuid.UUID) (*domai
 }
 
 // UpdateCardContent implements CardService.UpdateCardContent
-// This is a stub implementation that will be completed in a later task
+// It validates that the user is the owner of the card before updating its content
 func (s *cardServiceImpl) UpdateCardContent(
 	ctx context.Context,
 	userID, cardID uuid.UUID,
 	content json.RawMessage,
 ) error {
-	// Stub implementation to make the code compile
-	return fmt.Errorf("not implemented")
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("updating card content",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+
+	// 1. Fetch the card to verify ownership
+	card, err := s.cardRepo.GetByID(ctx, cardID)
+	if err != nil {
+		log.Error("failed to retrieve card for content update",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+
+		// Check for specific error types
+		if store.IsNotFoundError(err) {
+			return NewCardServiceError("update_card_content", "card not found", store.ErrCardNotFound)
+		}
+
+		return NewCardServiceError("update_card_content", "failed to retrieve card", err)
+	}
+
+	// 2. Validate ownership
+	if card.UserID != userID {
+		log.Error("unauthorized attempt to update card content",
+			slog.String("requested_user_id", userID.String()),
+			slog.String("actual_owner_id", card.UserID.String()),
+			slog.String("card_id", cardID.String()))
+		return NewCardServiceError("update_card_content", "card is owned by another user", ErrNotOwned)
+	}
+
+	// 3. Update the card content
+	err = s.cardRepo.UpdateContent(ctx, cardID, content)
+	if err != nil {
+		log.Error("failed to update card content",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return NewCardServiceError("update_card_content", "failed to update card content", err)
+	}
+
+	log.Debug("card content updated successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+
+	return nil
 }
 
 // DeleteCard implements CardService.DeleteCard

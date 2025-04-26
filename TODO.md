@@ -134,7 +134,7 @@
     - **Note:** SRSService field will be added during T016 implementation to avoid unused field warning.
     - **Depends-on:** [T001, T002, T003, T004]
 
-- [ ] **T014 · Feature · P1: implement UpdateCardContent method**
+- [x] **T014 · Feature · P1: implement UpdateCardContent method**
     - **Context:** PLAN.md > Detailed Build Steps > 4b; Security: authorization; Logging
     - **Action:**
         1. Fetch card via `CardStore.GetByID`; if `OwnerID != userID`, return `ErrNotOwned`.

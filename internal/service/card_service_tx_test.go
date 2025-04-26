@@ -48,6 +48,14 @@ func (m *MockFailingCardRepository) GetByID(
 	return m.CardStore.GetByID(ctx, id)
 }
 
+func (m *MockFailingCardRepository) UpdateContent(
+	ctx context.Context,
+	id uuid.UUID,
+	content json.RawMessage,
+) error {
+	return m.CardStore.UpdateContent(ctx, id, content)
+}
+
 func (m *MockFailingCardRepository) WithTx(tx *sql.Tx) service.CardRepository {
 	return &MockFailingCardRepository{
 		CardStore:         m.CardStore.WithTx(tx),

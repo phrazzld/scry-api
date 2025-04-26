@@ -24,7 +24,7 @@
         2. Code compiles.
     - **Depends-on:** none
 
-- [ ] **T003 · Feature · P1: define SRSService interface method**
+- [x] **T003 · Feature · P1: define SRSService interface method**
     - **Context:** PLAN.md > Detailed Build Steps > 1c
     - **Action:**
         1. In `internal/domain/srs/service.go`, declare `PostponeReview(stats *domain.UserCardStats, days int, now time.Time) (*domain.UserCardStats, error)` on `SRSService`.

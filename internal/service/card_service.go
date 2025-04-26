@@ -104,6 +104,7 @@ type cardServiceImpl struct {
 	cardRepo  CardRepository
 	statsRepo StatsRepository
 	logger    *slog.Logger
+	// Note: SRSService field will be added in T016 for PostponeCard implementation
 }
 
 // NewCardService creates a new CardService

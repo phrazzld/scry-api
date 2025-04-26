@@ -123,14 +123,15 @@
     - **Depends-on:** [T007, T008, T009, T010, T011]
 
 ## internal/service/card_service
-- [ ] **T013 · Feature · P1: define cardServiceImpl struct and errors**
+- [x] **T013 · Feature · P1: define cardServiceImpl struct and errors**
     - **Context:** PLAN.md > Detailed Build Steps > 4a, 4e
     - **Action:**
-        1. In `internal/service/card_service_impl.go`, define `cardServiceImpl` with `CardStore`, `UserCardStatsStore`, `SRSService`, `Logger` fields.
+        1. In `internal/service/card_service.go`, define basic `cardServiceImpl` with core fields.
         2. In `internal/service/errors.go`, declare `ErrNotOwned` and `ErrStatsNotFound`.
     - **Done-when:**
         1. Struct and errors are defined.
         2. Code compiles.
+    - **Note:** SRSService field will be added during T016 implementation to avoid unused field warning.
     - **Depends-on:** [T001, T002, T003, T004]
 
 - [ ] **T014 · Feature · P1: implement UpdateCardContent method**

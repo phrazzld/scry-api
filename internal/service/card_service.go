@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
 	"github.com/phrazzld/scry-api/internal/store"
 )
@@ -72,6 +74,9 @@ type StatsRepository interface {
 	// Get retrieves user card statistics by the combination of user ID and card ID
 	Get(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
 
+	// GetForUpdate retrieves user card statistics with a row-level lock
+	GetForUpdate(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
+
 	// Update modifies an existing statistics entry
 	Update(ctx context.Context, stats *domain.UserCardStats) error
 
@@ -107,10 +112,10 @@ type CardService interface {
 
 // cardServiceImpl implements the CardService interface
 type cardServiceImpl struct {
-	cardRepo  CardRepository
-	statsRepo StatsRepository
-	logger    *slog.Logger
-	// Note: SRSService field will be added in T016 for PostponeCard implementation
+	cardRepo   CardRepository
+	statsRepo  StatsRepository
+	srsService srs.Service
+	logger     *slog.Logger
 }
 
 // NewCardService creates a new CardService
@@ -118,6 +123,7 @@ type cardServiceImpl struct {
 func NewCardService(
 	cardRepo CardRepository,
 	statsRepo StatsRepository,
+	srsService srs.Service,
 	logger *slog.Logger,
 ) (CardService, error) {
 	// Validate dependencies
@@ -127,6 +133,9 @@ func NewCardService(
 	if statsRepo == nil {
 		return nil, domain.NewValidationError("statsRepo", "cannot be nil", domain.ErrValidation)
 	}
+	if srsService == nil {
+		return nil, domain.NewValidationError("srsService", "cannot be nil", domain.ErrValidation)
+	}
 
 	// Use provided logger or create default
 	if logger == nil {
@@ -134,9 +143,10 @@ func NewCardService(
 	}
 
 	return &cardServiceImpl{
-		cardRepo:  cardRepo,
-		statsRepo: statsRepo,
-		logger:    logger.With(slog.String("component", "card_service")),
+		cardRepo:   cardRepo,
+		statsRepo:  statsRepo,
+		srsService: srsService,
+		logger:     logger.With(slog.String("component", "card_service")),
 	}, nil
 }
 
@@ -343,12 +353,119 @@ func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UU
 }
 
 // PostponeCard implements CardService.PostponeCard
-// This is a stub implementation that will be completed in a later task
+// It validates that the user is the owner of the card before postponing the review
+// and performs the operation in a transaction to ensure atomicity.
 func (s *cardServiceImpl) PostponeCard(
 	ctx context.Context,
 	userID, cardID uuid.UUID,
 	days int,
 ) (*domain.UserCardStats, error) {
-	// Stub implementation to make the code compile
-	return nil, fmt.Errorf("not implemented")
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("postponing card review",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
+		slog.Int("days", days))
+
+	// Validate days parameter first to fail fast
+	if days < 1 {
+		log.Error("invalid days value for postpone",
+			slog.Int("days", days),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return nil, NewCardServiceError("postpone_card", "days must be at least 1", srs.ErrInvalidDays)
+	}
+
+	// 1. Fetch the card to verify ownership
+	card, err := s.cardRepo.GetByID(ctx, cardID)
+	if err != nil {
+		log.Error("failed to retrieve card for postpone",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+
+		// Check for specific error types
+		if store.IsNotFoundError(err) {
+			return nil, NewCardServiceError("postpone_card", "card not found", store.ErrCardNotFound)
+		}
+
+		return nil, NewCardServiceError("postpone_card", "failed to retrieve card", err)
+	}
+
+	// 2. Validate ownership
+	if card.UserID != userID {
+		log.Error("unauthorized attempt to postpone card review",
+			slog.String("requested_user_id", userID.String()),
+			slog.String("actual_owner_id", card.UserID.String()),
+			slog.String("card_id", cardID.String()))
+		return nil, NewCardServiceError("postpone_card", "card is owned by another user", ErrNotOwned)
+	}
+
+	// Initialize a variable to hold the updated stats
+	var updatedStats *domain.UserCardStats
+
+	// 3. Run the postpone operation in a transaction for atomicity
+	err = store.RunInTransaction(
+		ctx,
+		s.cardRepo.DB(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			// Get transactional repositories
+			txStatsRepo := s.statsRepo.WithTx(tx)
+
+			// 3.1 Get current stats with a row lock (FOR UPDATE)
+			stats, err := txStatsRepo.GetForUpdate(ctx, userID, cardID)
+			if err != nil {
+				log.Error("failed to retrieve stats for update",
+					slog.String("error", err.Error()),
+					slog.String("user_id", userID.String()),
+					slog.String("card_id", cardID.String()))
+
+				// Check for specific error types
+				if store.IsNotFoundError(err) {
+					return NewCardServiceError("postpone_card", "user card statistics not found", ErrStatsNotFound)
+				}
+
+				return NewCardServiceError("postpone_card", "failed to retrieve stats", err)
+			}
+
+			// 3.2 Calculate new review date using SRS service
+			now := time.Now().UTC()
+			newStats, err := s.srsService.PostponeReview(stats, days, now)
+			if err != nil {
+				log.Error("failed to calculate postponed review",
+					slog.String("error", err.Error()),
+					slog.String("user_id", userID.String()),
+					slog.String("card_id", cardID.String()),
+					slog.Int("days", days))
+				return NewCardServiceError("postpone_card", "failed to calculate postponed review", err)
+			}
+
+			// 3.3 Update stats in database
+			err = txStatsRepo.Update(ctx, newStats)
+			if err != nil {
+				log.Error("failed to update stats with postponed review",
+					slog.String("error", err.Error()),
+					slog.String("user_id", userID.String()),
+					slog.String("card_id", cardID.String()))
+				return NewCardServiceError("postpone_card", "failed to update stats", err)
+			}
+
+			// Store the updated stats so we can return them after the transaction
+			updatedStats = newStats
+			return nil
+		},
+	)
+
+	if err != nil {
+		return nil, err // Error already wrapped and logged in transaction
+	}
+
+	log.Debug("card review successfully postponed",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
+		slog.Int("days", days),
+		slog.Time("next_review_at", updatedStats.NextReviewAt))
+
+	return updatedStats, nil
 }

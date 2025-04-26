@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -22,6 +23,54 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// MockSRSService is a mock implementation of domain.srs.Service
+type MockSRSService struct {
+	mock.Mock
+}
+
+func (m *MockSRSService) CalculateNextReview(
+	stats *domain.UserCardStats,
+	outcome domain.ReviewOutcome,
+	now time.Time,
+) (*domain.UserCardStats, error) {
+	args := m.Called(stats, outcome, now)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.UserCardStats), args.Error(1)
+}
+
+func (m *MockSRSService) PostponeReview(
+	stats *domain.UserCardStats,
+	days int,
+	now time.Time,
+) (*domain.UserCardStats, error) {
+	// Simple implementation that just adds days to next review date
+	if stats == nil {
+		return nil, srs.ErrNilStats
+	}
+
+	if days < 1 {
+		return nil, srs.ErrInvalidDays
+	}
+
+	// Create a copy of the original stats
+	newStats := &domain.UserCardStats{
+		UserID:             stats.UserID,
+		CardID:             stats.CardID,
+		Interval:           stats.Interval,
+		EaseFactor:         stats.EaseFactor,
+		ConsecutiveCorrect: stats.ConsecutiveCorrect,
+		LastReviewedAt:     stats.LastReviewedAt,
+		NextReviewAt:       stats.NextReviewAt.AddDate(0, 0, days),
+		ReviewCount:        stats.ReviewCount,
+		CreatedAt:          stats.CreatedAt,
+		UpdatedAt:          now,
+	}
+
+	return newStats, nil
+}
 
 // MockFailingCardRepository is a specialized mock that can be configured to fail at specific points
 type MockFailingCardRepository struct {
@@ -134,6 +183,13 @@ func (m *MockFailingStatsRepository) Get(
 	return m.StatsStore.Get(ctx, userID, cardID)
 }
 
+func (m *MockFailingStatsRepository) GetForUpdate(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
+	return m.StatsStore.GetForUpdate(ctx, userID, cardID)
+}
+
 func (m *MockFailingStatsRepository) Update(
 	ctx context.Context,
 	stats *domain.UserCardStats,
@@ -229,7 +285,9 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing repository
-			cardService, err := service.NewCardService(failingCardRepo, statsRepo, logger)
+			// Create a mock SRS service
+			mockSRSService := &MockSRSService{}
+			cardService, err := service.NewCardService(failingCardRepo, statsRepo, mockSRSService, logger)
 			require.NoError(t, err, "Failed to create card service")
 
 			// Create test cards
@@ -291,7 +349,9 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the repositories
-			cardService, err := service.NewCardService(cardRepo, statsRepo, logger)
+			// Create a mock SRS service
+			mockSRSService := &MockSRSService{}
+			cardService, err := service.NewCardService(cardRepo, statsRepo, mockSRSService, logger)
 			require.NoError(t, err, "Failed to create card service")
 
 			// Create test cards
@@ -353,7 +413,9 @@ func TestCardService_CreateCards_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the successful repositories
-			cardService, err := service.NewCardService(cardRepo, adapter, logger)
+			// Create a mock SRS service
+			mockSRSService := &MockSRSService{}
+			cardService, err := service.NewCardService(cardRepo, adapter, mockSRSService, logger)
 			require.NoError(t, err, "Failed to create card service")
 
 			// Create test cards
@@ -414,6 +476,14 @@ func (a *statsRepositoryAdapter) Get(
 	userID, cardID uuid.UUID,
 ) (*domain.UserCardStats, error) {
 	return a.statsStore.Get(ctx, userID, cardID)
+}
+
+// GetForUpdate implements service.StatsRepository
+func (a *statsRepositoryAdapter) GetForUpdate(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
+	return a.statsStore.GetForUpdate(ctx, userID, cardID)
 }
 
 // Update implements service.StatsRepository

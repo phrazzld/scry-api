@@ -460,24 +460,24 @@ func startServer(cfg *config.Config) {
 		os.Exit(1)
 	}
 
-	// Create a card repository adapter for the card service
-	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
-	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
-
-	// Create the card service
-	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, logger)
-	if err != nil {
-		logger.Error("Failed to create card service", "error", err)
-		os.Exit(1)
-	}
-	deps.CardService = cardService
-
 	// Create SRS service with default parameters
 	srsService, err := srs.NewDefaultService()
 	if err != nil {
 		logger.Error("Failed to create SRS service", "error", err)
 		os.Exit(1)
 	}
+
+	// Create a card repository adapter for the card service
+	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
+	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
+
+	// Create the card service
+	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, srsService, logger)
+	if err != nil {
+		logger.Error("Failed to create card service", "error", err)
+		os.Exit(1)
+	}
+	deps.CardService = cardService
 
 	// Create card review service with direct store dependencies
 	cardReviewService, err := card_review.NewCardReviewService(

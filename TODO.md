@@ -156,7 +156,7 @@
         2. Errors and logs behave as specified.
     - **Depends-on:** [T007, T009, T013]
 
-- [ ] **T016 · Feature · P0: implement PostponeCard method**
+- [x] **T016 · Feature · P0: implement PostponeCard method**
     - **Context:** PLAN.md > Detailed Build Steps > 4d; Concurrency; Transactionality; Logging
     - **Action:**
         1. Wrap in `UserCardStatsStore.WithTx`.

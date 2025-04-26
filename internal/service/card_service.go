@@ -53,6 +53,9 @@ type CardRepository interface {
 	// UpdateContent modifies an existing card's content field
 	UpdateContent(ctx context.Context, id uuid.UUID, content json.RawMessage) error
 
+	// Delete removes a card from the store by its ID
+	Delete(ctx context.Context, id uuid.UUID) error
+
 	// WithTx returns a new repository instance that uses the provided transaction
 	// This is used for transactional operations
 	WithTx(tx *sql.Tx) CardRepository
@@ -288,10 +291,55 @@ func (s *cardServiceImpl) UpdateCardContent(
 }
 
 // DeleteCard implements CardService.DeleteCard
-// This is a stub implementation that will be completed in a later task
+// It validates that the user is the owner of the card before deleting it
 func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UUID) error {
-	// Stub implementation to make the code compile
-	return fmt.Errorf("not implemented")
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	log.Debug("deleting card",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+
+	// 1. Fetch the card to verify ownership
+	card, err := s.cardRepo.GetByID(ctx, cardID)
+	if err != nil {
+		log.Error("failed to retrieve card for deletion",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+
+		// Check for specific error types
+		if store.IsNotFoundError(err) {
+			return NewCardServiceError("delete_card", "card not found", store.ErrCardNotFound)
+		}
+
+		return NewCardServiceError("delete_card", "failed to retrieve card", err)
+	}
+
+	// 2. Validate ownership
+	if card.UserID != userID {
+		log.Error("unauthorized attempt to delete card",
+			slog.String("requested_user_id", userID.String()),
+			slog.String("actual_owner_id", card.UserID.String()),
+			slog.String("card_id", cardID.String()))
+		return NewCardServiceError("delete_card", "card is owned by another user", ErrNotOwned)
+	}
+
+	// 3. Delete the card
+	err = s.cardRepo.Delete(ctx, cardID)
+	if err != nil {
+		log.Error("failed to delete card",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		return NewCardServiceError("delete_card", "failed to delete card", err)
+	}
+
+	log.Debug("card deleted successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+
+	return nil
 }
 
 // PostponeCard implements CardService.PostponeCard

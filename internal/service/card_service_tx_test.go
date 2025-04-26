@@ -56,6 +56,13 @@ func (m *MockFailingCardRepository) UpdateContent(
 	return m.CardStore.UpdateContent(ctx, id, content)
 }
 
+func (m *MockFailingCardRepository) Delete(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
+	return m.CardStore.Delete(ctx, id)
+}
+
 func (m *MockFailingCardRepository) WithTx(tx *sql.Tx) service.CardRepository {
 	return &MockFailingCardRepository{
 		CardStore:         m.CardStore.WithTx(tx),

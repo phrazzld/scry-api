@@ -145,7 +145,7 @@
         2. Errors and logs behave as specified.
     - **Depends-on:** [T007, T008, T013]
 
-- [ ] **T015 · Feature · P1: implement DeleteCard method**
+- [x] **T015 · Feature · P1: implement DeleteCard method**
     - **Context:** PLAN.md > Detailed Build Steps > 4c; Security: authorization; Logging
     - **Action:**
         1. Fetch card; enforce `OwnerID == userID`; else `ErrNotOwned`.

@@ -40,6 +40,11 @@ func (a *cardRepositoryAdapter) UpdateContent(ctx context.Context, id uuid.UUID,
 	return a.cardStore.UpdateContent(ctx, id, content)
 }
 
+// Delete implements CardRepository.Delete
+func (a *cardRepositoryAdapter) Delete(ctx context.Context, id uuid.UUID) error {
+	return a.cardStore.Delete(ctx, id)
+}
+
 // WithTx implements CardRepository.WithTx
 func (a *cardRepositoryAdapter) WithTx(tx *sql.Tx) CardRepository {
 	return &cardRepositoryAdapter{

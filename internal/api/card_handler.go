@@ -279,6 +279,54 @@ func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// DeleteCard handles DELETE /cards/{id} requests
+// It deletes an existing card after validating user ownership
+func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(r.Context(), h.logger)
+
+	// Extract card ID from URL path using chi router
+	pathCardID := chi.URLParam(r, "id")
+	if pathCardID == "" {
+		log.Warn("card ID not found in URL path")
+		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
+		return
+	}
+
+	// Parse card ID as UUID
+	cardID, err := uuid.Parse(pathCardID)
+	if err != nil {
+		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
+		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
+		return
+	}
+
+	// Extract user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		log.Warn("user ID not found or invalid in request context")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+		return
+	}
+
+	// Call service to delete the card
+	err = h.cardService.DeleteCard(r.Context(), userID, cardID)
+	if err != nil {
+		log.Error("failed to delete card",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		HandleAPIError(w, r, err, "Failed to delete card")
+		return
+	}
+
+	// Return success with 204 No Content status
+	log.Debug("card deleted successfully",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()))
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // cardToResponse converts a domain.Card to a CardResponse
 func cardToResponse(card *domain.Card) CardResponse {
 	var content interface{}

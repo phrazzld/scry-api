@@ -191,7 +191,7 @@
         2. Unit tests cover 204, 400, 403, 404, 500.
     - **Depends-on:** [T014]
 
-- [ ] **T019 · Feature · P2: implement DeleteCard HTTP handler**
+- [x] **T019 · Feature · P2: implement DeleteCard HTTP handler**
     - **Context:** PLAN.md > Detailed Build Steps > 5a–d; Validation; Logging
     - **Action:**
         1. Add `DeleteCard`, extract context values.

@@ -112,7 +112,7 @@
         1. Method compiles.
     - **Depends-on:** [T002]
 
-- [ ] **T012 · Test · P1: add integration tests for Postgres store methods**
+- [x] **T012 · Test · P1: add integration tests for Postgres store methods**
     - **Context:** PLAN.md > Detailed Build Steps > 3g; Risk: cascade delete, transactionality
     - **Action:**
         1. Use real DB with transaction rollback to test `GetByID`, `UpdateContent`, `Delete`, `GetForUpdate`, `Update`.

@@ -33,7 +33,7 @@
         2. Code compiles.
     - **Depends-on:** none
 
-- [ ] **T004 · Feature · P1: define CardService interface**
+- [x] **T004 · Feature · P1: define CardService interface**
     - **Context:** PLAN.md > Detailed Build Steps > 1d
     - **Action:**
         1. In `internal/service/card_service.go`, declare `CardService` with methods:

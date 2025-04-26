@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -80,6 +81,22 @@ type CardService interface {
 
 	// GetCard retrieves a card by its ID
 	GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error)
+
+	// UpdateCardContent modifies an existing card's content
+	// It validates that the user is the owner of the card before updating
+	// Returns ErrNotOwned if the userID doesn't match the card's owner
+	UpdateCardContent(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error
+
+	// DeleteCard removes a card and its associated user_card_stats entries
+	// It validates that the user is the owner of the card before deleting
+	// Returns ErrNotOwned if the userID doesn't match the card's owner
+	DeleteCard(ctx context.Context, userID, cardID uuid.UUID) error
+
+	// PostponeCard extends the time until the next review for a card
+	// It validates that the user is the owner of the card before postponing
+	// Returns ErrNotOwned if the userID doesn't match the card's owner
+	// Returns the updated UserCardStats after postponing
+	PostponeCard(ctx context.Context, userID, cardID uuid.UUID, days int) (*domain.UserCardStats, error)
 }
 
 // cardServiceImpl implements the CardService interface
@@ -208,4 +225,33 @@ func (s *cardServiceImpl) GetCard(ctx context.Context, cardID uuid.UUID) (*domai
 		slog.String("memo_id", card.MemoID.String()))
 
 	return card, nil
+}
+
+// UpdateCardContent implements CardService.UpdateCardContent
+// This is a stub implementation that will be completed in a later task
+func (s *cardServiceImpl) UpdateCardContent(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+	content json.RawMessage,
+) error {
+	// Stub implementation to make the code compile
+	return fmt.Errorf("not implemented")
+}
+
+// DeleteCard implements CardService.DeleteCard
+// This is a stub implementation that will be completed in a later task
+func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UUID) error {
+	// Stub implementation to make the code compile
+	return fmt.Errorf("not implemented")
+}
+
+// PostponeCard implements CardService.PostponeCard
+// This is a stub implementation that will be completed in a later task
+func (s *cardServiceImpl) PostponeCard(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+	days int,
+) (*domain.UserCardStats, error) {
+	// Stub implementation to make the code compile
+	return nil, fmt.Errorf("not implemented")
 }

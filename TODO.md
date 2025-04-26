@@ -46,7 +46,7 @@
     - **Depends-on:** none
 
 ## internal/domain/srs
-- [ ] **T005 · Feature · P1: implement SRS postpone review logic**
+- [x] **T005 · Feature · P1: implement SRS postpone review logic**
     - **Context:** PLAN.md > Detailed Build Steps > 2a
     - **Action:**
         1. In `internal/domain/srs/service_impl.go`, implement `PostponeReview` to add `days` to `stats.NextReviewAt` and update `stats.UpdatedAt`.

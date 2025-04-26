@@ -362,7 +362,7 @@ func TestCard_ValidationFailures(t *testing.T) {
 	// Test invalid JSON content
 	_, err = domain.NewCard(uuid.New(), uuid.New(), []byte("not json"))
 	assert.Error(t, err, "Should error with invalid JSON content")
-	assert.Equal(t, domain.ErrInvalidCardContent, err, "Error should be ErrInvalidCardContent")
+	assert.Equal(t, domain.ErrCardContentInvalid, err, "Error should be ErrCardContentInvalid")
 }
 
 // Test error handling

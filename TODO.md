@@ -13,7 +13,7 @@
         2. Code compiles.
     - **Depends-on:** none
 
-- [ ] **T002 · Feature · P1: define user card stats store interface methods**
+- [x] **T002 · Feature · P1: define user card stats store interface methods**
     - **Context:** PLAN.md > Detailed Build Steps > 1b
     - **Action:**
         1. In `internal/store/user_card_stats.go`, add to `UserCardStatsStore`:

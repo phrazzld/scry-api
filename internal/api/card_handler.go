@@ -327,6 +327,87 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// PostponeCardRequest represents the request body for postponing a card review
+type PostponeCardRequest struct {
+	Days int `json:"days" validate:"required,min=1"`
+}
+
+// PostponeCard handles POST /cards/{id}/postpone requests
+// It postpones the next review date of a card by a specified number of days
+func (h *CardHandler) PostponeCard(w http.ResponseWriter, r *http.Request) {
+	// Get logger from context or use default
+	log := logger.FromContextOrDefault(r.Context(), h.logger)
+
+	// Extract card ID from URL path using chi router
+	pathCardID := chi.URLParam(r, "id")
+	if pathCardID == "" {
+		log.Warn("card ID not found in URL path")
+		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
+		return
+	}
+
+	// Parse card ID as UUID
+	cardID, err := uuid.Parse(pathCardID)
+	if err != nil {
+		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
+		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
+		return
+	}
+
+	// Extract user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		log.Warn("user ID not found or invalid in request context")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+		return
+	}
+
+	// Parse request body
+	var req PostponeCardRequest
+	if err := shared.DecodeJSON(r, &req); err != nil {
+		log.Warn("invalid request format",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+		HandleValidationError(w, r, err)
+		return
+	}
+
+	// Validate request
+	if err := shared.Validate.Struct(req); err != nil {
+		log.Warn("validation error",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()),
+			slog.Int("days", req.Days))
+		HandleValidationError(w, r, err)
+		return
+	}
+
+	// Call service to postpone the card review
+	stats, err := h.cardService.PostponeCard(r.Context(), userID, cardID, req.Days)
+	if err != nil {
+		log.Error("failed to postpone card review",
+			slog.String("error", redact.Error(err)),
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()),
+			slog.Int("days", req.Days))
+		HandleAPIError(w, r, err, "Failed to postpone card review")
+		return
+	}
+
+	// Transform domain object to response
+	response := statsToResponse(stats)
+
+	// Return response with 200 OK status
+	log.Debug("card review successfully postponed",
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
+		slog.Int("days", req.Days),
+		slog.Time("next_review_at", stats.NextReviewAt))
+	shared.RespondWithJSON(w, r, http.StatusOK, response)
+}
+
 // cardToResponse converts a domain.Card to a CardResponse
 func cardToResponse(card *domain.Card) CardResponse {
 	var content interface{}

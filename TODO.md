@@ -203,7 +203,7 @@
         2. Unit tests cover 204, 403, 404, 500.
     - **Depends-on:** [T015]
 
-- [ ] **T020 · Feature · P1: implement PostponeCard HTTP handler**
+- [x] **T020 · Feature · P1: implement PostponeCard HTTP handler**
     - **Context:** PLAN.md > Detailed Build Steps > 5a–d; Validation; Logging
     - **Action:**
         1. Add `PostponeCard`, decode/validate `PostponeCardRequest`.

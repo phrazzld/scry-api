@@ -56,7 +56,7 @@
         2. Interface `SRSService` is satisfied by the implementation.
     - **Depends-on:** [T003]
 
-- [ ] **T006 · Test · P1: add unit tests for SRS postpone logic**
+- [x] **T006 · Test · P1: add unit tests for SRS postpone logic**
     - **Context:** PLAN.md > Detailed Build Steps > 2b
     - **Action:**
         1. Write tests in `internal/domain/srs/service_impl_test.go` covering standard cases, large `days`, DST, leap years.

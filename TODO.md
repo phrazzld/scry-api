@@ -298,27 +298,10 @@
         1. README accurately notes cascade behavior.
     - **Depends-on:** [T009]
 
-- [ ] **T030 · Chore · P3: add CHANGELOG entry**
+- [x] **T030 · Chore · P3: add CHANGELOG entry**
     - **Context:** PLAN.md > Documentation > CHANGELOG
     - **Action:**
         1. In `CHANGELOG.md`, add entry summarizing Edit, Delete, Postpone endpoints and related interfaces.
     - **Done-when:**
         1. Changelog entry follows project conventions.
     - **Depends-on:** [T026]
-
-### Clarifications & Assumptions
-- [ ] **Issue:** Should we allow PATCH-style partial updates or only full PUT?
-    - **Context:** PLAN.md > Open Questions
-    - **Blocking?:** no
-- [ ] **Issue:** Confirm hard-delete semantics vs. soft-delete requirement.
-    - **Context:** PLAN.md > Open Questions
-    - **Blocking?:** no
-- [ ] **Issue:** Determine if batch postpone or admin override features are needed.
-    - **Context:** PLAN.md > Open Questions
-    - **Blocking?:** no
-- [ ] **Issue:** Decide if dedicated audit log for delete/postpone events is required.
-    - **Context:** PLAN.md > Open Questions
-    - **Blocking?:** no
-- [ ] **Issue:** Clarify client UX expectations around multiple postpones.
-    - **Context:** PLAN.md > Open Questions
-    - **Blocking?:** no

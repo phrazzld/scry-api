@@ -245,7 +245,7 @@
     - **Depends-on:** [T013, T022]
 
 ## Integration Tests (HTTP)
-- [ ] **T024 · Test · P0: add HTTP integration tests for edit card endpoint**
+- [x] **T024 · Test · P0: add HTTP integration tests for edit card endpoint**
     - **Context:** PLAN.md > Detailed Build Steps > 7; Risk: unauthorized edits, JSONB validation
     - **Action:**
         1. In `cmd/server` test suite, use `testutils.WithTx` to test `PUT /cards/{id}`.

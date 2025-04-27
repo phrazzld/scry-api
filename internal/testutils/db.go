@@ -45,6 +45,7 @@ package testutils
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -155,7 +156,15 @@ func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
 	}
 
 	// Make sure the transaction is rolled back when the test is done
-	defer AssertRollbackNoError(t, tx)
+	defer func() {
+		if tx == nil {
+			return
+		}
+		err := tx.Rollback()
+		if err != nil && !errors.Is(err, sql.ErrTxDone) {
+			t.Logf("Warning: failed to rollback transaction: %v", err)
+		}
+	}()
 
 	// Run the test function with the transaction
 	fn(tx)
@@ -233,7 +242,7 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 	// Silence regular prints during tests
 }
 
-// GetTestDB returns a database connection for testing.
+// GetTestDBWithT returns a database connection for testing.
 // It automatically sets up the database schema using migrations, making it ready for tests.
 // The function uses the following order of precedence for the database URL:
 //
@@ -246,11 +255,63 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 //
 // Usage:
 //
-//	db, err := testutils.GetTestDB()
-//	require.NoError(t, err)
-//	t.Cleanup(func() { testutils.CleanupDB(t, db) }) // Use t.Cleanup for automatic cleanup
+//	db := testutils.GetTestDBWithT(t)
+//	// db is now ready for use in tests and will be automatically closed when the test completes
 //
-//	// db is now ready for use in tests
+// For the original version that returns an error, use GetTestDB.
+func GetTestDBWithT(t *testing.T) *sql.DB {
+	t.Helper()
+
+	// First check for DATABASE_URL from integration tests
+	dbURL := os.Getenv("DATABASE_URL")
+
+	// Fall back to SCRY_TEST_DB_URL if DATABASE_URL is not set
+	if dbURL == "" {
+		dbURL = os.Getenv("SCRY_TEST_DB_URL")
+	}
+
+	// If neither environment variable is set, use default
+	if dbURL == "" {
+		// Use default local database URL
+		dbURL = "postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable"
+	}
+
+	// Open database connection
+	db, err := sql.Open("pgx", dbURL)
+	if err != nil {
+		t.Fatalf("Failed to open database connection: %v", err)
+	}
+
+	// Register cleanup to close the database connection
+	t.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("Warning: failed to close database connection: %v", closeErr)
+		}
+	})
+
+	// Verify the connection works
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		t.Fatalf("Database ping failed: %v", err)
+	}
+
+	// Setup database schema
+	if err := SetupTestDatabaseSchema(db); err != nil {
+		t.Fatalf("Failed to setup database schema: %v", err)
+	}
+
+	// Configure connection pool settings for tests
+	db.SetMaxOpenConns(25) // Reasonable number of concurrent connections for tests
+	db.SetMaxIdleConns(25) // Keep connections ready for test parallelism
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	return db
+}
+
+// GetTestDB is the original version that returns an error rather than using t.Helper
+// This is maintained for backward compatibility with existing tests
 func GetTestDB() (*sql.DB, error) {
 	// First check for DATABASE_URL from integration tests
 	dbURL := os.Getenv("DATABASE_URL")

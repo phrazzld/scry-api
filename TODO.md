@@ -282,7 +282,7 @@
         1. Spec validates and reflects implementation.
     - **Depends-on:** [T018, T019, T020]
 
-- [ ] **T028 · Chore · P3: add GoDoc comments**
+- [x] **T028 · Chore · P3: add GoDoc comments**
     - **Context:** PLAN.md > Documentation > Code & 8b
     - **Action:**
         1. Add GoDoc to new public interfaces, methods, handlers, DTOs.

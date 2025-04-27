@@ -18,14 +18,28 @@ import (
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 )
 
-// CardResponse represents the response data for a card
+// CardResponse represents the response data for a card.
+// It contains all the card details in a format suitable for API responses,
+// with UUIDs converted to strings and content parsed into a generic interface.
 type CardResponse struct {
-	ID        string      `json:"id"`
-	UserID    string      `json:"user_id"`
-	MemoID    string      `json:"memo_id"`
-	Content   interface{} `json:"content"`
-	CreatedAt time.Time   `json:"created_at"`
-	UpdatedAt time.Time   `json:"updated_at"`
+	// ID is the unique identifier for the card
+	ID string `json:"id"`
+
+	// UserID is the identifier of the user who owns this card
+	UserID string `json:"user_id"`
+
+	// MemoID is the identifier of the memo from which this card was generated
+	MemoID string `json:"memo_id"`
+
+	// Content contains the card's actual content, which can vary in structure
+	// depending on the card type (e.g., question-answer, cloze, etc.)
+	Content interface{} `json:"content"`
+
+	// CreatedAt is the timestamp when the card was created
+	CreatedAt time.Time `json:"created_at"`
+
+	// UpdatedAt is the timestamp when the card was last updated
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // CardHandler handles card-related HTTP requests
@@ -95,26 +109,56 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 	shared.RespondWithJSON(w, r, http.StatusOK, response)
 }
 
-// EditCardRequest represents the request body for editing a card's content
+// EditCardRequest represents the request body for editing a card's content.
+// It is used for the PUT /cards/{id} endpoint to update a card's content.
 type EditCardRequest struct {
+	// Content is the new JSON content for the card.
+	// It must be valid JSON and is validated with the "required" tag.
+	// The structure depends on the card type but typically includes fields like
+	// question, answer, hints, etc.
 	Content json.RawMessage `json:"content" validate:"required"`
 }
 
-// SubmitAnswerRequest represents the request body for submitting a card review answer
+// SubmitAnswerRequest represents the request body for submitting a card review answer.
+// It is used for the POST /cards/{id}/answer endpoint to record the result of a user
+// reviewing a flashcard and update its spaced repetition scheduling.
 type SubmitAnswerRequest struct {
+	// Outcome is the result of the card review, affecting how the next review date is calculated.
+	// It must be one of: "again" (failed), "hard" (difficult), "good" (correct), or "easy" (very easy).
+	// These values map to the SRS algorithm's difficulty levels and affect interval calculations.
 	Outcome string `json:"outcome" validate:"required,oneof=again hard good easy"`
 }
 
-// UserCardStatsResponse represents the response data for user card statistics
+// UserCardStatsResponse represents the response data for user card statistics.
+// It contains the spaced repetition algorithm parameters and scheduling information
+// for a specific user-card pair.
 type UserCardStatsResponse struct {
-	UserID             string    `json:"user_id"`
-	CardID             string    `json:"card_id"`
-	Interval           int       `json:"interval"`
-	EaseFactor         float64   `json:"ease_factor"`
-	ConsecutiveCorrect int       `json:"consecutive_correct"`
-	LastReviewedAt     time.Time `json:"last_reviewed_at"`
-	NextReviewAt       time.Time `json:"next_review_at"`
-	ReviewCount        int       `json:"review_count"`
+	// UserID is the unique identifier of the user who owns these stats
+	UserID string `json:"user_id"`
+
+	// CardID is the unique identifier of the card these stats are for
+	CardID string `json:"card_id"`
+
+	// Interval is the current review interval in days
+	// (time between reviews when answered correctly)
+	Interval int `json:"interval"`
+
+	// EaseFactor is the card's current ease factor, which affects
+	// how quickly intervals grow based on answer quality
+	EaseFactor float64 `json:"ease_factor"`
+
+	// ConsecutiveCorrect is the number of times the card has been
+	// answered correctly in a row
+	ConsecutiveCorrect int `json:"consecutive_correct"`
+
+	// LastReviewedAt is the timestamp of when the card was last reviewed
+	LastReviewedAt time.Time `json:"last_reviewed_at"`
+
+	// NextReviewAt is the timestamp of when the card is next due for review
+	NextReviewAt time.Time `json:"next_review_at"`
+
+	// ReviewCount is the total number of times this card has been reviewed
+	ReviewCount int `json:"review_count"`
 }
 
 // SubmitAnswer handles POST /cards/{id}/answer requests
@@ -196,7 +240,15 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	shared.RespondWithJSON(w, r, http.StatusOK, response)
 }
 
-// statsToResponse converts a domain.UserCardStats to a UserCardStatsResponse
+// statsToResponse converts a domain.UserCardStats to a UserCardStatsResponse.
+// This helper function transforms the internal domain model to the API response format,
+// ensuring proper type conversions (e.g., UUIDs to strings) and field mapping.
+//
+// Parameters:
+//   - stats: The domain model user card statistics to convert
+//
+// Returns:
+//   - UserCardStatsResponse: The transformed API response object
 func statsToResponse(stats *domain.UserCardStats) UserCardStatsResponse {
 	return UserCardStatsResponse{
 		UserID:             stats.UserID.String(),
@@ -210,8 +262,29 @@ func statsToResponse(stats *domain.UserCardStats) UserCardStatsResponse {
 	}
 }
 
-// EditCard handles PUT /cards/{id} requests
-// It updates the content of an existing card after validating user ownership
+// EditCard handles PUT /cards/{id} requests.
+// It updates the content of an existing card after validating user ownership.
+//
+// HTTP Request:
+//   - Method: PUT
+//   - Path: /api/cards/{id}
+//   - Path Parameters:
+//   - id: UUID of the card to edit
+//   - Headers:
+//   - Authorization: Bearer <JWT token>
+//   - Body: JSON object with "content" field (EditCardRequest)
+//
+// HTTP Response:
+//   - 204 No Content: Card updated successfully
+//   - 400 Bad Request: Invalid request body, invalid JSON, or card ID format
+//   - 401 Unauthorized: Missing or invalid JWT token
+//   - 403 Forbidden: User is not the owner of the card
+//   - 404 Not Found: Card not found
+//   - 500 Internal Server Error: Server error
+//
+// The handler extracts the card ID from the URL, the user ID from the JWT token,
+// validates the request body, and calls the CardService.UpdateCardContent method.
+// It performs ownership validation to ensure that only the card's owner can edit it.
 func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
@@ -279,8 +352,29 @@ func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// DeleteCard handles DELETE /cards/{id} requests
-// It deletes an existing card after validating user ownership
+// DeleteCard handles DELETE /cards/{id} requests.
+// It deletes an existing card after validating user ownership.
+//
+// HTTP Request:
+//   - Method: DELETE
+//   - Path: /api/cards/{id}
+//   - Path Parameters:
+//   - id: UUID of the card to delete
+//   - Headers:
+//   - Authorization: Bearer <JWT token>
+//
+// HTTP Response:
+//   - 204 No Content: Card deleted successfully
+//   - 400 Bad Request: Invalid card ID format
+//   - 401 Unauthorized: Missing or invalid JWT token
+//   - 403 Forbidden: User is not the owner of the card
+//   - 404 Not Found: Card not found
+//   - 500 Internal Server Error: Server error
+//
+// The handler extracts the card ID from the URL, the user ID from the JWT token,
+// and calls the CardService.DeleteCard method. It performs ownership validation
+// to ensure that only the card's owner can delete it. The deletion is permanent
+// and cascades to associated user_card_stats entries through database constraints.
 func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
@@ -327,13 +421,39 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// PostponeCardRequest represents the request body for postponing a card review
+// PostponeCardRequest represents the request body for postponing a card review.
+// It is used for the POST /cards/{id}/postpone endpoint to delay a card's next review date.
 type PostponeCardRequest struct {
+	// Days is the number of days to postpone the card's next review.
+	// It must be at least 1 day, as validated by the "min=1" tag.
+	// The next review date will be extended by this many days from its current value.
 	Days int `json:"days" validate:"required,min=1"`
 }
 
-// PostponeCard handles POST /cards/{id}/postpone requests
-// It postpones the next review date of a card by a specified number of days
+// PostponeCard handles POST /cards/{id}/postpone requests.
+// It postpones the next review date of a card by a specified number of days.
+//
+// HTTP Request:
+//   - Method: POST
+//   - Path: /api/cards/{id}/postpone
+//   - Path Parameters:
+//   - id: UUID of the card to postpone
+//   - Headers:
+//   - Authorization: Bearer <JWT token>
+//   - Body: JSON object with "days" field (PostponeCardRequest)
+//
+// HTTP Response:
+//   - 200 OK: Card postponed successfully, with updated UserCardStatsResponse in body
+//   - 400 Bad Request: Invalid request body, days < 1, or invalid card ID format
+//   - 401 Unauthorized: Missing or invalid JWT token
+//   - 403 Forbidden: User is not the owner of the card
+//   - 404 Not Found: Card not found or stats not found
+//   - 500 Internal Server Error: Server error
+//
+// The handler extracts the card ID from the URL, the user ID from the JWT token,
+// validates the request body, and calls the CardService.PostponeCard method.
+// It performs ownership validation to ensure that only the card's owner can postpone it.
+// The operation is executed in a transaction to ensure atomicity and prevent race conditions.
 func (h *CardHandler) PostponeCard(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
@@ -408,7 +528,19 @@ func (h *CardHandler) PostponeCard(w http.ResponseWriter, r *http.Request) {
 	shared.RespondWithJSON(w, r, http.StatusOK, response)
 }
 
-// cardToResponse converts a domain.Card to a CardResponse
+// cardToResponse converts a domain.Card to a CardResponse.
+// This helper function transforms the internal domain model to the API response format,
+// ensuring proper type conversions (e.g., UUIDs to strings) and unmarshaling the
+// JSON content field into a more usable interface{} rather than raw bytes.
+//
+// Parameters:
+//   - card: The domain model card to convert
+//
+// Returns:
+//   - CardResponse: The transformed API response object
+//
+// If the JSON content cannot be unmarshaled, it falls back to representing
+// the content as a string of the raw bytes.
 func cardToResponse(card *domain.Card) CardResponse {
 	var content interface{}
 	if err := json.Unmarshal(card.Content, &content); err != nil {

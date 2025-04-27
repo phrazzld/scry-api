@@ -84,29 +84,78 @@ type StatsRepository interface {
 	WithTx(tx *sql.Tx) StatsRepository
 }
 
-// CardService provides card-related operations
+// CardService provides card-related operations for managing flashcards
+// in the spaced repetition system.
 type CardService interface {
-	// CreateCards creates multiple cards and their associated stats in a single transaction
-	// This orchestrates both card and stats creation atomically
+	// CreateCards creates multiple cards and their associated stats in a single transaction.
+	// This orchestrates both card and stats creation atomically to ensure data consistency.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - cards: Slice of domain.Card objects to create
+	//
+	// Returns:
+	//   - nil: If all cards and stats were created successfully
+	//   - error: Any error that occurred during creation, with transaction rollback
 	CreateCards(ctx context.Context, cards []*domain.Card) error
 
-	// GetCard retrieves a card by its ID
+	// GetCard retrieves a card by its ID.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - cardID: UUID of the card to retrieve
+	//
+	// Returns:
+	//   - (*domain.Card, nil): The card if found
+	//   - (nil, error): CardServiceError wrapping store.ErrCardNotFound or other error
 	GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error)
 
-	// UpdateCardContent modifies an existing card's content
-	// It validates that the user is the owner of the card before updating
-	// Returns ErrNotOwned if the userID doesn't match the card's owner
+	// UpdateCardContent modifies an existing card's content.
+	// It validates that the user is the owner of the card before updating.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - userID: UUID of the user attempting to update the card
+	//   - cardID: UUID of the card to update
+	//   - content: New JSON content for the card
+	//
+	// Returns:
+	//   - nil: If the update was successful
+	//   - ErrNotOwned: If the userID doesn't match the card's owner
+	//   - CardServiceError: Wrapping store.ErrCardNotFound or other error
 	UpdateCardContent(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error
 
-	// DeleteCard removes a card and its associated user_card_stats entries
-	// It validates that the user is the owner of the card before deleting
-	// Returns ErrNotOwned if the userID doesn't match the card's owner
+	// DeleteCard removes a card and its associated user_card_stats entries.
+	// It validates that the user is the owner of the card before deleting.
+	// The deletion relies on database CASCADE DELETE constraints for associated records.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - userID: UUID of the user attempting to delete the card
+	//   - cardID: UUID of the card to delete
+	//
+	// Returns:
+	//   - nil: If the deletion was successful
+	//   - ErrNotOwned: If the userID doesn't match the card's owner
+	//   - CardServiceError: Wrapping store.ErrCardNotFound or other error
 	DeleteCard(ctx context.Context, userID, cardID uuid.UUID) error
 
-	// PostponeCard extends the time until the next review for a card
+	// PostponeCard extends the time until the next review for a card.
 	// It validates that the user is the owner of the card before postponing
-	// Returns ErrNotOwned if the userID doesn't match the card's owner
-	// Returns the updated UserCardStats after postponing
+	// and performs the postpone operation atomically within a transaction.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - userID: UUID of the user attempting to postpone the card
+	//   - cardID: UUID of the card to postpone
+	//   - days: Number of days to postpone the review (must be >= 1)
+	//
+	// Returns:
+	//   - (*domain.UserCardStats, nil): Updated stats with new NextReviewAt date
+	//   - (nil, ErrNotOwned): If the userID doesn't match the card's owner
+	//   - (nil, ErrInvalidDays): If days is less than 1
+	//   - (nil, ErrStatsNotFound): If stats for the card couldn't be found
+	//   - (nil, CardServiceError): Wrapping store.ErrCardNotFound or other error
 	PostponeCard(ctx context.Context, userID, cardID uuid.UUID, days int) (*domain.UserCardStats, error)
 }
 

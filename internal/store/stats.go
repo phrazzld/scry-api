@@ -28,6 +28,19 @@ type UserCardStatsStore interface {
 	// This should be used within a transaction when you plan to update the row
 	// and need protection from concurrent modifications.
 	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - userID: UUID of the user who owns the stats
+	//   - cardID: UUID of the card associated with the stats
+	//
+	// Returns:
+	//   - (*domain.UserCardStats, nil): The retrieved stats if found, with row lock
+	//   - (nil, store.ErrUserCardStatsNotFound): If the stats do not exist
+	//   - (nil, error): Any other error that occurred during retrieval
+	//
+	// Note: This method MUST be called within a transaction context to be effective.
+	// The row lock is only maintained for the duration of the transaction.
 	GetForUpdate(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)
 
 	// Update modifies an existing statistics entry.
@@ -35,6 +48,19 @@ type UserCardStatsStore interface {
 	// The userID and cardID fields in the stats object are used to identify the record to update.
 	// Returns ErrUserCardStatsNotFound if the statistics entry does not exist.
 	// Returns validation errors from the domain UserCardStats if data is invalid.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and request correlation
+	//   - stats: Updated UserCardStats object with all fields set appropriately
+	//
+	// Returns:
+	//   - nil: If the update was successful
+	//   - store.ErrUserCardStatsNotFound: If the stats do not exist
+	//   - domain.ErrValidation: If the stats data is invalid
+	//   - error: Any other error that occurred during the update
+	//
+	// This method updates fields like NextReviewAt, Interval, EaseFactor, etc.,
+	// and automatically sets the UpdatedAt timestamp to the current time.
 	Update(ctx context.Context, stats *domain.UserCardStats) error
 
 	// Delete removes user card statistics by the combination of user ID and card ID.

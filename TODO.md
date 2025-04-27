@@ -263,7 +263,7 @@
         1. Tests pass in CI.
     - **Depends-on:** [T023]
 
-- [ ] **T026 · Test · P0: add HTTP integration tests for postpone card endpoint**
+- [x] **T026 · Test · P0: add HTTP integration tests for postpone card endpoint**
     - **Context:** PLAN.md > Detailed Build Steps > 7; Risk: race conditions, unauthorized postpones
     - **Action:**
         1. Use `testutils.WithTx` to test `POST /cards/{id}/postpone`.

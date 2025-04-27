@@ -254,7 +254,7 @@
         1. Tests pass in CI.
     - **Depends-on:** [T023]
 
-- [ ] **T025 · Test · P0: add HTTP integration tests for delete card endpoint**
+- [x] **T025 · Test · P0: add HTTP integration tests for delete card endpoint**
     - **Context:** PLAN.md > Detailed Build Steps > 7; Risk: cascade delete, unauthorized deletes
     - **Action:**
         1. Use `testutils.WithTx` to test `DELETE /cards/{id}`.

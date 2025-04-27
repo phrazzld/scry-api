@@ -290,7 +290,7 @@
         1. All new public symbols have clear GoDoc.
     - **Depends-on:** [T001, T002, T003, T004, T018, T019, T020]
 
-- [ ] **T029 · Chore · P3: update store README for cascade delete**
+- [x] **T029 · Chore · P3: update store README for cascade delete**
     - **Context:** PLAN.md > Detailed Build Steps > 8c; Risk: cascade delete
     - **Action:**
         1. In `internal/store/README.md`, document reliance on `ON DELETE CASCADE` for `user_card_stats`.

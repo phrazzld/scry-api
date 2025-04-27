@@ -236,7 +236,7 @@
         1. Routes are registered.
     - **Depends-on:** [T018, T019, T020]
 
-- [ ] **T023 · Chore · P1: wire CardService into CardHandler via DI**
+- [x] **T023 · Chore · P1: wire CardService into CardHandler via DI**
     - **Context:** PLAN.md > Detailed Build Steps > 6b
     - **Action:**
         1. Instantiate `cardServiceImpl` and inject into `NewCardHandler` in server setup.

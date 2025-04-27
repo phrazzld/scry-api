@@ -274,7 +274,7 @@
     - **Depends-on:** [T023]
 
 ## Documentation
-- [ ] **T027 · Chore · P2: update OpenAPI specification**
+- [x] **T027 · Chore · P2: update OpenAPI specification**
     - **Context:** PLAN.md > Detailed Build Steps > 8a
     - **Action:**
         1. In `docs/openapi.yaml`, add definitions for new endpoints, request/response schemas, status codes, security.

@@ -1,307 +1,199 @@
+```markdown
 # Todo
 
-## internal/store interfaces
-- [x] **T001 · Feature · P1: define card store interface methods**
-    - **Context:** PLAN.md > Detailed Build Steps > 1a
+## Server Startup & Core DI
+- [x] **T001 · Bugfix · P0: reorder service initialization in startserver**
+    - **Context:** PLAN.md > cr-02 Fix Initialization Order Bug Prevents Server Start
     - **Action:**
-        1. In `internal/store/card.go`, add to `CardStore`:
-            - `GetByID(ctx context.Context, cardID uuid.UUID) (*domain.Card, error)`
-            - `UpdateContent(ctx context.Context, cardID uuid.UUID, content json.RawMessage) error`
-            - `Delete(ctx context.Context, cardID uuid.UUID) error`
-    - **Done-when:**
-        1. All three methods are declared.
-        2. Code compiles.
-    - **Depends-on:** none
+        1. In `cmd/server/main.go#startServer`, move `srsService` initialization block *before* `cardService` initialization block.
+        2. Ensure the initialized `srsService` instance is passed to `service.NewCardService`.
+    - **Done‑when:**
+        1. Server starts without nil pointer panic related to `srsService`.
+        2. CI server startup checks pass.
+    - **Verification:**
+        1. Run `go run ./cmd/server`.
+        2. Observe successful startup logs without panics.
+    - **Depends‑on:** none
 
-- [x] **T002 · Feature · P1: define user card stats store interface methods**
-    - **Context:** PLAN.md > Detailed Build Steps > 1b
+- [ ] **T003 · Refactor · P1: define specific cardservice type in appdependencies struct**
+    - **Context:** PLAN.md > cr-07 Eliminate Awkward Dependency Injection Cast in main.go
     - **Action:**
-        1. In `internal/store/user_card_stats.go`, add to `UserCardStatsStore`:
-            - `GetForUpdate(ctx context.Context, userID, cardID uuid.UUID) (*domain.UserCardStats, error)`
-            - `Update(ctx context.Context, stats *domain.UserCardStats) error`
-    - **Done-when:**
-        1. Both methods are declared.
-        2. Code compiles.
-    - **Depends-on:** none
+        1. In `cmd/server/main.go`, change the `CardService` field type in `appDependencies` struct from `interface{}` (or other) to `service.CardService`.
+        2. Ensure `startServer` populates `appDependencies.CardService` with the correct type.
+        3. Remove the type assertion `.(service.CardService)` where `appDependencies.CardService` is used (e.g., in `setupRouter`).
+    - **Done‑when:**
+        1. `appDependencies.CardService` field has the specific type `service.CardService`.
+        2. Type assertion is removed.
+        3. Application compiles and runs correctly.
+    - **Depends‑on:** none
 
-- [x] **T003 · Feature · P1: define SRSService interface method**
-    - **Context:** PLAN.md > Detailed Build Steps > 1c
+## Dependency Management
+- [ ] **T004 · Chore · P1: audit and tidy go module dependencies**
+    - **Context:** PLAN.md > cr-06 Reduce Massive Dependency Bloat Introduced
     - **Action:**
-        1. In `internal/domain/srs/service.go`, declare `PostponeReview(stats *domain.UserCardStats, days int, now time.Time) (*domain.UserCardStats, error)` on `SRSService`.
-    - **Done-when:**
-        1. Method signature is present.
-        2. Code compiles.
-    - **Depends-on:** none
+        1. Run `go mod tidy` and commit changes if any.
+        2. Inspect `go.mod` for unnecessary direct dependencies (e.g., conflicting `pgx/v4` vs `pgx/v5`) and remove them.
+        3. Optionally use `go mod graph` or `go mod why` to investigate large transitive dependencies and address if feasible.
+    - **Done‑when:**
+        1. `go mod tidy` runs cleanly with no further changes.
+        2. `go.mod` reflects only necessary direct dependencies.
+        3. CI build passes.
+    - **Depends‑on:** none
 
-- [x] **T004 · Feature · P1: define CardService interface**
-    - **Context:** PLAN.md > Detailed Build Steps > 1d
+## Test Framework & Helpers
+- [ ] **T002 · Bugfix · P0: add t.helper() to test transaction rollback assertion**
+    - **Context:** PLAN.md > cr-04 Fix Missing t.Helper() Call in Test Rollback Obscures Failures
     - **Action:**
-        1. In `internal/service/card_service.go`, declare `CardService` with methods:
-            - `UpdateCardContent(ctx context.Context, userID, cardID uuid.UUID, content json.RawMessage) error`
-            - `DeleteCard(ctx context.Context, userID, cardID uuid.UUID) error`
-            - `PostponeCard(ctx context.Context, userID, cardID uuid.UUID, days int) (*domain.UserCardStats, error)`
-    - **Done-when:**
-        1. Interface is defined.
-        2. Code compiles.
-    - **Depends-on:** none
+        1. Define `AssertRollbackNoError(t *testing.T, tx *sql.Tx)` in `internal/testutils/db.go`.
+        2. Call `t.Helper()` at the start of `AssertRollbackNoError`.
+        3. Implement rollback logic (`tx.Rollback()`) and error check (`err != sql.ErrTxDone`) inside `AssertRollbackNoError`.
+        4. Replace inline `defer tx.Rollback()` in `testutils.WithTx` with `defer AssertRollbackNoError(t, tx)`.
+    - **Done‑when:**
+        1. Test failures occurring before the deferred rollback report the line number in the test function, not the defer line in `WithTx`.
+    - **Verification:**
+        1. Temporarily introduce a failing assertion (`t.Fatal("force fail")`) just before the `defer` in a test using `WithTx`.
+        2. Run the test and verify the failure is reported at the `t.Fatal` line.
+    - **Depends‑on:** none
 
-## internal/domain/srs
-- [x] **T005 · Feature · P1: implement SRS postpone review logic**
-    - **Context:** PLAN.md > Detailed Build Steps > 2a
+- [ ] **T005 · Bugfix · P0: remove txdb wrapper and pass *sql.tx directly in withtx**
+    - **Context:** PLAN.md > cr-03 Fix Test Transaction Helper (TxDB) Violates DBTX Contract
     - **Action:**
-        1. In `internal/domain/srs/service_impl.go`, implement `PostponeReview` to add `days` to `stats.NextReviewAt` and update `stats.UpdatedAt`.
-        2. Validate `days >= 1`.
-    - **Done-when:**
-        1. Logic compiles and runs.
-        2. Interface `SRSService` is satisfied by the implementation.
-    - **Depends-on:** [T003]
+        1. Delete `TxDB` struct and methods from `internal/testutils/api_helpers.go` (or wherever it is defined).
+        2. Modify `testutils.WithTx` signature to accept `fn func(t *testing.T, tx *sql.Tx)`.
+        3. Update all call sites of `WithTx` to match the new signature. Ensure test functions (`fn`) use the passed `*sql.Tx` to initialize transactional stores (e.g., `store.New(db).WithTx(tx)`).
+    - **Done‑when:**
+        1. `TxDB` type is removed from the codebase.
+        2. `testutils.WithTx` passes `*sql.Tx` directly to the test function.
+        3. All tests using `WithTx` compile and pass.
+    - **Depends‑on:** none
 
-- [x] **T006 · Test · P1: add unit tests for SRS postpone logic**
-    - **Context:** PLAN.md > Detailed Build Steps > 2b
+- [ ] **T006 · Refactor · P2: remove redundant transaction helpers in card_store_crud_test.go**
+    - **Context:** PLAN.md > cr-09 Remove Redundant Test Transaction Helpers
     - **Action:**
-        1. Write tests in `internal/domain/srs/service_impl_test.go` covering standard cases, large `days`, DST, leap years.
-    - **Done-when:**
-        1. Tests pass.
-        2. Coverage ≥ 95% for `service_impl.go`.
-    - **Depends-on:** [T005]
+        1. Delete local helper functions `withTxForCardTest` and `getTestDBForCardStore` from `internal/platform/postgres/card_store_crud_test.go`.
+        2. Refactor tests within that file to use `testutils.GetTestDBWithT` and `testutils.WithTx` directly.
+    - **Done‑when:**
+        1. Redundant local helpers are removed.
+        2. Tests in `card_store_crud_test.go` use canonical `testutils` helpers and pass.
+    - **Depends‑on:** [T005]
 
-## internal/platform/postgres
-- [x] **T007 · Feature · P2: implement PostgresCardStore.GetByID**
-    - **Context:** PLAN.md > Detailed Build Steps > 3a & 3f
+- [ ] **T007 · Chore · P2: apply standard 'integration' build tag to db-dependent tests**
+    - **Context:** PLAN.md > cr-08 Standardize Inconsistent Test Build Tags
     - **Action:**
-        1. In `internal/platform/postgres/card_store.go`, implement `GetByID` using `SELECT * FROM cards WHERE id=$1`.
-        2. Map `sql.ErrNoRows` to `store.ErrNotFound`.
-    - **Done-when:**
-        1. Method compiles.
-        2. Returns `store.ErrNotFound` on missing row.
-    - **Depends-on:** [T001]
+        1. Add `//go:build integration` comment to the top of all test files requiring database interaction (e.g., `internal/platform/postgres/*_test.go`, `internal/service/*_tx_test.go`, relevant API tests).
+        2. Remove any existing `test_without_external_deps` tags.
+        3. Ensure CI scripts are updated to use `-tags=integration` when running integration tests (if applicable).
+    - **Done‑when:**
+        1. All database-dependent tests consistently use the `integration` build tag.
+        2. CI can selectively run unit vs. integration tests (if configured).
+    - **Depends‑on:** none
 
-- [x] **T008 · Feature · P2: implement PostgresCardStore.UpdateContent**
-    - **Context:** PLAN.md > Detailed Build Steps > 3b
+- [ ] **T012 · Chore · P3: generate test user password hashes dynamically**
+    - **Context:** PLAN.md > cr-13 Remove Hardcoded Test Password Hash
     - **Action:**
-        1. Implement `UPDATE cards SET content=$1, updated_at=now() WHERE id=$2` in `card_store.go`.
-        2. Handle `json.RawMessage` parameter.
-    - **Done-when:**
-        1. Method compiles.
-        2. `updated_at` is set correctly.
-    - **Depends-on:** [T001]
+        1. Modify test user creation helpers (e.g., in API tests or `testutils`) to accept a plaintext password argument.
+        2. Use `bcrypt.GenerateFromPassword` inside the helper to hash the password before storing/using it.
+    - **Done‑when:**
+        1. No hardcoded bcrypt password hashes remain in test setup code.
+        2. Tests involving user creation/authentication pass using dynamically generated hashes.
+    - **Depends‑on:** none
 
-- [x] **T009 · Feature · P2: implement PostgresCardStore.Delete**
-    - **Context:** PLAN.md > Detailed Build Steps > 3c
+- [ ] **T013 · Refactor · P3: apply standard naming conventions to remaining mocks**
+    - **Context:** PLAN.md > cr-15 Fix Non-idiomatic Test Mock Naming
     - **Action:**
-        1. Implement `DELETE FROM cards WHERE id=$1` in `card_store.go`.
-    - **Done-when:**
-        1. Method compiles.
-    - **Depends-on:** [T001]
+        1. Identify any mock types remaining after T008 (likely only for true external systems, if any).
+        2. Rename exported mocks to `MockXxx` (e.g., `MockPaymentGateway`).
+        3. Rename unexported mocks (if any) to `mockXxx`.
+    - **Done‑when:**
+        1. All remaining mock types follow standard Go naming conventions.
+    - **Depends‑on:** [T008]
 
-- [x] **T010 · Feature · P2: implement PostgresUserCardStatsStore.GetForUpdate**
-    - **Context:** PLAN.md > Detailed Build Steps > 3d & 3f
+## Core Logic & Testing Policy
+- [ ] **T008 · Refactor · P0: eliminate mocks for internal components in tests**
+    - **Context:** PLAN.md > cr-01 Eliminate Mocking of Internal Components Violates Core Testing Policy
     - **Action:**
-        1. In `internal/platform/postgres/user_card_stats_store.go`, implement `SELECT ... FOR UPDATE`.
-        2. Map `sql.ErrNoRows` to `store.ErrNotFound`.
-    - **Done-when:**
-        1. Method compiles.
-        2. Locks row and returns correctly.
-    - **Depends-on:** [T002]
+        1. Delete all mock types/files for internal interfaces (`CardService`, `*Repository`, `SRSService`, etc., e.g., `internal/mocks/`, `internal/service/mocks_test.go`).
+        2. Refactor tests in `internal/api`, `internal/service` to instantiate real service/repository implementations, using test DB fixtures (`testutils.GetTestDBWithT`, `testutils.WithTx`).
+        3. Ensure test assertions focus on observable behavior/state changes (DB state, HTTP responses, return values), not mock interactions.
+    - **Done‑when:**
+        1. No mocks for internal project interfaces exist in the codebase.
+        2. Unit/integration tests use real collaborators initialized via test DB setups.
+        3. All affected tests pass.
+        4. CI policy checks related to internal mocking (if any) pass.
+    - **Depends‑on:** [T005]
 
-- [x] **T011 · Feature · P2: implement PostgresUserCardStatsStore.Update**
-    - **Context:** PLAN.md > Detailed Build Steps > 3e
+- [ ] **T009 · Test · P1: add integration tests for card service write operations**
+    - **Context:** PLAN.md > cr-05 Add Missing Integration Tests for New Service Logic
     - **Action:**
-        1. Implement `UPDATE user_card_stats SET next_review_at=$1, updated_at=now() WHERE user_id=$2 AND card_id=$3`.
-    - **Done-when:**
-        1. Method compiles.
-    - **Depends-on:** [T002]
+        1. In `internal/service/card_service_tx_test.go` (create if needed), add integration tests for `UpdateCardContent`, `DeleteCard`, `PostponeCard`.
+        2. Use `testutils.WithTx` (passing `*sql.Tx`), instantiate the real `service.CardService` with real `postgres` store implementations initialized via the provided transaction. Mock `srsService` dependency if necessary (verify its own tests are sufficient).
+        3. Cover happy paths and key error conditions (e.g., ownership failure, not found, invalid input); assert database state changes and return values/errors. Ensure `//go:build integration` tag is present.
+    - **Done‑when:**
+        1. Integration tests exist for `UpdateCardContent`, `DeleteCard`, `PostponeCard`.
+        2. Tests verify behavior against a real database within a transaction.
+        3. Tests pass when run with the `integration` tag.
+        4. Test coverage increases for `internal/service/card_service.go`.
+    - **Depends‑on:** [T005, T007, T008]
 
-- [x] **T012 · Test · P1: add integration tests for Postgres store methods**
-    - **Context:** PLAN.md > Detailed Build Steps > 3g; Risk: cascade delete, transactionality
+## API Layer
+- [ ] **T010 · Refactor · P2: extract common request handling logic from api handlers**
+    - **Context:** PLAN.md > cr-10 Refactor Duplicate Request Handling Logic in API Handlers
     - **Action:**
-        1. Use real DB with transaction rollback to test `GetByID`, `UpdateContent`, `Delete`, `GetForUpdate`, `Update`.
-        2. Assert data correctness, `ErrNotFound` mapping, and rollback safety.
-    - **Done-when:**
-        1. Integration tests pass.
-        2. No side-effects remain after rollback.
-    - **Depends-on:** [T007, T008, T009, T010, T011]
+        1. Create shared helper functions in `internal/api` (e.g., `getUserIDFromContext(r *http.Request) (uuid.UUID, error)`, `getPathUUID(r *http.Request, paramName string) (uuid.UUID, error)`) handling parsing and errors.
+        2. Refactor `EditCard`, `DeleteCard`, `PostponeCard` handlers in `internal/api/card_handler.go` to call these helpers.
+    - **Done‑when:**
+        1. Duplicate code for path param/UUID parsing and user ID extraction is removed from specified handlers.
+        2. Handlers call shared helper functions.
+        3. API tests for affected endpoints pass.
+    - **Depends‑on:** none
 
-## internal/service/card_service
-- [x] **T013 · Feature · P1: define cardServiceImpl struct and errors**
-    - **Context:** PLAN.md > Detailed Build Steps > 4a, 4e
+- [ ] **T011 · Refactor · P2: split oversized card_management_api_test.go by endpoint**
+    - **Context:** PLAN.md > cr-11 Split Oversized Test File (`card_management_api_test.go`)
     - **Action:**
-        1. In `internal/service/card_service.go`, define basic `cardServiceImpl` with core fields.
-        2. In `internal/service/errors.go`, declare `ErrNotOwned` and `ErrStatsNotFound`.
-    - **Done-when:**
-        1. Struct and errors are defined.
-        2. Code compiles.
-    - **Note:** SRSService field will be added during T016 implementation to avoid unused field warning.
-    - **Depends-on:** [T001, T002, T003, T004]
+        1. Create new files like `edit_card_api_test.go`, `delete_card_api_test.go`, etc., in `cmd/server/`.
+        2. Move corresponding test functions (e.g., `TestAPIEditCard*`) from `card_management_api_test.go` into the new endpoint-specific files.
+        3. Move common test setup/helpers to a shared `cmd/server/api_test_helpers_test.go` or keep local if simple. Ensure correct package (`main_test`) and imports.
+    - **Done‑when:**
+        1. `cmd/server/card_management_api_test.go` is significantly smaller (verify line count reduction).
+        2. API tests are organized into separate files per logical endpoint group.
+        3. All API tests pass (`go test ./cmd/server/...`).
+    - **Depends‑on:** none
 
-- [x] **T014 · Feature · P1: implement UpdateCardContent method**
-    - **Context:** PLAN.md > Detailed Build Steps > 4b; Security: authorization; Logging
+## Logging & Observability
+- [ ] **T016 · Chore · P2: ensure trace ids are included in structured logs**
+    - **Context:** PLAN.md > cr-16 Ensure Logging Includes Correlation IDs
     - **Action:**
-        1. Fetch card via `CardStore.GetByID`; if `OwnerID != userID`, return `ErrNotOwned`.
-        2. Call `CardStore.UpdateContent`.
-        3. Add DEBUG entry/exit and ERROR logging.
-    - **Done-when:**
-        1. Method enforces ownership and updates content.
-        2. Errors and logs behave as specified.
-    - **Depends-on:** [T007, T008, T013]
+        1. Verify trace ID middleware (e.g., `apiMiddleware.NewTraceMiddleware`) correctly adds a `trace_id` to the request `context.Context`.
+        2. Confirm logger retrieval functions (e.g., `logger.FromContextOrDefault`) extract the `trace_id` from context and add it as a structured field (e.g., `slog.String("trace_id", id)`).
+        3. Audit key code paths (API handlers, service methods) to ensure the `context.Context` is passed down and used when retrieving/creating loggers.
+    - **Done‑when:**
+        1. Structured logs generated during request processing consistently include the `trace_id` field with a valid ID.
+    - **Verification:**
+        1. Make several API requests locally or in a test environment.
+        2. Inspect console logs or log files for the presence and consistency of the `trace_id` field across related log entries for a single request.
+    - **Depends‑on:** none
 
-- [x] **T015 · Feature · P1: implement DeleteCard method**
-    - **Context:** PLAN.md > Detailed Build Steps > 4c; Security: authorization; Logging
+## Code Quality & Cleanup
+- [ ] **T014 · Chore · P3: fix specified comment typos**
+    - **Context:** PLAN.md > cr-14 Fix Comment Typos
     - **Action:**
-        1. Fetch card; enforce `OwnerID == userID`; else `ErrNotOwned`.
-        2. Call `CardStore.Delete`.
-        3. Add DEBUG and ERROR logs.
-    - **Done-when:**
-        1. Method deletes card only if owned.
-        2. Errors and logs behave as specified.
-    - **Depends-on:** [T007, T009, T013]
+        1. Correct spelling errors ("reques", "defaul") in comments within `internal/testutils/card_api_helpers.go`.
+        2. Perform a quick search (e.g., using IDE or `grep`) for other obvious typos in comments and fix them.
+    - **Done‑when:**
+        1. Specified typos are corrected.
+        2. Code passes linting checks.
+    - **Depends‑on:** none
 
-- [x] **T016 · Feature · P0: implement PostponeCard method**
-    - **Context:** PLAN.md > Detailed Build Steps > 4d; Concurrency; Transactionality; Logging
+- [ ] **T015 · Chore · P3: trim verbose godoc comments**
+    - **Context:** PLAN.md > cr-12 Trim Overly Verbose GoDoc Comments
     - **Action:**
-        1. Wrap in `UserCardStatsStore.WithTx`.
-        2. Inside TX: `GetForUpdate`, call `SRSService.PostponeReview`, then `UserCardStatsStore.Update`.
-        3. Return updated `UserCardStats`.
-        4. Add DEBUG and ERROR logs.
-    - **Done-when:**
-        1. Next review date is postponed atomically.
-        2. Appropriate errors returned and logged.
-    - **Depends-on:** [T005, T010, T011, T013]
+        1. Review GoDoc comments in specified locations (`internal/api/card_handler.go` DTOs, `internal/store/card.go`, `internal/store/stats.go`).
+        2. Remove comments that merely repeat the type signature (e.g., `// ID is the unique identifier for X`).
+        3. Focus comments on *why* something exists, its non-obvious purpose, constraints, or behavior. Ensure consistent formatting.
+    - **Done‑when:**
+        1. GoDoc comments in specified files are concise, informative, consistently formatted, and add value beyond the type signature.
+        2. `godoc` or generated documentation is improved.
+    - **Depends‑on:** none
 
-- [x] **T017 · Test · P1: add unit tests for CardService methods**
-    - **Context:** PLAN.md > Detailed Build Steps > 4f; Testing Strategy
-    - **Action:**
-        1. In `internal/service/card_service_impl_test.go`, mock dependencies.
-        2. Cover happy paths and all error paths (`NotFound`, `ErrNotOwned`, store/SRS errors).
-    - **Done-when:**
-        1. Tests pass with ≥90% coverage.
-    - **Depends-on:** [T014, T015, T016]
-
-## internal/api/card_handler
-- [x] **T018 · Feature · P2: implement EditCard HTTP handler**
-    - **Context:** PLAN.md > Detailed Build Steps > 5a–d; Validation; Logging
-    - **Action:**
-        1. In `internal/api/card_handler.go`, add `EditCard`.
-        2. Decode/validate `EditCardRequest`, extract `userID` and `cardID`.
-        3. Call `CardService.UpdateCardContent`, map errors via central handler.
-        4. Return 204 No Content.
-        5. Log DEBUG start/end and WARN/ERROR with `trace_id`, `user_id`, `card_id`.
-    - **Done-when:**
-        1. Handler compiles.
-        2. Unit tests cover 204, 400, 403, 404, 500.
-    - **Depends-on:** [T014]
-
-- [x] **T019 · Feature · P2: implement DeleteCard HTTP handler**
-    - **Context:** PLAN.md > Detailed Build Steps > 5a–d; Validation; Logging
-    - **Action:**
-        1. Add `DeleteCard`, extract context values.
-        2. Call `CardService.DeleteCard`, map errors.
-        3. Return 204 No Content.
-        4. Log DEBUG and WARN/ERROR.
-    - **Done-when:**
-        1. Handler compiles.
-        2. Unit tests cover 204, 403, 404, 500.
-    - **Depends-on:** [T015]
-
-- [x] **T020 · Feature · P1: implement PostponeCard HTTP handler**
-    - **Context:** PLAN.md > Detailed Build Steps > 5a–d; Validation; Logging
-    - **Action:**
-        1. Add `PostponeCard`, decode/validate `PostponeCardRequest`.
-        2. Extract `userID`, `cardID`, call `CardService.PostponeCard`.
-        3. Map errors and return 200 with updated `UserCardStats` JSON.
-        4. Log DEBUG start/end and WARN/ERROR.
-    - **Done-when:**
-        1. Handler compiles.
-        2. Unit tests cover 200, 400, 404, 500.
-    - **Depends-on:** [T016]
-
-- [x] **T021 · Test · P2: add unit tests for API handlers**
-    - **Context:** PLAN.md > Testing Strategy > Unit Tests
-    - **Action:**
-        1. In `internal/api/card_handler_test.go`, mock `CardService`.
-        2. Test decoding, validation, service calls, and error mapping for each handler.
-    - **Done-when:**
-        1. Tests pass with ≥90% coverage.
-    - **Depends-on:** [T018, T019, T020]
-
-## cmd/server
-- [x] **T022 · Chore · P1: register card management API routes**
-    - **Context:** PLAN.md > Detailed Build Steps > 6a
-    - **Action:**
-        1. In `cmd/server/main.go` (or router setup), add:
-            - `PUT /cards/{id}` → `cardHandler.EditCard`
-            - `DELETE /cards/{id}` → `cardHandler.DeleteCard`
-            - `POST /cards/{id}/postpone` → `cardHandler.PostponeCard`
-    - **Done-when:**
-        1. Routes are registered.
-    - **Depends-on:** [T018, T019, T020]
-
-- [x] **T023 · Chore · P1: wire CardService into CardHandler via DI**
-    - **Context:** PLAN.md > Detailed Build Steps > 6b
-    - **Action:**
-        1. Instantiate `cardServiceImpl` and inject into `NewCardHandler` in server setup.
-    - **Done-when:**
-        1. Application compiles and starts with real service.
-    - **Depends-on:** [T013, T022]
-
-## Integration Tests (HTTP)
-- [x] **T024 · Test · P0: add HTTP integration tests for edit card endpoint**
-    - **Context:** PLAN.md > Detailed Build Steps > 7; Risk: unauthorized edits, JSONB validation
-    - **Action:**
-        1. In `cmd/server` test suite, use `testutils.WithTx` to test `PUT /cards/{id}`.
-        2. Cover 204 success, 401/403, 404, 400 (invalid JSON), and verify `updated_at`.
-    - **Done-when:**
-        1. Tests pass in CI.
-    - **Depends-on:** [T023]
-
-- [x] **T025 · Test · P0: add HTTP integration tests for delete card endpoint**
-    - **Context:** PLAN.md > Detailed Build Steps > 7; Risk: cascade delete, unauthorized deletes
-    - **Action:**
-        1. Use `testutils.WithTx` to test `DELETE /cards/{id}`.
-        2. Cover 204, 401/403, 404, verify card removed and stats cascade-deleted.
-    - **Done-when:**
-        1. Tests pass in CI.
-    - **Depends-on:** [T023]
-
-- [x] **T026 · Test · P0: add HTTP integration tests for postpone card endpoint**
-    - **Context:** PLAN.md > Detailed Build Steps > 7; Risk: race conditions, unauthorized postpones
-    - **Action:**
-        1. Use `testutils.WithTx` to test `POST /cards/{id}/postpone`.
-        2. Cover 200, 400 (`days<1`), 404 (stats not found), auth failures, verify `next_review_at`.
-        3. (Optional) Simulate concurrent postpones.
-    - **Done-when:**
-        1. Tests pass in CI.
-    - **Depends-on:** [T023]
-
-## Documentation
-- [x] **T027 · Chore · P2: update OpenAPI specification**
-    - **Context:** PLAN.md > Detailed Build Steps > 8a
-    - **Action:**
-        1. In `docs/openapi.yaml`, add definitions for new endpoints, request/response schemas, status codes, security.
-    - **Done-when:**
-        1. Spec validates and reflects implementation.
-    - **Depends-on:** [T018, T019, T020]
-
-- [x] **T028 · Chore · P3: add GoDoc comments**
-    - **Context:** PLAN.md > Documentation > Code & 8b
-    - **Action:**
-        1. Add GoDoc to new public interfaces, methods, handlers, DTOs.
-    - **Done-when:**
-        1. All new public symbols have clear GoDoc.
-    - **Depends-on:** [T001, T002, T003, T004, T018, T019, T020]
-
-- [x] **T029 · Chore · P3: update store README for cascade delete**
-    - **Context:** PLAN.md > Detailed Build Steps > 8c; Risk: cascade delete
-    - **Action:**
-        1. In `internal/store/README.md`, document reliance on `ON DELETE CASCADE` for `user_card_stats`.
-    - **Done-when:**
-        1. README accurately notes cascade behavior.
-    - **Depends-on:** [T009]
-
-- [x] **T030 · Chore · P3: add CHANGELOG entry**
-    - **Context:** PLAN.md > Documentation > CHANGELOG
-    - **Action:**
-        1. In `CHANGELOG.md`, add entry summarizing Edit, Delete, Postpone endpoints and related interfaces.
-    - **Done-when:**
-        1. Changelog entry follows project conventions.
-    - **Depends-on:** [T026]
+### Clarifications & Assumptions
+- none

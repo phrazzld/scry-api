@@ -165,6 +165,7 @@ type appDependencies struct {
 	JWTService        auth.JWTService
 	PasswordVerifier  auth.PasswordVerifier
 	Generator         task.Generator                // Interface for card generation
+	SRSService        srs.Service                   // Interface for SRS algorithm operations
 	CardService       task.CardService              // Interface for card service operations
 	MemoService       service.MemoService           // Interface for memo service operations
 	CardReviewService card_review.CardReviewService // Interface for card review operations
@@ -476,13 +477,15 @@ func startServer(cfg *config.Config) {
 		logger.Error("Failed to create SRS service", "error", err)
 		os.Exit(1)
 	}
+	// Store SRS service in dependencies for use by other services
+	deps.SRSService = srsService
 
 	// Create a card repository adapter for the card service
 	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
 	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
 
-	// Create the card service
-	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, srsService, logger)
+	// Create the card service using SRS service from dependencies
+	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, deps.SRSService, logger)
 	if err != nil {
 		logger.Error("Failed to create card service", "error", err)
 		os.Exit(1)
@@ -493,7 +496,7 @@ func startServer(cfg *config.Config) {
 	cardReviewService, err := card_review.NewCardReviewService(
 		deps.CardStore,
 		deps.UserCardStatsStore,
-		srsService,
+		deps.SRSService, // Use SRS service from dependencies
 		logger,
 	)
 	if err != nil {
@@ -502,11 +505,11 @@ func startServer(cfg *config.Config) {
 	}
 	deps.CardReviewService = cardReviewService
 
-	// Create the task factory
+	// Create the task factory - ensuring all services are initialized first
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
 		memoServiceAdapter,
 		deps.Generator,
-		deps.CardService, // Use CardService instead of CardRepository
+		deps.CardService, // CardService is now properly initialized with srsService
 		logger,
 	)
 

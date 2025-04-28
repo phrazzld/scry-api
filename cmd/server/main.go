@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib" // Register pgx driver for database/sql
 	"github.com/phrazzld/scry-api/internal/api"
 	apiMiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"

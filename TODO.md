@@ -28,7 +28,7 @@
     - **Depends‑on:** none
 
 ## Dependency Management
-- [ ] **T004 · Chore · P1: audit and tidy go module dependencies**
+- [x] **T004 · Chore · P1: audit and tidy go module dependencies**
     - **Context:** PLAN.md > cr-06 Reduce Massive Dependency Bloat Introduced
     - **Action:**
         1. Run `go mod tidy` and commit changes if any.

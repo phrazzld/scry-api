@@ -45,7 +45,6 @@ package testutils
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -156,15 +155,7 @@ func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
 	}
 
 	// Make sure the transaction is rolled back when the test is done
-	defer func() {
-		if tx == nil {
-			return
-		}
-		err := tx.Rollback()
-		if err != nil && !errors.Is(err, sql.ErrTxDone) {
-			t.Logf("Warning: failed to rollback transaction: %v", err)
-		}
-	}()
+	defer AssertRollbackNoError(t, tx) // Uses the implementation from helpers.go
 
 	// Run the test function with the transaction
 	fn(tx)
@@ -367,6 +358,8 @@ func GetTestDB() (*sql.DB, error) {
 	return db, nil
 }
 
+// AssertRollbackNoError is implemented in helpers.go
+
 // CleanupDB properly closes a database connection and logs any errors.
 // This function should be used with t.Cleanup() to ensure proper resource cleanup
 // in tests that use database connections.
@@ -385,3 +378,5 @@ func CleanupDB(t *testing.T, db *sql.DB) {
 		t.Logf("Warning: failed to close database connection: %v", err)
 	}
 }
+
+// AssertCloseNoError is implemented in helpers.go

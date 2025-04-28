@@ -41,7 +41,7 @@
     - **Depends‑on:** none
 
 ## Test Framework & Helpers
-- [ ] **T002 · Bugfix · P0: add t.helper() to test transaction rollback assertion**
+- [x] **T002 · Bugfix · P0: add t.helper() to test transaction rollback assertion**
     - **Context:** PLAN.md > cr-04 Fix Missing t.Helper() Call in Test Rollback Obscures Failures
     - **Action:**
         1. Define `AssertRollbackNoError(t *testing.T, tx *sql.Tx)` in `internal/testutils/db.go`.

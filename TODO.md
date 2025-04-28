@@ -154,7 +154,7 @@
     - **Depends‑on:** none
     - **Status:** Completed. Created request_helpers.go with three helper functions: getUserIDFromContext(), getPathUUID(), and handleUserIDAndPathUUID(). Refactored EditCard, DeleteCard, PostponeCard, SubmitAnswer, and GetNextReviewCard handlers to use these helpers. Eliminated duplicate code and made handlers more concise and consistent. All API tests pass.
 
-- [ ] **T011 · Refactor · P2: split oversized card_management_api_test.go by endpoint**
+- [x] **T011 · Refactor · P2: split oversized card_management_api_test.go by endpoint**
     - **Context:** PLAN.md > cr-11 Split Oversized Test File (`card_management_api_test.go`)
     - **Action:**
         1. Create new files like `edit_card_api_test.go`, `delete_card_api_test.go`, etc., in `cmd/server/`.
@@ -165,6 +165,7 @@
         2. API tests are organized into separate files per logical endpoint group.
         3. All API tests pass (`go test ./cmd/server/...`).
     - **Depends‑on:** none
+    - **Status:** Completed. Split the 824-line card_management_api_test.go file into three separate test files: edit_card_api_test.go (215 lines), delete_card_api_test.go (156 lines), and postpone_card_api_test.go (223 lines). Common test helper functions were also extracted to api_test_helpers_test.go. All tests still execute with the same behavior and coverage, but the code is now more maintainable with better logical organization.
 
 ## Logging & Observability
 - [x] **T016 · Chore · P2: ensure trace ids are included in structured logs**

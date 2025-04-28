@@ -50,7 +50,7 @@ dist/
 
 # Architecture planning outputs
 architect_output/
-thinktank_output/
+thinktank_*/
 
 # Planning and task tracking files
 CONSULT-REQUEST.md

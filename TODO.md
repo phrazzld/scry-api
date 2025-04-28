@@ -91,7 +91,7 @@
     - **Depends‑on:** none
     - **Status:** Completed. Added `//go:build integration` tag to all database-dependent test files in internal/platform/postgres/, internal/service/*_tx_test.go, and cmd/server/*_integration_test.go. Replaced existing `test_without_external_deps` tags with `integration` tag in API test files.
 
-- [ ] **T012 · Chore · P3: generate test user password hashes dynamically**
+- [x] **T012 · Chore · P3: generate test user password hashes dynamically**
     - **Context:** PLAN.md > cr-13 Remove Hardcoded Test Password Hash
     - **Action:**
         1. Modify test user creation helpers (e.g., in API tests or `testutils`) to accept a plaintext password argument.
@@ -100,6 +100,7 @@
         1. No hardcoded bcrypt password hashes remain in test setup code.
         2. Tests involving user creation/authentication pass using dynamically generated hashes.
     - **Depends‑on:** none
+    - **Status:** Completed. Modified user creation in auth_handler_test.go and card_management_api_test.go to generate bcrypt hashes dynamically using bcrypt.GenerateFromPassword. The hashes are now generated with bcrypt.MinCost for faster test execution. Verified that tests still pass with the changes.
 
 - [ ] **T013 · Refactor · P3: apply standard naming conventions to remaining mocks**
     - **Context:** PLAN.md > cr-15 Fix Non-idiomatic Test Mock Naming

@@ -20,6 +20,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // TestAuthHandler_Register tests the Register handler functionality.
@@ -280,7 +281,11 @@ func TestAuthHandler_Login(t *testing.T) {
 	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
 	testEmail := "user@example.com"
 	testPassword := "securePassword123"
-	hashedPassword := "$2a$10$vdA.EZOiPg3BRwKobGbkjOrZzZcyHXw44D0SyaSKNgdyA6c/J94Py" // Hashed version of "securePassword123"
+	// Generate hash dynamically instead of using hardcoded hash
+	testPasswordRaw := "securePassword123"
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(testPasswordRaw), bcrypt.MinCost)
+	require.NoError(t, err, "Failed to hash test password")
+	hashedPassword := string(hashedBytes)
 
 	tests := []struct {
 		name           string

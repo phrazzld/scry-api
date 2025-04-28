@@ -21,6 +21,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // TestEditCardEndpoint tests the PUT /cards/{id} endpoint
@@ -371,8 +372,13 @@ func createTestUser(t *testing.T, tx *sql.Tx) uuid.UUID {
 	uniqueSuffix := uuid.New().String()[:8]
 	email := fmt.Sprintf("test_%s@example.com", uniqueSuffix)
 
-	// Create user
-	hashedPassword := "$2a$10$oVd5DrhQBQH8iVeLsiW0De.Gx1tX38cP9jq6SxqNOILHAlVmWpYqC" // Test password hash
+	// Create user with dynamically hashed password
+	plainPassword := "TestPassword123!" // Use a standard test password
+
+	// Hash the password with bcrypt using MinCost for faster tests
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.MinCost)
+	require.NoError(t, err, "Failed to hash test password")
+	hashedPassword := string(hashedBytes)
 
 	userID := uuid.New()
 	now := time.Now().UTC()
@@ -382,7 +388,7 @@ func createTestUser(t *testing.T, tx *sql.Tx) uuid.UUID {
 		INSERT INTO users (id, email, password, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err := tx.Exec(query, userID, email, hashedPassword, now, now)
+	_, err = tx.Exec(query, userID, email, hashedPassword, now, now)
 	require.NoError(t, err)
 
 	return userID

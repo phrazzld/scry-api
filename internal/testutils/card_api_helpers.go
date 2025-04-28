@@ -93,7 +93,7 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 		cardReviewMock.SubmitAnswerFn = opts.SubmitAnswerFn
 	}
 
-	// Create JWT service - either custom or defaul
+	// Create JWT service - either custom or default
 	var jwtService auth.JWTService
 	if opts.ValidateTokenFn != nil {
 		// Custom validation function provided, use a mock
@@ -213,7 +213,7 @@ func ExecuteGetNextCardRequest(
 ) (*http.Response, error) {
 	t.Helper()
 
-	// Create reques
+	// Create request
 	req, err := http.NewRequest("GET", server.URL+"/api/cards/next", nil)
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func ExecuteGetNextCardRequest(
 	// Add auth header
 	req.Header.Set("Authorization", authHeader)
 
-	// Execute reques
+	// Execute request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 
@@ -263,7 +263,7 @@ func ExecuteSubmitAnswerRequest(
 		return nil, err
 	}
 
-	// Create reques
+	// Create request
 	req, err := http.NewRequest(
 		"POST",
 		server.URL+"/api/cards/"+cardID.String()+"/answer",
@@ -283,7 +283,7 @@ func ExecuteSubmitAnswerRequest(
 	req.Header.Set("Authorization", authHeader)
 	req.Header.Set("Content-Type", "application/json")
 
-	// Execute reques
+	// Execute request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 
@@ -299,7 +299,7 @@ func ExecuteSubmitAnswerRequest(
 	return resp, err
 }
 
-// ExecuteSubmitAnswerRequestWithRawID executes a POST /cards/{id}/answer reques
+// ExecuteSubmitAnswerRequestWithRawID executes a POST /cards/{id}/answer request
 // with a raw ID string (can be invalid for testing error cases).
 // Automatically registers cleanup for the response body so callers don't need to manually close it.
 // Returns the response and error, if any.
@@ -339,7 +339,7 @@ func ExecuteSubmitAnswerRequestWithRawID(
 	req.Header.Set("Authorization", authHeader)
 	req.Header.Set("Content-Type", "application/json")
 
-	// Execute reques
+	// Execute request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 
@@ -377,7 +377,7 @@ func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.
 	assert.Equal(t, expectedCard.UserID.String(), cardResp.UserID)
 	assert.Equal(t, expectedCard.MemoID.String(), cardResp.MemoID)
 
-	// Check content if expected card has valid JSON conten
+	// Check content if expected card has valid JSON content
 	var expectedContent map[string]interface{}
 	if err := json.Unmarshal(expectedCard.Content, &expectedContent); err == nil {
 		content, ok := cardResp.Content.(map[string]interface{})

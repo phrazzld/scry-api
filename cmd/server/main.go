@@ -166,7 +166,7 @@ type appDependencies struct {
 	PasswordVerifier  auth.PasswordVerifier
 	Generator         task.Generator                // Interface for card generation
 	SRSService        srs.Service                   // Interface for SRS algorithm operations
-	CardService       task.CardService              // Interface for card service operations
+	CardService       service.CardService           // Interface for card service operations
 	MemoService       service.MemoService           // Interface for memo service operations
 	CardReviewService card_review.CardReviewService // Interface for card review operations
 
@@ -320,13 +320,8 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Use memo service from dependencies, which has been properly initialized in startServer
 	memoHandler := api.NewMemoHandler(deps.MemoService, deps.Logger)
 
-	// Directly get the card service from appDependencies to avoid type casting
-	cardService, ok := deps.CardService.(service.CardService)
-	if !ok {
-		slog.Error("Failed to cast CardService to service.CardService")
-		os.Exit(1)
-	}
-	cardHandler := api.NewCardHandler(deps.CardReviewService, cardService, deps.Logger)
+	// Use card service directly from dependencies (now properly typed as service.CardService)
+	cardHandler := api.NewCardHandler(deps.CardReviewService, deps.CardService, deps.Logger)
 
 	// Register routes
 	r.Route("/api", func(r chi.Router) {

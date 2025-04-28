@@ -15,7 +15,7 @@
         2. Observe successful startup logs without panics.
     - **Depends‑on:** none
 
-- [ ] **T003 · Refactor · P1: define specific cardservice type in appdependencies struct**
+- [x] **T003 · Refactor · P1: define specific cardservice type in appdependencies struct**
     - **Context:** PLAN.md > cr-07 Eliminate Awkward Dependency Injection Cast in main.go
     - **Action:**
         1. In `cmd/server/main.go`, change the `CardService` field type in `appDependencies` struct from `interface{}` (or other) to `service.CardService`.

@@ -102,7 +102,7 @@
     - **Depends‑on:** none
     - **Status:** Completed. Modified user creation in auth_handler_test.go and card_management_api_test.go to generate bcrypt hashes dynamically using bcrypt.GenerateFromPassword. The hashes are now generated with bcrypt.MinCost for faster test execution. Verified that tests still pass with the changes.
 
-- [ ] **T013 · Refactor · P3: apply standard naming conventions to remaining mocks**
+- [x] **T013 · Refactor · P3: apply standard naming conventions to remaining mocks**
     - **Context:** PLAN.md > cr-15 Fix Non-idiomatic Test Mock Naming
     - **Action:**
         1. Identify any mock types remaining after T008 (likely only for true external systems, if any).
@@ -111,6 +111,7 @@
     - **Done‑when:**
         1. All remaining mock types follow standard Go naming conventions.
     - **Depends‑on:** [T008]
+    - **Status:** Completed. Renamed mock types to follow Go standard naming conventions. Renamed `CardService` to `MockCardService`, `MemoRepository` to `MockMemoRepository`, `CardRepository` to `MockCardRepository`, `Generator` to `MockGenerator` in task/mocks package. Also renamed `UserStore` to `MockUserStore` in mocks package. Resolved a conflict between two mock implementations by renaming the testify-based mock to `TestifyMockUserStore`. All code now follows consistent naming conventions for mocks.
 
 ## Core Logic & Testing Policy
 - [x] **T008 · Refactor · P0: eliminate mocks for internal components in tests**

@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
@@ -74,8 +72,8 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
 	// Extract user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
-	if !ok || userID == uuid.Nil {
+	userID, ok := getUserIDFromContext(r)
+	if !ok {
 		log.Warn("user ID not found or invalid in request context")
 		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
 		return
@@ -167,27 +165,9 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
-	// Extract card ID from URL path using chi router
-	pathCardID := chi.URLParam(r, "id")
-	if pathCardID == "" {
-		log.Warn("card ID not found in URL path")
-		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
-		return
-	}
-
-	// Parse card ID as UUID
-	cardID, err := uuid.Parse(pathCardID)
-	if err != nil {
-		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
-		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
-		return
-	}
-
-	// Extract user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		log.Warn("user ID not found or invalid in request context")
-		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+	// Extract user ID and card ID
+	userID, cardID, ok := handleUserIDAndPathUUID(w, r, "id", log)
+	if !ok {
 		return
 	}
 
@@ -289,27 +269,9 @@ func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
-	// Extract card ID from URL path using chi router
-	pathCardID := chi.URLParam(r, "id")
-	if pathCardID == "" {
-		log.Warn("card ID not found in URL path")
-		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
-		return
-	}
-
-	// Parse card ID as UUID
-	cardID, err := uuid.Parse(pathCardID)
-	if err != nil {
-		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
-		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
-		return
-	}
-
-	// Extract user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		log.Warn("user ID not found or invalid in request context")
-		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+	// Extract user ID and card ID
+	userID, cardID, ok := handleUserIDAndPathUUID(w, r, "id", log)
+	if !ok {
 		return
 	}
 
@@ -335,7 +297,7 @@ func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call service to update card content
-	err = h.cardService.UpdateCardContent(r.Context(), userID, cardID, req.Content)
+	err := h.cardService.UpdateCardContent(r.Context(), userID, cardID, req.Content)
 	if err != nil {
 		log.Error("failed to update card content",
 			slog.String("error", redact.Error(err)),
@@ -379,32 +341,14 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
-	// Extract card ID from URL path using chi router
-	pathCardID := chi.URLParam(r, "id")
-	if pathCardID == "" {
-		log.Warn("card ID not found in URL path")
-		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
-		return
-	}
-
-	// Parse card ID as UUID
-	cardID, err := uuid.Parse(pathCardID)
-	if err != nil {
-		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
-		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
-		return
-	}
-
-	// Extract user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		log.Warn("user ID not found or invalid in request context")
-		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+	// Extract user ID and card ID
+	userID, cardID, ok := handleUserIDAndPathUUID(w, r, "id", log)
+	if !ok {
 		return
 	}
 
 	// Call service to delete the card
-	err = h.cardService.DeleteCard(r.Context(), userID, cardID)
+	err := h.cardService.DeleteCard(r.Context(), userID, cardID)
 	if err != nil {
 		log.Error("failed to delete card",
 			slog.String("error", redact.Error(err)),
@@ -458,27 +402,9 @@ func (h *CardHandler) PostponeCard(w http.ResponseWriter, r *http.Request) {
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
-	// Extract card ID from URL path using chi router
-	pathCardID := chi.URLParam(r, "id")
-	if pathCardID == "" {
-		log.Warn("card ID not found in URL path")
-		HandleAPIError(w, r, domain.ErrValidation, "Card ID is required")
-		return
-	}
-
-	// Parse card ID as UUID
-	cardID, err := uuid.Parse(pathCardID)
-	if err != nil {
-		log.Warn("invalid card ID format", slog.String("card_id", pathCardID))
-		HandleAPIError(w, r, domain.ErrInvalidID, "Invalid card ID format")
-		return
-	}
-
-	// Extract user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		log.Warn("user ID not found or invalid in request context")
-		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+	// Extract user ID and card ID
+	userID, cardID, ok := handleUserIDAndPathUUID(w, r, "id", log)
+	if !ok {
 		return
 	}
 

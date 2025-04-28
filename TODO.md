@@ -142,7 +142,7 @@
     - **Status:** Completed. Created integration tests in card_service_operations_test.go for UpdateCardContent, DeleteCard, and PostponeCard operations. Tests use WithTx pattern with real repository implementations and the SRS service. Each test thoroughly covers success paths and key error conditions including authorization failures (not card owner), not found errors, and validation errors.
 
 ## API Layer
-- [ ] **T010 · Refactor · P2: extract common request handling logic from api handlers**
+- [x] **T010 · Refactor · P2: extract common request handling logic from api handlers**
     - **Context:** PLAN.md > cr-10 Refactor Duplicate Request Handling Logic in API Handlers
     - **Action:**
         1. Create shared helper functions in `internal/api` (e.g., `getUserIDFromContext(r *http.Request) (uuid.UUID, error)`, `getPathUUID(r *http.Request, paramName string) (uuid.UUID, error)`) handling parsing and errors.
@@ -152,6 +152,7 @@
         2. Handlers call shared helper functions.
         3. API tests for affected endpoints pass.
     - **Depends‑on:** none
+    - **Status:** Completed. Created request_helpers.go with three helper functions: getUserIDFromContext(), getPathUUID(), and handleUserIDAndPathUUID(). Refactored EditCard, DeleteCard, PostponeCard, SubmitAnswer, and GetNextReviewCard handlers to use these helpers. Eliminated duplicate code and made handlers more concise and consistent. All API tests pass.
 
 - [ ] **T011 · Refactor · P2: split oversized card_management_api_test.go by endpoint**
     - **Context:** PLAN.md > cr-11 Split Oversized Test File (`card_management_api_test.go`)

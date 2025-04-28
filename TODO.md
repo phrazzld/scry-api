@@ -167,7 +167,7 @@
     - **Depends‑on:** none
 
 ## Logging & Observability
-- [ ] **T016 · Chore · P2: ensure trace ids are included in structured logs**
+- [x] **T016 · Chore · P2: ensure trace ids are included in structured logs**
     - **Context:** PLAN.md > cr-16 Ensure Logging Includes Correlation IDs
     - **Action:**
         1. Verify trace ID middleware (e.g., `apiMiddleware.NewTraceMiddleware`) correctly adds a `trace_id` to the request `context.Context`.
@@ -179,6 +179,7 @@
         1. Make several API requests locally or in a test environment.
         2. Inspect console logs or log files for the presence and consistency of the `trace_id` field across related log entries for a single request.
     - **Depends‑on:** none
+    - **Status:** Completed. Verified trace middleware correctly adds trace_id to context, and developed comprehensive tests to ensure trace_id propagation. All API handlers and services properly retrieve loggers from context via FromContextOrDefault that include the trace_id. Created tests in trace_test.go to verify trace IDs are consistently included in all log entries related to a request. All tests pass, confirming proper trace ID inclusion in structured logs.
 
 ## Code Quality & Cleanup
 - [ ] **T014 · Chore · P3: fix specified comment typos**

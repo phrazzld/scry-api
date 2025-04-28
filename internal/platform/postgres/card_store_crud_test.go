@@ -19,7 +19,7 @@ import (
 // TestCardStoreCRUDIntegration tests all CRUD operations for the CardStore
 func TestCardStoreCRUDIntegration(t *testing.T) {
 	// Skip the integration test wrapper if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
@@ -32,22 +32,17 @@ func TestCardStoreCRUDIntegration(t *testing.T) {
 // TestPostgresCardStore_GetByID tests the GetByID method
 func TestPostgresCardStore_GetByID(t *testing.T) {
 	// Skip if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForCardStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := getTestDB(t)
+	// t.Cleanup will automatically close the connection
 
-	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
+	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -127,22 +122,17 @@ func TestPostgresCardStore_GetByID(t *testing.T) {
 // TestPostgresCardStore_UpdateContent tests the UpdateContent method
 func TestPostgresCardStore_UpdateContent(t *testing.T) {
 	// Skip if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForCardStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := getTestDB(t)
+	// t.Cleanup will automatically close the connection
 
-	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
+	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -259,22 +249,17 @@ func TestPostgresCardStore_UpdateContent(t *testing.T) {
 // TestPostgresCardStore_Delete tests the Delete method
 func TestPostgresCardStore_Delete(t *testing.T) {
 	// Skip if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForCardStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := getTestDB(t)
+	// t.Cleanup will automatically close the connection
 
-	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
+	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

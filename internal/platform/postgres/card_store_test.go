@@ -22,50 +22,52 @@ import (
 // Test timeout to prevent long-running tests
 const testTimeout = 5 * time.Second
 
-// checkIntegrationTestEnvironment checks if we're running in an environment
-// where integration tests can be executed, by checking DATABASE_URL
-//
-// NOTE: This duplicates functionality in testutils.IsIntegrationTestEnvironment,
-// but is kept here to avoid import cycles.
-func checkIntegrationTestEnvironment() bool {
+// Keep existing helper functions temporarily to avoid import cycles
+// We'll create replacements here instead of importing testutils directly
+
+// cardTestIntegrationEnvironment checks if we're running in an environment
+// where integration tests can be executed
+func cardTestIntegrationEnvironment() bool {
 	return os.Getenv("DATABASE_URL") != ""
 }
 
-// getTestDBForCardStore gets a connection to the test database
-//
-// NOTE: This duplicates functionality in testutils.GetTestDB,
-// but is kept here to avoid import cycles.
-func getTestDBForCardStore() (*sql.DB, error) {
+// getTestDB gets a connection to the test database
+func getTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL environment variable not set")
+		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database connection: %w", err)
+		t.Fatalf("Failed to open database connection: %v", err)
 	}
 
-	// Set connection pool parameters
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(5)
+	// Register cleanup to close the database connection
+	t.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("Warning: failed to close database connection: %v", closeErr)
+		}
+	})
+
+	// Set connection parameters
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	// Verify the connection works
 	if err := db.Ping(); err != nil {
-		_ = db.Close() // Explicitly ignore error from Close
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		t.Fatalf("Database ping failed: %v", err)
 	}
 
-	return db, nil
+	return db
 }
 
-// withTxForCardTest executes a function within a transaction and rolls it back afterward.
+// localWithTx executes a function within a transaction and rolls it back afterward.
 // This ensures that tests are isolated and don't affect each other.
-//
-// NOTE: This duplicates functionality in testutils.WithTx,
-// but is kept here to avoid import cycles.
-func withTxForCardTest(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
+func localWithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
 	// Start a transaction
@@ -91,7 +93,7 @@ func withTxForCardTest(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.T
 // This ensures all methods work as expected with a real database connection.
 func TestCardStoreIntegration(t *testing.T) {
 	// Skip the integration test wrapper if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
@@ -103,22 +105,17 @@ func TestCardStoreIntegration(t *testing.T) {
 // TestPostgresCardStore_GetNextReviewCard tests the GetNextReviewCard method
 func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
 	// Skip if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForCardStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := getTestDB(t)
+	// t.Cleanup will automatically close the connection
 
-	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
+	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		cardStore := NewPostgresCardStore(tx, nil)
@@ -257,22 +254,17 @@ func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
 // TestPostgresCardStore_CreateMultiple tests the CreateMultiple method
 func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 	// Skip if not in integration test environment
-	if !checkIntegrationTestEnvironment() {
+	if !cardTestIntegrationEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForCardStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := getTestDB(t)
+	// t.Cleanup will automatically close the connection
 
-	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
+	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

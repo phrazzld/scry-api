@@ -1,3 +1,5 @@
+//go:build integration
+
 // Package main contains integration tests for the server application
 // These tests require a real database connection to run.
 //

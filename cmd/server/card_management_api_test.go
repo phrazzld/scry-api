@@ -1,5 +1,4 @@
-//go:build test_without_external_deps
-// +build test_without_external_deps
+//go:build integration
 
 package main
 

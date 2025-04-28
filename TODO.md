@@ -79,7 +79,7 @@
     - **Depends‑on:** [T005]
     - **Status:** Completed. Removed redundant helpers from card_store_crud_test.go and card_store_test.go. Due to import cycle issues, we created simplified local versions of the functions that have the same behavior as the testutils helpers.
 
-- [ ] **T007 · Chore · P2: apply standard 'integration' build tag to db-dependent tests**
+- [x] **T007 · Chore · P2: apply standard 'integration' build tag to db-dependent tests**
     - **Context:** PLAN.md > cr-08 Standardize Inconsistent Test Build Tags
     - **Action:**
         1. Add `//go:build integration` comment to the top of all test files requiring database interaction (e.g., `internal/platform/postgres/*_test.go`, `internal/service/*_tx_test.go`, relevant API tests).
@@ -89,6 +89,7 @@
         1. All database-dependent tests consistently use the `integration` build tag.
         2. CI can selectively run unit vs. integration tests (if configured).
     - **Depends‑on:** none
+    - **Status:** Completed. Added `//go:build integration` tag to all database-dependent test files in internal/platform/postgres/, internal/service/*_tx_test.go, and cmd/server/*_integration_test.go. Replaced existing `test_without_external_deps` tags with `integration` tag in API test files.
 
 - [ ] **T012 · Chore · P3: generate test user password hashes dynamically**
     - **Context:** PLAN.md > cr-13 Remove Hardcoded Test Password Hash

@@ -1,3 +1,5 @@
+//go:build integration
+
 package postgres_test
 
 // This file contains tests for the Update and Delete methods of PostgresUserStore

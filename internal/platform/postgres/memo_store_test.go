@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"database/sql"
+
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -60,7 +62,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -198,7 +200,7 @@ func TestPostgresMemoStore_GetByID(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -272,7 +274,7 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -396,7 +398,7 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -571,7 +573,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 

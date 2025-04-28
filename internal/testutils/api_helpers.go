@@ -1,7 +1,6 @@
 package testutils
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -476,64 +475,6 @@ func MustCreateMemoForTest(t *testing.T, opts ...MemoOption) *domain.Memo {
 }
 
 // Create additional test utility functions for card management API tests
-
-// TxDB is a wrapper around sql.Tx that implements the store.DBTX interface
-type TxDB struct {
-	Tx *sql.Tx
-}
-
-// Exec implements store.DBTX
-func (db *TxDB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return db.Tx.Exec(query, args...)
-}
-
-// ExecContext implements store.DBTX
-func (db *TxDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	return db.Tx.ExecContext(ctx, query, args...)
-}
-
-// Query implements store.DBTX
-func (db *TxDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return db.Tx.Query(query, args...)
-}
-
-// QueryContext implements store.DBTX
-func (db *TxDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return db.Tx.QueryContext(ctx, query, args...)
-}
-
-// QueryRow implements store.DBTX
-func (db *TxDB) QueryRow(query string, args ...interface{}) *sql.Row {
-	return db.Tx.QueryRow(query, args...)
-}
-
-// QueryRowContext implements store.DBTX
-func (db *TxDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	return db.Tx.QueryRowContext(ctx, query, args...)
-}
-
-// Begin implements store.DBTX
-func (db *TxDB) Begin() (*sql.Tx, error) {
-	// This is not ideal, but we're using the same transaction for everything
-	// in these tests, so we don't need to create nested transactions
-	return db.Tx, nil
-}
-
-// BeginTx implements store.DBTX
-func (db *TxDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
-	// Since we're already in a transaction, just return the existing transaction
-	return db.Tx, nil
-}
-
-// Prepare implements store.DBTX
-func (db *TxDB) Prepare(query string) (*sql.Stmt, error) {
-	return db.Tx.Prepare(query)
-}
-
-// PrepareContext implements store.DBTX
-func (db *TxDB) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-	return db.Tx.PrepareContext(ctx, query)
-}
 
 // CreatePostgresCardStore creates a PostgresCardStore with a logger for testing
 func CreatePostgresCardStore(db store.DBTX) *postgres.PostgresCardStore {

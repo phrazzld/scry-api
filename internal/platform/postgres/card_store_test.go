@@ -65,7 +65,7 @@ func getTestDBForCardStore() (*sql.DB, error) {
 //
 // NOTE: This duplicates functionality in testutils.WithTx,
 // but is kept here to avoid import cycles.
-func withTxForCardTest(t *testing.T, db *sql.DB, fn func(tx *sql.Tx)) {
+func withTxForCardTest(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
 	// Start a transaction
@@ -84,7 +84,7 @@ func withTxForCardTest(t *testing.T, db *sql.DB, fn func(tx *sql.Tx)) {
 	}()
 
 	// Execute the test function
-	fn(tx)
+	fn(t, tx)
 }
 
 // TestCardStoreIntegration runs a complete set of integration tests for the CardStore implementation.
@@ -118,7 +118,7 @@ func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
 		}
 	}()
 
-	withTxForCardTest(t, db, func(tx *sql.Tx) {
+	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		cardStore := NewPostgresCardStore(tx, nil)
@@ -272,7 +272,7 @@ func TestPostgresCardStore_CreateMultiple(t *testing.T) {
 		}
 	}()
 
-	withTxForCardTest(t, db, func(tx *sql.Tx) {
+	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

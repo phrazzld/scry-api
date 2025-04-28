@@ -55,7 +55,7 @@
         2. Run the test and verify the failure is reported at the `t.Fatal` line.
     - **Depends‑on:** none
 
-- [ ] **T005 · Bugfix · P0: remove txdb wrapper and pass *sql.tx directly in withtx**
+- [x] **T005 · Bugfix · P0: remove txdb wrapper and pass *sql.tx directly in withtx**
     - **Context:** PLAN.md > cr-03 Fix Test Transaction Helper (TxDB) Violates DBTX Contract
     - **Action:**
         1. Delete `TxDB` struct and methods from `internal/testutils/api_helpers.go` (or wherever it is defined).
@@ -66,6 +66,7 @@
         2. `testutils.WithTx` passes `*sql.Tx` directly to the test function.
         3. All tests using `WithTx` compile and pass.
     - **Depends‑on:** none
+    - **Status:** Completed. Removed TxDB wrapper. Updated WithTx signature to accept func(t *testing.T, tx *sql.Tx). Updated all call sites including user_store_test.go files.
 
 - [ ] **T006 · Refactor · P2: remove redundant transaction helpers in card_store_crud_test.go**
     - **Context:** PLAN.md > cr-09 Remove Redundant Test Transaction Helpers

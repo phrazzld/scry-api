@@ -17,7 +17,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
@@ -249,7 +248,7 @@ func TestTaskRunnerIntegration(t *testing.T) {
 		t.Fatalf("Failed to restore working directory: %v", err)
 	}
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Set up the configuration
 		cfg := &config.Config{
 			Task: config.TaskConfig{

@@ -117,7 +117,7 @@ func TestUserService_CreateUser_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -201,7 +201,7 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -320,7 +320,7 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -410,7 +410,7 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 

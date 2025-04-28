@@ -247,7 +247,7 @@ type Stores struct {
 //
 // Usage:
 //
-//	testutils.WithTx(t, db, func(tx store.DBTX) {
+//	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	    stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 //
 //	    // Use any of the stores

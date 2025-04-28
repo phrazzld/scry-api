@@ -107,7 +107,7 @@ func countUsers(
 func TestNewPostgresUserStore(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Initialize the store with the transaction
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 
@@ -124,7 +124,7 @@ func TestNewPostgresUserStore(t *testing.T) {
 func TestBasicDatabaseConnectivity(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
@@ -154,7 +154,7 @@ func TestBasicDatabaseConnectivity(t *testing.T) {
 func TestPostgresUserStore_Create(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 

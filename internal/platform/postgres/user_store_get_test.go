@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ import (
 func TestPostgresUserStore_GetByID(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 
@@ -76,7 +77,7 @@ func TestPostgresUserStore_GetByID(t *testing.T) {
 func TestPostgresUserStore_GetByEmail(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 

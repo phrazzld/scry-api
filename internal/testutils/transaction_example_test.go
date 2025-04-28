@@ -2,13 +2,13 @@ package testutils_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +33,7 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 	t.Run("TransactionIsolationWithMultipleStores", func(t *testing.T) {
 		t.Parallel() // Safe to run in parallel because of transaction isolation
 
-		testutils.WithTx(t, db, func(tx store.DBTX) {
+		testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 			ctx := context.Background()
 
 			// Create all stores with the same transaction
@@ -82,7 +82,7 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 	t.Run("VerifyRollback", func(t *testing.T) {
 		t.Parallel()
 
-		testutils.WithTx(t, db, func(tx store.DBTX) {
+		testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 			ctx := context.Background()
 
 			// Count memos with text containing the specific phrase from the previous test
@@ -123,7 +123,7 @@ func TestTransactionIsolation_Concurrency(t *testing.T) {
 		t.Run("ConcurrentTest-"+string(rune('A'+i)), func(t *testing.T) {
 			t.Parallel() // All these tests run in parallel
 
-			testutils.WithTx(t, db, func(tx store.DBTX) {
+			testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 				ctx := context.Background()
 
 				// Create a user with the same email in each test

@@ -27,7 +27,7 @@
 //	    defer testutils.AssertCloseNoError(t, db)
 //
 //	    // Run your test in a transaction
-//	    testutils.WithTx(t, db, func(tx store.DBTX) {
+//	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	        // Create test store instances with the transaction
 //	        stores := testutils.CreateTestStores(tx)
 //
@@ -53,7 +53,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/pressly/goose/v3"
 )
 
@@ -134,7 +133,7 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 //	    require.NoError(t, err)
 //	    defer testutils.AssertCloseNoError(t, db)
 //
-//	    testutils.WithTx(t, db, func(tx store.DBTX) {
+//	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	        // Create store instances with the transaction
 //	        userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 //	        memoStore := postgres.NewPostgresMemoStore(tx, nil)
@@ -145,7 +144,7 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 //	        // ... more test code
 //	    })
 //	}
-func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
+func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
 	// Begin a transaction
@@ -157,8 +156,8 @@ func WithTx(t *testing.T, db *sql.DB, fn func(tx store.DBTX)) {
 	// Make sure the transaction is rolled back when the test is done
 	defer AssertRollbackNoError(t, tx) // Uses the implementation from helpers.go
 
-	// Run the test function with the transaction
-	fn(tx)
+	// Run the test function with the transaction, passing both t and tx directly
+	fn(t, tx)
 }
 
 // ResetTestData truncates all test tables to ensure test isolation.

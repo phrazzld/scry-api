@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ import (
 func TestPostgresUserStore_Update(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 
@@ -214,7 +215,7 @@ func TestPostgresUserStore_Update(t *testing.T) {
 func TestPostgresUserStore_Delete(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 

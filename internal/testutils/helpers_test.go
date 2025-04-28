@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,7 +50,7 @@ func TestHelpers_DatabaseOperations(t *testing.T) {
 	t.Run("MustInsertUser and GetUserByID", func(t *testing.T) {
 		t.Parallel() // Parallel testing is safe with WithTx
 
-		testutils.WithTx(t, db, func(tx store.DBTX) {
+		testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 			ctx := context.Background()
 
 			// Test inserting a user
@@ -70,7 +69,7 @@ func TestHelpers_DatabaseOperations(t *testing.T) {
 	t.Run("CountUsers", func(t *testing.T) {
 		t.Parallel() // Parallel testing is safe with WithTx
 
-		testutils.WithTx(t, db, func(tx store.DBTX) {
+		testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 			ctx := context.Background()
 
 			// Insert some test users

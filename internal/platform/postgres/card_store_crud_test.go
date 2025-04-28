@@ -47,7 +47,7 @@ func TestPostgresCardStore_GetByID(t *testing.T) {
 		}
 	}()
 
-	withTxForCardTest(t, db, func(tx *sql.Tx) {
+	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -142,7 +142,7 @@ func TestPostgresCardStore_UpdateContent(t *testing.T) {
 		}
 	}()
 
-	withTxForCardTest(t, db, func(tx *sql.Tx) {
+	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -274,7 +274,7 @@ func TestPostgresCardStore_Delete(t *testing.T) {
 		}
 	}()
 
-	withTxForCardTest(t, db, func(tx *sql.Tx) {
+	withTxForCardTest(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

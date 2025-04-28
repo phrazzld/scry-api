@@ -194,7 +194,7 @@
     - **Status:** Completed. Fixed several typographical errors in internal/testutils/card_api_helpers.go including "reques" → "request", "defaul" → "default", "requestt" → "request", and "conten" → "content". Used grep to search the entire codebase for similar errors and verified code passes linting checks.
     - **Depends‑on:** none
 
-- [ ] **T015 · Chore · P3: trim verbose godoc comments**
+- [x] **T015 · Chore · P3: trim verbose godoc comments**
     - **Context:** PLAN.md > cr-12 Trim Overly Verbose GoDoc Comments
     - **Action:**
         1. Review GoDoc comments in specified locations (`internal/api/card_handler.go` DTOs, `internal/store/card.go`, `internal/store/stats.go`).
@@ -204,6 +204,7 @@
         1. GoDoc comments in specified files are concise, informative, consistently formatted, and add value beyond the type signature.
         2. `godoc` or generated documentation is improved.
     - **Depends‑on:** none
+    - **Status:** Completed. Removed redundant comments that just restated field names in DTOs (CardResponse, UserCardStatsResponse), simplified method parameter/return documentation in store interfaces (CardStore, UserCardStatsStore), and kept important implementation notes and constraints. Comments now focus on non-obvious aspects and meaningful context rather than repeating what's evident from the code itself.
 
 ### Clarifications & Assumptions
 - none

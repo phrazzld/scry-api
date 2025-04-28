@@ -34,32 +34,12 @@ type CardStore interface {
 	// GetByID retrieves a card by its unique ID.
 	// Returns ErrCardNotFound if the card does not exist.
 	// The returned card will have its Content field properly populated from JSONB.
-	//
-	// Parameters:
-	//   - ctx: Context for cancellation and request correlation
-	//   - id: UUID of the card to retrieve
-	//
-	// Returns:
-	//   - (*domain.Card, nil): The retrieved card if found
-	//   - (nil, store.ErrCardNotFound): If the card does not exist
-	//   - (nil, error): Any other error that occurred during retrieval
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error)
 
 	// UpdateContent modifies an existing card's content field.
 	// Returns ErrCardNotFound if the card does not exist.
 	// Returns validation errors if the content is invalid JSON.
 	// Implementations should validate the content before updating.
-	//
-	// Parameters:
-	//   - ctx: Context for cancellation and request correlation
-	//   - id: UUID of the card to update
-	//   - content: New JSON content for the card, must be valid JSON
-	//
-	// Returns:
-	//   - nil: If the update was successful
-	//   - store.ErrCardNotFound: If the card does not exist
-	//   - domain.ErrValidation: If the content is invalid JSON
-	//   - error: Any other error that occurred during the update
 	UpdateContent(ctx context.Context, id uuid.UUID, content []byte) error
 
 	// Delete removes a card from the store by its ID.
@@ -73,15 +53,6 @@ type CardStore interface {
 	// not explicitly delete related records in application code. If using a different
 	// database backend or if the schema is modified to remove cascade deletes, this
 	// method must be updated to maintain referential integrity.
-	//
-	// Parameters:
-	//   - ctx: Context for cancellation and request correlation
-	//   - id: UUID of the card to delete
-	//
-	// Returns:
-	//   - nil: If the deletion was successful
-	//   - store.ErrCardNotFound: If the card does not exist
-	//   - error: Any other error that occurred during the deletion
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// GetNextReviewCard retrieves the next card due for review for a user.
@@ -91,15 +62,6 @@ type CardStore interface {
 	// The method queries both the cards and user_card_stats tables, joining them to find
 	// cards owned by the specified user that are due for review (based on NextReviewAt).
 	// Results are ordered by NextReviewAt ascending (oldest due cards first).
-	//
-	// Parameters:
-	//   - ctx: Context for the operation, which can be used for cancellation
-	//   - userID: UUID of the user whose cards to check for review
-	//
-	// Returns:
-	//   - (*domain.Card, nil): The next card due for review if one exists
-	//   - (nil, store.ErrCardNotFound): If no cards are due for review
-	//   - (nil, error): Any other error, typically from the database
 	//
 	// Error Handling:
 	//   - Returns store.ErrCardNotFound (which wraps store.ErrNotFound) when no cards are due

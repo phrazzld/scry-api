@@ -20,23 +20,14 @@ import (
 // It contains all the card details in a format suitable for API responses,
 // with UUIDs converted to strings and content parsed into a generic interface.
 type CardResponse struct {
-	// ID is the unique identifier for the card
-	ID string `json:"id"`
-
-	// UserID is the identifier of the user who owns this card
+	ID     string `json:"id"`
 	UserID string `json:"user_id"`
-
-	// MemoID is the identifier of the memo from which this card was generated
 	MemoID string `json:"memo_id"`
 
-	// Content contains the card's actual content, which can vary in structure
-	// depending on the card type (e.g., question-answer, cloze, etc.)
+	// Content varies in structure depending on the card type (e.g., question-answer, cloze)
 	Content interface{} `json:"content"`
 
-	// CreatedAt is the timestamp when the card was created
 	CreatedAt time.Time `json:"created_at"`
-
-	// UpdatedAt is the timestamp when the card was last updated
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -110,10 +101,7 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 // EditCardRequest represents the request body for editing a card's content.
 // It is used for the PUT /cards/{id} endpoint to update a card's content.
 type EditCardRequest struct {
-	// Content is the new JSON content for the card.
-	// It must be valid JSON and is validated with the "required" tag.
-	// The structure depends on the card type but typically includes fields like
-	// question, answer, hints, etc.
+	// New JSON content for the card. Structure depends on card type (e.g., question, answer, hints)
 	Content json.RawMessage `json:"content" validate:"required"`
 }
 
@@ -121,9 +109,8 @@ type EditCardRequest struct {
 // It is used for the POST /cards/{id}/answer endpoint to record the result of a user
 // reviewing a flashcard and update its spaced repetition scheduling.
 type SubmitAnswerRequest struct {
-	// Outcome is the result of the card review, affecting how the next review date is calculated.
-	// It must be one of: "again" (failed), "hard" (difficult), "good" (correct), or "easy" (very easy).
-	// These values map to the SRS algorithm's difficulty levels and affect interval calculations.
+	// Must be one of: "again" (failed), "hard" (difficult), "good" (correct), or "easy" (very easy)
+	// Maps to SRS algorithm difficulty levels and affects interval calculations
 	Outcome string `json:"outcome" validate:"required,oneof=again hard good easy"`
 }
 
@@ -131,31 +118,22 @@ type SubmitAnswerRequest struct {
 // It contains the spaced repetition algorithm parameters and scheduling information
 // for a specific user-card pair.
 type UserCardStatsResponse struct {
-	// UserID is the unique identifier of the user who owns these stats
 	UserID string `json:"user_id"`
-
-	// CardID is the unique identifier of the card these stats are for
 	CardID string `json:"card_id"`
 
-	// Interval is the current review interval in days
-	// (time between reviews when answered correctly)
+	// Current review interval in days (time between reviews when answered correctly)
 	Interval int `json:"interval"`
 
-	// EaseFactor is the card's current ease factor, which affects
-	// how quickly intervals grow based on answer quality
+	// Affects how quickly intervals grow based on answer quality
 	EaseFactor float64 `json:"ease_factor"`
 
-	// ConsecutiveCorrect is the number of times the card has been
-	// answered correctly in a row
+	// Number of times the card has been answered correctly in a row
 	ConsecutiveCorrect int `json:"consecutive_correct"`
 
-	// LastReviewedAt is the timestamp of when the card was last reviewed
 	LastReviewedAt time.Time `json:"last_reviewed_at"`
+	NextReviewAt   time.Time `json:"next_review_at"`
 
-	// NextReviewAt is the timestamp of when the card is next due for review
-	NextReviewAt time.Time `json:"next_review_at"`
-
-	// ReviewCount is the total number of times this card has been reviewed
+	// Total number of times this card has been reviewed
 	ReviewCount int `json:"review_count"`
 }
 
@@ -222,13 +200,7 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 
 // statsToResponse converts a domain.UserCardStats to a UserCardStatsResponse.
 // This helper function transforms the internal domain model to the API response format,
-// ensuring proper type conversions (e.g., UUIDs to strings) and field mapping.
-//
-// Parameters:
-//   - stats: The domain model user card statistics to convert
-//
-// Returns:
-//   - UserCardStatsResponse: The transformed API response object
+// ensuring proper type conversions (e.g., UUIDs to strings).
 func statsToResponse(stats *domain.UserCardStats) UserCardStatsResponse {
 	return UserCardStatsResponse{
 		UserID:             stats.UserID.String(),
@@ -368,9 +340,7 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 // PostponeCardRequest represents the request body for postponing a card review.
 // It is used for the POST /cards/{id}/postpone endpoint to delay a card's next review date.
 type PostponeCardRequest struct {
-	// Days is the number of days to postpone the card's next review.
-	// It must be at least 1 day, as validated by the "min=1" tag.
-	// The next review date will be extended by this many days from its current value.
+	// Number of days to extend the next review date. Must be at least 1.
 	Days int `json:"days" validate:"required,min=1"`
 }
 
@@ -455,18 +425,9 @@ func (h *CardHandler) PostponeCard(w http.ResponseWriter, r *http.Request) {
 }
 
 // cardToResponse converts a domain.Card to a CardResponse.
-// This helper function transforms the internal domain model to the API response format,
-// ensuring proper type conversions (e.g., UUIDs to strings) and unmarshaling the
-// JSON content field into a more usable interface{} rather than raw bytes.
-//
-// Parameters:
-//   - card: The domain model card to convert
-//
-// Returns:
-//   - CardResponse: The transformed API response object
-//
-// If the JSON content cannot be unmarshaled, it falls back to representing
-// the content as a string of the raw bytes.
+// Transforms internal model to API format, converting UUIDs to strings and
+// unmarshaling JSON content to interface{}. Falls back to string representation
+// if unmarshaling fails.
 func cardToResponse(card *domain.Card) CardResponse {
 	var content interface{}
 	if err := json.Unmarshal(card.Content, &content); err != nil {

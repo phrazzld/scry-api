@@ -113,7 +113,7 @@
     - **Depends‑on:** [T008]
 
 ## Core Logic & Testing Policy
-- [ ] **T008 · Refactor · P0: eliminate mocks for internal components in tests**
+- [x] **T008 · Refactor · P0: eliminate mocks for internal components in tests**
     - **Context:** PLAN.md > cr-01 Eliminate Mocking of Internal Components Violates Core Testing Policy
     - **Action:**
         1. Delete all mock types/files for internal interfaces (`CardService`, `*Repository`, `SRSService`, etc., e.g., `internal/mocks/`, `internal/service/mocks_test.go`).
@@ -125,8 +125,9 @@
         3. All affected tests pass.
         4. CI policy checks related to internal mocking (if any) pass.
     - **Depends‑on:** [T005]
+    - **Status:** Completed. Deleted internal mocks in mocks_test.go, refactored to use real implementations with transaction isolation via WithTx pattern. Implemented comprehensive integration tests for CardService operations (UpdateCardContent, DeleteCard, PostponeCard) with proper ownership validation and error handling. Tests focus on database state changes rather than mock interactions.
 
-- [ ] **T009 · Test · P1: add integration tests for card service write operations**
+- [x] **T009 · Test · P1: add integration tests for card service write operations**
     - **Context:** PLAN.md > cr-05 Add Missing Integration Tests for New Service Logic
     - **Action:**
         1. In `internal/service/card_service_tx_test.go` (create if needed), add integration tests for `UpdateCardContent`, `DeleteCard`, `PostponeCard`.
@@ -138,6 +139,7 @@
         3. Tests pass when run with the `integration` tag.
         4. Test coverage increases for `internal/service/card_service.go`.
     - **Depends‑on:** [T005, T007, T008]
+    - **Status:** Completed. Created integration tests in card_service_operations_test.go for UpdateCardContent, DeleteCard, and PostponeCard operations. Tests use WithTx pattern with real repository implementations and the SRS service. Each test thoroughly covers success paths and key error conditions including authorization failures (not card owner), not found errors, and validation errors.
 
 ## API Layer
 - [ ] **T010 · Refactor · P2: extract common request handling logic from api handlers**

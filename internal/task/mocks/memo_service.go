@@ -7,14 +7,14 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 )
 
-// MockMemoService is a mock implementation of task.MemoService
-type MockMemoService struct {
+// MemoService is a mock implementation of task.MemoService
+type MemoService struct {
 	GetMemoFn          func(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error)
 	UpdateMemoStatusFn func(ctx context.Context, memoID uuid.UUID, status domain.MemoStatus) error
 }
 
 // GetMemo implements task.MemoService
-func (m *MockMemoService) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
+func (m *MemoService) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
 	if m.GetMemoFn != nil {
 		return m.GetMemoFn(ctx, memoID)
 	}
@@ -22,7 +22,7 @@ func (m *MockMemoService) GetMemo(ctx context.Context, memoID uuid.UUID) (*domai
 }
 
 // UpdateMemoStatus implements task.MemoService
-func (m *MockMemoService) UpdateMemoStatus(
+func (m *MemoService) UpdateMemoStatus(
 	ctx context.Context,
 	memoID uuid.UUID,
 	status domain.MemoStatus,

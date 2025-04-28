@@ -9,7 +9,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 )
 
-// MockMemoRepository is a simple implementation of the MemoRepository interface.
+// MemoRepository is a simple implementation of the MemoRepository interface.
 type MemoRepository struct {
 	GetByIDFunc func(ctx context.Context, id uuid.UUID) (*domain.Memo, error)
 	UpdateFunc  func(ctx context.Context, memo *domain.Memo) error
@@ -31,7 +31,7 @@ func (m *MemoRepository) Update(ctx context.Context, memo *domain.Memo) error {
 	return nil
 }
 
-// MockCardRepository is a simple implementation of the CardRepository interface.
+// CardRepository is a simple implementation of the CardRepository interface.
 type CardRepository struct {
 	CreateMultipleFunc func(ctx context.Context, cards []*domain.Card) error
 	WithTxFunc         func(tx *sql.Tx) interface{} // Keep as interface{} for backward compatibility
@@ -62,7 +62,7 @@ func (m *CardRepository) DB() *sql.DB {
 	return nil
 }
 
-// MockGenerator is a simple implementation of the Generator interface.
+// Generator is a simple implementation of the Generator interface.
 type Generator struct {
 	GenerateCardsFunc func(ctx context.Context, memoText string, userID uuid.UUID) ([]*domain.Card, error)
 }

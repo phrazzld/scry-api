@@ -34,7 +34,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	validMemoID := uuid.New()
 
 	t.Run("creates task with valid parameters", func(t *testing.T) {
-		memoService := &mocks.MockMemoService{}
+		memoService := &mocks.MemoService{}
 		generator := &mocks.Generator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
@@ -64,7 +64,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 
 	t.Run("fails with nil generator", func(t *testing.T) {
-		memoService := &mocks.MockMemoService{}
+		memoService := &mocks.MemoService{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
 		})
@@ -77,7 +77,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 
 	t.Run("fails with nil card service", func(t *testing.T) {
-		memoService := &mocks.MockMemoService{}
+		memoService := &mocks.MemoService{}
 		generator := &mocks.Generator{}
 
 		task, err := NewMemoGenerationTask(validMemoID, memoService, generator, nil, logger)
@@ -88,7 +88,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 
 	t.Run("fails with nil logger", func(t *testing.T) {
-		memoService := &mocks.MockMemoService{}
+		memoService := &mocks.MemoService{}
 		generator := &mocks.Generator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
@@ -102,7 +102,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 
 	t.Run("fails with nil memo ID", func(t *testing.T) {
-		memoService := &mocks.MockMemoService{}
+		memoService := &mocks.MemoService{}
 		generator := &mocks.Generator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
@@ -121,7 +121,7 @@ func TestMemoGenerationTaskInterface(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	validMemoID := uuid.New()
-	memoService := &mocks.MockMemoService{}
+	memoService := &mocks.MemoService{}
 	generator := &mocks.Generator{}
 	cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 		return nil
@@ -142,7 +142,7 @@ func TestMemoGenerationTaskPayload(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	validMemoID := uuid.New()
-	memoService := &mocks.MockMemoService{}
+	memoService := &mocks.MemoService{}
 	generator := &mocks.Generator{}
 	cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 		return nil
@@ -183,7 +183,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 		}
 
 		// Setup mocks
-		memoService := &mocks.MockMemoService{
+		memoService := &mocks.MemoService{
 			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},
@@ -224,7 +224,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 		notFoundErr := errors.New("memo not found")
 
 		// Setup mocks
-		memoService := &mocks.MockMemoService{
+		memoService := &mocks.MemoService{
 			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return nil, notFoundErr
 			},
@@ -259,7 +259,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 		updateErr := errors.New("update status error")
 
 		// Setup mocks
-		memoService := &mocks.MockMemoService{
+		memoService := &mocks.MemoService{
 			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},
@@ -297,7 +297,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 		genErr := errors.New("generation error")
 
 		// Setup mocks
-		memoService := &mocks.MockMemoService{
+		memoService := &mocks.MemoService{
 			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},
@@ -350,7 +350,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 		saveErr := errors.New("save error")
 
 		// Setup mocks
-		memoService := &mocks.MockMemoService{
+		memoService := &mocks.MemoService{
 			GetMemoFn: func(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 				return memo, nil
 			},

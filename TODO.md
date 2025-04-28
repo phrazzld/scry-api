@@ -183,7 +183,7 @@
     - **Status:** Completed. Verified trace middleware correctly adds trace_id to context, and developed comprehensive tests to ensure trace_id propagation. All API handlers and services properly retrieve loggers from context via FromContextOrDefault that include the trace_id. Created tests in trace_test.go to verify trace IDs are consistently included in all log entries related to a request. All tests pass, confirming proper trace ID inclusion in structured logs.
 
 ## Code Quality & Cleanup
-- [ ] **T014 · Chore · P3: fix specified comment typos**
+- [x] **T014 · Chore · P3: fix specified comment typos**
     - **Context:** PLAN.md > cr-14 Fix Comment Typos
     - **Action:**
         1. Correct spelling errors ("reques", "defaul") in comments within `internal/testutils/card_api_helpers.go`.
@@ -191,6 +191,7 @@
     - **Done‑when:**
         1. Specified typos are corrected.
         2. Code passes linting checks.
+    - **Status:** Completed. Fixed several typographical errors in internal/testutils/card_api_helpers.go including "reques" → "request", "defaul" → "default", "requestt" → "request", and "conten" → "content". Used grep to search the entire codebase for similar errors and verified code passes linting checks.
     - **Depends‑on:** none
 
 - [ ] **T015 · Chore · P3: trim verbose godoc comments**

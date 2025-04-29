@@ -52,7 +52,7 @@
     - **Depends‑on:** [T004]
 
 ## API Handler & Test Refactoring
-- [ ] **T006 · Refactor · P0: delete internal service mock files**
+- [x] **T006 · Refactor · P0: delete internal service mock files**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 1
     - **Action:**
         1. Delete file `internal/mocks/card_service.go`.
@@ -60,6 +60,7 @@
     - **Done‑when:**
         1. Both specified mock files are removed from the codebase.
     - **Depends‑on:** none
+    - **Note:** Completed. Files were deleted, but this causes build errors in dependent files that will be addressed in T007.
 - [ ] **T007 · Chore · P0: move api handler tests to cmd/server**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 3
     - **Action:**

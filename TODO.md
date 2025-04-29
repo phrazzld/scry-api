@@ -81,7 +81,7 @@
         2. Tests within this file pass when run individually (they may fail in suite until T011).
     - **Depends‑on:** [T005, T007]
     - **Note:** Created get_card_api_integration_test.go with real dependencies. The test initializes real services and handlers with a database transaction, creates test data, and tests the API endpoints. Need to address testutils mocks issue in T009.
-- [ ] **T009 · Refactor · P0: refactor remaining api integration test files**
+- [x] **T009 · Refactor · P0: refactor remaining api integration test files**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 4 (remaining)
     - **Action:**
         1. Refactor all remaining moved API integration test files in `cmd/server/` following the pattern from T008.
@@ -90,6 +90,7 @@
         1. All relevant API integration test files in `cmd/server/` are refactored.
         2. Tests within these files pass when run individually.
     - **Depends‑on:** [T008]
+    - **Note:** Completed. Created new integration tests for card API endpoints (edit, delete, postpone) using real dependencies. Fixed `card_api_helpers.go` to remove mocks dependency. Fixed repository adapter initialization to properly use the StatsRepositoryAdapter.
 - [ ] **T010 · Refactor · P0: implement proper test user/auth setup in api integration tests**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 4 (auth setup)
     - **Action:**

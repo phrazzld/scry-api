@@ -15,13 +15,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api"
-	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+	"github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
-	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils"
@@ -42,9 +41,10 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 
 		// Create stores with the transaction
 		userStore := postgres.NewPostgresUserStore(tx, 4) // Low cost for test speed
-		cardStore := postgres.NewPostgresCardStore(tx, nil)
-		memoStore := postgres.NewPostgresMemoStore(tx, nil)
-		statsStore := postgres.NewPostgresUserCardStatsStore(tx, nil)
+		logger := slog.Default()
+		cardStore := postgres.NewPostgresCardStore(tx, logger)
+		memoStore := postgres.NewPostgresMemoStore(tx, logger)
+		statsStore := postgres.NewPostgresUserCardStatsStore(tx, logger)
 
 		// Create test user
 		testUser, err := domain.NewUser("get-next-review-card-integration-test@example.com", "password123")
@@ -75,15 +75,24 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 		stats.NextReviewAt = pastTime // Make card due for review
 		require.NoError(t, statsStore.Create(ctx, stats), "Failed to save test stats")
 
-		// Create services using the stores
-		cardService := service.NewCardService(cardStore, statsStore, memoStore, userStore)
-		cardReviewService := card_review.NewCardReviewService(cardStore, statsStore)
+		// Create SRS service
+		srsService, err := srs.NewDefaultService()
+		require.NoError(t, err, "Failed to create SRS service")
+
+		// Create repository adapters for service layer
+		dbConn := cardStore.DB()
+		cardRepo := service.NewCardRepositoryAdapter(cardStore, dbConn)
+		statsRepo := service.NewStatsRepositoryAdapter(statsStore)
+
+		// Create services using the adapters
+		cardService, err := service.NewCardService(cardRepo, statsRepo, srsService, logger)
+		require.NoError(t, err, "Failed to create card service")
+
+		cardReviewService, err := card_review.NewCardReviewService(cardStore, statsStore, srsService, logger)
+		require.NoError(t, err, "Failed to create card review service")
 
 		// Create JWT service for auth
-		jwtService, err := auth.NewJWTService(&auth.JWTConfig{
-			Secret:               "test-jwt-secret",
-			TokenLifetimeMinutes: 60,
-		})
+		jwtService, err := testutils.CreateTestJWTService()
 		require.NoError(t, err, "Failed to create JWT service")
 
 		// Set up tests with different scenarios

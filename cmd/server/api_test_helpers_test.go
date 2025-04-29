@@ -123,7 +123,8 @@ func getAuthToken(t *testing.T, userID uuid.UUID) string {
 	t.Helper()
 
 	// Create a JWT service with a test secret
-	jwtService := testutils.NewTestJWTService()
+	jwtService, err := testutils.CreateTestJWTService()
+	require.NoError(t, err, "Failed to create JWT service")
 
 	// Generate a token
 	token, err := jwtService.GenerateToken(context.Background(), userID)
@@ -203,7 +204,10 @@ func setupCardManagementTestRouter(t *testing.T, tx *sql.Tx) (http.Handler, erro
 	}
 
 	// Create JWT service for authentication
-	jwtService := testutils.NewTestJWTService()
+	jwtService, err := testutils.CreateTestJWTService()
+	if err != nil {
+		return nil, err
+	}
 
 	// Create password verifier for auth
 	passwordVerifier := auth.NewBcryptVerifier()

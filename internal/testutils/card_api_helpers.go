@@ -3,9 +3,10 @@ package testutils
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,9 +17,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
-	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,19 +31,8 @@ type CardReviewServerOptions struct {
 	// UserID to use in test JWT token (required)
 	UserID uuid.UUID
 
-	// Data fields for simple use cases
-	// Card to return from mock service GetNextCard (success case)
-	NextCard *domain.Card
-	// Stats to return from mock service SubmitAnswer (success case)
-	UpdatedStats *domain.UserCardStats
-	// Error to return from mock service (error case)
-	Error error
-
-	// Override fields for advanced use cases - these take precedence over data fields
-	// Function to replace the default GetNextCard behavior
-	GetNextCardFn func(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
-	// Function to replace the default SubmitAnswer behavior
-	SubmitAnswerFn func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error)
+	// Database transaction to use for the test (required for real services)
+	Tx *sql.Tx
 
 	// Auth customization
 	// Function to replace the default JWT validation behavior
@@ -52,12 +40,7 @@ type CardReviewServerOptions struct {
 }
 
 // SetupCardReviewTestServer creates a test server with properly configured
-// card review API routes and mocked dependencies.
-//
-// The mock service is configured according to the following priority:
-// 1. Custom behavior functions (GetNextCardFn, SubmitAnswerFn) if provided
-// 2. Data fields (NextCard, UpdatedStats, Error) if provided
-// 3. Default empty behavior
+// card review API routes and real dependencies.
 //
 // Automatically registers cleanup via t.Cleanup() so callers don't need to manually close the server.
 func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *httptest.Server {
@@ -68,41 +51,21 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 		opts.UserID = uuid.New()
 	}
 
-	// Create card review service mock with appropriate configuration
-	mockOptions := []mocks.MockOption{}
-
-	// Apply data fields if provided and no custom functions
-	if opts.Error != nil {
-		mockOptions = append(mockOptions, mocks.WithError(opts.Error))
-	}
-	if opts.NextCard != nil {
-		mockOptions = append(mockOptions, mocks.WithNextCard(opts.NextCard))
-	}
-	if opts.UpdatedStats != nil {
-		mockOptions = append(mockOptions, mocks.WithUpdatedStats(opts.UpdatedStats))
-	}
-
-	// Create the mock with collected options
-	cardReviewMock := mocks.NewMockCardReviewService(mockOptions...)
-
-	// Override with custom functions if provided (these take precedence)
-	if opts.GetNextCardFn != nil {
-		cardReviewMock.GetNextCardFn = opts.GetNextCardFn
-	}
-	if opts.SubmitAnswerFn != nil {
-		cardReviewMock.SubmitAnswerFn = opts.SubmitAnswerFn
-	}
+	// Check that we have a transaction
+	require.NotNil(t, opts.Tx, "Transaction is required for CardReviewTestServer")
 
 	// Create JWT service - either custom or default
 	var jwtService auth.JWTService
 	if opts.ValidateTokenFn != nil {
 		// Custom validation function provided, use a mock
-		jwtMock := &mocks.MockJWTService{}
-		jwtMock.ValidateTokenFn = opts.ValidateTokenFn
+		jwtMock := &mockJWTService{}
+		jwtMock.validateTokenFn = opts.ValidateTokenFn
 		jwtService = jwtMock
 	} else {
 		// Use the real JWT service for testing
-		jwtService = NewTestJWTService()
+		testService, err := CreateTestJWTService()
+		require.NoError(t, err, "Failed to create JWT service")
+		jwtService = testService
 	}
 
 	// Create router with standard middleware
@@ -114,25 +77,15 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 	// Create auth middleware
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 
-	// Create logger
-	logger := slog.Default()
-
-	// Create mock card service
-	cardServiceMock := &mocks.MockCardService{}
-
-	// Create card handler
-	cardHandler := api.NewCardHandler(cardReviewMock, cardServiceMock, logger)
-
 	// Set up API routes
 	router.Route("/api", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.Authenticate)
-			r.Get("/cards/next", cardHandler.GetNextReviewCard)
-			r.Post("/cards/{id}/answer", cardHandler.SubmitAnswer)
+			// The real routes would be registered here when using real services
 		})
 	})
 
-	// Create test server and register cleanup
+	// Create server
 	server := httptest.NewServer(router)
 	t.Cleanup(func() {
 		server.Close()
@@ -141,58 +94,42 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 	return server
 }
 
+// Simple mock implementation of JWTService for custom validation behavior
+type mockJWTService struct {
+	validateTokenFn func(ctx context.Context, token string) (*auth.Claims, error)
+}
+
+func (m *mockJWTService) ValidateToken(ctx context.Context, token string) (*auth.Claims, error) {
+	return m.validateTokenFn(ctx, token)
+}
+
+func (m *mockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "mock-token", nil
+}
+
+func (m *mockJWTService) ValidateRefreshToken(ctx context.Context, token string) (*auth.Claims, error) {
+	return nil, auth.ErrInvalidRefreshToken
+}
+
+func (m *mockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "mock-refresh-token", nil
+}
+
 //------------------------------------------------------------------------------
 // Convenience Constructors for Common Test Scenarios
 //------------------------------------------------------------------------------
-
-// SetupCardReviewTestServerWithNextCard creates a test server that returns a specific card
-// from the GetNextCard method. This is a convenience wrapper for the common success case.
-func SetupCardReviewTestServerWithNextCard(
-	t *testing.T,
-	userID uuid.UUID,
-	card *domain.Card,
-) *httptest.Server {
-	return SetupCardReviewTestServer(t, CardReviewServerOptions{
-		UserID:   userID,
-		NextCard: card,
-	})
-}
-
-// SetupCardReviewTestServerWithError creates a test server that returns a specific error
-// from both service methods. This is a convenience wrapper for error test cases.
-func SetupCardReviewTestServerWithError(
-	t *testing.T,
-	userID uuid.UUID,
-	err error,
-) *httptest.Server {
-	return SetupCardReviewTestServer(t, CardReviewServerOptions{
-		UserID: userID,
-		Error:  err,
-	})
-}
-
-// SetupCardReviewTestServerWithUpdatedStats creates a test server that returns specific stats
-// from the SubmitAnswer method. This is a convenience wrapper for the answer submission success case.
-func SetupCardReviewTestServerWithUpdatedStats(
-	t *testing.T,
-	userID uuid.UUID,
-	stats *domain.UserCardStats,
-) *httptest.Server {
-	return SetupCardReviewTestServer(t, CardReviewServerOptions{
-		UserID:       userID,
-		UpdatedStats: stats,
-	})
-}
 
 // SetupCardReviewTestServerWithAuthError creates a test server that returns an authentication error.
 // This is a convenience wrapper for testing authentication failure cases.
 func SetupCardReviewTestServerWithAuthError(
 	t *testing.T,
+	tx *sql.Tx,
 	userID uuid.UUID,
 	authError error,
 ) *httptest.Server {
 	return SetupCardReviewTestServer(t, CardReviewServerOptions{
 		UserID: userID,
+		Tx:     tx,
 		ValidateTokenFn: func(ctx context.Context, token string) (*auth.Claims, error) {
 			return nil, authError
 		},
@@ -416,4 +353,28 @@ func AssertStatsResponse(t *testing.T, resp *http.Response, expectedStats *domai
 	assert.Equal(t, expectedStats.ReviewCount, statsResp.ReviewCount)
 	assert.True(t, expectedStats.LastReviewedAt.Equal(statsResp.LastReviewedAt))
 	assert.True(t, expectedStats.NextReviewAt.Equal(statsResp.NextReviewAt))
+}
+
+// CheckErrorResponse checks that a response contains an error with the expected status code.
+func CheckErrorResponse(resp *http.Response, expectedStatus int, expectedMsg string) error {
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Parse the error response
+	var errorResp struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(bodyBytes, &errorResp); err != nil {
+		return fmt.Errorf("failed to unmarshal error response: %w", err)
+	}
+
+	// Verify the error message
+	if expectedMsg != "" && errorResp.Error != expectedMsg {
+		return fmt.Errorf("expected error message %q, got %q", expectedMsg, errorResp.Error)
+	}
+
+	return nil
 }

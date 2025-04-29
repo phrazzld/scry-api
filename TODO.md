@@ -31,7 +31,7 @@
         1. Run the specific test locally (e.g., `go test ./internal/testutils -run TestRollbackHelperFailureLine`).
         2. Manually inspect the test failure output, confirming the reported line number is the `t.Fatal` line.
     - **Depends‑on:** [T002]
-- [ ] **T004 · Refactor · P1: break import cycle between postgres and testutils**
+- [x] **T004 · Refactor · P1: break import cycle between postgres and testutils**
     - **Context:** PLAN.md > CR‑09: Fix Import Cycle & Use Canonical Test Helpers > Steps 1-2
     - **Action:**
         1. Analyze dependencies (e.g., `go mod graph`) to pinpoint the cycle between `internal/platform/postgres` and `internal/testutils`.

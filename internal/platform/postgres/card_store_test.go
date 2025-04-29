@@ -6,16 +6,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/store"
+	"github.com/phrazzld/scry-api/internal/testdb" // Import the new testdb package
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -24,80 +22,10 @@ import (
 // Test timeout to prevent long-running tests
 const testTimeout = 5 * time.Second
 
-// Keep existing helper functions temporarily to avoid import cycles
-// We'll create replacements here instead of importing testutils directly
-
-// cardTestIntegrationEnvironment checks if we're running in an environment
-// where integration tests can be executed
-func cardTestIntegrationEnvironment() bool {
-	return os.Getenv("DATABASE_URL") != ""
-}
-
-// getTestDB gets a connection to the test database
-func getTestDB(t *testing.T) *sql.DB {
-	t.Helper()
-
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
-	db, err := sql.Open("pgx", dbURL)
-	if err != nil {
-		t.Fatalf("Failed to open database connection: %v", err)
-	}
-
-	// Register cleanup to close the database connection
-	t.Cleanup(func() {
-		if closeErr := db.Close(); closeErr != nil {
-			t.Logf("Warning: failed to close database connection: %v", closeErr)
-		}
-	})
-
-	// Set connection parameters
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
-	// Verify the connection works
-	if err := db.Ping(); err != nil {
-		t.Fatalf("Database ping failed: %v", err)
-	}
-
-	return db
-}
-
-// localWithTx executes a function within a transaction and rolls it back afterward.
-// This ensures that tests are isolated and don't affect each other.
-func localWithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
-	t.Helper()
-
-	// Start a transaction
-	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
-	})
-	require.NoError(t, err, "Failed to begin transaction")
-
-	// Ensure the transaction is rolled back when the test completes
-	defer func() {
-		err := tx.Rollback()
-		// Ignore error if transaction was already committed
-		if err != nil && !errors.Is(err, sql.ErrTxDone) {
-			t.Logf("Error rolling back transaction: %v", err)
-		}
-	}()
-
-	// Execute the test function
-	fn(t, tx)
-}
-
 // TestCardStoreIntegration runs a complete set of integration tests for the CardStore implementation.
 // This ensures all methods work as expected with a real database connection.
 func TestCardStoreIntegration(t *testing.T) {
-	// Skip the integration test wrapper if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
+	// Skip check is handled by GetTestDBWithT internally
 
 	// Run integration tests for each CardStore method
 	t.Run("TestPostgresCardStore_CreateMultiple", TestPostgresCardStore_CreateMultiple)
@@ -106,18 +34,13 @@ func TestCardStoreIntegration(t *testing.T) {
 
 // TestPostgresCardStore_GetNextReviewCard tests the GetNextReviewCard method
 func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
-	// Skip if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
-	// Get a database connection
-	db := getTestDB(t)
-	// t.Cleanup will automatically close the connection
+	// Get a test database connection
+	db := testdb.GetTestDBWithT(t)
 
-	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		cardStore := NewPostgresCardStore(tx, nil)
@@ -255,18 +178,13 @@ func TestPostgresCardStore_GetNextReviewCard(t *testing.T) {
 
 // TestPostgresCardStore_CreateMultiple tests the CreateMultiple method
 func TestPostgresCardStore_CreateMultiple(t *testing.T) {
-	// Skip if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
-	// Get a database connection
-	db := getTestDB(t)
-	// t.Cleanup will automatically close the connection
+	// Get a test database connection
+	db := testdb.GetTestDBWithT(t)
 
-	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

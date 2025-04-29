@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/store"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -20,10 +20,7 @@ import (
 
 // TestCardStoreCRUDIntegration tests all CRUD operations for the CardStore
 func TestCardStoreCRUDIntegration(t *testing.T) {
-	// Skip the integration test wrapper if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
+	// Skip check is handled by GetTestDBWithT internally
 
 	// Run integration tests for each CRUD method
 	t.Run("TestPostgresCardStore_GetByID", TestPostgresCardStore_GetByID)
@@ -33,18 +30,13 @@ func TestCardStoreCRUDIntegration(t *testing.T) {
 
 // TestPostgresCardStore_GetByID tests the GetByID method
 func TestPostgresCardStore_GetByID(t *testing.T) {
-	// Skip if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
-	// Get a database connection
-	db := getTestDB(t)
-	// t.Cleanup will automatically close the connection
+	// Get a test database connection
+	db := testdb.GetTestDBWithT(t)
 
-	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -123,18 +115,13 @@ func TestPostgresCardStore_GetByID(t *testing.T) {
 
 // TestPostgresCardStore_UpdateContent tests the UpdateContent method
 func TestPostgresCardStore_UpdateContent(t *testing.T) {
-	// Skip if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
-	// Get a database connection
-	db := getTestDB(t)
-	// t.Cleanup will automatically close the connection
+	// Get a test database connection
+	db := testdb.GetTestDBWithT(t)
 
-	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -250,18 +237,13 @@ func TestPostgresCardStore_UpdateContent(t *testing.T) {
 
 // TestPostgresCardStore_Delete tests the Delete method
 func TestPostgresCardStore_Delete(t *testing.T) {
-	// Skip if not in integration test environment
-	if !cardTestIntegrationEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
-	// Get a database connection
-	db := getTestDB(t)
-	// t.Cleanup will automatically close the connection
+	// Get a test database connection
+	db := testdb.GetTestDBWithT(t)
 
-	localWithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

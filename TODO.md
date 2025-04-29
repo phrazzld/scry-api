@@ -40,7 +40,7 @@
         1. `go build ./...` confirms no import cycle involving `internal/platform/postgres` and `internal/testutils`.
         2. The project compiles successfully.
     - **Depends‑on:** none
-- [ ] **T005 · Refactor · P1: delete local postgres test helpers and use canonical ones**
+- [x] **T005 · Refactor · P1: delete local postgres test helpers and use canonical ones**
     - **Context:** PLAN.md > CR‑09: Fix Import Cycle & Use Canonical Test Helpers > Steps 3-5
     - **Action:**
         1. Delete local helper functions (`localWithTx`, `getTestDB*`, `cardTestIntegrationEnvironment*`) from `internal/platform/postgres/` test files.

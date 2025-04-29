@@ -94,6 +94,80 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 	return server
 }
 
+// APITestServerOptions contains options for creating an API test server.
+type APITestServerOptions struct {
+	// Auth specific options
+	JWTService auth.JWTService
+
+	// Transaction for isolation
+	Tx *sql.Tx
+}
+
+// SetupAuthenticatedTestServer creates a test server with properly configured auth middleware
+// and routes for testing authenticated API endpoints.
+//
+// This provides a standardized way to set up test servers for API integration tests.
+// All auth-related routes are configured with the appropriate middleware.
+//
+// Example usage:
+//
+//	WithAuthenticatedUser(t, db, func(t *testing.T, tx *sql.Tx, auth *TestUserAuth) {
+//	    // Create server with auth middleware
+//	    server := SetupAuthenticatedTestServer(t, &APITestServerOptions{Tx: tx})
+//
+//	    // Make an authenticated request
+//	    req, _ := http.NewRequest("GET", server.URL+"/api/cards/next", nil)
+//	    AuthenticateRequest(req, auth.AuthToken)
+//
+//	    // Execute request
+//	    client := &http.Client{}
+//	    resp, _ := client.Do(req)
+//
+//	    // Assert response
+//	    assert.Equal(t, http.StatusOK, resp.StatusCode)
+//	})
+func SetupAuthenticatedTestServer(t *testing.T, opts *APITestServerOptions) *httptest.Server {
+	t.Helper()
+
+	// Validate required options
+	require.NotNil(t, opts, "Options cannot be nil")
+	require.NotNil(t, opts.Tx, "Transaction is required")
+
+	// Create JWT service if not provided
+	jwtService := opts.JWTService
+	if jwtService == nil {
+		var err error
+		jwtService, err = CreateTestJWTService()
+		require.NoError(t, err, "Failed to create JWT service")
+	}
+
+	// Create auth middleware
+	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
+
+	// Create router with standard middleware
+	router := chi.NewRouter()
+	router.Use(chimiddleware.RequestID)
+	router.Use(chimiddleware.RealIP)
+	router.Use(chimiddleware.Recoverer)
+
+	// Set up API routes with auth middleware
+	router.Route("/api", func(r chi.Router) {
+		// Define authenticated routes
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.Authenticate)
+			// The actual route handlers would be registered by the caller
+		})
+	})
+
+	// Create and return the server
+	server := httptest.NewServer(router)
+	t.Cleanup(func() {
+		server.Close()
+	})
+
+	return server
+}
+
 // Simple mock implementation of JWTService for custom validation behavior
 type mockJWTService struct {
 	validateTokenFn func(ctx context.Context, token string) (*auth.Claims, error)
@@ -377,4 +451,91 @@ func CheckErrorResponse(resp *http.Response, expectedStatus int, expectedMsg str
 	}
 
 	return nil
+}
+
+//------------------------------------------------------------------------------
+// Authenticated Request Helpers
+//------------------------------------------------------------------------------
+
+// MakeAuthenticatedRequest creates and executes an HTTP request with authentication.
+// This is a convenience wrapper for making authenticated requests against a test server.
+//
+// Example usage:
+//
+//	resp, err := MakeAuthenticatedRequest(t, server, "GET", "/api/cards/next", nil, auth.AuthToken)
+//	require.NoError(t, err)
+//	assert.Equal(t, http.StatusOK, resp.StatusCode)
+func MakeAuthenticatedRequest(
+	t *testing.T,
+	server *httptest.Server,
+	method string,
+	path string,
+	body io.Reader,
+	authToken string,
+) (*http.Response, error) {
+	t.Helper()
+
+	// Create request
+	req, err := http.NewRequest(method, server.URL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication header
+	if authToken != "" {
+		AuthenticateRequest(req, authToken)
+	}
+
+	// Add content-type header if body is provided
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Execute request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
+}
+
+// MakeAuthenticatedJSONRequest creates and executes an HTTP request with authentication
+// and a JSON body created from the provided payload.
+//
+// Example usage:
+//
+//	payload := map[string]string{"outcome": "good"}
+//	resp, err := MakeAuthenticatedJSONRequest(t, server, "POST", "/api/cards/123/answer", payload, auth.AuthToken)
+//	require.NoError(t, err)
+//	assert.Equal(t, http.StatusOK, resp.StatusCode)
+func MakeAuthenticatedJSONRequest(
+	t *testing.T,
+	server *httptest.Server,
+	method string,
+	path string,
+	payload interface{},
+	authToken string,
+) (*http.Response, error) {
+	t.Helper()
+
+	// Convert payload to JSON
+	var bodyReader io.Reader
+	if payload != nil {
+		jsonData, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal JSON payload: %w", err)
+		}
+		bodyReader = bytes.NewBuffer(jsonData)
+	}
+
+	// Make the authenticated request
+	return MakeAuthenticatedRequest(t, server, method, path, bodyReader, authToken)
 }

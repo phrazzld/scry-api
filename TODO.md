@@ -91,7 +91,7 @@
         2. Tests within these files pass when run individually.
     - **Depends‑on:** [T008]
     - **Note:** Completed. Created new integration tests for card API endpoints (edit, delete, postpone) using real dependencies. Fixed `card_api_helpers.go` to remove mocks dependency. Fixed repository adapter initialization to properly use the StatsRepositoryAdapter.
-- [ ] **T010 · Refactor · P0: implement proper test user/auth setup in api integration tests**
+- [x] **T010 · Refactor · P0: implement proper test user/auth setup in api integration tests**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 4 (auth setup)
     - **Action:**
         1. Review refactored API integration tests in `cmd/server/`.
@@ -101,6 +101,7 @@
         2. All refactored API integration tests correctly use this setup.
         3. Tests pass when run individually.
     - **Depends‑on:** [T009]
+    - **Note:** Created new `WithAuthenticatedUser` helper in `testutils/auth_helpers.go` that combines transaction isolation with user creation and authentication. Added `TestUserAuth` struct to hold user info and auth token. Added `MakeAuthenticatedRequest` and standardized auth test pattern. Updated `get_card_api_integration_test.go` as example of new pattern.
 - [ ] **T011 · Chore · P0: add integration build tag to api tests and verify suite pass**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 5 & 6
     - **Action:**

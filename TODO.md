@@ -61,7 +61,7 @@
         1. Both specified mock files are removed from the codebase.
     - **Depends‑on:** none
     - **Note:** Completed. Files were deleted, but this causes build errors in dependent files that will be addressed in T007.
-- [ ] **T007 · Chore · P0: move api handler tests to cmd/server**
+- [x] **T007 · Chore · P0: move api handler tests to cmd/server**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 3
     - **Action:**
         1. Identify test files in `internal/api/` using the mocks deleted in T006 (e.g., `card_handler_test.go`, `card_handler_postpone_test.go`).
@@ -69,7 +69,8 @@
     - **Done‑when:**
         1. API handler test files previously using internal mocks are moved from `internal/api/` to `cmd/server/`.
     - **Depends‑on:** [T006]
-- [ ] **T008 · Refactor · P0: refactor one api integration test file to use real dependencies**
+    - **Note:** Completed. Moved test files and adapted them to work with the cmd/server package.
+- [x] **T008 · Refactor · P0: refactor one api integration test file to use real dependencies**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 4 (initial)
     - **Action:**
         1. Choose one moved test file (e.g., `cmd/server/card_api_integration_test.go`).
@@ -79,6 +80,7 @@
         1. One API integration test file is fully refactored using real dependencies and `testutils`.
         2. Tests within this file pass when run individually (they may fail in suite until T011).
     - **Depends‑on:** [T005, T007]
+    - **Note:** Created get_card_api_integration_test.go with real dependencies. The test initializes real services and handlers with a database transaction, creates test data, and tests the API endpoints. Need to address testutils mocks issue in T009.
 - [ ] **T009 · Refactor · P0: refactor remaining api integration test files**
     - **Context:** PLAN.md > CR‑01: Remove Internal Service Mocks & Refactor Tests > Step 4 (remaining)
     - **Action:**

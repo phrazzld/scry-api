@@ -1,4 +1,6 @@
-package middleware
+//go:build integration
+
+package main
 
 import (
 	"context"
@@ -7,12 +9,38 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/api/shared"
-	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// MockJWTService is a mock implementation of auth.JWTService
+type MockJWTService struct {
+	ValidateErr error
+	Claims      *auth.Claims
+}
+
+// ValidateToken implements auth.JWTService.ValidateToken
+func (m *MockJWTService) ValidateToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
+	return m.Claims, m.ValidateErr
+}
+
+// GenerateToken implements auth.JWTService.GenerateToken
+func (m *MockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "mock-token", nil
+}
+
+// ValidateRefreshToken implements auth.JWTService.ValidateRefreshToken
+func (m *MockJWTService) ValidateRefreshToken(ctx context.Context, tokenString string) (*auth.Claims, error) {
+	return m.Claims, m.ValidateErr
+}
+
+// GenerateRefreshToken implements auth.JWTService.GenerateRefreshToken
+func (m *MockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "mock-refresh-token", nil
+}
 
 // Use the shared context key for testing
 var UserIDKey = shared.UserIDContextKey
@@ -71,18 +99,18 @@ func TestAuthMiddleware_Authenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock JWT service
-			jwtService := &mocks.MockJWTService{
+			jwtService := &MockJWTService{
 				ValidateErr: tt.validateErr,
 				Claims:      tt.claims,
 			}
 
 			// Create middleware
-			middleware := NewAuthMiddleware(jwtService)
+			authMiddleware := middleware.NewAuthMiddleware(jwtService)
 
 			// Create test handler
 			var capturedUserID uuid.UUID
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				userID, ok := GetUserID(r)
+				userID, ok := middleware.GetUserID(r)
 				if ok {
 					capturedUserID = userID
 				}
@@ -99,7 +127,7 @@ func TestAuthMiddleware_Authenticate(t *testing.T) {
 			recorder := httptest.NewRecorder()
 
 			// Run middleware
-			middleware.Authenticate(nextHandler).ServeHTTP(recorder, req)
+			authMiddleware.Authenticate(nextHandler).ServeHTTP(recorder, req)
 
 			// Check status code
 			assert.Equal(t, tt.expectedStatus, recorder.Code)
@@ -126,7 +154,7 @@ func TestGetUserID(t *testing.T) {
 		req = req.WithContext(ctx)
 
 		// Get user ID from context
-		userID, ok := GetUserID(req)
+		userID, ok := middleware.GetUserID(req)
 
 		// Check results
 		assert.True(t, ok)
@@ -140,7 +168,7 @@ func TestGetUserID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get user ID from context
-		userID, ok := GetUserID(req)
+		userID, ok := middleware.GetUserID(req)
 
 		// Check results
 		assert.False(t, ok)

@@ -182,7 +182,7 @@
     - **Done‑when:**
         1. The `.gitignore` entry for `backup` is corrected or removed.
     - **Depends‑on:** none
-- [ ] **T019 · Test · P2: verify dynamic password hashing in tests**
+- [x] **T019 · Test · P2: verify dynamic password hashing in tests**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 5
     - **Action:**
         1. Review `internal/api/auth_handler_test.go` and relevant user creation helpers.
@@ -191,6 +191,7 @@
         1. Test user password hashing is confirmed to use dynamic `bcrypt` generation.
         2. Related tests pass.
     - **Depends‑on:** none
+    - **Note:** Verified that password hashing is correctly implemented throughout the codebase. Found proper dynamic bcrypt hashing in `testutils/auth_helpers.go` (using bcrypt.MinCost), in `cmd/server/auth_api_test.go` (TestAuthHandler_Login dynamically generates hashed passwords), and in `cmd/server/auth_test_helpers.go` (uses bcrypt cost 4 for performance). The implementation in PostgresUserStore also correctly handles password hashing dynamically with configurable cost.
 
 ---
 

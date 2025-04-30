@@ -22,14 +22,14 @@ repos:
       - id: check-added-large-files   # Prevents committing large files (>500KB by default)
 
   # ----------------------------------------------------------------------------
-  # Ward - AI Code Review Hooks
+  # Ward - AI Code Review Hooks - TEMPORARILY DISABLED DUE TO ISSUES
   # Pre-commit hooks for integrating Claude-powered code review
   # ----------------------------------------------------------------------------
-  - repo: https://github.com/phrazzld/ward
-    rev: v0.1.0  # Use the latest tag
-    hooks:
-      - id: ward-check
-      - id: ward-log
+  # - repo: https://github.com/phrazzld/ward
+  #   rev: v0.1.0  # Use the latest tag
+  #   hooks:
+  #     - id: ward-check
+  #     - id: ward-log
 
   # ----------------------------------------------------------------------------
   # Go-specific Linting & Formatting

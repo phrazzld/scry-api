@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -81,6 +82,12 @@ func (m *MockUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return store.ErrUserNotFound
 }
 
+// WithTx implements the UserStore.WithTx method
+func (m *MockUserStore) WithTx(tx *sql.Tx) store.UserStore {
+	// In mock implementations, typically just return self
+	return m
+}
+
 // NewMockUserStore creates a new MockUserStore with empty users map
 func NewMockUserStore() *MockUserStore {
 	return &MockUserStore{
@@ -101,13 +108,47 @@ func (m *MockPasswordVerifier) VerifyPassword(hashedPassword string, password st
 	return errors.New("invalid password")
 }
 
+// Compare implements the PasswordVerifier.Compare method
+func (m *MockPasswordVerifier) Compare(hashedPassword string, password string) error {
+	return m.VerifyPassword(hashedPassword, password)
+}
+
+// MockJWTService is a mock implementation of the auth.JWTService interface
+type MockJWTService struct {
+	ValidateErr error
+	Claims      *auth.Claims
+}
+
+// ValidateToken implements the JWTService.ValidateToken method
+func (m *MockJWTService) ValidateToken(ctx context.Context, token string) (*auth.Claims, error) {
+	return m.Claims, m.ValidateErr
+}
+
+// GenerateToken implements the JWTService.GenerateToken method
+func (m *MockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	if m.ValidateErr != nil {
+		return "", m.ValidateErr
+	}
+	return "mock-token", nil
+}
+
+// ValidateRefreshToken implements the JWTService.ValidateRefreshToken method
+func (m *MockJWTService) ValidateRefreshToken(ctx context.Context, token string) (*auth.Claims, error) {
+	return m.Claims, m.ValidateErr
+}
+
+// GenerateRefreshToken implements the JWTService.GenerateRefreshToken method
+func (m *MockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	if m.ValidateErr != nil {
+		return "", m.ValidateErr
+	}
+	return "mock-refresh-token", nil
+}
+
 // TestAuthHandler_Register tests the Register handler functionality.
 func TestAuthHandler_Register(t *testing.T) {
 	// Define fixed values for consistent testing
-	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
-	fixedToken := "test-access-token"
-	fixedRefreshToken := "test-refresh-token"
-	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
+	_ = time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC) // This is used for reference but not directly in code
 
 	tests := []struct {
 		name           string
@@ -395,11 +436,8 @@ func (m *LoginMockUserStore) GetByEmail(ctx context.Context, email string) (*dom
 // TestAuthHandler_Login tests the Login handler functionality.
 func TestAuthHandler_Login(t *testing.T) {
 	// Define fixed values for consistent testing
-	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
+	_ = time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC) // This is used for reference but not directly in code
 	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	fixedToken := "test-access-token"
-	fixedRefreshToken := "test-refresh-token"
-	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
 	testEmail := "user@example.com"
 	testPassword := "securePassword123"
 	// Generate hash dynamically instead of using hardcoded hash
@@ -608,11 +646,8 @@ func TestAuthHandler_Login(t *testing.T) {
 // TestAuthHandler_RefreshToken tests the RefreshToken handler functionality.
 func TestAuthHandler_RefreshToken(t *testing.T) {
 	// Define fixed values for consistent testing
-	fixedTime := time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC)
+	_ = time.Date(2025, time.April, 1, 12, 0, 0, 0, time.UTC) // This is used for reference but not directly in code
 	fixedUserID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	fixedToken := "test-access-token"
-	fixedRefreshToken := "test-refresh-token"
-	expiresAt := fixedTime.Add(time.Hour).Format(time.RFC3339)
 
 	tests := []struct {
 		name           string

@@ -125,7 +125,7 @@
     - **Note:** Added new helper functions `handleUserIDFromContext` and `parseAndValidateRequest` to centralize common logic. Refactored all handlers in `card_handler.go`, `memo_handler.go`, and `auth_handler.go` to use these helpers. API package tests pass successfully (`go test ./internal/api/...`). Integration tests show unrelated issues that will need to be addressed in a separate ticket.
 
 ## Code Quality & Cleanup
-- [ ] **T012 · Chore · P2: refactor non-portable automation scripts**
+- [x] **T012 · Chore · P2: refactor non-portable automation scripts**
     - **Context:** PLAN.md > Non-Portable Scripts: Refactor Non-Portable Automation Scripts
     - **Action:**
         1. Review scripts in `infrastructure/scripts/` for hardcoded absolute paths/user logic.
@@ -138,6 +138,7 @@
         1. Run each remaining script from the project root directory.
         2. Verify execution without errors related to hardcoded paths.
     - **Depends‑on:** none
+    - **Note:** Refactored all scripts in infrastructure/scripts/ to use dynamic project root detection with `git rev-parse --show-toplevel`. Added error handling to check if files exist before attempting to modify them, and updated the glance.md file to reflect the recent changes. All scripts now run from any location within the git repository.
 - [ ] **T014 · Chore · P3: trim overly verbose godoc comments**
     - **Context:** PLAN.md > Verbose GoDoc: Trim Overly Verbose GoDoc Comments
     - **Action:**

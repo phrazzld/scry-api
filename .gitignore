@@ -43,6 +43,7 @@ Thumbs.db
 # Log files
 *.log
 logs/
+.ward-warnings.log
 
 # Build outputs
 build/

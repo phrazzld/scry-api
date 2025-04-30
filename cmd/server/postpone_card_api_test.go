@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +52,7 @@ func TestPostponeCardEndpoint(t *testing.T) {
 			requestBody     map[string]interface{}
 			expectedStatus  int
 			expectedMessage string
-			verify          func(t *testing.T, tx store.DBTX, response map[string]interface{}, originalStats *domain.UserCardStats)
+			verify          func(t *testing.T, tx *sql.Tx, response map[string]interface{}, originalStats *domain.UserCardStats)
 		}{
 			{
 				name:      "Success",
@@ -64,15 +63,13 @@ func TestPostponeCardEndpoint(t *testing.T) {
 				},
 				expectedStatus:  http.StatusOK,
 				expectedMessage: "",
-				verify: func(t *testing.T, dbtx store.DBTX, response map[string]interface{}, originalStats *domain.UserCardStats) {
+				verify: func(t *testing.T, tx *sql.Tx, response map[string]interface{}, originalStats *domain.UserCardStats) {
 					// Verify response contains expected fields
 					assert.Equal(t, userID.String(), response["user_id"])
 					assert.Equal(t, card.ID.String(), response["card_id"])
 
 					// Get the updated stats from the database
-					sqlTx, ok := dbtx.(*sql.Tx)
-					require.True(t, ok, "Expected tx to be *sql.Tx")
-					updatedStats := getUserCardStats(t, sqlTx, userID, card.ID)
+					updatedStats := getUserCardStats(t, tx, userID, card.ID)
 					require.NotNil(t, updatedStats, "Expected user card stats to exist")
 
 					// Calculate expected next review date (original + 7 days)

@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ func TestEditCardEndpoint(t *testing.T) {
 			requestBody     map[string]interface{}
 			expectedStatus  int
 			expectedMessage string
-			verify          func(t *testing.T, tx store.DBTX, cardID uuid.UUID)
+			verify          func(t *testing.T, tx *sql.Tx, cardID uuid.UUID)
 		}{
 			{
 				name:      "Success",
@@ -61,12 +60,10 @@ func TestEditCardEndpoint(t *testing.T) {
 				},
 				expectedStatus:  http.StatusNoContent,
 				expectedMessage: "",
-				verify: func(t *testing.T, dbtx store.DBTX, cardID uuid.UUID) {
+				verify: func(t *testing.T, tx *sql.Tx, cardID uuid.UUID) {
 					// Verify the card content and updated_at timestamp were updated
-					sqlTx, ok := dbtx.(*sql.Tx)
-					require.True(t, ok, "Expected tx to be *sql.Tx")
 
-					updatedCard, err := getCardByID(sqlTx, cardID)
+					updatedCard, err := getCardByID(tx, cardID)
 					require.NoError(t, err)
 
 					// Decode content to verify it was updated

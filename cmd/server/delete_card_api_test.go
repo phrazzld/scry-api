@@ -45,7 +45,7 @@ func TestDeleteCardEndpoint(t *testing.T) {
 			authToken       string
 			expectedStatus  int
 			expectedMessage string
-			verify          func(t *testing.T, tx store.DBTX, cardID uuid.UUID)
+			verify          func(t *testing.T, tx *sql.Tx, cardID uuid.UUID)
 		}{
 			{
 				name:            "Success",
@@ -53,17 +53,15 @@ func TestDeleteCardEndpoint(t *testing.T) {
 				authToken:       authToken,
 				expectedStatus:  http.StatusNoContent,
 				expectedMessage: "",
-				verify: func(t *testing.T, dbtx store.DBTX, cardID uuid.UUID) {
+				verify: func(t *testing.T, tx *sql.Tx, cardID uuid.UUID) {
 					// Verify the card was deleted
-					sqlTx, ok := dbtx.(*sql.Tx)
-					require.True(t, ok, "Expected tx to be *sql.Tx")
 
 					// Card should not exist
-					_, err := getCardByID(sqlTx, cardID)
+					_, err := getCardByID(tx, cardID)
 					assert.Equal(t, store.ErrCardNotFound, err, "Expected card to be deleted")
 
 					// User card stats should also be deleted (cascade delete)
-					stats := getUserCardStats(t, sqlTx, userID, cardID)
+					stats := getUserCardStats(t, tx, userID, cardID)
 					assert.Nil(t, stats, "Expected user card stats to be cascade deleted")
 				},
 			},

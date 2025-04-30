@@ -15,7 +15,6 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -216,9 +215,9 @@ func CleanupDB(t *testing.T, db *sql.DB) {
 	}
 }
 
-// RunInTx executes the given function within a transaction, using store.DBTX interface.
-// This allows test code to use the DBTX interface from store package.
-func RunInTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx store.DBTX)) {
+// RunInTx executes the given function within a transaction.
+// The transaction is automatically rolled back after the function completes.
+func RunInTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
 	// Start a transaction

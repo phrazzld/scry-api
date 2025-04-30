@@ -147,7 +147,7 @@
     - **Done‑when:**
         1. GoDoc comments in specified files are concise and focused on purpose/rationale.
     - **Depends‑on:** none
-- [ ] **T015 · Refactor · P2: audit and fix inconsistent test helper signatures**
+- [x] **T015 · Refactor · P2: audit and fix inconsistent test helper signatures**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 1
     - **Action:**
         1. Audit test files using `testutils.WithTx` or similar database transaction helpers.
@@ -156,6 +156,7 @@
         1. All test functions passed to `WithTx`-like helpers adhere to the standard signature.
         2. All relevant tests pass.
     - **Depends‑on:** [T005]
+    - **Note:** Updated `delete_card_api_test.go`, `postpone_card_api_test.go`, and `edit_card_api_test.go` to use `*sql.Tx` directly instead of the `store.DBTX` interface. Also updated the `RunInTx` function in `testdb/db.go` to use `*sql.Tx` directly and removed the unnecessary import of the store package.
 - [ ] **T016 · Refactor · P3: rename remaining non-idiomatic external mock types**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 2
     - **Action:**

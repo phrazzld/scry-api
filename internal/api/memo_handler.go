@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
@@ -52,23 +51,17 @@ func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
 	// Extract user ID from context (set by auth middleware)
-	userID, ok := r.Context().Value(shared.UserIDContextKey).(uuid.UUID)
-	if !ok || userID == uuid.Nil {
-		log.Warn("user ID not found or invalid in request context")
-		HandleAPIError(w, r, domain.ErrUnauthorized, "Authentication required")
+	userID, ok := handleUserIDFromContext(w, r, log)
+	if !ok {
 		return
 	}
 
-	// Parse request body
+	// Parse and validate request
 	var req CreateMemoRequest
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
+	logFields := []slog.Attr{
+		slog.String("user_id", userID.String()),
 	}
-
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	if !parseAndValidateRequest(w, r, &req, log, logFields...) {
 		return
 	}
 

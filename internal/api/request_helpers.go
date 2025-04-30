@@ -9,6 +9,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/logger"
+	"github.com/phrazzld/scry-api/internal/redact"
 )
 
 // getUserIDFromContext extracts the authenticated user's UUID from the request context.
@@ -98,4 +99,94 @@ func handleUserIDAndPathUUID(
 	}
 
 	return userID, pathID, true
+}
+
+// handleUserIDFromContext is a helper function to extract the user ID from the request context
+// and write an error response if extraction fails.
+//
+// Parameters:
+//   - w: The HTTP response writer
+//   - r: The HTTP request
+//   - log: The logger to use
+//
+// Returns:
+//   - (uuid.UUID, true): The user UUID if successfully extracted
+//   - (uuid.UUID{}, false): A zero UUID and false if extraction failed and an error was written
+func handleUserIDFromContext(
+	w http.ResponseWriter,
+	r *http.Request,
+	log *slog.Logger,
+) (uuid.UUID, bool) {
+	// Get logger from context if not provided
+	if log == nil {
+		log = logger.FromContextOrDefault(r.Context(), slog.Default())
+	}
+
+	// Extract user ID from context
+	userID, ok := getUserIDFromContext(r)
+	if !ok {
+		log.Warn("user ID not found or invalid in request context")
+		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
+		return uuid.Nil, false
+	}
+
+	return userID, true
+}
+
+// parseAndValidateRequest is a helper function to decode and validate a request body.
+// It writes an error response if parsing or validation fails.
+//
+// Parameters:
+//   - w: The HTTP response writer
+//   - r: The HTTP request
+//   - req: Pointer to the struct to decode into
+//   - log: The logger to use
+//   - logFields: Optional list of slog fields to include in log messages
+//
+// Returns:
+//   - true if parsing and validation succeeded
+//   - false if parsing or validation failed and an error was written
+func parseAndValidateRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	req interface{},
+	log *slog.Logger,
+	logFields ...slog.Attr,
+) bool {
+	// Get logger from context if not provided
+	if log == nil {
+		log = logger.FromContextOrDefault(r.Context(), slog.Default())
+	}
+
+	// Parse request body
+	if err := shared.DecodeJSON(r, req); err != nil {
+		// Create a slice of log args with the error first
+		logArgs := []any{slog.String("error", redact.Error(err))}
+
+		// Convert slog.Attr to any for the log.Warn call
+		for _, field := range logFields {
+			logArgs = append(logArgs, field)
+		}
+
+		log.Warn("invalid request format", logArgs...)
+		HandleValidationError(w, r, err)
+		return false
+	}
+
+	// Validate request
+	if err := shared.Validate.Struct(req); err != nil {
+		// Create a slice of log args with the error first
+		logArgs := []any{slog.String("error", redact.Error(err))}
+
+		// Convert slog.Attr to any for the log.Warn call
+		for _, field := range logFields {
+			logArgs = append(logArgs, field)
+		}
+
+		log.Warn("validation error", logArgs...)
+		HandleValidationError(w, r, err)
+		return false
+	}
+
+	return true
 }

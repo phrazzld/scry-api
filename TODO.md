@@ -111,7 +111,7 @@
         2. All integration tests pass when run as a suite (`go test -tags=integration ./cmd/server/...`).
     - **Depends‑on:** [T010]
     - **Note:** Verified that all test files already have the integration build tag. Fixed auth_api_test.go to build properly by adding missing WithTx method to MockUserStore and Compare method to MockPasswordVerifier. Also fixed unused variables. Identified issues with card_review_api_test.go that require more extensive refactoring - this will need a separate ticket.
-- [ ] **T013 · Refactor · P2: consolidate duplicate request parsing logic in api handlers**
+- [x] **T013 · Refactor · P2: consolidate duplicate request parsing logic in api handlers**
     - **Context:** PLAN.md > Duplicate Parsing: Consolidate Duplicate Request Parsing Logic
     - **Action:**
         1. Identify handlers in `internal/api/card_handler.go` repeating user ID/UUID extraction logic.
@@ -122,6 +122,7 @@
         2. API handlers consistently use these helpers.
         3. Relevant integration tests pass (`go test -tags=integration ./cmd/server/...`), confirming correct behavior.
     - **Depends‑on:** [T011]
+    - **Note:** Added new helper functions `handleUserIDFromContext` and `parseAndValidateRequest` to centralize common logic. Refactored all handlers in `card_handler.go`, `memo_handler.go`, and `auth_handler.go` to use these helpers. API package tests pass successfully (`go test ./internal/api/...`). Integration tests show unrelated issues that will need to be addressed in a separate ticket.
 
 ## Code Quality & Cleanup
 - [ ] **T012 · Chore · P2: refactor non-portable automation scripts**

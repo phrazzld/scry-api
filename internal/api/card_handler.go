@@ -63,10 +63,8 @@ func (h *CardHandler) GetNextReviewCard(w http.ResponseWriter, r *http.Request) 
 	log := logger.FromContextOrDefault(r.Context(), h.logger)
 
 	// Extract user ID from context (set by auth middleware)
-	userID, ok := getUserIDFromContext(r)
+	userID, ok := handleUserIDFromContext(w, r, log)
 	if !ok {
-		log.Warn("user ID not found or invalid in request context")
-		HandleAPIError(w, r, domain.ErrUnauthorized, "User ID not found or invalid")
 		return
 	}
 
@@ -149,24 +147,13 @@ func (h *CardHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse and validate request
 	var req SubmitAnswerRequest
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		log.Warn("invalid request format",
-			slog.String("error", redact.Error(err)),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		HandleValidationError(w, r, err)
-		return
+	logFields := []slog.Attr{
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
 	}
-
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		log.Warn("validation error",
-			slog.String("error", redact.Error(err)),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		HandleValidationError(w, r, err)
+	if !parseAndValidateRequest(w, r, &req, log, logFields...) {
 		return
 	}
 
@@ -247,24 +234,13 @@ func (h *CardHandler) EditCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse and validate request
 	var req EditCardRequest
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		log.Warn("invalid request format",
-			slog.String("error", redact.Error(err)),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		HandleValidationError(w, r, err)
-		return
+	logFields := []slog.Attr{
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
 	}
-
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		log.Warn("validation error",
-			slog.String("error", redact.Error(err)),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		HandleValidationError(w, r, err)
+	if !parseAndValidateRequest(w, r, &req, log, logFields...) {
 		return
 	}
 
@@ -378,25 +354,13 @@ func (h *CardHandler) PostponeCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse and validate request
 	var req PostponeCardRequest
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		log.Warn("invalid request format",
-			slog.String("error", redact.Error(err)),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
-		HandleValidationError(w, r, err)
-		return
+	logFields := []slog.Attr{
+		slog.String("user_id", userID.String()),
+		slog.String("card_id", cardID.String()),
 	}
-
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		log.Warn("validation error",
-			slog.String("error", redact.Error(err)),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()),
-			slog.Int("days", req.Days))
-		HandleValidationError(w, r, err)
+	if !parseAndValidateRequest(w, r, &req, log, logFields...) {
 		return
 	}
 

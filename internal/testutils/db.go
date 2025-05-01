@@ -21,17 +21,17 @@
 //	    // Enable parallel testing safely
 //	    t.Parallel()
 //
-//	    // Get a DB connection
-//	    db, err := testutils.GetTestDB()
-//	    require.NoError(t, err)
-//	    defer testutils.AssertCloseNoError(t, db)
+//	    // Get a DB connection with automatic cleanup
+//	    db := testutils.GetTestDBWithT(t)
+//	    // No need to manually close - t.Cleanup is registered in GetTestDBWithT
 //
 //	    // Run your test in a transaction
 //	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	        // Create test store instances with the transaction
-//	        stores := testutils.CreateTestStores(tx)
+//	        stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 //
 //	        // Use the stores to test your functionality
+//	        ctx := context.Background()
 //	        result, err := stores.UserStore.Create(ctx, testUser)
 //	        require.NoError(t, err)
 //
@@ -129,14 +129,20 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 //	func TestSomething(t *testing.T) {
 //	    t.Parallel() // Safe with transaction isolation
 //
-//	    db, err := testutils.GetTestDB()
-//	    require.NoError(t, err)
-//	    defer testutils.AssertCloseNoError(t, db)
+//	    // Get a DB connection with automatic cleanup
+//	    db := testutils.GetTestDBWithT(t)
+//	    // No need for defer AssertCloseNoError - cleanup is registered by GetTestDBWithT
 //
 //	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
-//	        // Create store instances with the transaction
-//	        userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
+//	        // Function receives testing.T and sql.Tx parameters
+//	        ctx := context.Background()
+//
+//	        // Option 1: Create individual stores with the transaction
+//	        userStore := postgres.NewPostgresUserStore(tx, bcrypt.MinCost)
 //	        memoStore := postgres.NewPostgresMemoStore(tx, nil)
+//
+//	        // Option 2: Create all stores at once
+//	        // stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 //
 //	        // Test your store methods - changes are automatically rolled back
 //	        user, err := userStore.Create(ctx, testUser)
@@ -242,11 +248,22 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 //
 // This function handles proper connection validation and initialization, ensuring
 // that tests can immediately use the returned database connection without additional setup.
+// It also registers automatic cleanup with t.Cleanup() so you don't need to manually close.
 //
 // Usage:
 //
-//	db := testutils.GetTestDBWithT(t)
-//	// db is now ready for use in tests and will be automatically closed when the test completes
+//	// Simple pattern with minimal boilerplate
+//	func TestSomething(t *testing.T) {
+//	    t.Parallel()
+//
+//	    // Get a DB connection - no error handling needed
+//	    db := testutils.GetTestDBWithT(t)
+//	    // No need for defer or cleanup - db will be closed automatically
+//
+//	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+//	        // Test code using transaction
+//	    })
+//	}
 //
 // For the original version that returns an error, use GetTestDB.
 func GetTestDBWithT(t *testing.T) *sql.DB {
@@ -301,7 +318,19 @@ func GetTestDBWithT(t *testing.T) *sql.DB {
 }
 
 // GetTestDB is the original version that returns an error rather than using t.Helper
-// This is maintained for backward compatibility with existing tests
+// This is maintained for backward compatibility with existing tests.
+//
+// NOTE: Prefer using GetTestDBWithT instead, which handles errors and cleanup automatically.
+//
+// Usage:
+//
+//	// Legacy pattern (not recommended for new tests)
+//	db, err := testutils.GetTestDB()
+//	require.NoError(t, err)
+//	defer testutils.AssertCloseNoError(t, db)
+//
+//	// Modern pattern:
+//	// db := testutils.GetTestDBWithT(t)
 func GetTestDB() (*sql.DB, error) {
 	// First check for DATABASE_URL from integration tests
 	dbURL := os.Getenv("DATABASE_URL")
@@ -363,11 +392,19 @@ func GetTestDB() (*sql.DB, error) {
 // This function should be used with t.Cleanup() to ensure proper resource cleanup
 // in tests that use database connections.
 //
+// NOTE: You don't need to call this directly when using GetTestDBWithT(t),
+// as that function automatically registers cleanup with t.Cleanup().
+//
 // Usage:
 //
+//	// Older pattern (prefer GetTestDBWithT instead)
 //	db, err := testutils.GetTestDB()
 //	require.NoError(t, err)
 //	t.Cleanup(func() { testutils.CleanupDB(t, db) })
+//
+//	// Better pattern
+//	db := testutils.GetTestDBWithT(t)
+//	// No manual cleanup needed - handled by GetTestDBWithT
 func CleanupDB(t *testing.T, db *sql.DB) {
 	t.Helper()
 	if db == nil {

@@ -167,7 +167,7 @@
         2. Project compiles successfully.
     - **Depends‑on:** [T006]
     - **Note:** Renamed all non-idiomatic mock types following the `MockXxx` convention: LoginMockUserStore → MockLoginUserStore, TestifyMockUserStore → MockTestifyUserStore, and in the task/mocks package: MemoService → MockMemoService, CardService → MockCardService, MemoRepository → MockMemoRepository, CardRepository → MockCardRepository, Generator → MockGenerator. Verified build and tests pass.
-- [ ] **T017 · Chore · P3: update outdated test utils godoc examples**
+- [x] **T017 · Chore · P3: update outdated test utils godoc examples**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 3
     - **Action:**
         1. Review GoDoc examples in `internal/testutils/db.go`.
@@ -175,6 +175,7 @@
     - **Done‑when:**
         1. GoDoc examples in `internal/testutils/db.go` accurately reflect current helper signatures.
     - **Depends‑on:** [T005]
+    - **Note:** Updated all GoDoc examples in `internal/testutils/db.go` to consistently use `GetTestDBWithT(t)` and follow the correct `func(t *testing.T, tx *sql.Tx)` signature pattern. Added better documentation about automatic cleanup with `t.Cleanup()` and clarified that `GetTestDBWithT` is the preferred modern approach. Verified build and tests pass.
 - [ ] **T018 · Chore · P3: fix overly broad .gitignore entry for backup**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 4
     - **Action:**

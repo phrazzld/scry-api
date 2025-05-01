@@ -58,7 +58,7 @@
         2. Code compiles.
     - **Depends‑on:** none
 
-- [ ] **T006 · Test · P0: add unit tests verifying PostgresCardStore.DB() non-nil after WithTx**
+- [x] **T006 · Test · P0: add unit tests verifying PostgresCardStore.DB() non-nil after WithTx**
     - **Context:** cr-04 Fix Potential Nil Pointer Panic in CardRepositoryAdapter (Step 2)
     - **Action:**
         1. Add/verify unit tests in `internal/platform/postgres/card_store_test.go` specifically testing that `DB()` returns a non-nil `*sql.DB` after calling `WithTx`.
@@ -69,7 +69,7 @@
     - **Depends‑on:** [T005]
 
 ## Service Layer (cr-05)
-- [ ] **T007 · Audit · P1: audit service transaction error handling patterns**
+- [x] **T007 · Audit · P1: audit service transaction error handling patterns**
     - **Context:** cr-05 Standardize Service Transaction Error Handling (Step 1)
     - **Action:**
         1. Find all usages of `store.RunInTransaction` within the `internal/service/...` packages.

@@ -78,7 +78,7 @@
         1. A documented inventory of `RunInTransaction` usages and their error handling patterns exists.
     - **Depends‑on:** none
 
-- [ ] **T008 · Refactor · P1: standardize error wrapping in service transaction callbacks**
+- [~] **T008 · Refactor · P1: standardize error wrapping in service transaction callbacks**
     - **Context:** cr-05 Standardize Service Transaction Error Handling (Step 2)
     - **Action:**
         1. Refactor the anonymous functions passed to `RunInTransaction` based on the audit (T007).

@@ -176,7 +176,7 @@
         1. GoDoc examples in `internal/testutils/db.go` accurately reflect current helper signatures.
     - **Depends‑on:** [T005]
     - **Note:** Updated all GoDoc examples in `internal/testutils/db.go` to consistently use `GetTestDBWithT(t)` and follow the correct `func(t *testing.T, tx *sql.Tx)` signature pattern. Added better documentation about automatic cleanup with `t.Cleanup()` and clarified that `GetTestDBWithT` is the preferred modern approach. Verified build and tests pass.
-- [ ] **T018 · Chore · P3: fix overly broad .gitignore entry for backup**
+- [x] **T018 · Chore · P3: fix overly broad .gitignore entry for backup**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 4
     - **Action:**
         1. Edit the `.gitignore` file.
@@ -184,6 +184,7 @@
     - **Done‑when:**
         1. The `.gitignore` entry for `backup` is corrected or removed.
     - **Depends‑on:** none
+    - **Note:** Changed the `.gitignore` entry from `backup/` to `/backup/` to make it more specific. There is no actual "backup" directory used in the project, but the more specific pattern will prevent accidental exclusion of files in subdirectories named "backup" elsewhere in the repository.
 - [x] **T019 · Test · P2: verify dynamic password hashing in tests**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 5
     - **Action:**

@@ -20,14 +20,14 @@ type MockMemoRepository struct {
 	mock.Mock
 }
 
-// GetByID implements task.MemoRepository and service.MemoRepository
+// GetByID implements task.MockMemoRepository and service.MemoRepository
 func (m *MockMemoRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Memo, error) {
 	args := m.Called(ctx, id)
 	memo, _ := args.Get(0).(*domain.Memo)
 	return memo, args.Error(1)
 }
 
-// Update implements task.MemoRepository and service.MemoRepository
+// Update implements task.MockMemoRepository and service.MemoRepository
 func (m *MockMemoRepository) Update(ctx context.Context, memo *domain.Memo) error {
 	args := m.Called(ctx, memo)
 	return args.Error(0)

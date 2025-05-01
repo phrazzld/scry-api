@@ -139,7 +139,7 @@
         2. Verify execution without errors related to hardcoded paths.
     - **Depends‑on:** none
     - **Note:** Refactored all scripts in infrastructure/scripts/ to use dynamic project root detection with `git rev-parse --show-toplevel`. Added error handling to check if files exist before attempting to modify them, and updated the glance.md file to reflect the recent changes. All scripts now run from any location within the git repository.
-- [~] **T014 · Chore · P3: trim overly verbose godoc comments**
+- [x] **T014 · Chore · P3: trim overly verbose godoc comments**
     - **Context:** PLAN.md > Verbose GoDoc: Trim Overly Verbose GoDoc Comments
     - **Action:**
         1. Review GoDoc in `internal/api/card_handler.go` DTOs, `internal/store/card.go`, `internal/store/stats.go`.
@@ -147,6 +147,7 @@
     - **Done‑when:**
         1. GoDoc comments in specified files are concise and focused on purpose/rationale.
     - **Depends‑on:** none
+    - **Note:** Trimmed verbose comments throughout the specified files while preserving important contextual information. Standardized comment style to be more concise and focused on functionality rather than repeating field names. In API DTOs, shortened lengthy endpoint documentation to focus on core functionality. In store interfaces, simplified method documentation while maintaining important context about transactions and error conditions.
 - [x] **T015 · Refactor · P2: audit and fix inconsistent test helper signatures**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 1
     - **Action:**

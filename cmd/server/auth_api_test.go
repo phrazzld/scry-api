@@ -392,8 +392,8 @@ func TestAuthHandler_Register(t *testing.T) {
 	}
 }
 
-// LoginMockUserStore extends MockUserStore with specific functionality for login tests
-type LoginMockUserStore struct {
+// MockLoginUserStore extends MockUserStore with specific functionality for login tests
+type MockLoginUserStore struct {
 	*MockUserStore
 	UserID          uuid.UUID
 	Email           string
@@ -401,9 +401,9 @@ type LoginMockUserStore struct {
 	GetByEmailError error
 }
 
-// NewLoginMockUserStore creates a new LoginMockUserStore with a predefined user
-func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *LoginMockUserStore {
-	mockStore := &LoginMockUserStore{
+// NewLoginMockUserStore creates a new MockLoginUserStore with a predefined user
+func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *MockLoginUserStore {
+	mockStore := &MockLoginUserStore{
 		MockUserStore:  NewMockUserStore(),
 		UserID:         userID,
 		Email:          email,
@@ -423,7 +423,7 @@ func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *Logi
 }
 
 // GetByEmail overrides MockUserStore.GetByEmail for login-specific behavior
-func (m *LoginMockUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (m *MockLoginUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	if m.GetByEmailError != nil {
 		return nil, m.GetByEmailError
 	}
@@ -449,7 +449,7 @@ func TestAuthHandler_Login(t *testing.T) {
 	tests := []struct {
 		name           string
 		requestBody    interface{}
-		setupMocks     func(*LoginMockUserStore, *MockJWTService, *MockPasswordVerifier)
+		setupMocks     func(*MockLoginUserStore, *MockJWTService, *MockPasswordVerifier)
 		expectedStatus int
 		expectedBody   string
 		wantTokens     bool

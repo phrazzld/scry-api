@@ -139,7 +139,7 @@
         2. Verify execution without errors related to hardcoded paths.
     - **Depends‑on:** none
     - **Note:** Refactored all scripts in infrastructure/scripts/ to use dynamic project root detection with `git rev-parse --show-toplevel`. Added error handling to check if files exist before attempting to modify them, and updated the glance.md file to reflect the recent changes. All scripts now run from any location within the git repository.
-- [ ] **T014 · Chore · P3: trim overly verbose godoc comments**
+- [~] **T014 · Chore · P3: trim overly verbose godoc comments**
     - **Context:** PLAN.md > Verbose GoDoc: Trim Overly Verbose GoDoc Comments
     - **Action:**
         1. Review GoDoc in `internal/api/card_handler.go` DTOs, `internal/store/card.go`, `internal/store/stats.go`.
@@ -157,7 +157,7 @@
         2. All relevant tests pass.
     - **Depends‑on:** [T005]
     - **Note:** Updated `delete_card_api_test.go`, `postpone_card_api_test.go`, and `edit_card_api_test.go` to use `*sql.Tx` directly instead of the `store.DBTX` interface. Also updated the `RunInTx` function in `testdb/db.go` to use `*sql.Tx` directly and removed the unnecessary import of the store package.
-- [ ] **T016 · Refactor · P3: rename remaining non-idiomatic external mock types**
+- [x] **T016 · Refactor · P3: rename remaining non-idiomatic external mock types**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 2
     - **Action:**
         1. Identify any remaining *external* dependency mock types (if any exist after T006).
@@ -166,6 +166,7 @@
         1. All external dependency mock types follow the `MockXxx` naming convention.
         2. Project compiles successfully.
     - **Depends‑on:** [T006]
+    - **Note:** Renamed all non-idiomatic mock types following the `MockXxx` convention: LoginMockUserStore → MockLoginUserStore, TestifyMockUserStore → MockTestifyUserStore, and in the task/mocks package: MemoService → MockMemoService, CardService → MockCardService, MemoRepository → MockMemoRepository, CardRepository → MockCardRepository, Generator → MockGenerator. Verified build and tests pass.
 - [ ] **T017 · Chore · P3: update outdated test utils godoc examples**
     - **Context:** PLAN.md > Minor Issues: Address Remaining Low Severity Issues (Bundle) > Step 3
     - **Action:**

@@ -26,7 +26,9 @@
 //   - Translate domain-specific errors to application-level errors
 //   - Provide meaningful error context for API responses
 //   - Follow standardized approach documented in README.md and errors.go
-//   - Use errors.Is/errors.As for error type checking
+//   - Use specific error types with Unwrap() methods to support errors.Is/errors.As
+//   - Check for sentinel errors using errors.Is for common error conditions
+//   - Use service-specific error types with errors.As for extracting error details
 //
 // The service layer depends on domain entities and repository interfaces (from store),
 // but never on specific infrastructure implementations, maintaining the Dependency

@@ -99,7 +99,7 @@
         3. CI green.
     - **Depends‑on:** [T008]
 
-- [ ] **T010 · Chore · P2: document standardized service error handling approach**
+- [x] **T010 · Chore · P2: document standardized service error handling approach**
     - **Context:** cr-05 Standardize Service Transaction Error Handling (Step 4)
     - **Action:**
         1. Add documentation to the relevant service package(s) or a central contribution guide detailing the standard for error handling in `RunInTransaction` callbacks and how callers should check errors.

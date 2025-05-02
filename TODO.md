@@ -35,7 +35,7 @@
         1. A list of specific, critical coverage gaps (or confirmation of none) is documented.
     - **Depends‑on:** [T002]
 
-- [ ] **T004 · Test · P1: add integration tests to cover identified gaps**
+- [x] **T004 · Test · P1: add integration tests to cover identified gaps**
     - **Context:** cr-01 Remove Contradictory Mock-Based API Tests (Step 5)
     - **Action:**
         1. Implement necessary test cases within the integration tests (`*_integration_test.go`) to fill gaps identified in T003.

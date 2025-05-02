@@ -27,6 +27,10 @@ type JWTService interface {
 	// Returns the claims containing user information if the refresh token is valid,
 	// or an error if validation fails (expired, invalid signature, wrong token type, etc.).
 	ValidateRefreshToken(ctx context.Context, tokenString string) (*Claims, error)
+
+	// GenerateRefreshTokenWithExpiry creates a refresh token with a custom expiration time.
+	// This is primarily used for testing expiration scenarios.
+	GenerateRefreshTokenWithExpiry(ctx context.Context, userID uuid.UUID, expiryTime time.Time) (string, error)
 }
 
 // Claims represents the custom claims structure for the JWT tokens.

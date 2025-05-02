@@ -95,6 +95,24 @@ func GenerateAuthHeaderForUser(t *testing.T, userID uuid.UUID) (string, error) {
 	return GenerateAuthHeader(userID)
 }
 
+// GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration time.
+// This is useful for testing token expiration scenarios.
+func GenerateRefreshTokenWithExpiry(t *testing.T, userID uuid.UUID, expiry time.Time) (string, error) {
+	t.Helper()
+
+	jwtService, err := CreateTestJWTService()
+	if err != nil {
+		return "", fmt.Errorf("failed to create test JWT service: %w", err)
+	}
+
+	token, err := jwtService.GenerateRefreshTokenWithExpiry(context.Background(), userID, expiry)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate refresh token with custom expiry: %w", err)
+	}
+
+	return token, nil
+}
+
 // WithAuthenticatedUser runs a test function with a transaction and an authenticated test user.
 // It creates a test user in the transaction and passes the auth context to the test function.
 func WithAuthenticatedUser(

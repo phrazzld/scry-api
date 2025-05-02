@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/middleware"
@@ -40,6 +41,15 @@ func (m *MockJWTService) ValidateRefreshToken(ctx context.Context, tokenString s
 // GenerateRefreshToken implements auth.JWTService.GenerateRefreshToken
 func (m *MockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	return "mock-refresh-token", nil
+}
+
+// GenerateRefreshTokenWithExpiry implements auth.JWTService.GenerateRefreshTokenWithExpiry
+func (m *MockJWTService) GenerateRefreshTokenWithExpiry(
+	ctx context.Context,
+	userID uuid.UUID,
+	expiryTime time.Time,
+) (string, error) {
+	return "mock-refresh-token-with-expiry", nil
 }
 
 // Use the shared context key for testing

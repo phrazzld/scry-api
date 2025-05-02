@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -20,6 +21,9 @@ type MockJWTService struct {
 
 	// ValidateRefreshTokenFn allows test cases to mock the ValidateRefreshToken behavior
 	ValidateRefreshTokenFn func(ctx context.Context, tokenString string) (*auth.Claims, error)
+
+	// GenerateRefreshTokenWithExpiryFn allows test cases to mock the GenerateRefreshTokenWithExpiry behavior
+	GenerateRefreshTokenWithExpiryFn func(ctx context.Context, userID uuid.UUID, expiryTime time.Time) (string, error)
 
 	// Default values used when functions aren't explicitly defined
 	Token        string
@@ -80,4 +84,19 @@ func (m *MockJWTService) ValidateRefreshToken(
 
 	// Otherwise use the default values
 	return m.Claims, m.ValidateErr
+}
+
+// GenerateRefreshTokenWithExpiry implements the auth.JWTService interface
+func (m *MockJWTService) GenerateRefreshTokenWithExpiry(
+	ctx context.Context,
+	userID uuid.UUID,
+	expiryTime time.Time,
+) (string, error) {
+	// If a custom function is provided, use it
+	if m.GenerateRefreshTokenWithExpiryFn != nil {
+		return m.GenerateRefreshTokenWithExpiryFn(ctx, userID, expiryTime)
+	}
+
+	// Otherwise use the default values
+	return m.RefreshToken, m.Err
 }

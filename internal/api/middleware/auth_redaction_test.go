@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/middleware"
@@ -48,6 +49,15 @@ func (m *MockJWTService) ValidateRefreshToken(ctx context.Context, token string)
 		claims = arg.(*auth.Claims)
 	}
 	return claims, args.Error(1)
+}
+
+func (m *MockJWTService) GenerateRefreshTokenWithExpiry(
+	ctx context.Context,
+	userID uuid.UUID,
+	expiryTime time.Time,
+) (string, error) {
+	args := m.Called(ctx, userID, expiryTime)
+	return args.String(0), args.Error(1)
 }
 
 // setupLogCapture sets up a string builder to capture logs and returns:

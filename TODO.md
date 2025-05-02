@@ -78,7 +78,7 @@
         1. A documented inventory of `RunInTransaction` usages and their error handling patterns exists.
     - **Depends‑on:** none
 
-- [~] **T008 · Refactor · P1: standardize error wrapping in service transaction callbacks**
+- [x] **T008 · Refactor · P1: standardize error wrapping in service transaction callbacks**
     - **Context:** cr-05 Standardize Service Transaction Error Handling (Step 2)
     - **Action:**
         1. Refactor the anonymous functions passed to `RunInTransaction` based on the audit (T007).
@@ -89,7 +89,7 @@
         2. Code compiles and relevant unit tests pass.
     - **Depends‑on:** [T007]
 
-- [ ] **T009 · Refactor · P1: update API handlers/callers to use errors.Is/As for service errors**
+- [x] **T009 · Refactor · P1: update API handlers/callers to use errors.Is/As for service errors**
     - **Context:** cr-05 Standardize Service Transaction Error Handling (Step 3)
     - **Action:**
         1. Update calling layers (e.g., API handlers in `cmd/server`) to consistently use `errors.Is` or `errors.As` to check for the specific service-level errors (wrapped or sentinel) returned by methods using `RunInTransaction`.

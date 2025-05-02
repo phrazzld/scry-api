@@ -1,3 +1,8 @@
+//go:build !compatibility && ignore_redeclarations
+
+// This file provides test utilities for APIs.
+// It should be used in preference to the compatibility.go file where possible.
+
 package testutils
 
 import (

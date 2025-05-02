@@ -13,7 +13,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/api"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,28 +22,28 @@ import (
 // TestPostponeCardEndpoint tests the POST /cards/{id}/postpone endpoint
 func TestPostponeCardEndpoint(t *testing.T) {
 	// Initialize test database connection
-	db := testutils.GetTestDBWithT(t)
+	dbConn := db.GetTestDBWithT(t)
 
 	// Run tests in transaction for isolation and automatic cleanup
-	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	db.WithTx(t, dbConn, func(t *testing.T, tx *sql.Tx) {
 		// tx is already *sql.Tx for WithTx, no type assertion needed
 
 		// Create a test user
-		userID := createTestUser(t, tx)
+		userID := api.CreateTestUser(t, tx)
 
 		// Create a test user that doesn't own the card (for forbidden test)
-		otherUserID := createTestUser(t, tx)
+		otherUserID := api.CreateTestUser(t, tx)
 
 		// Create a test card owned by userID
-		card := createTestCard(t, tx, userID)
+		card := api.CreateTestCard(t, tx, userID)
 
 		// Get original stats for the card
-		originalStats := getUserCardStats(t, tx, userID, card.ID)
+		originalStats := api.GetUserCardStats(t, tx, userID, card.ID)
 		require.NotNil(t, originalStats, "Expected user card stats to exist")
 
 		// Get token for authentication
-		authToken := getAuthToken(t, userID)
-		otherAuthToken := getAuthToken(t, otherUserID)
+		authToken := api.GetAuthToken(t, userID)
+		otherAuthToken := api.GetAuthToken(t, otherUserID)
 
 		// Test cases
 		tests := []struct {

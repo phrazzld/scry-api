@@ -1,3 +1,5 @@
+//go:build !compatibility && ignore_redeclarations
+
 package testutils
 
 import (

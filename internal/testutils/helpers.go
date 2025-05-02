@@ -1,3 +1,5 @@
+//go:build !compatibility && ignore_redeclarations
+
 // Package testutils provides a set of standardized helper functions for testing
 // across the codebase. These helpers ensure consistent test patterns, particularly
 // for database operations (using transaction-based isolation with WithTx),
@@ -7,11 +9,16 @@
 // - Create*: Create entities in memory
 // - MustInsert*: Insert entities into database with transaction isolation
 // - Get*: Retrieve entities from database
+
+package testutils
+
 // - Count*: Count entities matching criteria
 // - SetupEnv: Configure environment variables for testing
 // - CreateTempConfigFile: Create temporary configuration files
 // - Assert*: Verify conditions and handle errors in tests
-package testutils
+
+// This file provides general test utilities.
+// It should be used in preference to the compatibility.go file where possible.
 
 import (
 	"context"

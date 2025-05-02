@@ -1,53 +1,14 @@
-//go:build !compatibility && ignore_redeclarations
-
-// Package testutils provides testing utilities with a focus on database testing
-// with transaction isolation. This package enables writing isolated, parallel
-// integration tests that don't interfere with each other, even when they
-// manipulate the same database tables and entities.
-//
-// Transaction Isolation Pattern:
-//
-// The primary pattern implemented in this package is transaction-based isolation.
-// Each test runs in its own transaction, which is automatically rolled back
-// when the test completes. This provides several benefits:
-//
-// 1. Tests can run in parallel without interfering with each other (t.Parallel())
-// 2. No manual cleanup is needed - changes are rolled back automatically
-// 3. Tests see a consistent database state (the transaction's snapshot)
-// 4. Tests can operate on the same tables/data without conflicts
-// 5. Tests run faster since there's no need to truncate tables between tests
-//
-// Usage:
-//
-//	func TestMyFeature(t *testing.T) {
-//	    // Enable parallel testing safely
-//	    t.Parallel()
-//
-//	    // Get a DB connection with automatic cleanup
-//	    db := testutils.GetTestDBWithT(t)
-//	    // No need to manually close - t.Cleanup is registered in GetTestDBWithT
-//
-//	    // Run your test in a transaction
-//	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
-//	        // Create test store instances with the transaction
-//	        stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
-//
-//	        // Use the stores to test your functionality
-//	        ctx := context.Background()
-//	        result, err := stores.UserStore.Create(ctx, testUser)
-//	        require.NoError(t, err)
-//
-//	        // No cleanup needed - transaction will be rolled back automatically
-//	    })
-//	}
-//
-// See transaction_example_test.go for complete examples.
-package testutils
+// Package db provides testing utilities for database-related testing.
+// It focuses on transaction isolation patterns, database connection management,
+// and utilities for setting up test data in the database.
+package db
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -56,12 +17,17 @@ import (
 	"time"
 
 	"github.com/pressly/goose/v3"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 )
 
 var (
 	// migrationsRunOnce ensures migrations are only run once across all tests
 	migrationsRunOnce sync.Once
 )
+
+// TestTimeout defines a default timeout for test database operations.
+const TestTimeout = 5 * time.Second
 
 // SetupTestDatabaseSchema initializes the database schema using project migrations.
 // It resets the schema to baseline (by running migrations down to version 0),
@@ -132,10 +98,10 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 //	    t.Parallel() // Safe with transaction isolation
 //
 //	    // Get a DB connection with automatic cleanup
-//	    db := testutils.GetTestDBWithT(t)
+//	    db := testutils.db.GetTestDBWithT(t)
 //	    // No need for defer AssertCloseNoError - cleanup is registered by GetTestDBWithT
 //
-//	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+//	    testutils.db.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	        // Function receives testing.T and sql.Tx parameters
 //	        ctx := context.Background()
 //
@@ -162,10 +128,24 @@ func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	}
 
 	// Make sure the transaction is rolled back when the test is done
-	defer AssertRollbackNoError(t, tx) // Uses the implementation from helpers.go
+	defer AssertRollbackNoError(t, tx)
 
 	// Run the test function with the transaction, passing both t and tx directly
 	fn(t, tx)
+}
+
+// AssertRollbackNoError attempts to roll back a transaction and logs an error if it fails.
+// This is a utility function for testing to ensure clean rollback of transactions.
+func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
+	t.Helper()
+
+	if tx == nil {
+		return
+	}
+
+	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		t.Logf("Warning: failed to roll back transaction: %v", err)
+	}
 }
 
 // ResetTestData truncates all test tables to ensure test isolation.
@@ -240,6 +220,27 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 	// Silence regular prints during tests
 }
 
+// IsIntegrationTestEnvironment returns true if the DATABASE_URL environment
+// variable is set, indicating that integration tests can be run.
+func IsIntegrationTestEnvironment() bool {
+	return len(os.Getenv("DATABASE_URL")) > 0
+}
+
+// GetTestDatabaseURL returns the database URL for tests.
+// It checks DATABASE_URL and SCRY_TEST_DB_URL environment variables
+// in that order, returning the first non-empty value.
+func GetTestDatabaseURL() string {
+	// First check for DATABASE_URL from integration tests
+	dbURL := os.Getenv("DATABASE_URL")
+
+	// Fall back to SCRY_TEST_DB_URL if DATABASE_URL is not set
+	if dbURL == "" {
+		dbURL = os.Getenv("SCRY_TEST_DB_URL")
+	}
+
+	return dbURL
+}
+
 // GetTestDBWithT returns a database connection for testing.
 // It automatically sets up the database schema using migrations, making it ready for tests.
 // The function uses the following order of precedence for the database URL:
@@ -259,10 +260,10 @@ func (*testGooseLogger) Printf(format string, v ...interface{}) {
 //	    t.Parallel()
 //
 //	    // Get a DB connection - no error handling needed
-//	    db := testutils.GetTestDBWithT(t)
+//	    db := testutils.db.GetTestDBWithT(t)
 //	    // No need for defer or cleanup - db will be closed automatically
 //
-//	    testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+//	    testutils.db.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	        // Test code using transaction
 //	    })
 //	}
@@ -327,12 +328,12 @@ func GetTestDBWithT(t *testing.T) *sql.DB {
 // Usage:
 //
 //	// Legacy pattern (not recommended for new tests)
-//	db, err := testutils.GetTestDB()
+//	db, err := testutils.db.GetTestDB()
 //	require.NoError(t, err)
 //	defer testutils.AssertCloseNoError(t, db)
 //
 //	// Modern pattern:
-//	// db := testutils.GetTestDBWithT(t)
+//	// db := testutils.db.GetTestDBWithT(t)
 func GetTestDB() (*sql.DB, error) {
 	// First check for DATABASE_URL from integration tests
 	dbURL := os.Getenv("DATABASE_URL")
@@ -388,8 +389,6 @@ func GetTestDB() (*sql.DB, error) {
 	return db, nil
 }
 
-// AssertRollbackNoError is implemented in helpers.go
-
 // CleanupDB properly closes a database connection and logs any errors.
 // This function should be used with t.Cleanup() to ensure proper resource cleanup
 // in tests that use database connections.
@@ -400,12 +399,12 @@ func GetTestDB() (*sql.DB, error) {
 // Usage:
 //
 //	// Older pattern (prefer GetTestDBWithT instead)
-//	db, err := testutils.GetTestDB()
+//	db, err := testutils.db.GetTestDB()
 //	require.NoError(t, err)
-//	t.Cleanup(func() { testutils.CleanupDB(t, db) })
+//	t.Cleanup(func() { testutils.db.CleanupDB(t, db) })
 //
 //	// Better pattern
-//	db := testutils.GetTestDBWithT(t)
+//	db := testutils.db.GetTestDBWithT(t)
 //	// No manual cleanup needed - handled by GetTestDBWithT
 func CleanupDB(t *testing.T, db *sql.DB) {
 	t.Helper()
@@ -417,4 +416,23 @@ func CleanupDB(t *testing.T, db *sql.DB) {
 	}
 }
 
-// AssertCloseNoError is implemented in helpers.go
+// RunInTransaction executes the given function within a transaction.
+// The transaction is automatically rolled back after the function completes.
+// This is an alias for WithTx to maintain compatibility with existing code.
+func RunInTransaction(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
+	t.Helper()
+	WithTx(t, db, fn)
+}
+
+// AssertCloseNoError safely closes a resource that implements io.Closer,
+// ensuring any errors are properly logged but not failing the test.
+// This is useful in defer statements for cleanup.
+func AssertCloseNoError(t *testing.T, closer io.Closer) {
+	t.Helper()
+	if closer == nil {
+		return
+	}
+	if err := closer.Close(); err != nil {
+		t.Logf("Warning: failed to close resource: %v", err)
+	}
+}

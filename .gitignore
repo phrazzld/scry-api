@@ -63,3 +63,5 @@ CODE_REVIEW.md
 /backup/
 *-task.md
 ADDRESS-PROMPT.md
+
+**/.claude/settings.local.json

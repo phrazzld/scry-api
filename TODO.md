@@ -25,7 +25,7 @@
         2. Code compiles and CI is green.
     - **Depends‑on:** [T001]
 
-- [ ] **T003 · Test · P1: audit integration test coverage gaps post-mock deletion**
+- [x] **T003 · Test · P1: audit integration test coverage gaps post-mock deletion**
     - **Context:** cr-01 Remove Contradictory Mock-Based API Tests (Step 4)
     - **Action:**
         1. Run coverage tools on existing integration tests (`cmd/server/auth_integration_test.go`, `cmd/server/card_api_integration_test.go`, etc.).

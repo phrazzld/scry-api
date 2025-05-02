@@ -12,11 +12,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/pressly/goose/v3"
+	"github.com/stretchr/testify/require"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 )
@@ -28,6 +30,76 @@ var (
 
 // TestTimeout defines a default timeout for test database operations.
 const TestTimeout = 5 * time.Second
+
+// testGooseLogger is a simple implementation of the goose.Logger interface
+// that doesn't output anything during tests to keep output clean.
+type testGooseLogger struct {
+	t *testing.T
+}
+
+// Printf implements the required logging method for goose's SetLogger
+func (l *testGooseLogger) Printf(format string, v ...interface{}) {
+	if l.t != nil {
+		msg := fmt.Sprintf(format, v...)
+		l.t.Log("Goose: " + strings.TrimSpace(msg))
+	}
+}
+
+// Fatal implements the required logging method for goose's SetLogger
+func (l *testGooseLogger) Fatal(v ...interface{}) {
+	fmt.Println(v...)
+	os.Exit(1)
+}
+
+// Fatalf implements the required logging method for goose's SetLogger
+func (l *testGooseLogger) Fatalf(format string, v ...interface{}) {
+	if l.t != nil {
+		msg := fmt.Sprintf(format, v...)
+		l.t.Fatal("Goose fatal error: " + strings.TrimSpace(msg))
+	} else {
+		fmt.Printf(format, v...)
+		os.Exit(1)
+	}
+}
+
+// Print is required for goose.Logger interface
+func (l *testGooseLogger) Print(v ...interface{}) {
+	// Silence regular prints during tests
+}
+
+// Println is required for goose.Logger interface
+func (l *testGooseLogger) Println(v ...interface{}) {
+	// Silence regular prints during tests
+}
+
+// IsIntegrationTestEnvironment returns true if the DATABASE_URL environment
+// variable is set, indicating that integration tests can be run.
+func IsIntegrationTestEnvironment() bool {
+	return len(os.Getenv("DATABASE_URL")) > 0
+}
+
+// SetupTestDatabaseSchemaWithT runs database migrations to set up the test database.
+// This is the version that takes a testing.T parameter which allows it to use the testing framework.
+func SetupTestDatabaseSchemaWithT(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	// Find project root to locate migration files
+	projectRoot, err := findProjectRoot()
+	require.NoError(t, err, "Failed to find project root")
+
+	// Set up goose for migrations
+	migrationsDir := filepath.Join(projectRoot, "internal", "platform", "postgres", "migrations")
+	require.DirExists(t, migrationsDir, "Migrations directory does not exist: %s", migrationsDir)
+
+	// Configure goose
+	goose.SetLogger(&testGooseLogger{t: t})
+	goose.SetTableName("schema_migrations")
+	goose.SetBaseFS(os.DirFS(migrationsDir))
+
+	// Run migrations
+	err = goose.Up(db, ".")
+	require.NoError(t, err, "Failed to run migrations")
+}
 
 // SetupTestDatabaseSchema initializes the database schema using project migrations.
 // It resets the schema to baseline (by running migrations down to version 0),
@@ -192,38 +264,6 @@ func findProjectRoot() (string, error) {
 		}
 		dir = parentDir
 	}
-}
-
-// testGooseLogger is a simple implementation of the goose.Logger interface
-// that doesn't output anything during tests to keep output clean.
-type testGooseLogger struct{}
-
-func (*testGooseLogger) Fatal(v ...interface{}) {
-	fmt.Println(v...)
-	os.Exit(1)
-}
-
-func (*testGooseLogger) Fatalf(format string, v ...interface{}) {
-	fmt.Printf(format, v...)
-	os.Exit(1)
-}
-
-func (*testGooseLogger) Print(v ...interface{}) {
-	// Silence regular prints during tests
-}
-
-func (*testGooseLogger) Println(v ...interface{}) {
-	// Silence regular prints during tests
-}
-
-func (*testGooseLogger) Printf(format string, v ...interface{}) {
-	// Silence regular prints during tests
-}
-
-// IsIntegrationTestEnvironment returns true if the DATABASE_URL environment
-// variable is set, indicating that integration tests can be run.
-func IsIntegrationTestEnvironment() bool {
-	return len(os.Getenv("DATABASE_URL")) > 0
 }
 
 // GetTestDatabaseURL returns the database URL for tests.
@@ -435,4 +475,26 @@ func AssertCloseNoError(t *testing.T, closer io.Closer) {
 	if err := closer.Close(); err != nil {
 		t.Logf("Warning: failed to close resource: %v", err)
 	}
+}
+
+// RunInTx executes the given function within a transaction.
+// The transaction is automatically rolled back after the function completes.
+func RunInTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
+	t.Helper()
+
+	// Start a transaction
+	tx, err := db.BeginTx(context.Background(), nil)
+	require.NoError(t, err, "Failed to begin transaction")
+
+	// Ensure rollback happens after test completes or fails
+	defer func() {
+		err := tx.Rollback()
+		// sql.ErrTxDone is expected if tx is already committed or rolled back
+		if err != nil && !errors.Is(err, sql.ErrTxDone) {
+			t.Logf("Warning: failed to rollback transaction: %v", err)
+		}
+	}()
+
+	// Execute the test function with the transaction
+	fn(t, tx)
 }

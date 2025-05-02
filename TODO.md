@@ -2,7 +2,7 @@
 # Todo
 
 ## Test Helper Consolidation (cr-02)
-- [ ] **T001 · Refactor · P1: consolidate test helpers into internal/testutils**
+- [x] **T001 · Refactor · P1: consolidate test helpers into internal/testutils**
     - **Context:** cr-02 Consolidate Test Helper Sprawl (Steps 1-5)
     - **Action:**
         1. Identify reusable helpers in `cmd/server/api_test_helpers_test.go`, `cmd/server/auth_test_helpers.go`, `internal/testutils/`, `internal/testdb/`. Create `internal/testutils/db` and `internal/testutils/api` sub-packages.
@@ -15,7 +15,7 @@
     - **Depends‑on:** none
 
 ## API Testing (cr-01)
-- [ ] **T002 · Chore · P1: delete mock-based API test files**
+- [x] **T002 · Chore · P1: delete mock-based API test files**
     - **Context:** cr-01 Remove Contradictory Mock-Based API Tests (Steps 2-3)
     - **Action:**
         1. Delete `cmd/server/auth_api_test.go`.

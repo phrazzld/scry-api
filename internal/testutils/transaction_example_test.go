@@ -3,67 +3,72 @@ package testutils_test
 import (
 	"context"
 	"database/sql"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // TestTransactionIsolation_StoresExample demonstrates how to use the transaction
-// isolation with the new CreateTestStores helper.
-// This test serves as executable documentation for the proper testing pattern.
+// isolation pattern for database tests.
 func TestTransactionIsolation_StoresExample(t *testing.T) {
 	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
+	if !db.IsIntegrationTestEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	// Get a database connection using the helper
-	db, err := testutils.GetTestDB()
+	dbConn, err := testutils.GetTestDB()
 	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	defer testutils.AssertCloseNoError(t, dbConn)
 
 	// This test shows the pattern of using transaction isolation with multiple stores
 	t.Run("TransactionIsolationWithMultipleStores", func(t *testing.T) {
 		t.Parallel() // Safe to run in parallel because of transaction isolation
 
-		testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+		testutils.WithTx(t, dbConn, func(t *testing.T, tx *sql.Tx) {
 			ctx := context.Background()
 
-			// Create all stores with the same transaction
-			stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
+			// 1. Create a user directly in the database
+			now := time.Now().UTC()
+			userID := uuid.New()
+			email := "transaction-test@example.com"
 
-			// 1. Create a user
-			userID := testutils.MustInsertUser(
-				ctx,
-				t,
-				tx,
-				"transaction-test@example.com",
-				bcrypt.MinCost,
+			// Create and execute the insert query
+			_, err := tx.ExecContext(ctx,
+				"INSERT INTO users (id, email, hashed_password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
+				userID, email, "hashedpassword", now, now,
 			)
+			require.NoError(t, err, "Failed to insert test user")
 
 			// 2. Create a memo for this user
+			memoID := uuid.New()
 			memo := &domain.Memo{
-				ID:        uuid.New(),
+				ID:        memoID,
 				UserID:    userID,
 				Text:      "This is a test memo to demonstrate transaction isolation.",
 				Status:    domain.MemoStatusPending,
-				CreatedAt: time.Now().UTC(),
-				UpdatedAt: time.Now().UTC(),
+				CreatedAt: now,
+				UpdatedAt: now,
 			}
 
-			// Use the memo store to create the memo
-			err := stores.MemoStore.Create(ctx, memo)
+			// Create and use memo store directly
+			testLogger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+			memoStore := postgres.NewPostgresMemoStore(tx, testLogger)
+			err = memoStore.Create(ctx, memo)
 			require.NoError(t, err, "Failed to create memo")
 
 			// 3. Try to retrieve the memo
-			retrievedMemo, err := stores.MemoStore.GetByID(ctx, memo.ID)
+			retrievedMemo, err := memoStore.GetByID(ctx, memo.ID)
 			require.NoError(t, err, "Failed to retrieve memo")
 			assert.Equal(t, memo.ID, retrievedMemo.ID, "Retrieved memo should have the same ID")
 			assert.Equal(
@@ -82,7 +87,7 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 	t.Run("VerifyRollback", func(t *testing.T) {
 		t.Parallel()
 
-		testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+		testutils.WithTx(t, dbConn, func(t *testing.T, tx *sql.Tx) {
 			ctx := context.Background()
 
 			// Count memos with text containing the specific phrase from the previous test
@@ -108,32 +113,45 @@ func TestTransactionIsolation_StoresExample(t *testing.T) {
 // same tables and data.
 func TestTransactionIsolation_Concurrency(t *testing.T) {
 	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
+	if !db.IsIntegrationTestEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
 	// Get a database connection using the helper
-	db, err := testutils.GetTestDB()
+	dbConn, err := testutils.GetTestDB()
 	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	defer testutils.AssertCloseNoError(t, dbConn)
 
 	// Run multiple subtests that would conflict without transaction isolation
 	for i := 0; i < 5; i++ {
-		// Capture i for use in subtest
+		// Use i value directly in Go 1.22+
 		t.Run("ConcurrentTest-"+string(rune('A'+i)), func(t *testing.T) {
 			t.Parallel() // All these tests run in parallel
 
-			testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+			testutils.WithTx(t, dbConn, func(t *testing.T, tx *sql.Tx) {
 				ctx := context.Background()
 
 				// Create a user with the same email in each test
 				// This would fail without transaction isolation due to unique constraint
 				email := "same-email-for-all@example.com"
-				userID := testutils.MustInsertUser(ctx, t, tx, email, bcrypt.MinCost)
+
+				// Insert user directly
+				userID := uuid.New()
+				now := time.Now().UTC()
+				_, err := tx.ExecContext(
+					ctx,
+					"INSERT INTO users (id, email, hashed_password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
+					userID,
+					email,
+					"hashedpassword",
+					now,
+					now,
+				)
+				require.NoError(t, err, "Failed to insert test user")
 
 				// Verify we can retrieve the user in this transaction
 				var retrievedEmail string
-				err := tx.QueryRowContext(ctx,
+				err = tx.QueryRowContext(ctx,
 					"SELECT email FROM users WHERE id = $1",
 					userID,
 				).Scan(&retrievedEmail)

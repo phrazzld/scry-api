@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration && compatibility
 
 package main
 
@@ -70,7 +70,7 @@ func TestPostponeCardEndpoint(t *testing.T) {
 					assert.Equal(t, card.ID.String(), response["card_id"])
 
 					// Get the updated stats from the database
-					updatedStats := getUserCardStats(t, tx, userID, card.ID)
+					updatedStats := api.GetUserCardStats(t, tx, userID, card.ID)
 					require.NotNil(t, updatedStats, "Expected user card stats to exist")
 
 					// Calculate expected next review date (original + 7 days)
@@ -177,7 +177,7 @@ func TestPostponeCardEndpoint(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				// tx is already *sql.Tx for WithTx, no type assertion needed
 
-				server := setupCardManagementTestServer(t, tx)
+				server := api.SetupCardManagementTestServer(t, tx)
 				defer server.Close()
 
 				// Create request body

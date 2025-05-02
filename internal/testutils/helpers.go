@@ -26,7 +26,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -162,19 +164,19 @@ func CountUsers(
 }
 
 // CreateTempConfigFile creates a temporary YAML config file with the given content.
-// Returns the directory path and a cleanup function.
+// Returns the full path to the config file and a cleanup function.
 // The cleanup function is automatically called by t.TempDir() when the test completes.
 func CreateTempConfigFile(t *testing.T, content string) (string, func()) {
 	t.Helper()
 
 	tempDir := t.TempDir()
-	configPath := tempDir + "/config.yaml"
+	configPath := filepath.Join(tempDir, "config.yaml")
 
 	err := os.WriteFile(configPath, []byte(content), 0600)
 	require.NoError(t, err, "Failed to create temporary config file")
 
-	// Return the directory path and a cleanup function
-	return tempDir, func() {
+	// Return the full path to the config file and a cleanup function
+	return configPath, func() {
 		// t.TempDir() handles cleanup automatically
 	}
 }
@@ -279,4 +281,11 @@ func CreateTestStores(tx store.DBTX, bcryptCost int) Stores {
 		CardStore:          postgres.NewPostgresCardStore(tx, nil),
 		UserCardStatsStore: postgres.NewPostgresUserCardStatsStore(tx, nil),
 	}
+}
+
+// CreateMemoStore creates a new PostgresMemoStore for testing.
+// It uses the given transaction to ensure test isolation.
+func CreateMemoStore(tx store.DBTX) store.MemoStore {
+	logger := slog.Default()
+	return postgres.NewPostgresMemoStore(tx, logger)
 }

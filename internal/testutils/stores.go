@@ -34,15 +34,17 @@ type TestStores struct {
 // Usage:
 //
 //	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
-//	    stores := testutils.CreateTestStores(tx)
+//	    stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 //	    // Use stores.UserStore, stores.MemoStore, etc. in your tests
 //	})
-func CreateTestStores(tx store.DBTX) TestStores {
+func CreateTestStores(tx store.DBTX, bcryptCost int) TestStores {
 	// Create a logger that discards output for tests
 	logger := slog.Default()
 
-	// BCrypt cost set to 4 for faster tests
-	bcryptCost := 4
+	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
+	if bcryptCost <= 0 {
+		bcryptCost = 4 // bcrypt.MinCost
+	}
 
 	return TestStores{
 		UserStore:         postgres.NewPostgresUserStore(tx, bcryptCost),

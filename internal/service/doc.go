@@ -25,6 +25,8 @@
 // 4. Error Handling:
 //   - Translate domain-specific errors to application-level errors
 //   - Provide meaningful error context for API responses
+//   - Follow standardized approach documented in README.md and errors.go
+//   - Use errors.Is/errors.As for error type checking
 //
 // The service layer depends on domain entities and repository interfaces (from store),
 // but never on specific infrastructure implementations, maintaining the Dependency

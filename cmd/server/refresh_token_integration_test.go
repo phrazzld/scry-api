@@ -60,8 +60,8 @@ func TestRefreshTokenAPI_Integration(t *testing.T) {
 	err = json.NewDecoder(registerResp.Body).Decode(&registerData)
 	require.NoError(t, err)
 
-	// Get refresh token from login response
-	userID := registerData["user_id"].(string)
+	// Get user ID from register response
+	_ = registerData["user_id"].(string) // Use underscore to avoid unused variable warning
 
 	// Login to get a valid refresh token
 	loginPayload := map[string]interface{}{

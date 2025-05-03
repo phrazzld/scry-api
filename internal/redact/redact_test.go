@@ -70,10 +70,36 @@ func TestRedactString(t *testing.T) {
 			input:    "User admin@example.com not found",
 			expected: "User [REDACTED_EMAIL] not found",
 		},
+		// Enhanced SQL redaction test cases (contingency approach)
 		{
-			name:     "SQL query",
+			name:     "SQL SELECT with WHERE clause",
 			input:    "Error executing: SELECT * FROM users WHERE email = 'user@example.com'",
-			expected: "Error executing: [REDACTED_SQL][REDACTED_EMAIL]'",
+			expected: "Error executing: SELECT FROM... [SQL_VALUES_REDACTED]",
+		},
+		{
+			name:     "SQL INSERT statement",
+			input:    "Error executing: INSERT INTO users (id, email, password) VALUES ('123e4567-e89b-12d3-a456-426614174000', 'user@example.com', 'hashed_password')",
+			expected: "Error executing: INSERT INTO users (id, email, password) VALUES [SQL_VALUES_REDACTED]",
+		},
+		{
+			name:     "SQL UPDATE with SET clause",
+			input:    "Error executing: UPDATE users SET email = 'new_user@example.com', updated_at = '2023-04-05' WHERE id = '123e4567-e89b-12d3-a456-426614174000'",
+			expected: "Error executing: UPDATE users SET [SQL_VALUES_REDACTED]",
+		},
+		{
+			name:     "SQL DELETE with WHERE clause",
+			input:    "Error executing: DELETE FROM users WHERE id = '123e4567-e89b-12d3-a456-426614174000'",
+			expected: "Error executing: DELETE FROM users [SQL_WHERE_REDACTED]",
+		},
+		{
+			name:     "SQL query with UUID",
+			input:    "Query failed: SELECT * FROM cards WHERE user_id = '123e4567-e89b-12d3-a456-426614174000'",
+			expected: "Query failed: SELECT FROM... [SQL_VALUES_REDACTED]",
+		},
+		{
+			name:     "SQL query with JOIN and multiple conditions",
+			input:    "Error: SELECT c.* FROM cards c JOIN users u ON c.user_id = u.id WHERE u.email = 'user@example.com' AND c.id = '123e4567-e89b-12d3-a456-426614174000'",
+			expected: "Error: SELECT FROM... [SQL_VALUES_REDACTED]",
 		},
 		{
 			name:     "multiple sensitive data types",
@@ -120,5 +146,34 @@ func TestRedactError(t *testing.T) {
 
 		// Verify that the JWT token is still properly redacted
 		assert.NotContains(t, redact.Error(err), "eyJhbGci")
+	})
+
+	t.Run("UUID in error message", func(t *testing.T) {
+		err := errors.New("Card with ID 123e4567-e89b-12d3-a456-426614174000 not found")
+		assert.Equal(t, "Card with ID [REDACTED_UUID] not found", redact.Error(err))
+	})
+
+	t.Run("SQL query with UUID in error", func(t *testing.T) {
+		err := errors.New("Failed to execute: SELECT * FROM cards WHERE id = '123e4567-e89b-12d3-a456-426614174000'")
+		redacted := redact.Error(err)
+		// Check that UUID is redacted correctly
+		assert.NotContains(t, redacted, "123e4567-e89b-12d3-a456-426614174000")
+		// Check that SQL structure is preserved with contingency approach
+		assert.Contains(t, redacted, "SELECT FROM...")
+		assert.Contains(t, redacted, "[SQL_VALUES_REDACTED]")
+	})
+
+	t.Run("SQL insert with multiple sensitive data", func(t *testing.T) {
+		err := errors.New(
+			"Failed to execute: INSERT INTO users (id, email, password) VALUES ('123e4567-e89b-12d3-a456-426614174000', 'user@example.com', 'secret123')",
+		)
+		redacted := redact.Error(err)
+		// Check that sensitive values are redacted
+		assert.NotContains(t, redacted, "123e4567-e89b-12d3-a456-426614174000")
+		assert.NotContains(t, redacted, "user@example.com")
+		assert.NotContains(t, redacted, "secret123")
+		// Check that SQL structure is preserved with contingency approach
+		assert.Contains(t, redacted, "INSERT INTO users")
+		assert.Contains(t, redacted, "[SQL_VALUES_REDACTED]")
 	})
 }

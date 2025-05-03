@@ -117,7 +117,7 @@
         1. A documented list of sensitive data patterns in SQL queries exists.
     - **Depends‑on:** none
 
-- [ ] **T012 · Feature · P1: implement enhanced SQL redaction logic (or contingency)**
+- [x] **T012 · Feature · P1: implement enhanced SQL redaction logic (or contingency)**
     - **Context:** cr-03 Improve SQL Redaction for Sensitive Data Leakage (Steps 2-3)
     - **Action:**
         1. Refine the regex patterns in `internal/redact/redact.go` based on T011 to specifically match and replace common sensitive value formats (e.g., `'...'`, numeric literals after `=`/`>`/`<`) with `[REDACTED]`.

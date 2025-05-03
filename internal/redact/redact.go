@@ -41,9 +41,31 @@ var (
 	// Email addresses
 	emailRegex = regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b`)
 
-	// SQL queries and fragments
-	sqlRegex = regexp.MustCompile(
-		`(?i)(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|GRANT)[\s\w,*()]+(?:FROM|INTO|SET|TABLE|DATABASE|SCHEMA|VIEW)(?:[\s\w,*()='"]+)?`,
+	// SQL queries and fragments - using contingency approach (simplified)
+
+	// SQL SELECT query pattern
+	sqlSelectRegex = regexp.MustCompile(
+		`(?i)(SELECT)(\s+)([^;]*)`,
+	)
+
+	// SQL INSERT query pattern
+	sqlInsertRegex = regexp.MustCompile(
+		`(?i)(INSERT\s+INTO\s+[\w_.]+\s*\([^)]*\)\s+VALUES)([^;]*)`,
+	)
+
+	// SQL UPDATE query pattern
+	sqlUpdateRegex = regexp.MustCompile(
+		`(?i)(UPDATE\s+[\w_.]+\s+SET)([^;]*)`,
+	)
+
+	// SQL DELETE query pattern
+	sqlDeleteRegex = regexp.MustCompile(
+		`(?i)(DELETE\s+FROM\s+[\w_.]+)([^;]*)`,
+	)
+
+	// UUID pattern - specifically targets UUIDs that might appear in queries
+	uuidRegex = regexp.MustCompile(
+		`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`,
 	)
 
 	// Additional sensitive patterns
@@ -59,21 +81,29 @@ var (
 	// All patterns and their placeholders
 	patterns = []*regexp.Regexp{
 		dbConnRegex, passwordRegex, apiKeyRegex, awsKeyRegex, jwtTokenRegex,
-		unixPathRegex, winPathRegex, stackTraceRegex, emailRegex, sqlRegex,
-		lineNumberRegex, syntaxErrorRegex, hostPortRegex, fileErrorRegex,
+		unixPathRegex, winPathRegex, stackTraceRegex, emailRegex,
+		// SQL patterns in specific order (most specific first)
+		sqlInsertRegex, sqlUpdateRegex, sqlDeleteRegex, sqlSelectRegex,
+		// Other patterns
+		uuidRegex, lineNumberRegex, syntaxErrorRegex, hostPortRegex, fileErrorRegex,
 	}
 
 	patternPlaceholders = map[*regexp.Regexp]string{
-		dbConnRegex:      RedactedCredentialPlaceholder,
-		passwordRegex:    RedactedCredentialPlaceholder,
-		apiKeyRegex:      RedactedKeyPlaceholder,
-		awsKeyRegex:      RedactedKeyPlaceholder,
-		jwtTokenRegex:    "[REDACTED_JWT]",
-		unixPathRegex:    RedactedPathPlaceholder,
-		winPathRegex:     RedactedPathPlaceholder,
-		stackTraceRegex:  "[STACK_TRACE_REDACTED]",
-		emailRegex:       "[REDACTED_EMAIL]",
-		sqlRegex:         "[REDACTED_SQL]",
+		dbConnRegex:     RedactedCredentialPlaceholder,
+		passwordRegex:   RedactedCredentialPlaceholder,
+		apiKeyRegex:     RedactedKeyPlaceholder,
+		awsKeyRegex:     RedactedKeyPlaceholder,
+		jwtTokenRegex:   "[REDACTED_JWT]",
+		unixPathRegex:   RedactedPathPlaceholder,
+		winPathRegex:    RedactedPathPlaceholder,
+		stackTraceRegex: "[STACK_TRACE_REDACTED]",
+		emailRegex:      "[REDACTED_EMAIL]",
+		// SQL patterns with simplified redaction
+		sqlSelectRegex:   "$1 FROM... [SQL_VALUES_REDACTED]", // Preserve SELECT command
+		sqlInsertRegex:   "$1 [SQL_VALUES_REDACTED]",         // Preserve INSERT command
+		sqlUpdateRegex:   "$1 [SQL_VALUES_REDACTED]",         // Preserve UPDATE command
+		sqlDeleteRegex:   "$1 [SQL_WHERE_REDACTED]",          // Preserve DELETE command
+		uuidRegex:        "[REDACTED_UUID]",
 		lineNumberRegex:  "[REDACTED_LINE_NUMBER]",
 		syntaxErrorRegex: "[REDACTED_SYNTAX_ERROR]",
 		hostPortRegex:    "[REDACTED_HOST]",

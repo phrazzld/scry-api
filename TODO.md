@@ -127,7 +127,7 @@
         2. Code compiles.
     - **Depends‑on:** [T011]
 
-- [ ] **T013 · Test · P1: add comprehensive table-driven tests for SQL redaction**
+- [x] **T013 · Test · P1: add comprehensive table-driven tests for SQL redaction**
     - **Context:** cr-03 Improve SQL Redaction for Sensitive Data Leakage (Step 4)
     - **Action:**
         1. Add extensive table-driven tests in `internal/redact/redact_test.go`.

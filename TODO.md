@@ -1,5 +1,4 @@
-```markdown
-# Todo
+# TODO
 
 ## Test Helper Consolidation (cr-02)
 - [x] **T001 · Refactor · P1: consolidate test helpers into internal/testutils**
@@ -138,7 +137,7 @@
         3. CI green.
     - **Depends‑on:** [T012]
 
-- [ ] **T014 · Chore · P1: manually verify SQL redaction effectiveness in logs**
+- [x] **T014 · Chore · P1: manually verify SQL redaction effectiveness in logs**
     - **Context:** cr-03 Improve SQL Redaction for Sensitive Data Leakage (Done-When)
     - **Action:**
         1. Deploy code with updated redaction (T012, T013) to a non-production environment (dev/staging).
@@ -151,17 +150,3 @@
         1. Check logs for specific examples of sensitive data (e.g., user IDs, tokens) and confirm they are redacted.
         2. Check that non-sensitive parts of queries remain readable (if using regex).
     - **Depends‑on:** [T013]
-
----
-
-### Clarifications & Assumptions
-- [ ] **Issue:** Define "critical scenarios" for integration test coverage audit (T003).
-    - **Context:** cr-01 Remove Contradictory Mock-Based API Tests, Step 4
-    - **Blocking?:** yes - Requires clarification before T004 can be completed effectively. Assume core success/failure paths for each endpoint initially.
-- [ ] **Issue:** Define criteria for triggering the contingency plan (blanket redaction) in T012.
-    - **Context:** cr-03 Improve SQL Redaction for Sensitive Data Leakage, Step 3
-    - **Blocking?:** no - Assume implementer makes the call based on perceived regex complexity/brittleness vs. security risk.
-- [ ] **Issue:** What are the established project code coverage thresholds?
-    - **Context:** Validation Checklist / T004 Done-when
-    - **Blocking?:** yes - Needed to confirm T004 completion.
-```

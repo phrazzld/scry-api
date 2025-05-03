@@ -62,6 +62,13 @@ docs/prompts
 CODE_REVIEW.md
 /backup/
 *-task.md
+*-completion.md
+*-log-analysis.md
+TODO.md
+REMEDIATION_PLAN.md
 ADDRESS-PROMPT.md
+
+# Config files for local testing
+config-debug.yaml
 
 **/.claude/settings.local.json

@@ -71,6 +71,36 @@ func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card 
 	// Set up API routes
 	router.Route("/api", func(r chi.Router) {
 		r.Get("/cards/next", handler)
+
+		// Add specific handlers for paths with UUID parameters
+		r.Route("/cards/{id}", func(sr chi.Router) {
+			sr.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// Extract the ID parameter
+					idParam := chi.URLParam(r, "id")
+
+					// Check if ID is a valid UUID
+					_, err := uuid.Parse(idParam)
+					if err != nil {
+						// Return 400 Bad Request for invalid UUID
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusBadRequest)
+						json.NewEncoder(w).Encode(shared.ErrorResponse{
+							Error: "Invalid ID",
+						})
+						return
+					}
+
+					// Continue to the next handler for valid UUIDs
+					next.ServeHTTP(w, r)
+				})
+			})
+
+			// Add routes that will be matched after the UUID validation middleware
+			sr.Post("/answer", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.NotFound(w, r)
+			}))
+		})
 	})
 
 	// Create server

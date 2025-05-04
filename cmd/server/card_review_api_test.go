@@ -13,7 +13,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,14 +27,14 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 	cardID := uuid.New()
 	now := time.Now().UTC()
 
-	// Create a test card using the testutils helper
-	card := testutils.CreateCardForAPITest(t,
-		testutils.WithCardID(cardID),
-		testutils.WithCardUserID(userID),
-		testutils.WithCardMemoID(memoID),
-		testutils.WithCardCreatedAt(now.Add(-24*time.Hour)),
-		testutils.WithCardUpdatedAt(now.Add(-24*time.Hour)),
-		testutils.WithCardContent(map[string]interface{}{
+	// Create a test card using the API helper
+	card := api.CreateCardForAPITest(t,
+		api.WithCardID(cardID),
+		api.WithCardUserID(userID),
+		api.WithCardMemoID(memoID),
+		api.WithCardCreatedAt(now.Add(-24*time.Hour)),
+		api.WithCardUpdatedAt(now.Add(-24*time.Hour)),
+		api.WithCardContent(map[string]interface{}{
 			"front": "What is the capital of France?",
 			"back":  "Paris",
 		}),
@@ -50,7 +50,7 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "Success - Card Found",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithNextCard(t, userID, card)
+				return api.SetupCardReviewTestServerWithNextCard(t, userID, card)
 			},
 			expectedStatus: http.StatusOK,
 			expectedError:  "",
@@ -58,7 +58,7 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "No Cards Due",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(
+				return api.SetupCardReviewTestServerWithError(
 					t,
 					userID,
 					card_review.ErrNoCardsDue,
@@ -70,7 +70,7 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "Unauthorized - No Valid JWT",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithAuthError(
+				return api.SetupCardReviewTestServerWithAuthError(
 					t,
 					userID,
 					auth.ErrInvalidToken,
@@ -82,7 +82,7 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 		{
 			name: "Server Error",
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(
+				return api.SetupCardReviewTestServerWithError(
 					t,
 					userID,
 					errors.New("database error"),
@@ -101,16 +101,16 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 
 			// Execute the request using the helper function
 			// Response body is automatically closed via t.Cleanup()
-			resp, err := testutils.ExecuteGetNextCardRequest(t, server, userID)
+			resp, err := api.ExecuteGetNextCardRequest(t, server, userID)
 			require.NoError(t, err)
 
 			// Verify the response
 			if tc.expectedStatus == http.StatusOK {
 				// Success case - verify card response
-				testutils.AssertCardResponse(t, resp, card)
+				api.AssertCardResponse(t, resp, card)
 			} else {
 				// Error case - verify error response
-				testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedError)
+				api.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedError)
 			}
 		})
 	}
@@ -124,17 +124,17 @@ func TestSubmitAnswerAPI(t *testing.T) {
 	now := time.Now().UTC()
 
 	// Create sample stats for testing
-	sampleStats := testutils.CreateStatsForAPITest(t,
-		testutils.WithStatsUserID(userID),
-		testutils.WithStatsCardID(cardID),
-		testutils.WithStatsInterval(1),
-		testutils.WithStatsEaseFactor(2.5),
-		testutils.WithStatsConsecutiveCorrect(1),
-		testutils.WithStatsLastReviewedAt(now),
-		testutils.WithStatsNextReviewAt(now.Add(24*time.Hour)),
-		testutils.WithStatsReviewCount(1),
-		testutils.WithStatsCreatedAt(now.Add(-24*time.Hour)),
-		testutils.WithStatsUpdatedAt(now),
+	sampleStats := api.CreateStatsForAPITest(t,
+		api.WithStatsUserID(userID),
+		api.WithStatsCardID(cardID),
+		api.WithStatsInterval(1),
+		api.WithStatsEaseFactor(2.5),
+		api.WithStatsConsecutiveCorrect(1),
+		api.WithStatsLastReviewedAt(now),
+		api.WithStatsNextReviewAt(now.Add(24*time.Hour)),
+		api.WithStatsReviewCount(1),
+		api.WithStatsCreatedAt(now.Add(-24*time.Hour)),
+		api.WithStatsUpdatedAt(now),
 	)
 
 	// Test cases
@@ -152,7 +152,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithUpdatedStats(t, userID, sampleStats)
+				return api.SetupCardReviewTestServerWithUpdatedStats(t, userID, sampleStats)
 			},
 			executeRequest: true,
 			expectedStatus: http.StatusOK,
@@ -163,7 +163,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  uuid.New(), // Different card ID
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(
+				return api.SetupCardReviewTestServerWithError(
 					t,
 					userID,
 					card_review.ErrCardNotFound,
@@ -178,7 +178,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(
+				return api.SetupCardReviewTestServerWithError(
 					t,
 					userID,
 					card_review.ErrCardNotOwned,
@@ -193,7 +193,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(
+				return api.SetupCardReviewTestServerWithError(
 					t,
 					userID,
 					card_review.ErrInvalidAnswer,
@@ -209,7 +209,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
 				// Use empty server since error will happen when parsing the ID
-				return testutils.SetupCardReviewTestServerWithNextCard(t, userID, nil)
+				return api.SetupCardReviewTestServerWithNextCard(t, userID, nil)
 			},
 			executeRequest: false, // We'll handle this case differently
 			expectedStatus: http.StatusBadRequest,
@@ -220,7 +220,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithAuthError(
+				return api.SetupCardReviewTestServerWithAuthError(
 					t,
 					userID,
 					auth.ErrInvalidToken,
@@ -235,7 +235,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			cardID:  cardID,
 			outcome: domain.ReviewOutcomeGood,
 			setup: func(t *testing.T) *httptest.Server {
-				return testutils.SetupCardReviewTestServerWithError(
+				return api.SetupCardReviewTestServerWithError(
 					t,
 					userID,
 					errors.New("database error"),
@@ -258,7 +258,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 
 			if tc.executeRequest {
 				// Execute normal request using the helper function
-				resp, err = testutils.ExecuteSubmitAnswerRequest(
+				resp, err = api.ExecuteSubmitAnswerRequest(
 					t,
 					server,
 					userID,
@@ -267,7 +267,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 				)
 			} else if tc.name == "Invalid Card ID Format" {
 				// Use the helper for invalid card ID format
-				resp, err = testutils.ExecuteSubmitAnswerRequestWithRawID(t, server, userID, "not-a-uuid", tc.outcome)
+				resp, err = api.ExecuteSubmitAnswerRequestWithRawID(t, server, userID, "not-a-uuid", tc.outcome)
 			}
 
 			require.NoError(t, err)
@@ -276,10 +276,10 @@ func TestSubmitAnswerAPI(t *testing.T) {
 			// Verify the response
 			if tc.expectedStatus == http.StatusOK {
 				// Success case - verify stats response
-				testutils.AssertStatsResponse(t, resp, sampleStats)
+				api.AssertStatsResponse(t, resp, sampleStats)
 			} else {
 				// Error case - verify error response
-				testutils.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedError)
+				api.AssertErrorResponse(t, resp, tc.expectedStatus, tc.expectedError)
 			}
 		})
 	}
@@ -296,9 +296,9 @@ func TestInvalidRequestBody(t *testing.T) {
 	cardID := uuid.New()
 
 	// Create sample stats for tests that reach the service layer
-	sampleStats := testutils.CreateStatsForAPITest(t,
-		testutils.WithStatsUserID(userID),
-		testutils.WithStatsCardID(cardID),
+	sampleStats := api.CreateStatsForAPITest(t,
+		api.WithStatsUserID(userID),
+		api.WithStatsCardID(cardID),
 	)
 
 	// Define test cases
@@ -424,10 +424,10 @@ func TestInvalidRequestBody(t *testing.T) {
 			var server *httptest.Server
 			if tc.expectSuccess {
 				// For tests expecting success, set up a server that returns stats
-				server = testutils.SetupCardReviewTestServerWithUpdatedStats(t, userID, sampleStats)
+				server = api.SetupCardReviewTestServerWithUpdatedStats(t, userID, sampleStats)
 			} else {
 				// For validation tests, the service behavior doesn't matter
-				server = testutils.SetupCardReviewTestServerWithNextCard(t, userID, nil)
+				server = api.SetupCardReviewTestServerWithNextCard(t, userID, nil)
 			}
 
 			var resp *http.Response
@@ -437,13 +437,13 @@ func TestInvalidRequestBody(t *testing.T) {
 			// Response body is automatically closed via t.Cleanup() now
 			switch tc.testType {
 			case "invalid-json":
-				resp, err = testutils.ExecuteInvalidJSONRequest(t, server, userID, "POST", tc.path)
+				resp, err = api.ExecuteInvalidJSONRequest(t, server, userID, "POST", tc.path)
 			case "empty-body":
-				resp, err = testutils.ExecuteEmptyBodyRequest(t, server, userID, "POST", tc.path)
+				resp, err = api.ExecuteEmptyBodyRequest(t, server, userID, "POST", tc.path)
 			case "custom":
-				resp, err = testutils.ExecuteCustomBodyRequest(t, server, userID, "POST", tc.path, tc.payload)
+				resp, err = api.ExecuteCustomBodyRequest(t, server, userID, "POST", tc.path, tc.payload)
 			case "nearly-valid-uuid":
-				resp, err = testutils.ExecuteSubmitAnswerRequestWithRawID(
+				resp, err = api.ExecuteSubmitAnswerRequestWithRawID(
 					t, server, userID, "almost-valid-uuid",
 					domain.ReviewOutcomeGood,
 				)
@@ -455,12 +455,12 @@ func TestInvalidRequestBody(t *testing.T) {
 
 			// Handle special cases where we expect success
 			if tc.expectSuccess {
-				testutils.AssertStatsResponse(t, resp, sampleStats)
+				api.AssertStatsResponse(t, resp, sampleStats)
 				return
 			}
 
 			// Verify response using the validation error helper
-			testutils.AssertValidationError(t, resp, tc.validation.field, tc.validation.msgPart)
+			api.AssertValidationError(t, resp, tc.validation.field, tc.validation.msgPart)
 		})
 	}
 
@@ -468,13 +468,13 @@ func TestInvalidRequestBody(t *testing.T) {
 	// that should pass validation and reach the service layer
 	t.Run("Submit Answer - Valid With Extra Fields", func(t *testing.T) {
 		// Create stats to be returned by the mock service
-		stats := testutils.CreateStatsForAPITest(t,
-			testutils.WithStatsUserID(userID),
-			testutils.WithStatsCardID(cardID),
+		stats := api.CreateStatsForAPITest(t,
+			api.WithStatsUserID(userID),
+			api.WithStatsCardID(cardID),
 		)
 
 		// Set up a server that returns the stats for a successful answer submission
-		server := testutils.SetupCardReviewTestServerWithUpdatedStats(t, userID, stats)
+		server := api.SetupCardReviewTestServerWithUpdatedStats(t, userID, stats)
 
 		// Payload with valid outcome and extra fields that should be ignored
 		payload := map[string]interface{}{
@@ -483,11 +483,11 @@ func TestInvalidRequestBody(t *testing.T) {
 		}
 
 		// Execute the request
-		resp, err := testutils.ExecuteCustomBodyRequest(t, server, userID, "POST",
+		resp, err := api.ExecuteCustomBodyRequest(t, server, userID, "POST",
 			"/api/cards/"+cardID.String()+"/answer", payload)
 		require.NoError(t, err)
 
 		// Verify successful response
-		testutils.AssertStatsResponse(t, resp, stats)
+		api.AssertStatsResponse(t, resp, stats)
 	})
 }

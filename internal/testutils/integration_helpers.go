@@ -7,19 +7,17 @@ package testutils
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/testutils/api"
 )
 
 // CreateTestJWTService creates a real JWT service for testing with a pre-configured secret and expiration.
+// NOTE: This function is kept for backward compatibility. New code should use auth.DefaultJWTConfig() instead.
 func CreateTestJWTService() (auth.JWTService, error) {
 	// Create minimal auth config with values valid for testing
 	authConfig := config.AuthConfig{
@@ -32,251 +30,100 @@ func CreateTestJWTService() (auth.JWTService, error) {
 }
 
 // GenerateAuthHeader creates an Authorization header value with a valid JWT token for testing.
+// NOTE: This function is kept for backward compatibility. New code should use api.GenerateAuthHeader instead.
 func GenerateAuthHeader(userID uuid.UUID) (string, error) {
-	jwtService, err := CreateTestJWTService()
-	if err != nil {
-		return "", err
-	}
-
-	token, err := jwtService.GenerateToken(context.Background(), userID)
-	if err != nil {
-		return "", err
-	}
-
-	return "Bearer " + token, nil
+	return api.GenerateAuthHeader(userID)
 }
+
+// These functions are for backward compatibility only.
+// New code should use the corresponding functions in the api package.
 
 // CardOption is a function that configures a Card for testing.
-type CardOption func(*domain.Card)
+type CardOption = api.CardOption
 
 // WithCardID sets a specific ID for the test card.
-func WithCardID(id uuid.UUID) CardOption {
-	return func(c *domain.Card) {
-		c.ID = id
-	}
-}
+var WithCardID = api.WithCardID
 
 // WithCardUserID sets a specific user ID for the test card.
-func WithCardUserID(userID uuid.UUID) CardOption {
-	return func(c *domain.Card) {
-		c.UserID = userID
-	}
-}
+var WithCardUserID = api.WithCardUserID
 
 // WithCardMemoID sets a specific memo ID for the test card.
-func WithCardMemoID(memoID uuid.UUID) CardOption {
-	return func(c *domain.Card) {
-		c.MemoID = memoID
-	}
-}
+var WithCardMemoID = api.WithCardMemoID
 
 // WithCardContent sets the content for the test card using a map.
-// The map will be marshaled to JSON.
-func WithCardContent(content map[string]interface{}) CardOption {
-	return func(c *domain.Card) {
-		contentBytes, _ := json.Marshal(content)
-		c.Content = contentBytes
-	}
-}
+var WithCardContent = api.WithCardContent
 
 // WithRawCardContent sets raw JSON content for the test card.
-// This allows direct setting of pre-marshaled JSON.
-func WithRawCardContent(content json.RawMessage) CardOption {
-	return func(c *domain.Card) {
-		c.Content = content
-	}
-}
+var WithRawCardContent = api.WithRawCardContent
 
 // WithCardCreatedAt sets the creation timestamp for the test card.
-func WithCardCreatedAt(createdAt time.Time) CardOption {
-	return func(c *domain.Card) {
-		c.CreatedAt = createdAt
-	}
-}
+var WithCardCreatedAt = api.WithCardCreatedAt
 
 // WithCardUpdatedAt sets the update timestamp for the test card.
-func WithCardUpdatedAt(updatedAt time.Time) CardOption {
-	return func(c *domain.Card) {
-		c.UpdatedAt = updatedAt
-	}
-}
+var WithCardUpdatedAt = api.WithCardUpdatedAt
 
 // CreateCardForAPITest creates a Card instance for API testing with default values.
-// Options can be passed to customize the card.
-func CreateCardForAPITest(t *testing.T, opts ...CardOption) *domain.Card {
-	now := time.Now().UTC()
-	userID := uuid.New()
-	memoID := uuid.New()
-	cardID := uuid.New()
-
-	// Default test card content
-	defaultContent := map[string]interface{}{
-		"front": "What is the capital of France?",
-		"back":  "Paris",
-	}
-	contentBytes, _ := json.Marshal(defaultContent)
-
-	// Create card with default values
-	card := &domain.Card{
-		ID:        cardID,
-		UserID:    userID,
-		MemoID:    memoID,
-		Content:   contentBytes,
-		CreatedAt: now.Add(-24 * time.Hour),
-		UpdatedAt: now.Add(-24 * time.Hour),
-	}
-
-	// Apply options
-	for _, opt := range opts {
-		opt(card)
-	}
-
-	return card
-}
+var CreateCardForAPITest = api.CreateCardForAPITest
 
 // StatsOption is a function that configures UserCardStats for testing.
-type StatsOption func(*domain.UserCardStats)
+type StatsOption = api.StatsOption
 
 // WithStatsUserID sets a specific user ID for the test stats.
-func WithStatsUserID(userID uuid.UUID) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.UserID = userID
-	}
-}
+var WithStatsUserID = api.WithStatsUserID
 
 // WithStatsCardID sets a specific card ID for the test stats.
-func WithStatsCardID(cardID uuid.UUID) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.CardID = cardID
-	}
-}
+var WithStatsCardID = api.WithStatsCardID
 
 // WithStatsInterval sets the interval for the test stats.
-func WithStatsInterval(interval int) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.Interval = interval
-	}
-}
+var WithStatsInterval = api.WithStatsInterval
 
 // WithStatsEaseFactor sets the ease factor for the test stats.
-func WithStatsEaseFactor(easeFactor float64) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.EaseFactor = easeFactor
-	}
-}
+var WithStatsEaseFactor = api.WithStatsEaseFactor
 
 // WithStatsConsecutiveCorrect sets the consecutive correct count for the test stats.
-func WithStatsConsecutiveCorrect(count int) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.ConsecutiveCorrect = count
-	}
-}
+var WithStatsConsecutiveCorrect = api.WithStatsConsecutiveCorrect
 
 // WithStatsLastReviewedAt sets the last reviewed timestamp for the test stats.
-func WithStatsLastReviewedAt(timestamp time.Time) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.LastReviewedAt = timestamp
-	}
-}
+var WithStatsLastReviewedAt = api.WithStatsLastReviewedAt
 
 // WithStatsNextReviewAt sets the next review timestamp for the test stats.
-func WithStatsNextReviewAt(timestamp time.Time) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.NextReviewAt = timestamp
-	}
-}
+var WithStatsNextReviewAt = api.WithStatsNextReviewAt
 
 // WithStatsReviewCount sets the review count for the test stats.
-func WithStatsReviewCount(count int) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.ReviewCount = count
-	}
-}
+var WithStatsReviewCount = api.WithStatsReviewCount
 
 // WithStatsCreatedAt sets the creation timestamp for the test stats.
-func WithStatsCreatedAt(timestamp time.Time) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.CreatedAt = timestamp
-	}
-}
+var WithStatsCreatedAt = api.WithStatsCreatedAt
 
 // WithStatsUpdatedAt sets the update timestamp for the test stats.
-func WithStatsUpdatedAt(timestamp time.Time) StatsOption {
-	return func(s *domain.UserCardStats) {
-		s.UpdatedAt = timestamp
-	}
-}
+var WithStatsUpdatedAt = api.WithStatsUpdatedAt
 
 // CreateStatsForAPITest creates a UserCardStats instance for API testing with default values.
-// Options can be passed to customize the stats.
-func CreateStatsForAPITest(t *testing.T, opts ...StatsOption) *domain.UserCardStats {
-	now := time.Now().UTC()
-	userID := uuid.New()
-	cardID := uuid.New()
+var CreateStatsForAPITest = api.CreateStatsForAPITest
 
-	// Create stats with default values
-	stats := &domain.UserCardStats{
-		UserID:             userID,
-		CardID:             cardID,
-		Interval:           1,
-		EaseFactor:         2.5,
-		ConsecutiveCorrect: 1,
-		LastReviewedAt:     now,
-		NextReviewAt:       now.Add(24 * time.Hour),
-		ReviewCount:        1,
-		CreatedAt:          now.Add(-24 * time.Hour),
-		UpdatedAt:          now,
-	}
+// Forward declarations for functions that have been moved to the api package
+// These are kept for backward compatibility only and should not be used in new code.
 
-	// Apply options
-	for _, opt := range opts {
-		opt(stats)
-	}
+// SetupCardReviewTestServerWithNextCard is a compatibility function that delegates to api.SetupCardReviewTestServerWithNextCard
+var SetupCardReviewTestServerWithNextCard = api.SetupCardReviewTestServerWithNextCard
 
-	return stats
-}
+// SetupCardReviewTestServerWithError is a compatibility function that delegates to api.SetupCardReviewTestServerWithError
+var SetupCardReviewTestServerWithError = api.SetupCardReviewTestServerWithError
 
-// Stub implementations for httptest server creation functions
-// In real usage, you would implement these with proper mock behavior
-// but for this example we're just stubbing them to make the tests compile
+// SetupCardReviewTestServerWithAuthError is a compatibility function that delegates to api.SetupCardReviewTestServerWithAuthError
+var SetupCardReviewTestServerWithAuthError = api.SetupCardReviewTestServerWithAuthError
 
-func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card *domain.Card) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-}
+// SetupCardReviewTestServerWithUpdatedStats is a compatibility function that delegates to api.SetupCardReviewTestServerWithUpdatedStats
+var SetupCardReviewTestServerWithUpdatedStats = api.SetupCardReviewTestServerWithUpdatedStats
 
-func SetupCardReviewTestServerWithError(t *testing.T, userID uuid.UUID, err error) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-}
+// AssertErrorResponse is a compatibility function that delegates to api.AssertErrorResponse
+var AssertErrorResponse = api.AssertErrorResponse
 
-func SetupCardReviewTestServerWithAuthError(t *testing.T, userID uuid.UUID, err error) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-}
+// AssertValidationError is a compatibility function that delegates to api.AssertValidationError
+var AssertValidationError = api.AssertValidationError
 
-func SetupCardReviewTestServerWithUpdatedStats(
-	t *testing.T,
-	userID uuid.UUID,
-	stats *domain.UserCardStats,
-) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-}
-
-func AssertErrorResponse(t *testing.T, resp *http.Response, expectedStatus int, expectedError string) {
-	// Stub implementation
-}
-
-func AssertValidationError(t *testing.T, resp *http.Response, field string, msgPart string) {
-	// Stub implementation
-}
-
-// Helper function added for the refresh token tests
+// GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration time.
+// This function is unique here and not duplicated in the api package.
 func GenerateRefreshTokenWithExpiry(t *testing.T, userID uuid.UUID, expiry time.Time) (string, error) {
 	jwtService, err := CreateTestJWTService()
 	if err != nil {

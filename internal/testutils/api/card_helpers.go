@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -228,13 +229,13 @@ func CreateStatsForAPITest(t *testing.T, opts ...StatsOption) *domain.UserCardSt
 // Automatically registers cleanup for the response body.
 func ExecuteGetNextCardRequest(
 	t *testing.T,
-	server *http.Server,
+	server *httptest.Server,
 	userID uuid.UUID,
 ) (*http.Response, error) {
 	t.Helper()
 
 	// Create request
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/cards/next", server.Addr), nil)
+	req, err := http.NewRequest("GET", server.URL+"/api/cards/next", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +269,7 @@ func ExecuteGetNextCardRequest(
 // Automatically registers cleanup for the response body.
 func ExecuteSubmitAnswerRequest(
 	t *testing.T,
-	server *http.Server,
+	server *httptest.Server,
 	userID uuid.UUID,
 	cardID uuid.UUID,
 	outcome domain.ReviewOutcome,
@@ -285,7 +286,7 @@ func ExecuteSubmitAnswerRequest(
 	// Create request
 	req, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf("http://%s/api/cards/%s/answer", server.Addr, cardID.String()),
+		fmt.Sprintf("%s/api/cards/%s/answer", server.URL, cardID.String()),
 		bytes.NewBuffer(bodyBytes),
 	)
 	if err != nil {
@@ -322,7 +323,7 @@ func ExecuteSubmitAnswerRequest(
 // with a raw ID string (can be invalid for testing error cases).
 func ExecuteSubmitAnswerRequestWithRawID(
 	t *testing.T,
-	server *http.Server,
+	server *httptest.Server,
 	userID uuid.UUID,
 	rawCardID string,
 	outcome domain.ReviewOutcome,
@@ -339,7 +340,7 @@ func ExecuteSubmitAnswerRequestWithRawID(
 	// Create request with raw ID string (may be invalid)
 	req, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf("http://%s/api/cards/%s/answer", server.Addr, rawCardID),
+		fmt.Sprintf("%s/api/cards/%s/answer", server.URL, rawCardID),
 		bytes.NewBuffer(bodyBytes),
 	)
 	if err != nil {
@@ -513,7 +514,7 @@ func AssertValidationError(
 // ExecuteInvalidJSONRequest sends a request with an invalid JSON body to test error handling.
 func ExecuteInvalidJSONRequest(
 	t *testing.T,
-	server *http.Server,
+	server *httptest.Server,
 	userID uuid.UUID,
 	method, path string,
 ) (*http.Response, error) {
@@ -522,7 +523,7 @@ func ExecuteInvalidJSONRequest(
 	// Create request with invalid JSON body
 	req, err := http.NewRequest(
 		method,
-		fmt.Sprintf("http://%s%s", server.Addr, path),
+		fmt.Sprintf("%s%s", server.URL, path),
 		bytes.NewBuffer(
 			[]byte(`{"invalid_json": true,`),
 		), // Malformed JSON (missing closing bracket)
@@ -558,7 +559,7 @@ func ExecuteInvalidJSONRequest(
 // ExecuteEmptyBodyRequest sends a request with an empty body to test validation.
 func ExecuteEmptyBodyRequest(
 	t *testing.T,
-	server *http.Server,
+	server *httptest.Server,
 	userID uuid.UUID,
 	method, path string,
 ) (*http.Response, error) {
@@ -567,7 +568,7 @@ func ExecuteEmptyBodyRequest(
 	// Create request with empty body
 	req, err := http.NewRequest(
 		method,
-		fmt.Sprintf("http://%s%s", server.Addr, path),
+		fmt.Sprintf("%s%s", server.URL, path),
 		bytes.NewBuffer([]byte(`{}`)), // Empty JSON object
 	)
 	require.NoError(t, err, "Failed to create request with empty body")
@@ -601,7 +602,7 @@ func ExecuteEmptyBodyRequest(
 // ExecuteCustomBodyRequest sends a request with a custom JSON body for testing.
 func ExecuteCustomBodyRequest(
 	t *testing.T,
-	server *http.Server,
+	server *httptest.Server,
 	userID uuid.UUID,
 	method, path string,
 	body interface{},
@@ -615,7 +616,7 @@ func ExecuteCustomBodyRequest(
 	// Create request
 	req, err := http.NewRequest(
 		method,
-		fmt.Sprintf("http://%s%s", server.Addr, path),
+		fmt.Sprintf("%s%s", server.URL, path),
 		bytes.NewBuffer(bodyBytes),
 	)
 	require.NoError(t, err, "Failed to create request")

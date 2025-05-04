@@ -375,48 +375,44 @@ func CreateStatsForAPITest(t *testing.T, opts ...StatsOption) *domain.UserCardSt
 	return stats
 }
 
-// SetupCardReviewTestServerWithNextCard is a compatibility helper
+// SetupCardReviewTestServerWithNextCard is a compatibility helper that delegates to api.SetupCardReviewTestServerWithNextCard
 func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card *domain.Card) *httptest.Server {
-	// This is a stub implementation
-	// In real usage, this would be properly implemented
-	return nil
+	t.Helper()
+	return api.SetupCardReviewTestServerWithNextCard(t, userID, card)
 }
 
-// SetupCardReviewTestServerWithError is a compatibility helper
+// SetupCardReviewTestServerWithError is a compatibility helper that delegates to api.SetupCardReviewTestServerWithError
 func SetupCardReviewTestServerWithError(t *testing.T, userID uuid.UUID, err error) *httptest.Server {
-	// This is a stub implementation
-	// In real usage, this would be properly implemented
-	return nil
+	t.Helper()
+	return api.SetupCardReviewTestServerWithError(t, userID, err)
 }
 
-// SetupCardReviewTestServerWithAuthError is a compatibility helper
+// SetupCardReviewTestServerWithAuthError is a compatibility helper that delegates to api.SetupCardReviewTestServerWithAuthError
 func SetupCardReviewTestServerWithAuthError(t *testing.T, userID uuid.UUID, err error) *httptest.Server {
-	// This is a stub implementation
-	// In real usage, this would be properly implemented
-	return nil
+	t.Helper()
+	return api.SetupCardReviewTestServerWithAuthError(t, userID, err)
 }
 
-// SetupCardReviewTestServerWithUpdatedStats is a compatibility helper
+// SetupCardReviewTestServerWithUpdatedStats is a compatibility helper that delegates to api.SetupCardReviewTestServerWithUpdatedStats
 func SetupCardReviewTestServerWithUpdatedStats(
 	t *testing.T,
 	userID uuid.UUID,
 	stats *domain.UserCardStats,
 ) *httptest.Server {
-	// This is a stub implementation
-	// In real usage, this would be properly implemented
-	return nil
+	t.Helper()
+	return api.SetupCardReviewTestServerWithUpdatedStats(t, userID, stats)
 }
 
-// AssertErrorResponse is a compatibility helper
+// AssertErrorResponse is a compatibility helper that delegates to api.AssertErrorResponse
 func AssertErrorResponse(t *testing.T, resp *http.Response, expectedStatus int, expectedError string) {
-	// This is a stub implementation
-	// In real usage, this would be properly implemented
+	t.Helper()
+	api.AssertErrorResponse(t, resp, expectedStatus, expectedError)
 }
 
-// AssertValidationError is a compatibility helper
+// AssertValidationError is a compatibility helper that delegates to api.AssertValidationError
 func AssertValidationError(t *testing.T, resp *http.Response, field string, msgPart string) {
-	// This is a stub implementation
-	// In real usage, this would be properly implemented
+	t.Helper()
+	api.AssertValidationError(t, resp, field, msgPart)
 }
 
 // GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration time.

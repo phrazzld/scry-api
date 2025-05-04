@@ -348,6 +348,15 @@ func (s *hmacJWTService) GenerateRefreshTokenWithExpiry(
 	return signedToken, nil
 }
 
+// DefaultJWTConfig returns a standard configuration for JWT authentication suitable for testing.
+func DefaultJWTConfig() config.AuthConfig {
+	return config.AuthConfig{
+		JWTSecret:                   "test-jwt-secret-that-is-32-chars-long", // At least 32 chars
+		TokenLifetimeMinutes:        60,
+		RefreshTokenLifetimeMinutes: 1440,
+	}
+}
+
 // NewTestJWTService creates a JWT service with adjustable time and token lifetimes for testing.
 // If refreshLifetime is 0, it defaults to 7x the access token lifetime.
 func NewTestJWTService(

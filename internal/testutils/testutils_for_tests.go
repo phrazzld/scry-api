@@ -1,4 +1,4 @@
-//go:build !ignore_redeclarations
+//go:build test_internal_only
 
 // This file provides utility functions that are visible to test files
 // in the testutils_test package. These are minimal implementations intended

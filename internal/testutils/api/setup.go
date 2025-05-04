@@ -138,7 +138,27 @@ func SetupCardReviewTestServerWithError(t *testing.T, userID uuid.UUID, err erro
 	// Set up API routes
 	router.Route("/api", func(r chi.Router) {
 		r.Get("/cards/next", handler)
-		r.Post("/cards/{id}/answer", handler)
+
+		// Add a specific handler for invalid UUIDs to properly return a 400 Bad Request
+		r.Post("/cards/{id}/answer", func(w http.ResponseWriter, r *http.Request) {
+			// Extract the ID parameter
+			idParam := chi.URLParam(r, "id")
+
+			// Check if ID is a valid UUID
+			_, err := uuid.Parse(idParam)
+			if err != nil {
+				// Return 400 Bad Request for invalid UUID
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(shared.ErrorResponse{
+					Error: "Invalid ID",
+				})
+				return
+			}
+
+			// Process valid UUID with the standard handler
+			handler(w, r)
+		})
 	})
 
 	// Create server
@@ -242,7 +262,26 @@ func SetupCardReviewTestServerWithUpdatedStats(
 
 	// Set up API routes
 	router.Route("/api", func(r chi.Router) {
-		r.Post("/cards/{id}/answer", handler)
+		// Add a specific handler for invalid UUIDs to properly return a 400 Bad Request
+		r.Post("/cards/{id}/answer", func(w http.ResponseWriter, r *http.Request) {
+			// Extract the ID parameter
+			idParam := chi.URLParam(r, "id")
+
+			// Check if ID is a valid UUID
+			_, err := uuid.Parse(idParam)
+			if err != nil {
+				// Return 400 Bad Request for invalid UUID
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(shared.ErrorResponse{
+					Error: "Invalid ID",
+				})
+				return
+			}
+
+			// Process valid UUID with the standard handler
+			handler(w, r)
+		})
 	})
 
 	// Create server
@@ -264,6 +303,40 @@ func SetupCardManagementTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 	router.Use(chimiddleware.RequestID)
 	router.Use(chimiddleware.RealIP)
 	router.Use(chimiddleware.Recoverer)
+
+	// Set up handler for testing invalid UUIDs
+	router.Route("/api", func(r chi.Router) {
+		// Add specific handlers for paths with UUID parameters
+		r.Route("/cards/{id}", func(sr chi.Router) {
+			sr.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// Extract the ID parameter
+					idParam := chi.URLParam(r, "id")
+
+					// Check if ID is a valid UUID
+					_, err := uuid.Parse(idParam)
+					if err != nil {
+						// Return 400 Bad Request for invalid UUID
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusBadRequest)
+						json.NewEncoder(w).Encode(shared.ErrorResponse{
+							Error: "Invalid ID",
+						})
+						return
+					}
+
+					// Continue to the next handler for valid UUIDs
+					next.ServeHTTP(w, r)
+				})
+			})
+
+			// Add routes that will be matched after the UUID validation middleware
+			sr.Post("/answer", http.NotFoundHandler())
+			sr.Get("/", http.NotFoundHandler())
+			sr.Delete("/", http.NotFoundHandler())
+			sr.Put("/", http.NotFoundHandler())
+		})
+	})
 
 	// Create server
 	server := httptest.NewServer(router)

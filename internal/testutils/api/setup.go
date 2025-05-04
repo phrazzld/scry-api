@@ -331,10 +331,18 @@ func SetupCardManagementTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 			})
 
 			// Add routes that will be matched after the UUID validation middleware
-			sr.Post("/answer", http.NotFoundHandler())
-			sr.Get("/", http.NotFoundHandler())
-			sr.Delete("/", http.NotFoundHandler())
-			sr.Put("/", http.NotFoundHandler())
+			sr.Post("/answer", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.NotFound(w, r)
+			}))
+			sr.Get("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.NotFound(w, r)
+			}))
+			sr.Delete("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.NotFound(w, r)
+			}))
+			sr.Put("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.NotFound(w, r)
+			}))
 		})
 	})
 

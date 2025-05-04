@@ -1,4 +1,4 @@
-//go:build !compatibility && ignore_redeclarations
+//go:build integration
 
 // This file provides test utilities for authentication.
 // It should be used in preference to the compatibility.go file where possible.

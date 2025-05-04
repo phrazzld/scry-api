@@ -133,7 +133,7 @@ func SetupTestServer(t *testing.T, options TestServerOptions) *httptest.Server {
 				r.Use(authMiddleware.Authenticate)
 
 				// Get next card for review
-				r.Get("/cards/next", cardHandler.GetNextCard)
+				r.Get("/cards/next", cardHandler.GetNextReviewCard)
 
 				// Card CRUD operations
 				r.Route("/cards/{id}", func(sr chi.Router) {
@@ -141,7 +141,7 @@ func SetupTestServer(t *testing.T, options TestServerOptions) *httptest.Server {
 					sr.Use(UUIDValidationMiddleware("id"))
 
 					// Card routes
-					sr.Get("/", cardHandler.GetCard)
+					// sr.Get("/", cardHandler.GetCard) // GetCard method does not exist yet
 					sr.Put("/", cardHandler.EditCard)
 					sr.Delete("/", cardHandler.DeleteCard)
 					sr.Post("/answer", cardHandler.SubmitAnswer)
@@ -173,15 +173,16 @@ func SetupCardManagementTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 					r.Use(authMiddleware.Authenticate)
 
 					// Card management endpoints
-					r.Get("/cards/next", cardHandler.GetNextCard)
-					r.Post("/cards", cardHandler.CreateCard)
+					r.Get("/cards/next", cardHandler.GetNextReviewCard)
+					// CreateCard method does not exist yet, comment out for now
+					// r.Post("/cards", cardHandler.CreateCard)
 
 					r.Route("/cards/{id}", func(sr chi.Router) {
 						// UUID validation middleware
 						sr.Use(UUIDValidationMiddleware("id"))
 
 						// Card routes
-						sr.Get("/", cardHandler.GetCard)
+						// sr.Get("/", cardHandler.GetCard) // GetCard method does not exist yet
 						sr.Put("/", cardHandler.EditCard)
 						sr.Delete("/", cardHandler.DeleteCard)
 						sr.Post("/answer", cardHandler.SubmitAnswer)
@@ -206,7 +207,7 @@ func SetupCardReviewTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 					r.Use(authMiddleware.Authenticate)
 
 					// Card review endpoints
-					r.Get("/cards/next", cardHandler.GetNextCard)
+					r.Get("/cards/next", cardHandler.GetNextReviewCard)
 
 					r.Route("/cards/{id}", func(sr chi.Router) {
 						// UUID validation middleware
@@ -238,12 +239,15 @@ func SetupAuthTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 	// Create password verifier
 	passwordVerifier := auth.NewBcryptVerifier()
 
+	// Create config
+	jwtConfig := auth.DefaultJWTConfig()
+
 	// Create auth handler
 	authHandler := api.NewAuthHandler(
 		userStore,
 		jwtService,
 		passwordVerifier,
-		&auth.DefaultJWTConfig,
+		&jwtConfig,
 		logger,
 	)
 

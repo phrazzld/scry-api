@@ -370,8 +370,19 @@ func SetupCardReviewTestServerWithUpdatedStats(
 	return server
 }
 
-// SetupCardManagementTestServer creates a test server for card management API tests.
-func SetupCardManagementTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
+// SetupCardManagementTestServerBridge delegates to the implementation in server_setup.go
+// This is a bridge function to maintain backward compatibility.
+func SetupCardManagementTestServerBridge(t *testing.T, tx *sql.Tx) *httptest.Server {
+	// Just delegate to the function in server_setup.go
+	return SetupTestServer(t, TestServerOptions{
+		Tx: tx,
+	})
+}
+
+// SetupCardManagementTestServerLegacy creates a test server for card management API tests.
+// This is the older implementation and is kept for backward compatibility.
+// New code should use the implementation in server_setup.go instead.
+func SetupCardManagementTestServerLegacy(t *testing.T, tx *sql.Tx) *httptest.Server {
 	t.Helper()
 
 	// This is a temporary implementation to be replaced with a more complete one

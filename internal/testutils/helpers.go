@@ -1,4 +1,4 @@
-//go:build !compatibility && ignore_redeclarations
+//go:build integration
 
 // Package testutils provides a set of standardized helper functions for testing
 // across the codebase. These helpers ensure consistent test patterns, particularly

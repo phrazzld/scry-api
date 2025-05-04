@@ -1,7 +1,7 @@
 # Todo
 
 ## CI Fixes (cr-06)
-- [ ] **T020 · Fix · P0: resolve test failures in CI**
+- [x] **T020 · Fix · P0: resolve test failures in CI**
     - **Context:** CI is failing on the latest PR #26 due to test failures
     - **Action:**
         1. Investigate the root cause of test failures in the CI pipeline
@@ -68,7 +68,7 @@
         2. All tests pass with the updated helpers
     - **Depends‑on:** T023, T024, T026
 
-- [ ] **T028 · Chore · P1: final validation and task completion**
+- [x] **T028 · Chore · P1: final validation and task completion**
     - **Context:** Verify that all refactoring tasks resolve the CI failures
     - **Action:**
         1. Run the entire test suite to verify all tests pass

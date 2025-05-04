@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/phrazzld/scry-api/internal/api"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
@@ -372,109 +371,9 @@ func ExecuteSubmitAnswerRequestWithRawID(
 	return resp, err
 }
 
-// AssertCardResponse checks that a response contains a valid card with the expected values.
-func AssertCardResponse(t *testing.T, resp *http.Response, expectedCard *domain.Card) {
-	t.Helper()
-
-	// Check status code
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// Read body
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	// Parse response
-	var cardResp api.CardResponse
-	err = json.Unmarshal(body, &cardResp)
-	require.NoError(t, err)
-
-	// Verify fields
-	assert.Equal(t, expectedCard.ID.String(), cardResp.ID)
-	assert.Equal(t, expectedCard.UserID.String(), cardResp.UserID)
-	assert.Equal(t, expectedCard.MemoID.String(), cardResp.MemoID)
-
-	// Check content if expected card has valid JSON content
-	var expectedContent map[string]interface{}
-	if err := json.Unmarshal(expectedCard.Content, &expectedContent); err == nil {
-		content, ok := cardResp.Content.(map[string]interface{})
-		assert.True(t, ok, "Content should be a map")
-
-		// Check content fields
-		for key, expectedValue := range expectedContent {
-			assert.Equal(t, expectedValue, content[key])
-		}
-	}
-}
-
-// AssertStatsResponse checks that a response contains valid stats with the expected values.
-func AssertStatsResponse(t *testing.T, resp *http.Response, expectedStats *domain.UserCardStats) {
-	t.Helper()
-
-	// Check status code
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// Read body
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	// Parse response
-	var statsResp api.UserCardStatsResponse
-	err = json.Unmarshal(body, &statsResp)
-	require.NoError(t, err)
-
-	// Verify fields
-	assert.Equal(t, expectedStats.UserID.String(), statsResp.UserID)
-	assert.Equal(t, expectedStats.CardID.String(), statsResp.CardID)
-	assert.Equal(t, expectedStats.Interval, statsResp.Interval)
-	assert.Equal(t, expectedStats.EaseFactor, statsResp.EaseFactor)
-	assert.Equal(t, expectedStats.ConsecutiveCorrect, statsResp.ConsecutiveCorrect)
-	assert.Equal(t, expectedStats.ReviewCount, statsResp.ReviewCount)
-	assert.True(t, expectedStats.LastReviewedAt.Equal(statsResp.LastReviewedAt))
-	assert.True(t, expectedStats.NextReviewAt.Equal(statsResp.NextReviewAt))
-}
-
-// AssertErrorResponse checks that a response contains an error with the expected status code and message.
-func AssertErrorResponse(
-	t *testing.T,
-	resp *http.Response,
-	expectedStatus int,
-	expectedErrorMsgPart string,
-) {
-	t.Helper()
-
-	// Check status code
-	assert.Equal(
-		t,
-		expectedStatus,
-		resp.StatusCode,
-		"Expected status code %d but got %d",
-		expectedStatus,
-		resp.StatusCode,
-	)
-
-	// For 204 No Content, body should be empty
-	if expectedStatus == http.StatusNoContent {
-		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err, "Failed to read response body")
-		assert.Empty(t, body, "Expected empty body for 204 No Content")
-		return
-	}
-
-	// Read body for other status codes
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err, "Failed to read response body")
-
-	// Parse error response
-	var errResp shared.ErrorResponse
-	err = json.Unmarshal(body, &errResp)
-	require.NoError(t, err, "Failed to unmarshal error response: %s", string(body))
-
-	// Verify error message
-	if expectedErrorMsgPart != "" {
-		assert.Contains(t, errResp.Error, expectedErrorMsgPart,
-			"Error message should contain '%s' but got '%s'", expectedErrorMsgPart, errResp.Error)
-	}
-}
+// Note: AssertCardResponse, AssertStatsResponse, and AssertErrorResponse functions
+// have been moved to request_helpers.go to avoid duplication.
+// Please import them from there.
 
 // AssertValidationError checks that a response contains a validation error with the expected information.
 func AssertValidationError(

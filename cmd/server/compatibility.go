@@ -1,4 +1,4 @@
-//go:build disabled_compatibility
+//go:build integration
 
 // DEPRECATED: This file is no longer used and is scheduled for removal.
 // Please use the standardized helpers from internal/testutils/api/* instead.

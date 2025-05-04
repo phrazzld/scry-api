@@ -1,6 +1,17 @@
 # Todo
 
 ## CI Fixes (cr-06)
+- [ ] **T029 · Fix · P1: resolve build tag compatibility issues in testutils package**
+    - **Context:** CI is using test_without_external_deps build tag, but some internal tests require different tags
+    - **Action:**
+        1. Standardize build tags across test helper files
+        2. Update pre-commit hooks to use consistent build tags
+        3. Ensure test files are compatible with both local development and CI environments
+    - **Done‑when:**
+        1. All tests pass in both local environment and CI pipeline
+        2. Pre-commit hooks run successfully with the same build tags as CI
+    - **Depends‑on:** none
+
 - [x] **T020 · Fix · P0: resolve test failures in CI**
     - **Context:** CI is failing on the latest PR #26 due to test failures
     - **Action:**

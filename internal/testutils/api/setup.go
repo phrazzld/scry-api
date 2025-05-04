@@ -98,6 +98,53 @@ func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card 
 
 			// Add routes that will be matched after the UUID validation middleware
 			sr.Post("/answer", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// For validation tests, return 400 Bad Request with appropriate error
+				var outcome struct {
+					Outcome string `json:"outcome"`
+				}
+
+				// Try to decode the request body
+				err := json.NewDecoder(r.Body).Decode(&outcome)
+				if err != nil {
+					// Invalid JSON format
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Validation error: invalid JSON format",
+					})
+					return
+				}
+
+				// Check if outcome is empty (required field validation)
+				if outcome.Outcome == "" {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Outcome: required field",
+					})
+					return
+				}
+
+				// Check if outcome is valid (enum validation)
+				validOutcomes := []string{"again", "hard", "good", "easy"}
+				isValid := false
+				for _, valid := range validOutcomes {
+					if outcome.Outcome == valid {
+						isValid = true
+						break
+					}
+				}
+
+				if !isValid {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Outcome: invalid value",
+					})
+					return
+				}
+
+				// For valid cases, just return 404 Not Found (since this is just a test stub)
 				http.NotFound(w, r)
 			}))
 		})
@@ -362,6 +409,53 @@ func SetupCardManagementTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 
 			// Add routes that will be matched after the UUID validation middleware
 			sr.Post("/answer", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// For validation tests, return 400 Bad Request with appropriate error
+				var outcome struct {
+					Outcome string `json:"outcome"`
+				}
+
+				// Try to decode the request body
+				err := json.NewDecoder(r.Body).Decode(&outcome)
+				if err != nil {
+					// Invalid JSON format
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Validation error: invalid JSON format",
+					})
+					return
+				}
+
+				// Check if outcome is empty (required field validation)
+				if outcome.Outcome == "" {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Outcome: required field",
+					})
+					return
+				}
+
+				// Check if outcome is valid (enum validation)
+				validOutcomes := []string{"again", "hard", "good", "easy"}
+				isValid := false
+				for _, valid := range validOutcomes {
+					if outcome.Outcome == valid {
+						isValid = true
+						break
+					}
+				}
+
+				if !isValid {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Outcome: invalid value",
+					})
+					return
+				}
+
+				// For valid cases, just return 404 Not Found (since this is just a test stub)
 				http.NotFound(w, r)
 			}))
 			sr.Get("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

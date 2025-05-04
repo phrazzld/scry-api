@@ -1,4 +1,4 @@
-//go:build integration_skip
+//go:build integration
 
 package main
 
@@ -9,15 +9,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/phrazzld/scry-api/internal/api"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,14 +64,11 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 		stats.NextReviewAt = pastTime // Make card due for review
 		require.NoError(t, statsStore.Create(ctx, stats), "Failed to save test stats")
 
-		// Set up API server using our helper
-		router := SetupAPITestServer(t, tx, APIServerOptions{
+		// Set up API server using our standardized helper
+		server := api.SetupTestServer(t, api.TestServerOptions{
+			Tx:     tx,
 			Logger: logger,
 		})
-
-		// Create server
-		server := httptest.NewServer(router)
-		defer server.Close()
 
 		// Test cases
 		tests := []struct {
@@ -86,27 +82,7 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 				authToken:      auth.AuthToken,
 				expectedStatus: http.StatusOK,
 				verifyResponse: func(t *testing.T, resp *http.Response) {
-					// Verify response contains the expected card
-					assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-					// Read and parse response body
-					body, err := io.ReadAll(resp.Body)
-					require.NoError(t, err, "Failed to read response body")
-
-					var cardResp api.CardResponse
-					err = json.Unmarshal(body, &cardResp)
-					require.NoError(t, err, "Failed to unmarshal response")
-
-					// Verify fields
-					assert.Equal(t, card.ID.String(), cardResp.ID, "Card ID should match")
-					assert.Equal(t, card.UserID.String(), cardResp.UserID, "User ID should match")
-					assert.Equal(t, card.MemoID.String(), cardResp.MemoID, "Memo ID should match")
-
-					// Verify content
-					content, ok := cardResp.Content.(map[string]interface{})
-					assert.True(t, ok, "Content should be a map")
-					assert.Equal(t, "What is the capital of France?", content["front"], "Front content should match")
-					assert.Equal(t, "Paris", content["back"], "Back content should match")
+					api.AssertCardResponse(t, resp, card)
 				},
 			},
 			{
@@ -114,7 +90,7 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 				authToken:      "",
 				expectedStatus: http.StatusUnauthorized,
 				verifyResponse: func(t *testing.T, resp *http.Response) {
-					assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+					api.AssertErrorResponse(t, resp, http.StatusUnauthorized, "")
 				},
 			},
 			{
@@ -122,19 +98,19 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 				authToken:      "Bearer invalid-token",
 				expectedStatus: http.StatusUnauthorized,
 				verifyResponse: func(t *testing.T, resp *http.Response) {
-					assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+					api.AssertErrorResponse(t, resp, http.StatusUnauthorized, "")
 				},
 			},
 		}
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				// Make authenticated request using the helper
-				resp, err := testutils.MakeAuthenticatedRequest(
+				// Make authenticated request using the standardized helper
+				resp, err := api.ExecuteAuthenticatedRequest(
 					t,
 					server,
 					"GET",
-					"/api/cards/next",
+					api.GetNextCardPath(),
 					nil,
 					tc.authToken,
 				)
@@ -152,18 +128,18 @@ func TestGetNextReviewCardIntegration(t *testing.T) {
 			secondUser := testutils.CreateTestUserWithAuth(t, tx, "", "")
 
 			// Make authenticated request using the new user
-			resp, err := testutils.MakeAuthenticatedRequest(
+			resp, err := api.ExecuteAuthenticatedRequest(
 				t,
 				server,
 				"GET",
-				"/api/cards/next",
+				api.GetNextCardPath(),
 				nil,
 				secondUser.AuthToken,
 			)
 			require.NoError(t, err, "Failed to execute request")
 
 			// Verify response
-			assert.Equal(t, http.StatusNoContent, resp.StatusCode, "Should return 204 No Content when no cards are due")
+			api.AssertResponse(t, resp, http.StatusNoContent)
 		})
 	})
 }

@@ -8,46 +8,17 @@ package testutils
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
-
-// CreateTestJWTService creates a real JWT service for testing with a pre-configured secret and expiration.
-func CreateTestJWTService() (auth.JWTService, error) {
-	// Create minimal auth config with values valid for testing
-	authConfig := config.AuthConfig{
-		JWTSecret:                   "test-jwt-secret-that-is-32-chars-long", // At least 32 chars
-		TokenLifetimeMinutes:        60,
-		RefreshTokenLifetimeMinutes: 1440,
-	}
-
-	return auth.NewJWTService(authConfig)
-}
-
-// GenerateAuthHeader creates an Authorization header value with a valid JWT token for testing.
-func GenerateAuthHeader(userID uuid.UUID) (string, error) {
-	jwtService, err := CreateTestJWTService()
-	if err != nil {
-		return "", fmt.Errorf("failed to create test JWT service: %w", err)
-	}
-
-	token, err := jwtService.GenerateToken(context.Background(), userID)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	return "Bearer " + token, nil
-}
 
 // TestUserAuth contains authentication information for a test user.
 type TestUserAuth struct {
@@ -78,8 +49,7 @@ func CreateTestUserWithTx(t *testing.T, tx *sql.Tx) *TestUserAuth {
 	require.NoError(t, err, "Failed to create test user")
 
 	// Generate an auth token for the user
-	authToken, err := GenerateAuthHeaderForUser(t, user.ID)
-	require.NoError(t, err, "Failed to generate auth token")
+	authToken := auth.GenerateAuthHeaderForTestingT(t, user.ID)
 
 	return &TestUserAuth{
 		UserID:    user.ID,
@@ -90,27 +60,9 @@ func CreateTestUserWithTx(t *testing.T, tx *sql.Tx) *TestUserAuth {
 }
 
 // GenerateAuthHeaderForUser creates an Authorization header with a valid JWT token for a user.
-func GenerateAuthHeaderForUser(t *testing.T, userID uuid.UUID) (string, error) {
+func GenerateAuthHeaderForUser(t *testing.T, userID uuid.UUID) string {
 	t.Helper()
-	return GenerateAuthHeader(userID)
-}
-
-// GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration time.
-// This is useful for testing token expiration scenarios.
-func GenerateRefreshTokenWithExpiry(t *testing.T, userID uuid.UUID, expiry time.Time) (string, error) {
-	t.Helper()
-
-	jwtService, err := CreateTestJWTService()
-	if err != nil {
-		return "", fmt.Errorf("failed to create test JWT service: %w", err)
-	}
-
-	token, err := jwtService.GenerateRefreshTokenWithExpiry(context.Background(), userID, expiry)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate refresh token with custom expiry: %w", err)
-	}
-
-	return token, nil
+	return auth.GenerateAuthHeaderForTestingT(t, userID)
 }
 
 // WithAuthenticatedUser runs a test function with a transaction and an authenticated test user.
@@ -173,8 +125,7 @@ func CreateTestUserWithAuth(
 	require.NoError(t, err, "Failed to create test user")
 
 	// Generate an auth token for the user
-	authToken, err := GenerateAuthHeaderForUser(t, user.ID)
-	require.NoError(t, err, "Failed to generate auth token")
+	authToken := auth.GenerateAuthHeaderForTestingT(t, user.ID)
 
 	return &TestUserAuth{
 		UserID:    user.ID,

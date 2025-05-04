@@ -1,102 +1,26 @@
+//go:build ignore
+
+// This file is maintained for backward compatibility only.
+// Please use internal/service/auth/jwt_service_mock.go instead.
+
 package mocks
 
 import (
-	"context"
-	"time"
-
-	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 )
 
-// MockJWTService implements auth.JWTService for testing
+// MockJWTService is a deprecated mock implementation.
+// Please use auth.NewMockJWTService() from internal/service/auth/jwt_service_mock.go instead.
 type MockJWTService struct {
-	// GenerateTokenFn allows test cases to mock the GenerateToken behavior
-	GenerateTokenFn func(ctx context.Context, userID uuid.UUID) (string, error)
-
-	// ValidateTokenFn allows test cases to mock the ValidateToken behavior
-	ValidateTokenFn func(ctx context.Context, tokenString string) (*auth.Claims, error)
-
-	// GenerateRefreshTokenFn allows test cases to mock the GenerateRefreshToken behavior
-	GenerateRefreshTokenFn func(ctx context.Context, userID uuid.UUID) (string, error)
-
-	// ValidateRefreshTokenFn allows test cases to mock the ValidateRefreshToken behavior
-	ValidateRefreshTokenFn func(ctx context.Context, tokenString string) (*auth.Claims, error)
-
-	// GenerateRefreshTokenWithExpiryFn allows test cases to mock the GenerateRefreshTokenWithExpiry behavior
-	GenerateRefreshTokenWithExpiryFn func(ctx context.Context, userID uuid.UUID, expiryTime time.Time) (string, error)
-
-	// Default values used when functions aren't explicitly defined
-	Token        string
-	RefreshToken string
-	Err          error
-	ValidateErr  error
-	Claims       *auth.Claims
+	// Embed the new mock to forward all calls
+	*auth.MockJWTService
 }
 
-// GenerateToken implements the auth.JWTService interface
-func (m *MockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
-	// If a custom function is provided, use it
-	if m.GenerateTokenFn != nil {
-		return m.GenerateTokenFn(ctx, userID)
+// NewMockJWTService creates a new mock JWT service from the canonical mock implementation.
+// This function is deprecated and is provided for backward compatibility only.
+// Please use auth.NewMockJWTService() from internal/service/auth/jwt_service_mock.go instead.
+func NewMockJWTService() *MockJWTService {
+	return &MockJWTService{
+		MockJWTService: auth.NewMockJWTService(),
 	}
-
-	// Otherwise use the default values
-	return m.Token, m.Err
-}
-
-// ValidateToken implements the auth.JWTService interface
-func (m *MockJWTService) ValidateToken(
-	ctx context.Context,
-	tokenString string,
-) (*auth.Claims, error) {
-	// If a custom function is provided, use it
-	if m.ValidateTokenFn != nil {
-		return m.ValidateTokenFn(ctx, tokenString)
-	}
-
-	// Otherwise use the default values
-	return m.Claims, m.ValidateErr
-}
-
-// GenerateRefreshToken implements the auth.JWTService interface
-func (m *MockJWTService) GenerateRefreshToken(
-	ctx context.Context,
-	userID uuid.UUID,
-) (string, error) {
-	// If a custom function is provided, use it
-	if m.GenerateRefreshTokenFn != nil {
-		return m.GenerateRefreshTokenFn(ctx, userID)
-	}
-
-	// Otherwise use the default values
-	return m.RefreshToken, m.Err
-}
-
-// ValidateRefreshToken implements the auth.JWTService interface
-func (m *MockJWTService) ValidateRefreshToken(
-	ctx context.Context,
-	tokenString string,
-) (*auth.Claims, error) {
-	// If a custom function is provided, use it
-	if m.ValidateRefreshTokenFn != nil {
-		return m.ValidateRefreshTokenFn(ctx, tokenString)
-	}
-
-	// Otherwise use the default values
-	return m.Claims, m.ValidateErr
-}
-
-// GenerateRefreshTokenWithExpiry implements the auth.JWTService interface
-func (m *MockJWTService) GenerateRefreshTokenWithExpiry(
-	ctx context.Context,
-	userID uuid.UUID,
-	expiryTime time.Time,
-) (string, error) {
-	// If a custom function is provided, use it
-	if m.GenerateRefreshTokenWithExpiryFn != nil {
-		return m.GenerateRefreshTokenWithExpiryFn(ctx, userID, expiryTime)
-	}
-
-	// Otherwise use the default values
-	return m.RefreshToken, m.Err
 }

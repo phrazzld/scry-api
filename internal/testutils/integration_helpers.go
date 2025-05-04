@@ -1,7 +1,10 @@
-//go:build integration
+//go:build disabled_compatibility
 
-// This file provides helpers specifically for integration tests
-// It should be built only when the integration tag is enabled
+// DEPRECATED: This file is no longer used and is scheduled for removal.
+// Please use the standardized helpers from internal/testutils/api/* instead.
+//
+// This file was previously used to provide compatibility for integration tests,
+// but it has been replaced by direct usage of the standardized helpers.
 
 package testutils
 

@@ -11,7 +11,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/phrazzld/scry-api/internal/testutils/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,24 +20,24 @@ import (
 // TestEditCardEndpoint tests the PUT /cards/{id} endpoint
 func TestEditCardEndpoint(t *testing.T) {
 	// Initialize test database connection
-	db := testutils.GetTestDBWithT(t)
+	db := testdb.GetTestDBWithT(t)
 
 	// Run tests in transaction for isolation and automatic cleanup
-	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// tx is already *sql.Tx for WithTx, no type assertion needed
 
 		// Create a test user
-		userID := createTestUser(t, tx)
+		userID := api.CreateTestUser(t, tx)
 
 		// Create a test user that doesn't own the card (for forbidden test)
-		otherUserID := createTestUser(t, tx)
+		otherUserID := api.CreateTestUser(t, tx)
 
 		// Create a test card owned by userID
-		card := createTestCard(t, tx, userID)
+		card := api.CreateTestCard(t, tx, userID)
 
 		// Get token for authentication
-		authToken := getAuthToken(t, userID)
-		otherAuthToken := getAuthToken(t, otherUserID)
+		authToken := api.GetAuthToken(t, userID)
+		otherAuthToken := api.GetAuthToken(t, otherUserID)
 
 		// Test cases
 		tests := []struct {
@@ -63,7 +64,7 @@ func TestEditCardEndpoint(t *testing.T) {
 				verify: func(t *testing.T, tx *sql.Tx, cardID uuid.UUID) {
 					// Verify the card content and updated_at timestamp were updated
 
-					updatedCard, err := getCardByID(tx, cardID)
+					updatedCard, err := api.GetCardByID(tx, cardID)
 					require.NoError(t, err)
 
 					// Decode content to verify it was updated
@@ -143,7 +144,7 @@ func TestEditCardEndpoint(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				// tx is already *sql.Tx for WithTx, no type assertion needed
 
-				server := setupCardManagementTestServer(t, tx)
+				server := api.SetupCardManagementTestServer(t, tx)
 				defer server.Close()
 
 				// Create request body

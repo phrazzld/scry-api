@@ -4,7 +4,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -649,18 +648,5 @@ func ExecuteCustomBodyRequest(
 
 // GenerateAuthHeader creates an Authorization header value with a valid JWT token for testing.
 func GenerateAuthHeader(userID uuid.UUID) (string, error) {
-	// Use auth package's default config
-	jwtConfig := auth.DefaultJWTConfig()
-	jwtService, err := auth.NewJWTService(jwtConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to create JWT service: %w", err)
-	}
-
-	// Generate token for the user
-	token, err := jwtService.GenerateToken(context.Background(), userID)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	return "Bearer " + token, nil
+	return auth.GenerateAuthHeaderForTesting(userID)
 }

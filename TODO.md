@@ -35,7 +35,7 @@
         2. All tests consistently use the same pattern
     - **Depends‑on:** none
 
-- [ ] **T025 · Refactor · P1: audit and deduplicate JWT service and auth helpers**
+- [x] **T025 · Refactor · P1: audit and deduplicate JWT service and auth helpers**
     - **Context:** Multiple JWT service and auth helpers create confusion and inconsistency
     - **Action:**
         1. Identify all JWT service and auth helper implementations
@@ -46,7 +46,7 @@
         2. All tests using these helpers pass locally
     - **Depends‑on:** none
 
-- [ ] **T026 · Refactor · P1: standardize test server setup and request helpers**
+- [x] **T026 · Refactor · P1: standardize test server setup and request helpers**
     - **Context:** Test server setup and request helpers lack standardization
     - **Action:**
         1. Create consistent interfaces for test server setup
@@ -57,7 +57,7 @@
         2. Request helpers follow a standardized pattern
     - **Depends‑on:** T023, T025
 
-- [ ] **T027 · Refactor · P1: remove all references to compatibility.go and integration_helpers.go stubs**
+- [x] **T027 · Refactor · P1: remove all references to compatibility.go and integration_helpers.go stubs**
     - **Context:** References to compatibility layer stubs need to be removed
     - **Action:**
         1. Search for and replace all references to compatibility layer stubs

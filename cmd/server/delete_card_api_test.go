@@ -11,7 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/store"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/phrazzld/scry-api/internal/testutils/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,24 +20,24 @@ import (
 // TestDeleteCardEndpoint tests the DELETE /cards/{id} endpoint
 func TestDeleteCardEndpoint(t *testing.T) {
 	// Initialize test database connection
-	db := testutils.GetTestDBWithT(t)
+	db := testdb.GetTestDBWithT(t)
 
 	// Run tests in transaction for isolation and automatic cleanup
-	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// tx is already *sql.Tx, no conversion needed
 
 		// Create a test user
-		userID := createTestUser(t, tx)
+		userID := api.CreateTestUser(t, tx)
 
 		// Create a test user that doesn't own the card (for forbidden test)
-		otherUserID := createTestUser(t, tx)
+		otherUserID := api.CreateTestUser(t, tx)
 
 		// Create a test card owned by userID
-		card := createTestCard(t, tx, userID)
+		card := api.CreateTestCard(t, tx, userID)
 
 		// Get token for authentication
-		authToken := getAuthToken(t, userID)
-		otherAuthToken := getAuthToken(t, otherUserID)
+		authToken := api.GetAuthToken(t, userID)
+		otherAuthToken := api.GetAuthToken(t, otherUserID)
 
 		// Test cases
 		tests := []struct {
@@ -57,11 +58,11 @@ func TestDeleteCardEndpoint(t *testing.T) {
 					// Verify the card was deleted
 
 					// Card should not exist
-					_, err := getCardByID(tx, cardID)
+					_, err := api.GetCardByID(tx, cardID)
 					assert.Equal(t, store.ErrCardNotFound, err, "Expected card to be deleted")
 
 					// User card stats should also be deleted (cascade delete)
-					stats := getUserCardStats(t, tx, userID, cardID)
+					stats := api.GetUserCardStats(t, tx, userID, cardID)
 					assert.Nil(t, stats, "Expected user card stats to be cascade deleted")
 				},
 			},
@@ -99,7 +100,7 @@ func TestDeleteCardEndpoint(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				// tx is already *sql.Tx for WithTx, no type assertion needed
 
-				server := setupCardManagementTestServer(t, tx)
+				server := api.SetupCardManagementTestServer(t, tx)
 				defer server.Close()
 
 				// Create HTTP request

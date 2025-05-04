@@ -1,8 +1,10 @@
-//go:build compatibility
+//go:build disabled_compatibility
 
-// This file provides a compatibility layer to ease migration to the new
-// package structure. It should only be used during the migration period
-// and will be removed once all tests are updated to use the new structure.
+// DEPRECATED: This file is no longer used and is scheduled for removal.
+// Please use the standardized helpers from internal/testutils/api/* instead.
+//
+// This file was previously used as a compatibility layer to ease migration,
+// but it has been replaced by direct usage of the standardized helpers.
 
 package testutils
 

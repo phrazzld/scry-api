@@ -7,6 +7,7 @@
 bin/
 # Ignore the server binary, not the directory
 /server
+cmd/server/server
 
 # Test binary, built with `go test -c`
 *.test

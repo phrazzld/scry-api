@@ -12,6 +12,30 @@
         2. Pre-commit hooks run successfully with the same build tags as CI
     - **Depends‑on:** none
 
+- [ ] **T030 · Fix · P1: resolve linting errors in integration tests and API helpers**
+    - **Context:** CI linting job fails due to error handling issues and unused functions
+    - **Action:**
+        1. Fix error handling for `resp.Body.Close()` in card_api_integration_test.go
+        2. Add proper error handling for `json.Encoder.Encode()` in API helper files
+        3. Remove or mark unused functions in compatibility.go
+    - **Done‑when:**
+        1. All linting errors are resolved
+        2. CI linting job passes successfully
+    - **Depends‑on:** none
+
+- [ ] **T031 · Fix · P1: implement proper SQL redaction in error logs**
+    - **Context:** SQL queries are not properly redacted in error logs, causing test failures
+    - **Action:**
+        1. Analyze current SQL redaction implementation
+        2. Update the error redaction logic to properly handle SQL queries
+        3. Restore and update the `TestErrorLeakage` test to verify redaction
+        4. Ensure all database layers properly redact SQL in error messages
+    - **Done‑when:**
+        1. All SQL queries in error logs are properly redacted with [REDACTED_SQL]
+        2. TestErrorLeakage test passes and verifies proper redaction
+        3. CI test job passes successfully
+    - **Depends‑on:** none
+
 - [x] **T020 · Fix · P0: resolve test failures in CI**
     - **Context:** CI is failing on the latest PR #26 due to test failures
     - **Action:**

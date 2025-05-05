@@ -1,5 +1,18 @@
 # Todo
 
+## Code Quality (cr-07)
+- [ ] **T032 · Refactor · P2: refactor card_api_integration_test.go to reduce file size**
+    - **Context:** The file exceeds the 500-line limit (currently 519 lines)
+    - **Action:**
+        1. Split the file into logical test suites
+        2. Extract common test utilities to shared helper functions
+        3. Apply consistent test patterns across all API tests
+    - **Done‑when:**
+        1. No individual test file exceeds 500 lines
+        2. All tests continue to pass
+        3. Code coverage is maintained
+    - **Depends‑on:** none
+
 ## CI Fixes (cr-06)
 - [x] **T029 · Fix · P1: resolve build tag compatibility issues in testutils package**
     - **Context:** CI is using test_without_external_deps build tag, but some internal tests require different tags

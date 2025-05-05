@@ -1,4 +1,4 @@
-//go:build !compatibility && ignore_redeclarations
+//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps
 
 // Package testutils provides testing utilities with a focus on database testing
 // with transaction isolation. This package enables writing isolated, parallel

@@ -1,7 +1,7 @@
 # Todo
 
 ## CI Fixes (cr-06)
-- [ ] **T029 · Fix · P1: resolve build tag compatibility issues in testutils package**
+- [x] **T029 · Fix · P1: resolve build tag compatibility issues in testutils package**
     - **Context:** CI is using test_without_external_deps build tag, but some internal tests require different tags
     - **Action:**
         1. Standardize build tags across test helper files

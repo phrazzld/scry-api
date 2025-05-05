@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || test_without_external_deps
 
 // This file provides test utilities for authentication.
 // It should be used in preference to the compatibility.go file where possible.

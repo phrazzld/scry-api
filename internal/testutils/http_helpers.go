@@ -1,4 +1,4 @@
-//go:build !compatibility && ignore_redeclarations
+//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps
 
 package testutils
 
@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
+	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -279,4 +280,9 @@ func ExecuteCustomBodyRequest(
 	}
 
 	return resp, err
+}
+
+// GenerateAuthHeader creates an Authorization header value with a valid JWT token for testing.
+func GenerateAuthHeader(userID uuid.UUID) (string, error) {
+	return auth.GenerateAuthHeaderForTesting(userID)
 }

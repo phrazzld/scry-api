@@ -1,4 +1,4 @@
-//go:build test_without_external_deps || test_internal_only
+//go:build test_internal_only
 
 // This file provides utility functions that are visible to test files
 // in the testutils_test package. These are minimal implementations intended

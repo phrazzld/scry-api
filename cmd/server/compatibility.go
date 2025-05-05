@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || test_without_external_deps
 
 // DEPRECATED: This file is no longer used and is scheduled for removal.
 // Please use the standardized helpers from internal/testutils/api/* instead.

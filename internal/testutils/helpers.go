@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || test_without_external_deps
 
 // Package testutils provides a set of standardized helper functions for testing
 // across the codebase. These helpers ensure consistent test patterns, particularly

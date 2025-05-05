@@ -1,4 +1,4 @@
-//go:build !compatibility && ignore_redeclarations
+//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps
 
 // This file provides test utilities for APIs.
 // It should be used in preference to the compatibility.go file where possible.

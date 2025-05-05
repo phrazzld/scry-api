@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || test_without_external_deps
 
 // Package main contains integration tests for the server application
 // These tests require a real database connection to run.

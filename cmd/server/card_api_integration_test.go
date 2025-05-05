@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || test_without_external_deps
 
 package main
 
@@ -22,6 +22,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
+	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils"
@@ -108,7 +109,7 @@ func TestCardEditIntegration(t *testing.T) {
 		require.NoError(t, err, "Failed to create card review service")
 
 		// Create JWT service for auth
-		jwtService, err := testutils.CreateTestJWTService()
+		jwtService, err := auth.NewTestJWTService()
 		require.NoError(t, err, "Failed to create JWT service")
 
 		// Set up tests with different scenarios
@@ -303,7 +304,7 @@ func TestCardDeleteIntegration(t *testing.T) {
 		require.NoError(t, err, "Failed to create card review service")
 
 		// Create JWT service for auth
-		jwtService, err := testutils.CreateTestJWTService()
+		jwtService, err := auth.NewTestJWTService()
 		require.NoError(t, err, "Failed to create JWT service")
 
 		// Set up tests with different scenarios
@@ -480,7 +481,7 @@ func TestCardPostponeIntegration(t *testing.T) {
 		require.NoError(t, err, "Failed to create card review service")
 
 		// Create JWT service for auth
-		jwtService, err := testutils.CreateTestJWTService()
+		jwtService, err := auth.NewTestJWTService()
 		require.NoError(t, err, "Failed to create JWT service")
 
 		// Set up tests with different scenarios

@@ -1,4 +1,4 @@
-//go:build !compatibility && ignore_redeclarations
+//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps
 
 package testutils
 

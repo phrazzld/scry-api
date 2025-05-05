@@ -39,7 +39,7 @@ repos:
     rev: v2.1.1  # Same version as CI to ensure consistent results
     hooks:
       - id: golangci-lint
-        args: [--verbose]  # Show more detailed output for linting issues
+        args: [--verbose, --build-tags=test_without_external_deps]  # Match CI configuration
 
   - repo: https://github.com/segmentio/golines
     rev: v0.12.2

@@ -12,7 +12,7 @@
         2. Pre-commit hooks run successfully with the same build tags as CI
     - **Depends‑on:** none
 
-- [ ] **T030 · Fix · P1: resolve linting errors in integration tests and API helpers**
+- [x] **T030 · Fix · P1: resolve linting errors in integration tests and API helpers**
     - **Context:** CI linting job fails due to error handling issues and unused functions
     - **Action:**
         1. Fix error handling for `resp.Body.Close()` in card_api_integration_test.go

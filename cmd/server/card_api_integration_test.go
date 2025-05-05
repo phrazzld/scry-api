@@ -195,15 +195,18 @@ func TestCardEditIntegration(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 
 				// Add auth header
-				authHeader, err := testutils.GenerateAuthHeader(tc.userID)
-				require.NoError(t, err, "Failed to generate auth header")
+				authHeader := testutils.GenerateAuthHeaderForUser(t, tc.userID)
 				req.Header.Set("Authorization", authHeader)
 
 				// Execute request
 				client := &http.Client{}
 				resp, err := client.Do(req)
 				require.NoError(t, err, "Failed to execute request")
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Failed to close response body: %v", err)
+					}
+				}()
 
 				// Verify response
 				assert.Equal(t, tc.expectedStatus, resp.StatusCode, "Status code should match expected")
@@ -373,15 +376,18 @@ func TestCardDeleteIntegration(t *testing.T) {
 				require.NoError(t, err, "Failed to create request")
 
 				// Add auth header
-				authHeader, err := testutils.GenerateAuthHeader(tc.userID)
-				require.NoError(t, err, "Failed to generate auth header")
+				authHeader := testutils.GenerateAuthHeaderForUser(t, tc.userID)
 				req.Header.Set("Authorization", authHeader)
 
 				// Execute request
 				client := &http.Client{}
 				resp, err := client.Do(req)
 				require.NoError(t, err, "Failed to execute request")
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Failed to close response body: %v", err)
+					}
+				}()
 
 				// Verify response
 				assert.Equal(t, tc.expectedStatus, resp.StatusCode, "Status code should match expected")
@@ -565,15 +571,18 @@ func TestCardPostponeIntegration(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 
 				// Add auth header
-				authHeader, err := testutils.GenerateAuthHeader(tc.userID)
-				require.NoError(t, err, "Failed to generate auth header")
+				authHeader := testutils.GenerateAuthHeaderForUser(t, tc.userID)
 				req.Header.Set("Authorization", authHeader)
 
 				// Execute request
 				client := &http.Client{}
 				resp, err := client.Do(req)
 				require.NoError(t, err, "Failed to execute request")
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Failed to close response body: %v", err)
+					}
+				}()
 
 				// Verify response
 				assert.Equal(t, tc.expectedStatus, resp.StatusCode, "Status code should match expected")

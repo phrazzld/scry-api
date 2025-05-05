@@ -213,8 +213,11 @@ func CreateTestJWTService() (auth.JWTService, error) {
 	return auth.NewJWTService(authConfig)
 }
 
-// GenerateAuthHeader creates an Authorization header value with a valid JWT token for testing.
-func GenerateAuthHeader(userID uuid.UUID) (string, error) {
+// GenerateAuthHeaderWithService creates an Authorization header value with a valid JWT token for testing.
+// This uses the service created within this function rather than an external one.
+// Legacy function kept for backward compatibility.
+// nolint:unused
+func GenerateAuthHeaderWithService(userID uuid.UUID) (string, error) {
 	jwtService, err := CreateTestJWTService()
 	if err != nil {
 		return "", fmt.Errorf("failed to create test JWT service: %w", err)
@@ -270,7 +273,7 @@ func ExecuteGetNextCardRequest(
 	}
 
 	// Generate real auth token with the provided user ID
-	authHeader, err := GenerateAuthHeader(userID)
+	authHeader, err := GenerateAuthHeaderWithService(userID)
 	if err != nil {
 		t.Fatalf("Failed to generate auth header: %v", err)
 	}
@@ -324,7 +327,7 @@ func ExecuteSubmitAnswerRequest(
 	}
 
 	// Generate real auth token with the provided user ID
-	authHeader, err := GenerateAuthHeader(userID)
+	authHeader, err := GenerateAuthHeaderWithService(userID)
 	if err != nil {
 		t.Fatalf("Failed to generate auth header: %v", err)
 	}
@@ -380,7 +383,7 @@ func ExecuteSubmitAnswerRequestWithRawID(
 	}
 
 	// Generate real auth token with the provided user ID
-	authHeader, err := GenerateAuthHeader(userID)
+	authHeader, err := GenerateAuthHeaderWithService(userID)
 	if err != nil {
 		t.Fatalf("Failed to generate auth header: %v", err)
 	}
@@ -522,7 +525,7 @@ func MakeAuthenticatedRequest(
 
 	// Add authentication header
 	if authToken != "" {
-		AuthenticateRequest(req, authToken)
+		req.Header.Set("Authorization", authToken)
 	}
 
 	// Add content-type header if body is provided

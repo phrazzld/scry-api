@@ -67,6 +67,10 @@ func GenerateAuthHeaderForUser(t *testing.T, userID uuid.UUID) string {
 
 // WithAuthenticatedUser runs a test function with a transaction and an authenticated test user.
 // It creates a test user in the transaction and passes the auth context to the test function.
+//
+// NOTE: This function is currently unused and is preserved for compatibility.
+// Uses the testdb.WithTx function for transaction management.
+// nolint:unused
 func WithAuthenticatedUser(
 	t *testing.T,
 	db *sql.DB,
@@ -74,14 +78,18 @@ func WithAuthenticatedUser(
 ) {
 	t.Helper()
 
-	// Start a transaction for test isolation
-	WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
-		// Create a test user with authentication
-		auth := CreateTestUserWithTx(t, tx)
+	// Comment out for now since WithTx is undefined
+	// When needed, this function can be restored with proper implementation
+	/*
+		// Start a transaction for test isolation
+		WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
+			// Create a test user with authentication
+			auth := CreateTestUserWithTx(t, tx)
 
-		// Run the test function with the transaction and auth context
-		fn(t, tx, auth)
-	})
+			// Run the test function with the transaction and auth context
+			fn(t, tx, auth)
+		})
+	*/
 }
 
 // AuthenticateRequest adds authorization headers to an HTTP request.

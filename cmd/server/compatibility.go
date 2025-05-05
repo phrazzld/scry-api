@@ -21,31 +21,37 @@ import (
 // Compatibility layer for cmd/server to smooth transition to new structure
 
 // setupCardManagementTestServer delegates to api.SetupCardManagementTestServer for compatibility
+// nolint:unused
 func setupCardManagementTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 	return api.SetupCardManagementTestServer(t, tx)
 }
 
 // getCardByID delegates to api.GetCardByID for compatibility
+// nolint:unused
 func getCardByID(tx *sql.Tx, cardID uuid.UUID) (*domain.Card, error) {
 	return api.GetCardByID(tx, cardID)
 }
 
 // getAuthToken delegates to api.GetAuthToken for compatibility
+// nolint:unused
 func getAuthToken(t *testing.T, userID uuid.UUID) string {
 	return api.GetAuthToken(t, userID)
 }
 
 // createTestUser delegates to api.CreateTestUser for compatibility
+// nolint:unused
 func createTestUser(t *testing.T, tx *sql.Tx) uuid.UUID {
 	return api.CreateTestUser(t, tx)
 }
 
 // createTestCard delegates to api.CreateTestCard for compatibility
+// nolint:unused
 func createTestCard(t *testing.T, tx *sql.Tx, userID uuid.UUID) *domain.Card {
 	return api.CreateTestCard(t, tx, userID)
 }
 
 // getUserCardStats delegates to api.GetUserCardStats for compatibility
+// nolint:unused
 func getUserCardStats(t *testing.T, tx *sql.Tx, userID, cardID uuid.UUID) *domain.UserCardStats {
 	return api.GetUserCardStats(t, tx, userID, cardID)
 }

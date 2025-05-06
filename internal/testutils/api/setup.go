@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/service/card_review"
 )
 
 // SetupCardReviewTestServerWithNextCard creates a test server for card review API tests
@@ -29,34 +30,126 @@ func SetupCardReviewTestServerWithNextCard(t *testing.T, userID uuid.UUID, card 
 	router.Get("/api/cards/next", func(w http.ResponseWriter, r *http.Request) {
 		// Mock successful next card response
 		var content interface{}
-		if err := json.Unmarshal(card.Content, &content); err != nil {
-			content = string(card.Content)
-		}
+		if card != nil {
+			if err := json.Unmarshal(card.Content, &content); err != nil {
+				content = string(card.Content)
+			}
 
-		// Create response structure similar to shared.CardResponse
-		cardResp := struct {
-			ID        string      `json:"id"`
-			MemoID    string      `json:"memo_id"`
-			Content   interface{} `json:"content"`
-			CreatedAt time.Time   `json:"created_at"`
-			UpdatedAt time.Time   `json:"updated_at"`
-		}{
-			ID:        card.ID.String(),
-			MemoID:    card.MemoID.String(),
-			Content:   content,
-			CreatedAt: card.CreatedAt,
-			UpdatedAt: card.UpdatedAt,
-		}
+			// Create response structure matching CardResponse in card_handler.go
+			cardResp := struct {
+				ID        string      `json:"id"`
+				UserID    string      `json:"user_id"`
+				MemoID    string      `json:"memo_id"`
+				Content   interface{} `json:"content"`
+				CreatedAt time.Time   `json:"created_at"`
+				UpdatedAt time.Time   `json:"updated_at"`
+			}{
+				ID:        card.ID.String(),
+				UserID:    card.UserID.String(),
+				MemoID:    card.MemoID.String(),
+				Content:   content,
+				CreatedAt: card.CreatedAt,
+				UpdatedAt: card.UpdatedAt,
+			}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(cardResp); err != nil {
-			http.Error(w, "Failed to encode card response", http.StatusInternalServerError)
-			return
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(cardResp); err != nil {
+				http.Error(w, "Failed to encode card response", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			// No card to return
+			w.WriteHeader(http.StatusNoContent)
 		}
 	})
 
-	// Default 404 for other routes handled by the router
+	// Add route for card answer submission for completeness
+	router.Route("/api/cards/{id}", func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Extract and validate ID parameter
+				idParam := chi.URLParam(r, "id")
+				_, err := uuid.Parse(idParam)
+				if err != nil {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					if encErr := json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Invalid ID",
+					}); encErr != nil {
+						http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+						return
+					}
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		})
+
+		r.Post("/answer", func(w http.ResponseWriter, r *http.Request) {
+			// Handle request validation for request body
+			contentType := r.Header.Get("Content-Type")
+			if contentType != "application/json" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				if encErr := json.NewEncoder(w).Encode(shared.ErrorResponse{
+					Error: "Validation error: invalid content type",
+				}); encErr != nil {
+					http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+					return
+				}
+				return
+			}
+
+			// Try to parse the request body
+			var outcome struct {
+				Outcome string `json:"outcome"`
+			}
+
+			err := json.NewDecoder(r.Body).Decode(&outcome)
+			if err != nil {
+				// Invalid JSON format
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				if encErr := json.NewEncoder(w).Encode(shared.ErrorResponse{
+					Error: "Validation error: invalid JSON format",
+				}); encErr != nil {
+					http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+					return
+				}
+				return
+			}
+
+			// Check required fields
+			if outcome.Outcome == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				if encErr := json.NewEncoder(w).Encode(shared.ErrorResponse{
+					Error: "Outcome: required field",
+				}); encErr != nil {
+					http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+					return
+				}
+				return
+			}
+
+			// Validate outcome
+			if !isValidOutcome(outcome.Outcome) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				if encErr := json.NewEncoder(w).Encode(shared.ErrorResponse{
+					Error: "Outcome: invalid value",
+				}); encErr != nil {
+					http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+					return
+				}
+				return
+			}
+
+			// If we get here, the request is valid, return 204 No Content
+			w.WriteHeader(http.StatusNoContent)
+		})
+	})
 
 	// Create and return server
 	server := httptest.NewServer(router)
@@ -178,18 +271,99 @@ func SetupCardReviewTestServerWithError(t *testing.T, userID uuid.UUID, err erro
 	// Create router with basic middleware
 	router := chi.NewRouter()
 
+	// Map specific error types to appropriate status codes and messages
+	statusCode := http.StatusInternalServerError
+	errorMessage := "Failed to get next review card"
+
+	switch err {
+	case card_review.ErrNoCardsDue:
+		statusCode = http.StatusNoContent
+		// No Content responses shouldn't have a body
+	case card_review.ErrCardNotFound:
+		statusCode = http.StatusNotFound
+		errorMessage = "Card not found"
+	case card_review.ErrCardNotOwned:
+		statusCode = http.StatusForbidden
+		errorMessage = "You do not own this card"
+	case card_review.ErrInvalidAnswer:
+		statusCode = http.StatusBadRequest
+		errorMessage = "Invalid answer"
+	}
+
 	// Add routes with mocked error response
 	router.Get("/api/cards/next", func(w http.ResponseWriter, r *http.Request) {
-		// Convert error to status code and message
-		statusCode, errResp := mockAPIError(err)
+		// For 204 No Content, don't write a body
+		if statusCode == http.StatusNoContent {
+			w.WriteHeader(statusCode)
+			return
+		}
 
 		// Return error response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
+
+		errResp := shared.ErrorResponse{Error: errorMessage}
 		if encErr := json.NewEncoder(w).Encode(errResp); encErr != nil {
 			http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
 			return
 		}
+	})
+
+	// Add routes for other card review endpoints to handle errors
+	router.Route("/api/cards/{id}", func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Extract ID parameter from URL
+				idParam := chi.URLParam(r, "id")
+
+				// Validate ID format
+				_, err := uuid.Parse(idParam)
+				if err != nil {
+					// Return 400 Bad Request for invalid UUID
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					if encErr := json.NewEncoder(w).Encode(shared.ErrorResponse{
+						Error: "Invalid ID",
+					}); encErr != nil {
+						http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+						return
+					}
+					return
+				}
+
+				// Continue to the next handler for valid UUIDs
+				next.ServeHTTP(w, r)
+			})
+		})
+
+		r.Post("/answer", func(w http.ResponseWriter, r *http.Request) {
+			// For 204 No Content, don't write a body
+			if statusCode == http.StatusNoContent {
+				w.WriteHeader(statusCode)
+				return
+			}
+
+			// Return error response with a different message for answer endpoint
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
+
+			// Use a custom error message for submit answer endpoint
+			answerErrorMessage := "Failed to submit answer"
+			switch err {
+			case card_review.ErrCardNotFound:
+				answerErrorMessage = "Card not found"
+			case card_review.ErrCardNotOwned:
+				answerErrorMessage = "You do not own this card"
+			case card_review.ErrInvalidAnswer:
+				answerErrorMessage = "Invalid answer"
+			}
+
+			errResp := shared.ErrorResponse{Error: answerErrorMessage}
+			if encErr := json.NewEncoder(w).Encode(errResp); encErr != nil {
+				http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+				return
+			}
+		})
 	})
 
 	// Create and return server
@@ -233,10 +407,11 @@ func SetupCardReviewTestServerWithAuthError(t *testing.T, userID uuid.UUID, err 
 					}
 				}
 
-				// Generate auth error
-				statusCode, errResp := mockAPIError(err)
+				// Return auth error response
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(statusCode)
+				w.WriteHeader(http.StatusUnauthorized)
+
+				errResp := shared.ErrorResponse{Error: "Invalid token"}
 				if encErr := json.NewEncoder(w).Encode(errResp); encErr != nil {
 					http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
 					return
@@ -385,58 +560,9 @@ func SetupCardReviewTestServerWithUpdatedStats(
 	return server
 }
 
-// Note: AssertCardResponse is imported from request_helpers.go
-
-// Note: AssertStatsResponse is imported from request_helpers.go
-
-// Note: AssertErrorResponse is imported from request_helpers.go
-
 // Helper functions
 
-// Convert errors to API error responses with appropriate status codes
-func mockAPIError(err error) (int, shared.ErrorResponse) {
-	// Default values
-	statusCode := http.StatusInternalServerError
-	message := "Internal server error"
-
-	// Extract domain-specific error info if available
-	if err != nil {
-		message = err.Error()
-
-		// Map error types to status codes based on error type or content
-		switch {
-		case isAuthError(err):
-			statusCode = http.StatusUnauthorized
-		case isNotFoundError(err):
-			statusCode = http.StatusNotFound
-		case isValidationError(err):
-			statusCode = http.StatusBadRequest
-		}
-	}
-
-	return statusCode, shared.ErrorResponse{Error: message}
-}
-
-// Simple error type checking helpers
-
-func isAuthError(err error) bool {
-	return err != nil && (err.Error() == "Invalid token" ||
-		err.Error() == "Token has expired" ||
-		err.Error() == "Authorization header missing")
-}
-
-func isNotFoundError(err error) bool {
-	return err != nil && (err.Error() == "Card not found" ||
-		err.Error() == "User not found" ||
-		err.Error() == "Not found")
-}
-
-func isValidationError(err error) bool {
-	return err != nil && (err.Error() == "Invalid ID format" ||
-		err.Error() == "Invalid content format" ||
-		err.Error() == "Invalid outcome")
-}
-
+// isValidOutcome checks if a review outcome string is valid
 func isValidOutcome(outcome string) bool {
 	validOutcomes := []string{"again", "hard", "good", "easy"}
 	for _, valid := range validOutcomes {
@@ -446,6 +572,3 @@ func isValidOutcome(outcome string) bool {
 	}
 	return false
 }
-
-// Note: CreateTestUser, GetAuthToken, GetCardByID, CreateTestCard, and GetUserCardStats
-// functions are defined in test_data_helpers.go to avoid duplication

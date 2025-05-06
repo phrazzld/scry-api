@@ -19,6 +19,7 @@ import (
 
 // TestGetNextReviewCardAPI tests the GET /cards/next endpoint with various scenarios
 func TestGetNextReviewCardAPI(t *testing.T) {
+
 	// Test user
 	userID := uuid.New()
 
@@ -118,6 +119,7 @@ func TestGetNextReviewCardAPI(t *testing.T) {
 
 // TestSubmitAnswerAPI tests the POST /cards/{id}/answer endpoint with various scenarios
 func TestSubmitAnswerAPI(t *testing.T) {
+
 	// Test user and card
 	userID := uuid.New()
 	cardID := uuid.New()
@@ -291,6 +293,7 @@ func TestSubmitAnswerAPI(t *testing.T) {
 // - Empty body with missing required fields - Returns specific field validation errors
 // - Invalid field values - Returns field-specific validation errors with details
 func TestInvalidRequestBody(t *testing.T) {
+
 	// Test user and card ID
 	userID := uuid.New()
 	cardID := uuid.New()

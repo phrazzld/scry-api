@@ -41,31 +41,55 @@ var (
 	// Email addresses
 	emailRegex = regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b`)
 
-	// SQL queries and fragments - using contingency approach (simplified)
+	// SQL queries and fragments - enhanced patterns for more reliable redaction
 
-	// SQL SELECT query pattern
+	// General SQL query pattern - catches any SQL query regardless of type
+	generalSQLRegex = regexp.MustCompile(
+		`(?i)(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|CREATE|ALTER|DROP|TRUNCATE)(\s+)([^;]{3,})`,
+	)
+
+	// SQL SELECT query pattern with improved matching
 	sqlSelectRegex = regexp.MustCompile(
-		`(?i)(SELECT)(\s+)([^;]*)`,
+		`(?i)(SELECT\s+)(.+?)(\s+FROM\s+[\w_.]+)(.*)`,
 	)
 
-	// SQL INSERT query pattern
+	// SQL INSERT query pattern with improved matching for different formats
 	sqlInsertRegex = regexp.MustCompile(
-		`(?i)(INSERT\s+INTO\s+[\w_.]+\s*\([^)]*\)\s+VALUES)([^;]*)`,
+		`(?i)(INSERT\s+INTO\s+[\w_.]+)(\s*(?:\([^)]*\)\s*)?(?:VALUES|SELECT))(.*)`,
 	)
 
-	// SQL UPDATE query pattern
+	// SQL UPDATE query pattern with better clause matching
 	sqlUpdateRegex = regexp.MustCompile(
 		`(?i)(UPDATE\s+[\w_.]+\s+SET)([^;]*)`,
 	)
 
-	// SQL DELETE query pattern
+	// SQL DELETE query pattern with improved WHERE clause handling
 	sqlDeleteRegex = regexp.MustCompile(
-		`(?i)(DELETE\s+FROM\s+[\w_.]+)([^;]*)`,
+		`(?i)(DELETE\s+FROM\s+[\w_.]+)(\s+WHERE.*)`,
+	)
+
+	// Additional SQL patterns for better coverage
+	sqlCreateRegex = regexp.MustCompile(
+		`(?i)(CREATE\s+(?:TABLE|INDEX|VIEW|FUNCTION|PROCEDURE|TRIGGER)\s+[\w_.]+)(.*)`,
+	)
+
+	sqlAlterRegex = regexp.MustCompile(
+		`(?i)(ALTER\s+(?:TABLE|INDEX|VIEW|FUNCTION|PROCEDURE|TRIGGER)\s+[\w_.]+)(.*)`,
 	)
 
 	// UUID pattern - specifically targets UUIDs that might appear in queries
 	uuidRegex = regexp.MustCompile(
 		`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`,
+	)
+
+	// PostgreSQL error message patterns
+	pgErrorRegex = regexp.MustCompile(
+		`(?i)(ERROR|SQLSTATE|DETAIL|HINT|CONTEXT|WHERE):?\s+([^:]+)`,
+	)
+
+	// SQL query detection pattern - useful for detecting SQL in general text
+	sqlQueryDetectionRegex = regexp.MustCompile(
+		`(?i)(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|CREATE|ALTER|DROP)\s+[\w_.]+`,
 	)
 
 	// Additional sensitive patterns
@@ -84,6 +108,8 @@ var (
 		unixPathRegex, winPathRegex, stackTraceRegex, emailRegex,
 		// SQL patterns in specific order (most specific first)
 		sqlInsertRegex, sqlUpdateRegex, sqlDeleteRegex, sqlSelectRegex,
+		sqlCreateRegex, sqlAlterRegex, generalSQLRegex,
+		pgErrorRegex, sqlQueryDetectionRegex,
 		// Other patterns
 		uuidRegex, lineNumberRegex, syntaxErrorRegex, hostPortRegex, fileErrorRegex,
 	}
@@ -98,16 +124,21 @@ var (
 		winPathRegex:    RedactedPathPlaceholder,
 		stackTraceRegex: "[STACK_TRACE_REDACTED]",
 		emailRegex:      "[REDACTED_EMAIL]",
-		// SQL patterns with simplified redaction
-		sqlSelectRegex:   "$1 FROM... [SQL_VALUES_REDACTED]", // Preserve SELECT command
-		sqlInsertRegex:   "$1 [SQL_VALUES_REDACTED]",         // Preserve INSERT command
-		sqlUpdateRegex:   "$1 [SQL_VALUES_REDACTED]",         // Preserve UPDATE command
-		sqlDeleteRegex:   "$1 [SQL_WHERE_REDACTED]",          // Preserve DELETE command
-		uuidRegex:        "[REDACTED_UUID]",
-		lineNumberRegex:  "[REDACTED_LINE_NUMBER]",
-		syntaxErrorRegex: "[REDACTED_SYNTAX_ERROR]",
-		hostPortRegex:    "[REDACTED_HOST]",
-		fileErrorRegex:   "[REDACTED_FILE_ERROR]",
+		// SQL patterns with improved redaction
+		generalSQLRegex:        "$1 [REDACTED_SQL]",                     // General SQL redaction
+		sqlSelectRegex:         "$1[REDACTED_COLUMNS]$3 [REDACTED_SQL]", // Preserve SELECT and FROM parts
+		sqlInsertRegex:         "$1$2 [REDACTED_SQL]",                   // Preserve INSERT INTO and structure
+		sqlUpdateRegex:         "$1 [REDACTED_SQL]",                     // Preserve UPDATE command
+		sqlDeleteRegex:         "$1 [REDACTED_SQL]",                     // Preserve DELETE command
+		sqlCreateRegex:         "$1 [REDACTED_SQL]",                     // Preserve CREATE command
+		sqlAlterRegex:          "$1 [REDACTED_SQL]",                     // Preserve ALTER command
+		pgErrorRegex:           "$1: [REDACTED_SQL_ERROR]",              // Preserve error type
+		sqlQueryDetectionRegex: "[REDACTED_SQL]",                        // Full redaction for detected SQL
+		uuidRegex:              "[REDACTED_UUID]",
+		lineNumberRegex:        "[REDACTED_LINE_NUMBER]",
+		syntaxErrorRegex:       "[REDACTED_SYNTAX_ERROR]",
+		hostPortRegex:          "[REDACTED_HOST]",
+		fileErrorRegex:         "[REDACTED_FILE_ERROR]",
 	}
 
 	mu sync.RWMutex

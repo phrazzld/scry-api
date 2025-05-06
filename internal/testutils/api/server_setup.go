@@ -55,9 +55,12 @@ func UUIDValidationMiddleware(paramName string) func(http.Handler) http.Handler 
 				// Return 400 Bad Request for invalid UUID
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(shared.ErrorResponse{
+				if err := json.NewEncoder(w).Encode(shared.ErrorResponse{
 					Error: "Invalid ID format",
-				})
+				}); err != nil {
+					http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+					return
+				}
 				return
 			}
 

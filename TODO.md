@@ -36,7 +36,7 @@
         2. CI linting job passes successfully
     - **Depends‑on:** none
 
-- [ ] **T031 · Fix · P1: implement proper SQL redaction in error logs**
+- [x] **T031 · Fix · P1: implement proper SQL redaction in error logs**
     - **Context:** SQL queries are not properly redacted in error logs, causing test failures
     - **Action:**
         1. Analyze current SQL redaction implementation

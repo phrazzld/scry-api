@@ -92,13 +92,49 @@ jobs:
       - name: Apply database migrations
         run: go run cmd/server/main.go -migrate=up
         env:
+          # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+
+          # Required environment variables for configuration validation
+          SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
+          SCRY_AUTH_BCRYPT_COST: "10"
+          SCRY_AUTH_TOKEN_LIFETIME_MINUTES: "60"
+          SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES: "10080"
+          SCRY_LLM_GEMINI_API_KEY: ci-test-gemini-key
+          SCRY_LLM_MODEL_NAME: gemini-2.0-flash
+          SCRY_LLM_PROMPT_TEMPLATE_PATH: prompts/flashcard_template.txt
+          SCRY_LLM_MAX_RETRIES: "3"
+          SCRY_LLM_RETRY_DELAY_SECONDS: "2"
+          SCRY_SERVER_PORT: "8080"
+          SCRY_SERVER_LOG_LEVEL: info
+          SCRY_TASK_WORKER_COUNT: "2"
+          SCRY_TASK_QUEUE_SIZE: "100"
+          SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out -tags=integration ./...
         env:
+          # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+
+          # Required environment variables for configuration validation
+          SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
+          SCRY_AUTH_BCRYPT_COST: "10"
+          SCRY_AUTH_TOKEN_LIFETIME_MINUTES: "60"
+          SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES: "10080"
+          SCRY_LLM_GEMINI_API_KEY: ci-test-gemini-key
+          SCRY_LLM_MODEL_NAME: gemini-2.0-flash
+          SCRY_LLM_PROMPT_TEMPLATE_PATH: prompts/flashcard_template.txt
+          SCRY_LLM_MAX_RETRIES: "3"
+          SCRY_LLM_RETRY_DELAY_SECONDS: "2"
+          SCRY_SERVER_PORT: "8080"
+          SCRY_SERVER_LOG_LEVEL: info
+          SCRY_TASK_WORKER_COUNT: "2"
+          SCRY_TASK_QUEUE_SIZE: "100"
+          SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
       - name: Check coverage
         run: |
           go tool cover -func=coverage.out

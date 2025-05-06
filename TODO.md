@@ -25,7 +25,7 @@
         2. Card Review API tests pass with proper mock implementations
     - **Depends‑on:** none
 
-- [ ] **T034 · Feature · P1: implement Card Review API endpoints**
+- [x] **T034 · Feature · P1: implement Card Review API endpoints**
     - **Context:** The Card Review API functionality is needed for the SRS flashcard review workflow
     - **Action:**
         1. Implement `store.CardStore` function `GetNextReviewCard(userID time.Time)`

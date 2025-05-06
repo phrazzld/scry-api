@@ -1,7 +1,7 @@
 # Todo
 
 ## Code Quality (cr-07)
-- [ ] **T032 · Refactor · P2: refactor card_api_integration_test.go to reduce file size**
+- [x] **T032 · Refactor · P2: refactor card_api_integration_test.go to reduce file size**
     - **Context:** The file exceeds the 500-line limit (currently 519 lines)
     - **Action:**
         1. Split the file into logical test suites

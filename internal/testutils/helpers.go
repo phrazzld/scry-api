@@ -46,7 +46,7 @@ import (
 func CreateTestUser(t *testing.T) *domain.User {
 	t.Helper()
 	email := fmt.Sprintf("test-%s@example.com", uuid.New().String()[:8])
-	user, err := domain.NewUser(email, "Password123!")
+	user, err := domain.NewUser(email, "TestPassword123456!")
 	require.NoError(t, err, "Failed to create test user")
 	return user
 }
@@ -74,8 +74,8 @@ func MustInsertUser(
 	userID := uuid.New()
 	now := time.Now().UTC()
 
-	// Set default test password
-	password := "TestPassword123!"
+	// Set default test password (must be at least 12 chars)
+	password := "TestPassword123456!"
 
 	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
 	if bcryptCost <= 0 {

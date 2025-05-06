@@ -78,6 +78,12 @@ func IsIntegrationTestEnvironment() bool {
 	return len(os.Getenv("DATABASE_URL")) > 0
 }
 
+// ShouldSkipDatabaseTest returns true if database-dependent tests should be skipped
+// because no database connection is available.
+func ShouldSkipDatabaseTest() bool {
+	return os.Getenv("DATABASE_URL") == "" && os.Getenv("SCRY_TEST_DB_URL") == ""
+}
+
 // SetupTestDatabaseSchemaWithT runs database migrations to set up the test database.
 // This is the version that takes a testing.T parameter which allows it to use the testing framework.
 func SetupTestDatabaseSchemaWithT(t *testing.T, db *sql.DB) {

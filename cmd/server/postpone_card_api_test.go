@@ -21,6 +21,11 @@ import (
 
 // TestPostponeCardEndpoint tests the POST /cards/{id}/postpone endpoint
 func TestPostponeCardEndpoint(t *testing.T) {
+	// Skip test if database connection not available
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
+	}
+
 	// Initialize test database connection
 	dbConn := db.GetTestDBWithT(t)
 

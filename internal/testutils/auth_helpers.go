@@ -38,7 +38,7 @@ func CreateTestUserWithTx(t *testing.T, tx *sql.Tx) *TestUserAuth {
 
 	// Generate a unique email for this test to avoid conflicts
 	userEmail := "test_" + uuid.New().String() + "@example.com"
-	password := "password123"
+	password := "password123456"
 
 	// Create a new user domain object
 	user, err := domain.NewUser(userEmail, password)
@@ -117,7 +117,7 @@ func CreateTestUserWithAuth(
 
 	// Use provided password or default
 	if password == "" {
-		password = "password123"
+		password = "password123456"
 	}
 
 	// Create a new user domain object

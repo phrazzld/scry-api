@@ -271,7 +271,7 @@ func TestAuthValidation_Integration(t *testing.T) {
 		var errResp shared.ErrorResponse
 		err = json.NewDecoder(resp.Body).Decode(&errResp)
 		require.NoError(t, err)
-		assert.Contains(t, errResp.Error, "at least 12 characters")
+		assert.Contains(t, errResp.Error, "too short")
 	})
 
 	t.Run("Registration - Missing Fields", func(t *testing.T) {

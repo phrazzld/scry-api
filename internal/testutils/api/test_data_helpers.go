@@ -22,7 +22,7 @@ func CreateTestUser(t *testing.T, tx *sql.Tx) uuid.UUID {
 
 	// Generate a unique email for this test to avoid conflicts
 	userEmail := "test_" + uuid.New().String() + "@example.com"
-	password := "password123"
+	password := "password123456"
 
 	// Create a user store with the transaction
 	userStore := postgres.NewPostgresUserStore(tx, 4) // Lower cost for tests

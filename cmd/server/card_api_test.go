@@ -24,7 +24,7 @@ import (
 // setupTestUser creates a test user in the database
 func setupTestUser(t *testing.T, ctx context.Context, tx *sql.Tx, email string) *domain.User {
 	userStore := postgres.NewPostgresUserStore(tx, 4) // Low cost for test speed
-	user, err := domain.NewUser(email, "password123")
+	user, err := domain.NewUser(email, "password123456")
 	require.NoError(t, err, "Failed to create test user")
 	require.NoError(t, userStore.Create(ctx, user), "Failed to save test user")
 	return user

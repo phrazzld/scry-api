@@ -25,6 +25,7 @@ import (
 
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -99,7 +100,7 @@ func TestSuccessfulInitialization(t *testing.T) {
 	require.NoError(t, err, "Failed to set SCRY_LLM_GEMINI_API_KEY environment variable")
 
 	// Use the shared database connection with transaction isolation
-	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
+	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Load configuration directly
 		cfg, err := loadConfig()
 
@@ -289,7 +290,7 @@ func TestDatabaseConnection(t *testing.T) {
 	}
 
 	// Use transaction isolation for the test
-	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
+	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Test that we can query the database
 		var result int
 		err := tx.QueryRowContext(context.Background(), "SELECT 1").Scan(&result)

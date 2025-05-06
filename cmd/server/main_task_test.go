@@ -21,6 +21,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/task"
 	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +52,7 @@ func TestMain(m *testing.M) {
 			defer cancel()
 			if err := testDB.PingContext(ctx); err == nil {
 				// Database is available, set up schema
-				if err := testutils.SetupTestDatabaseSchema(testDB); err == nil {
+				if err := db.SetupTestDatabaseSchema(testDB); err == nil {
 					// Create migrations config
 					cfg := &config.Config{
 						Database: config.DatabaseConfig{
@@ -250,7 +251,7 @@ func TestTaskRunnerIntegration(t *testing.T) {
 		t.Fatalf("Failed to restore working directory: %v", err)
 	}
 
-	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
+	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Set up the configuration
 		cfg := &config.Config{
 			Task: config.TaskConfig{

@@ -66,6 +66,21 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: scry_test
+        ports:
+          - 5432:5432
+        # Health check to ensure PostgreSQL is ready before running tests
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,8 +89,30 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      - name: Apply database migrations
+        run: go run cmd/server/main.go -migrate=up
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -tags=test_without_external_deps ./...
+        run: go test -v -race -coverprofile=coverage.out -tags=integration ./...
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+      - name: Check coverage
+        run: |
+          go tool cover -func=coverage.out
+
+          # Extract coverage percentage and compare with minimum threshold
+          total_coverage=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: $total_coverage"
+
+          # Convert to integer (remove decimal part) for comparison
+          coverage_int=$(echo $total_coverage | cut -d. -f1)
+          if [ "$coverage_int" -lt "70" ]; then
+            echo "Code coverage is below 70%"
+            exit 1
+          fi
 
   build:
     name: Build

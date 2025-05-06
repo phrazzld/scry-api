@@ -1,0 +1,71 @@
+# Example GitHub Action workflow modification for running database tests in CI
+
+name: CI Checks
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      # Add PostgreSQL service container
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: scry_test
+        ports:
+          - 5432:5432
+        # Set health checks to ensure PostgreSQL is ready before tests run
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # Add database migration step before tests
+      - name: Apply database migrations
+        run: go run cmd/server/main.go -migrate=up
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+
+      # Run tests with database connection available
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -tags=test_without_external_deps ./...
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build application
+        run: go build ./cmd/server
+
+  # Existing security checks or other jobs...

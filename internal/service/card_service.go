@@ -269,13 +269,22 @@ func (s *cardServiceImpl) CreateCards(ctx context.Context, cards []*domain.Card)
 func (s *cardServiceImpl) GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error) {
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("retrieving card", slog.String("card_id", cardID.String()))
 
 	card, err := s.cardRepo.GetByID(ctx, cardID)
 	if err != nil {
-		log.Error("failed to retrieve card",
-			slog.String("error", err.Error()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("failed to retrieve card",
+				slog.String("error", err.Error()),
+				slog.String("card_id", cardID.String()))
+		}
 
 		// Check for specific error types
 		if store.IsNotFoundError(err) {
@@ -303,6 +312,12 @@ func (s *cardServiceImpl) UpdateCardContent(
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("updating card content",
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()))
@@ -310,10 +325,13 @@ func (s *cardServiceImpl) UpdateCardContent(
 	// 1. Fetch the card to verify ownership
 	card, err := s.cardRepo.GetByID(ctx, cardID)
 	if err != nil {
-		log.Error("failed to retrieve card for content update",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("failed to retrieve card for content update",
+				slog.String("error", err.Error()),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 
 		// Check for specific error types
 		if store.IsNotFoundError(err) {
@@ -355,6 +373,12 @@ func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UU
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("deleting card",
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()))
@@ -362,10 +386,13 @@ func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UU
 	// 1. Fetch the card to verify ownership
 	card, err := s.cardRepo.GetByID(ctx, cardID)
 	if err != nil {
-		log.Error("failed to retrieve card for deletion",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("failed to retrieve card for deletion",
+				slog.String("error", err.Error()),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 
 		// Check for specific error types
 		if store.IsNotFoundError(err) {
@@ -412,6 +439,12 @@ func (s *cardServiceImpl) PostponeCard(
 	// Get logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("postponing card review",
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()),
@@ -419,20 +452,26 @@ func (s *cardServiceImpl) PostponeCard(
 
 	// Validate days parameter first to fail fast
 	if days < 1 {
-		log.Error("invalid days value for postpone",
-			slog.Int("days", days),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("invalid days value for postpone",
+				slog.Int("days", days),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 		return nil, NewCardServiceError("postpone_card", "days must be at least 1", srs.ErrInvalidDays)
 	}
 
 	// 1. Fetch the card to verify ownership
 	card, err := s.cardRepo.GetByID(ctx, cardID)
 	if err != nil {
-		log.Error("failed to retrieve card for postpone",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("failed to retrieve card for postpone",
+				slog.String("error", err.Error()),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 
 		// Check for specific error types
 		if store.IsNotFoundError(err) {

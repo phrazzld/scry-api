@@ -1,4 +1,4 @@
-//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps
+//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps || !exclude_compat
 
 // Package testutils provides testing utilities with a focus on database testing
 // with transaction isolation. This package enables writing isolated, parallel
@@ -47,6 +47,7 @@ package testutils
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -388,7 +389,29 @@ func GetTestDB() (*sql.DB, error) {
 	return db, nil
 }
 
-// AssertRollbackNoError is implemented in helpers.go
+// AssertRollbackNoError ensures that the Rollback() method on the provided tx
+// executes without error, unless the error is sql.ErrTxDone which indicates
+// the transaction was already committed or rolled back.
+//
+// This is specifically designed for use with SQL transactions, as it includes
+// special handling for the common case where a transaction might already be
+// committed or rolled back.
+//
+// Usage:
+//
+//	tx, err := db.BeginTx(ctx, nil)
+//	require.NoError(t, err)
+//	defer testutils.AssertRollbackNoError(t, tx)
+func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
+	t.Helper()
+	if tx == nil {
+		return
+	}
+	err := tx.Rollback()
+	if err != nil && !errors.Is(err, sql.ErrTxDone) {
+		t.Logf("Failed to rollback transaction: %v", err)
+	}
+}
 
 // CleanupDB properly closes a database connection and logs any errors.
 // This function should be used with t.Cleanup() to ensure proper resource cleanup

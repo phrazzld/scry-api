@@ -1,7 +1,7 @@
-//go:build skip_me
+//go:build exclude_compat
 
 // This file is part of the compatibility layer for supporting older test code
-// while transitioning to the new structure. The build tag "skip_me" ensures
+// while transitioning to the new structure. The build tag "exclude_compat" ensures
 // this file is skipped during normal builds to avoid function redeclarations.
 
 package testutils

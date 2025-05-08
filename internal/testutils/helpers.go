@@ -1,4 +1,4 @@
-//go:build integration || test_without_external_deps
+//go:build (integration || test_without_external_deps) && !exclude_compat
 
 // Package testutils provides a set of standardized helper functions for testing
 // across the codebase. These helpers ensure consistent test patterns, particularly
@@ -23,7 +23,6 @@ package testutils
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -200,29 +199,8 @@ func AssertCloseNoError(t *testing.T, closer io.Closer) {
 	assert.NoError(t, err, "Deferred Close() failed for %T", closer)
 }
 
-// AssertRollbackNoError ensures that the Rollback() method on the provided tx
-// executes without error, unless the error is sql.ErrTxDone which indicates
-// the transaction was already committed or rolled back.
-//
-// This is specifically designed for use with SQL transactions, as it includes
-// special handling for the common case where a transaction might already be
-// committed or rolled back.
-//
-// Usage:
-//
-//	tx, err := db.BeginTx(ctx, nil)
-//	require.NoError(t, err)
-//	defer testutils.AssertRollbackNoError(t, tx)
-func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
-	t.Helper()
-	if tx == nil {
-		return
-	}
-	err := tx.Rollback()
-	if err != nil && !errors.Is(err, sql.ErrTxDone) {
-		assert.NoError(t, err, "Failed to rollback transaction")
-	}
-}
+// AssertRollbackNoError has been moved to db.go to avoid duplication
+// and function redeclaration errors in build combinations.
 
 // CreateTestUserStore creates a new PostgresUserStore for testing.
 // It uses the given transaction to ensure test isolation.

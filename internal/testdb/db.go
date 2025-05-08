@@ -87,6 +87,22 @@ func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	fn(t, tx)
 }
 
+// ApplyMigrations runs migrations without using testing.T
+// This exists for backward compatibility with code that was written
+// before the testdb package was created
+func ApplyMigrations(db *sql.DB, migrationsDir string) error {
+	// Configure goose
+	goose.SetTableName("schema_migrations")
+	goose.SetBaseFS(os.DirFS(migrationsDir))
+
+	// Run migrations
+	if err := goose.Up(db, "."); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return nil
+}
+
 // findProjectRoot locates the project root directory by traversing upwards
 // until it finds a directory with go.mod file.
 func findProjectRoot() (string, error) {

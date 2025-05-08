@@ -318,9 +318,12 @@ func (s *cardServiceImpl) UpdateCardContent(
 		log = slog.Default()
 	}
 
-	log.Debug("updating card content",
-		slog.String("user_id", userID.String()),
-		slog.String("card_id", cardID.String()))
+	// Make sure we have a valid logger before logging
+	if log != nil {
+		log.Debug("updating card content",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+	}
 
 	// 1. Fetch the card to verify ownership
 	card, err := s.cardRepo.GetByID(ctx, cardID)
@@ -343,26 +346,35 @@ func (s *cardServiceImpl) UpdateCardContent(
 
 	// 2. Validate ownership
 	if card.UserID != userID {
-		log.Error("unauthorized attempt to update card content",
-			slog.String("requested_user_id", userID.String()),
-			slog.String("actual_owner_id", card.UserID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("unauthorized attempt to update card content",
+				slog.String("requested_user_id", userID.String()),
+				slog.String("actual_owner_id", card.UserID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 		return NewCardServiceError("update_card_content", "card is owned by another user", ErrNotOwned)
 	}
 
 	// 3. Update the card content
 	err = s.cardRepo.UpdateContent(ctx, cardID, content)
 	if err != nil {
-		log.Error("failed to update card content",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("failed to update card content",
+				slog.String("error", err.Error()),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 		return NewCardServiceError("update_card_content", "failed to update card content", err)
 	}
 
-	log.Debug("card content updated successfully",
-		slog.String("user_id", userID.String()),
-		slog.String("card_id", cardID.String()))
+	// Make sure we have a valid logger before logging success
+	if log != nil {
+		log.Debug("card content updated successfully",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+	}
 
 	return nil
 }
@@ -379,9 +391,12 @@ func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UU
 		log = slog.Default()
 	}
 
-	log.Debug("deleting card",
-		slog.String("user_id", userID.String()),
-		slog.String("card_id", cardID.String()))
+	// Make sure we have a valid logger before logging
+	if log != nil {
+		log.Debug("deleting card",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+	}
 
 	// 1. Fetch the card to verify ownership
 	card, err := s.cardRepo.GetByID(ctx, cardID)
@@ -404,26 +419,35 @@ func (s *cardServiceImpl) DeleteCard(ctx context.Context, userID, cardID uuid.UU
 
 	// 2. Validate ownership
 	if card.UserID != userID {
-		log.Error("unauthorized attempt to delete card",
-			slog.String("requested_user_id", userID.String()),
-			slog.String("actual_owner_id", card.UserID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("unauthorized attempt to delete card",
+				slog.String("requested_user_id", userID.String()),
+				slog.String("actual_owner_id", card.UserID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 		return NewCardServiceError("delete_card", "card is owned by another user", ErrNotOwned)
 	}
 
 	// 3. Delete the card
 	err = s.cardRepo.Delete(ctx, cardID)
 	if err != nil {
-		log.Error("failed to delete card",
-			slog.String("error", err.Error()),
-			slog.String("user_id", userID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("failed to delete card",
+				slog.String("error", err.Error()),
+				slog.String("user_id", userID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 		return NewCardServiceError("delete_card", "failed to delete card", err)
 	}
 
-	log.Debug("card deleted successfully",
-		slog.String("user_id", userID.String()),
-		slog.String("card_id", cardID.String()))
+	// Make sure we have a valid logger before logging success
+	if log != nil {
+		log.Debug("card deleted successfully",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()))
+	}
 
 	return nil
 }
@@ -445,10 +469,13 @@ func (s *cardServiceImpl) PostponeCard(
 		log = slog.Default()
 	}
 
-	log.Debug("postponing card review",
-		slog.String("user_id", userID.String()),
-		slog.String("card_id", cardID.String()),
-		slog.Int("days", days))
+	// Make sure we have a valid logger before logging
+	if log != nil {
+		log.Debug("postponing card review",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()),
+			slog.Int("days", days))
+	}
 
 	// Validate days parameter first to fail fast
 	if days < 1 {
@@ -483,10 +510,13 @@ func (s *cardServiceImpl) PostponeCard(
 
 	// 2. Validate ownership
 	if card.UserID != userID {
-		log.Error("unauthorized attempt to postpone card review",
-			slog.String("requested_user_id", userID.String()),
-			slog.String("actual_owner_id", card.UserID.String()),
-			slog.String("card_id", cardID.String()))
+		// Make sure we have a valid logger before logging errors
+		if log != nil {
+			log.Error("unauthorized attempt to postpone card review",
+				slog.String("requested_user_id", userID.String()),
+				slog.String("actual_owner_id", card.UserID.String()),
+				slog.String("card_id", cardID.String()))
+		}
 		return nil, NewCardServiceError("postpone_card", "card is owned by another user", ErrNotOwned)
 	}
 
@@ -504,10 +534,13 @@ func (s *cardServiceImpl) PostponeCard(
 			// 3.1 Get current stats with a row lock (FOR UPDATE)
 			stats, err := txStatsRepo.GetForUpdate(ctx, userID, cardID)
 			if err != nil {
-				log.Error("failed to retrieve stats for update",
-					slog.String("error", err.Error()),
-					slog.String("user_id", userID.String()),
-					slog.String("card_id", cardID.String()))
+				// Make sure we have a valid logger before logging errors
+				if log != nil {
+					log.Error("failed to retrieve stats for update",
+						slog.String("error", err.Error()),
+						slog.String("user_id", userID.String()),
+						slog.String("card_id", cardID.String()))
+				}
 
 				// Check for specific error types
 				if store.IsNotFoundError(err) {
@@ -521,21 +554,27 @@ func (s *cardServiceImpl) PostponeCard(
 			now := time.Now().UTC()
 			newStats, err := s.srsService.PostponeReview(stats, days, now)
 			if err != nil {
-				log.Error("failed to calculate postponed review",
-					slog.String("error", err.Error()),
-					slog.String("user_id", userID.String()),
-					slog.String("card_id", cardID.String()),
-					slog.Int("days", days))
+				// Make sure we have a valid logger before logging errors
+				if log != nil {
+					log.Error("failed to calculate postponed review",
+						slog.String("error", err.Error()),
+						slog.String("user_id", userID.String()),
+						slog.String("card_id", cardID.String()),
+						slog.Int("days", days))
+				}
 				return NewCardServiceError("postpone_card", "failed to calculate postponed review", err)
 			}
 
 			// 3.3 Update stats in database
 			err = txStatsRepo.Update(ctx, newStats)
 			if err != nil {
-				log.Error("failed to update stats with postponed review",
-					slog.String("error", err.Error()),
-					slog.String("user_id", userID.String()),
-					slog.String("card_id", cardID.String()))
+				// Make sure we have a valid logger before logging errors
+				if log != nil {
+					log.Error("failed to update stats with postponed review",
+						slog.String("error", err.Error()),
+						slog.String("user_id", userID.String()),
+						slog.String("card_id", cardID.String()))
+				}
 				return NewCardServiceError("postpone_card", "failed to update stats", err)
 			}
 
@@ -549,11 +588,14 @@ func (s *cardServiceImpl) PostponeCard(
 		return nil, err // Error already wrapped and logged in transaction
 	}
 
-	log.Debug("card review successfully postponed",
-		slog.String("user_id", userID.String()),
-		slog.String("card_id", cardID.String()),
-		slog.Int("days", days),
-		slog.Time("next_review_at", updatedStats.NextReviewAt))
+	// Make sure we have a valid logger before logging success
+	if log != nil {
+		log.Debug("card review successfully postponed",
+			slog.String("user_id", userID.String()),
+			slog.String("card_id", cardID.String()),
+			slog.Int("days", days),
+			slog.Time("next_review_at", updatedStats.NextReviewAt))
+	}
 
 	return updatedStats, nil
 }

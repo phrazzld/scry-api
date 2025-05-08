@@ -1,7 +1,7 @@
-//go:build exclude_compat
+//go:build integration_test_internal
 
 // This file is part of the compatibility layer for supporting older test code
-// while transitioning to the new structure. The build tag "exclude_compat" ensures
+// while transitioning to the new structure. The build tag "integration_test_internal" ensures
 // this file is skipped during normal builds to avoid function redeclarations.
 
 package testutils

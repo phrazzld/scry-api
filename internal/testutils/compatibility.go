@@ -1,7 +1,7 @@
-//go:build exclude_compatibility
+//go:build integration_test_internal
 
 // Package testutils provides compatibility utilities during the migration to the new testdb structure.
-// This file is disabled with the exclude_compatibility build tag to prevent function redeclarations.
+// This file is disabled with the integration_test_internal build tag to prevent function redeclarations.
 // These functions are now implemented in db_forwarding.go with proper isolation via build tags.
 
 package testutils

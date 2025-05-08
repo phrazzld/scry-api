@@ -1,4 +1,4 @@
-//go:build integration
+//go:build forwarding_functions
 
 // Package testutils provides test utilities and helpers for the application.
 // This file forwards database-related functions to the correct implementations,

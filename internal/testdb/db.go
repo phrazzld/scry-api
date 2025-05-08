@@ -1,3 +1,5 @@
+//go:build integration || test_without_external_deps
+
 // Package testdb provides utilities specifically for database testing.
 // It maintains a clean dependency structure by only depending on store interfaces
 // and standard database packages, not on specific implementations.

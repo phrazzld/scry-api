@@ -1,4 +1,4 @@
-//go:build integration
+//go:build migration_helpers
 
 package testdb
 

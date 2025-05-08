@@ -1,10 +1,8 @@
-//go:build disabled_compatibility
+//go:build integration_compat
 
-// DEPRECATED: This file is no longer used and is scheduled for removal.
-// Please use the standardized helpers from internal/testutils/api/* instead.
-//
-// This file was previously used as a compatibility layer to ease migration,
-// but it has been replaced by direct usage of the standardized helpers.
+// Package testutils provides compatibility utilities during the migration to the new testdb structure.
+// This file is the main entry point for backwards compatibility functions, but is currently disabled with
+// the integration_compat build tag to prevent function redeclarations.
 
 package testutils
 
@@ -13,8 +11,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -22,9 +22,13 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/store"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils/api"
 	"github.com/phrazzld/scry-api/internal/testutils/db"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 //
@@ -35,6 +39,208 @@ import (
 // This allows for gradual migration of tests to use the new package structure
 // without breaking existing tests.
 //
+
+// IsIntegrationTestEnvironment returns true if the environment is configured
+// for running integration tests with a database connection.
+// Integration tests should check this and skip if not in an integration test environment.
+func IsIntegrationTestEnvironment() bool {
+	return testdb.IsIntegrationTestEnvironment()
+}
+
+// AssertCloseNoError ensures that the Close() method on the provided closer
+// executes without error. It uses assert.NoError to allow subsequent defers
+// to run even if this one fails (as opposed to using require.NoError which
+// would abort the test immediately).
+func AssertCloseNoError(t *testing.T, closer interface{}) {
+	t.Helper()
+
+	if closer == nil {
+		return
+	}
+
+	if db, ok := closer.(*sql.DB); ok {
+		testdb.CleanupDB(t, db)
+		return
+	}
+
+	if c, ok := closer.(io.Closer); ok {
+		err := c.Close()
+		assert.NoError(t, err, "Deferred Close() failed for %T", closer)
+	}
+}
+
+// MustInsertUser inserts a user into the database for testing.
+// This is the old version that takes a tx parameter.
+// It requires a transaction obtained from WithTx to ensure test isolation.
+// The function will fail the test if the insert operation fails.
+func MustInsertUser(
+	ctx context.Context,
+	t *testing.T,
+	tx *sql.Tx,
+	email string,
+	bcryptCost ...int,
+) uuid.UUID {
+	t.Helper()
+
+	// Default bcrypt cost if not provided
+	cost := 10
+	if len(bcryptCost) > 0 {
+		cost = bcryptCost[0]
+	}
+
+	// Generate a random UUID for the user
+	userID := uuid.New()
+
+	// Hash a default password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("testpassword123456"), cost)
+	require.NoError(t, err, "Failed to hash password")
+
+	// Insert the user directly using SQL
+	_, err = tx.ExecContext(
+		ctx,
+		"INSERT INTO users (id, email, hashed_password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
+		userID,
+		email,
+		string(hashedPassword),
+		time.Now().UTC(),
+		time.Now().UTC(),
+	)
+	require.NoError(t, err, "Failed to insert test user")
+
+	return userID
+}
+
+// MustGetTestDatabaseURL returns the database URL for tests
+// This implementation is for backward compatibility
+func MustGetTestDatabaseURL() string {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		// ALLOW-PANIC
+		panic("DATABASE_URL environment variable is required for integration tests")
+	}
+	return dbURL
+}
+
+// CreateTestUser creates a new valid user with a random email for testing.
+// It does not save the user to the database.
+func CreateTestUser(t *testing.T) *domain.User {
+	t.Helper()
+	email := fmt.Sprintf("test-%s@example.com", uuid.New().String()[:8])
+	user, err := domain.NewUser(email, "TestPassword123456!")
+	require.NoError(t, err, "Failed to create test user")
+	return user
+}
+
+// GetUserByID retrieves a user from the database by ID.
+// Returns nil if the user does not exist.
+func GetUserByID(ctx context.Context, t *testing.T, db store.DBTX, id uuid.UUID) *domain.User {
+	t.Helper()
+
+	// Query for the user
+	var user domain.User
+	err := db.QueryRowContext(ctx, `
+		SELECT id, email, hashed_password, created_at, updated_at
+		FROM users
+		WHERE id = $1
+	`, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.HashedPassword,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		require.NoError(t, err, "Failed to query user by ID")
+	}
+
+	return &user
+}
+
+// CountUsers counts the number of users in the database matching the given criteria.
+func CountUsers(
+	ctx context.Context,
+	t *testing.T,
+	db store.DBTX,
+	whereClause string,
+	args ...interface{},
+) int {
+	t.Helper()
+
+	query := "SELECT COUNT(*) FROM users"
+	if whereClause != "" {
+		query += " WHERE " + whereClause
+	}
+
+	var count int
+	err := db.QueryRowContext(ctx, query, args...).Scan(&count)
+	require.NoError(t, err, "Failed to count users")
+
+	return count
+}
+
+// ResetTestData truncates all tables in the test database.
+// CAUTION: This is potentially destructive and should only be used in test environments.
+// This is provided for backward compatibility but NOT RECOMMENDED - use transaction isolation instead.
+func ResetTestData(db *sql.DB) error {
+	_, err := db.Exec(`
+		TRUNCATE TABLE cards, memos, user_card_stats, users, tasks
+		RESTART IDENTITY CASCADE
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to truncate test tables: %w", err)
+	}
+	return nil
+}
+
+// SetupTestDatabaseSchema runs database migrations to set up the test database.
+// This maintains the original function signature for backward compatibility.
+func SetupTestDatabaseSchema(db *sql.DB) error {
+	// We need an implementation that doesn't use testing.T features
+	// Get project root - similar to the implementation in testdb
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Find go.mod by traversing up directories
+	projectRoot := ""
+	for {
+		if _, err := os.Stat(fmt.Sprintf("%s/go.mod", dir)); err == nil {
+			projectRoot = dir
+			break
+		}
+
+		parent := fmt.Sprintf("%s/..", dir)
+		if parent == dir {
+			return fmt.Errorf("could not find project root (go.mod file)")
+		}
+		dir = parent
+	}
+
+	// Set up migrations directory
+	migrationsDir := fmt.Sprintf("%s/internal/platform/postgres/migrations", projectRoot)
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		return fmt.Errorf("migrations directory not found at %s: %w", migrationsDir, err)
+	}
+
+	// Run migrations
+	if err := testdb.ApplyMigrations(db, migrationsDir); err != nil {
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
+
+	return nil
+}
+
+// WithTx executes a test function within a transaction, automatically rolling back
+// after the test completes. This is a compatibility function that forwards to testdb.WithTx.
+func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
+	t.Helper()
+	testdb.WithTx(t, db, fn)
+}
 
 // GetTestDBWithT returns a database connection for testing.
 // Compatibility function that delegates to db.GetTestDBWithT.
@@ -49,15 +255,15 @@ func GetTestDB() (*sql.DB, error) {
 	return db.GetTestDB()
 }
 
-// SetupTestDatabaseSchema initializes the database schema using project migrations.
+// SetupTestDatabaseSchemaDB initializes the database schema using project migrations.
 // Compatibility function that delegates to db.SetupTestDatabaseSchema.
-func SetupTestDatabaseSchema(dbConn *sql.DB) error {
+func SetupTestDatabaseSchemaDB(dbConn *sql.DB) error {
 	return db.SetupTestDatabaseSchema(dbConn)
 }
 
-// WithTx runs a test function with transaction-based isolation.
+// WithTxDB runs a test function with transaction-based isolation.
 // Compatibility function that delegates to db.WithTx.
-func WithTx(t *testing.T, dbConn *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
+func WithTxDB(t *testing.T, dbConn *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 	db.WithTx(t, dbConn, fn)
 }

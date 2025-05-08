@@ -229,7 +229,7 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 
 			// Attempt to update email - this should fail during GetByID
 			newEmail := "new-email-getbyid-fail@example.com"
-			err := userService.UpdateUserEmail(ctx, userID, newEmail)
+			err = userService.UpdateUserEmail(ctx, userID, newEmail)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -264,7 +264,7 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 
 			// Attempt to update email - this should fail during Update
 			newEmail := "new-email-update-fail@example.com"
-			err := userService.UpdateUserEmail(ctx, userID, newEmail)
+			err = userService.UpdateUserEmail(ctx, userID, newEmail)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -298,7 +298,7 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 
 			// Update the email - this should succeed
 			newEmail := "new-email-success@example.com"
-			err := userService.UpdateUserEmail(ctx, userID, newEmail)
+			err = userService.UpdateUserEmail(ctx, userID, newEmail)
 
 			// Verify the operation succeeded
 			assert.NoError(t, err, "Operation should succeed")
@@ -359,7 +359,7 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 
 			// Attempt to update password - this should fail after Get but before Update
 			newPassword := "NewSecurePass456!"
-			err := userService.UpdateUserPassword(ctx, userID, newPassword)
+			err = userService.UpdateUserPassword(ctx, userID, newPassword)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -389,7 +389,7 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 
 			// Update the password - this should succeed
 			newPassword := "SuccessPassword789!"
-			err := userService.UpdateUserPassword(ctx, userID, newPassword)
+			err = userService.UpdateUserPassword(ctx, userID, newPassword)
 
 			// Verify the operation succeeded
 			assert.NoError(t, err, "Operation should succeed")
@@ -446,7 +446,7 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 			require.NoError(t, err, "Failed to create user service")
 
 			// Attempt to delete the user - this should fail
-			err := userService.DeleteUser(ctx, userIDFail)
+			err = userService.DeleteUser(ctx, userIDFail)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -478,7 +478,7 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 			require.NoError(t, err, "Failed to create user service")
 
 			// Delete the user - this should succeed
-			err := userService.DeleteUser(ctx, userIDSuccess)
+			err = userService.DeleteUser(ctx, userIDSuccess)
 
 			// Verify the operation succeeded
 			assert.NoError(t, err, "Operation should succeed")

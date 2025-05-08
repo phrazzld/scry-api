@@ -1,26 +1,20 @@
-//go:build integration
+//go:build skip_me
+
+// This file is part of the compatibility layer for supporting older test code
+// while transitioning to the new structure. The build tag "skip_me" ensures
+// this file is skipped during normal builds to avoid function redeclarations.
 
 package testutils
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/testdb"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/bcrypt"
 )
-
-// IsIntegrationTestEnvironment forwards to testdb.IsIntegrationTestEnvironment for compatibility
-func IsIntegrationTestEnvironment() bool {
-	return testdb.IsIntegrationTestEnvironment()
-}
 
 // WithTx executes a test function within a transaction, automatically rolling back
 // after the test completes. This is a compatibility function that forwards to testdb.WithTx.
@@ -86,57 +80,4 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 	}
 
 	return nil
-}
-
-// AssertCloseNoError safely closes a resource, logging any errors.
-func AssertCloseNoError(t *testing.T, closer interface{}) {
-	t.Helper()
-
-	if closer == nil {
-		return
-	}
-
-	if db, ok := closer.(*sql.DB); ok {
-		testdb.CleanupDB(t, db)
-		return
-	}
-
-	if c, ok := closer.(interface{ Close() error }); ok {
-		if err := c.Close(); err != nil {
-			t.Logf("Warning: failed to close resource: %v", err)
-		}
-	}
-}
-
-// MustInsertUser creates a test user in the database and returns the user ID.
-// If the optional bcryptCost parameter is not provided, it defaults to 10.
-func MustInsertUser(ctx context.Context, t *testing.T, tx *sql.Tx, email string, bcryptCost ...int) uuid.UUID {
-	t.Helper()
-
-	// Default bcrypt cost if not provided
-	cost := 10
-	if len(bcryptCost) > 0 {
-		cost = bcryptCost[0]
-	}
-
-	// Generate a random UUID for the user
-	userID := uuid.New()
-
-	// Hash a default password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("testpassword123456"), cost)
-	require.NoError(t, err, "Failed to hash password")
-
-	// Insert the user directly using SQL
-	_, err = tx.ExecContext(
-		ctx,
-		"INSERT INTO users (id, email, hashed_password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
-		userID,
-		email,
-		string(hashedPassword),
-		time.Now().UTC(),
-		time.Now().UTC(),
-	)
-	require.NoError(t, err, "Failed to insert test user")
-
-	return userID
 }

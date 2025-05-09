@@ -132,7 +132,7 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Add cleanup routines for non-transaction tests
   - Estimated effort: 3 hours
 
-- [ ] Fix transaction issues in card API tests
+- [x] Fix transaction issues in card API tests
   - Success Criteria: Card-related tests run without errors
   - Focus on cmd/server/card_api_test.go and related files
   - Verify transaction handling is consistent

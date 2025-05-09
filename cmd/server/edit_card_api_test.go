@@ -1,4 +1,4 @@
-//go:build integration_skip
+//go:build integration || test_without_external_deps
 
 package main
 
@@ -13,12 +13,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils/api"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestEditCardEndpoint tests the PUT /cards/{id} endpoint
 func TestEditCardEndpoint(t *testing.T) {
+	// Skip test if database is not available
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
+	}
+
 	// Initialize test database connection
 	db := testdb.GetTestDBWithT(t)
 

@@ -120,13 +120,13 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Consider providing explicit migration path option
   - Estimated effort: 1 hour
 
-- [ ] Fix integration test imports
+- [~] Fix integration test imports
   - Success Criteria: All cmd/server tests import correct testutils functions
   - Update import paths to use new package structure
   - Verify all tests use consistent import patterns
   - Estimated effort: 2 hours
 
-- [ ] Improve test isolation in integration tests
+- [x] Improve test isolation in integration tests
   - Success Criteria: No test contamination between different test files
   - Ensure all tests use transaction isolation or equivalent
   - Add cleanup routines for non-transaction tests

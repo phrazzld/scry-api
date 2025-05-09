@@ -126,31 +126,99 @@ func ApplyMigrations(db *sql.DB, migrationsDir string) error {
 // findProjectRoot locates the project root directory by traversing upwards
 // until it finds a directory with go.mod file. Provides enhanced diagnostics
 // particularly for CI environments.
+//
+// Project root detection order:
+// 1. SCRY_PROJECT_ROOT environment variable (if set)
+// 2. GITHUB_WORKSPACE environment variable (GitHub Actions CI)
+// 3. CI_PROJECT_DIR environment variable (GitLab CI)
+// 4. Smart traversal from current directory looking for go.mod
+//
+// If you're experiencing issues with project root detection in CI:
+// - Set SCRY_PROJECT_ROOT environment variable to explicitly specify the path
+// - Ensure the repository is properly cloned in the CI environment
+// - Check if the repository is part of a monorepo structure
 func findProjectRoot() (string, error) {
-	// Start with current working directory
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory: %w", err)
-	}
-
 	// Keep track of paths we've checked for debugging
 	checkedPaths := []string{}
+	checkedEnvVars := []string{}
 
-	// Special handling for GitHub Actions CI environment
-	if os.Getenv("GITHUB_WORKSPACE") != "" {
-		// In GitHub Actions, GITHUB_WORKSPACE is set to the root of the repository
-		githubWorkspace := os.Getenv("GITHUB_WORKSPACE")
+	// 1. Check for explicit project root environment variable
+	if projectRoot := os.Getenv("SCRY_PROJECT_ROOT"); projectRoot != "" {
+		checkedEnvVars = append(checkedEnvVars, "SCRY_PROJECT_ROOT="+projectRoot)
+		goModPath := filepath.Join(projectRoot, "go.mod")
+		checkedPaths = append(checkedPaths, goModPath)
+
+		if _, err := os.Stat(goModPath); err == nil {
+			return projectRoot, nil
+		}
+
+		// If SCRY_PROJECT_ROOT is set but invalid, log a warning
+		fmt.Printf("Warning: SCRY_PROJECT_ROOT is set to %q but go.mod not found at %s\n",
+			projectRoot, goModPath)
+	}
+
+	// 2. Special handling for GitHub Actions CI environment
+	if githubWorkspace := os.Getenv("GITHUB_WORKSPACE"); githubWorkspace != "" {
+		checkedEnvVars = append(checkedEnvVars, "GITHUB_WORKSPACE="+githubWorkspace)
+
+		// Try direct path
 		goModPath := filepath.Join(githubWorkspace, "go.mod")
+		checkedPaths = append(checkedPaths, goModPath)
 
 		if _, err := os.Stat(goModPath); err == nil {
 			return githubWorkspace, nil
 		}
 
-		// Add to our debug tracking
+		// Try with 'scry-api' subdirectory for monorepo setups
+		repoPath := filepath.Join(githubWorkspace, "scry-api")
+		goModPath = filepath.Join(repoPath, "go.mod")
 		checkedPaths = append(checkedPaths, goModPath)
+
+		if _, err := os.Stat(goModPath); err == nil {
+			return repoPath, nil
+		}
 	}
 
-	// Traverse up until we find go.mod
+	// 3. Check for GitLab CI environment
+	if gitlabProjectDir := os.Getenv("CI_PROJECT_DIR"); gitlabProjectDir != "" {
+		checkedEnvVars = append(checkedEnvVars, "CI_PROJECT_DIR="+gitlabProjectDir)
+		goModPath := filepath.Join(gitlabProjectDir, "go.mod")
+		checkedPaths = append(checkedPaths, goModPath)
+
+		if _, err := os.Stat(goModPath); err == nil {
+			return gitlabProjectDir, nil
+		}
+	}
+
+	// 4. Start with current working directory and traverse upwards
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Try common project subdirectories first if we might be in a nested location
+	if isCIEnvironment() {
+		// Check if we're in a subdirectory of the project
+		commonDirs := []string{"internal", "cmd", "pkg", "test"}
+		for _, subdir := range commonDirs {
+			if strings.HasSuffix(dir, subdir) || strings.Contains(dir, "/"+subdir+"/") {
+				// Try to find project root by traversing up
+				potentialRoot := dir
+				for i := 0; i < 5; i++ { // Go up max 5 levels
+					potentialRoot = filepath.Dir(potentialRoot)
+					goModPath := filepath.Join(potentialRoot, "go.mod")
+					checkedPaths = append(checkedPaths, goModPath)
+
+					if _, err := os.Stat(goModPath); err == nil {
+						return potentialRoot, nil
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// Standard traversal - go up until we find go.mod
 	maxAttempts := 10 // Prevent infinite loops
 	attempts := 0
 
@@ -174,6 +242,24 @@ func findProjectRoot() (string, error) {
 		dir = parentDir
 	}
 
+	// Last resort: Check for specific project structure patterns
+	currentDir, _ := os.Getwd()
+	for _, segment := range []string{"scry-api", "scry", "scry-api-go"} {
+		if strings.Contains(currentDir, segment) {
+			// Extract the project root by finding the segment in the path
+			idx := strings.Index(currentDir, segment)
+			if idx != -1 {
+				possibleRoot := currentDir[:idx+len(segment)]
+				goModPath := filepath.Join(possibleRoot, "go.mod")
+				checkedPaths = append(checkedPaths, goModPath)
+
+				if _, err := os.Stat(goModPath); err == nil {
+					return possibleRoot, nil
+				}
+			}
+		}
+	}
+
 	// Enhanced error message with diagnostics
 	dirContents := ""
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
@@ -185,11 +271,35 @@ func findProjectRoot() (string, error) {
 	}
 
 	return "", fmt.Errorf("could not find go.mod in any parent directory.\n"+
+		"Checked environment variables: %v\n"+
 		"Checked paths: %v\n"+
 		"Current directory: %s%s\n"+
 		"CI environment: %v\n"+
-		"GITHUB_WORKSPACE: %s",
-		checkedPaths, dir, dirContents, os.Getenv("CI") != "", os.Getenv("GITHUB_WORKSPACE"))
+		"CI environment vars: GITHUB_WORKSPACE=%s, CI_PROJECT_DIR=%s\n"+
+		"To fix this, set SCRY_PROJECT_ROOT environment variable to the project root directory",
+		checkedEnvVars, checkedPaths, dir, dirContents,
+		isCIEnvironment(), os.Getenv("GITHUB_WORKSPACE"), os.Getenv("CI_PROJECT_DIR"))
+}
+
+// isCIEnvironment returns true if running in a CI environment
+func isCIEnvironment() bool {
+	// Check common CI environment variables
+	ciVars := []string{
+		"CI",             // Generic
+		"GITHUB_ACTIONS", // GitHub Actions
+		"GITLAB_CI",      // GitLab CI
+		"JENKINS_URL",    // Jenkins
+		"TRAVIS",         // Travis CI
+		"CIRCLECI",       // Circle CI
+	}
+
+	for _, envVar := range ciVars {
+		if os.Getenv(envVar) != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // testGooseLogger implements a minimal logger interface for goose

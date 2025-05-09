@@ -81,3 +81,85 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
 - [x] Remove any workarounds or obsolete conditional test skipping
   - Success Criteria: Code is clean and explicit
   - Note: The current implementation keeps skip logic for local development while ensuring CI runs all tests
+
+## CI Failure Resolution Tasks (T029-T034)
+
+### TestUtils and TestDB Package Fixes (T029-T033)
+
+- [x] Fix function redeclarations between testdb and testutils packages
+  - Success Criteria: No "redeclared" errors during build
+  - Files affected: compatibility.go, db_compat.go, db_forwarding.go
+
+- [x] Update build tags to prevent compilation conflicts
+  - Success Criteria: Consistent build tag usage across files
+  - Implemented: Using integration, test_without_external_deps, and other specific tags
+
+- [x] Fix missing ApplyMigrations function in testdb package
+  - Success Criteria: ApplyMigrations available to forward-compatibility layer
+  - Solution: Added implementation in testdb/db.go with proper error handling
+
+- [x] Create forwarding functions for backward compatibility
+  - Success Criteria: Old code paths still work with new package structure
+  - Implemented: Created db_forwarding.go with appropriate forwarding functions
+
+- [x] Fix missing AssertRollbackNoError function
+  - Success Criteria: No undefined reference errors
+  - Solution: Added implementation directly in db.go
+
+### Test Phase Failures (Current Tasks)
+
+- [x] Fix database connection errors in CI
+  - Success Criteria: DATABASE_URL properly recognized in CI environment
+  - Implement better error messaging in testdb.GetTestDB()
+  - Check for proper environment variable setup in GitHub Actions
+  - Estimated effort: 2 hours
+
+- [ ] Resolve "failed to find project root" errors
+  - Success Criteria: Migration path correctly identified in CI
+  - Update findProjectRoot() to handle CI directory structure
+  - Consider providing explicit migration path option
+  - Estimated effort: 1 hour
+
+- [ ] Fix integration test imports
+  - Success Criteria: All cmd/server tests import correct testutils functions
+  - Update import paths to use new package structure
+  - Verify all tests use consistent import patterns
+  - Estimated effort: 2 hours
+
+- [ ] Improve test isolation in integration tests
+  - Success Criteria: No test contamination between different test files
+  - Ensure all tests use transaction isolation or equivalent
+  - Add cleanup routines for non-transaction tests
+  - Estimated effort: 3 hours
+
+- [ ] Fix transaction issues in card API tests
+  - Success Criteria: Card-related tests run without errors
+  - Focus on cmd/server/card_api_test.go and related files
+  - Verify transaction handling is consistent
+  - Estimated effort: 2 hours
+
+- [ ] Update CI workflow for proper database setup
+  - Success Criteria: CI workflow properly sets up and connects to database
+  - Review postgres service configuration in GitHub Actions
+  - Add health checks before test execution
+  - Estimated effort: 1 hour
+
+## Future Improvements
+
+- [ ] Consolidate test utilities for better maintainability
+  - Success Criteria: Reduced duplication in test utility code
+  - Move all database operations to testdb package
+  - Create clear documentation for test utilities
+  - Estimated effort: 4 hours
+
+- [ ] Improve error handling in test utilities
+  - Success Criteria: Clear, actionable error messages when tests fail
+  - Add better diagnostics for database connection issues
+  - Implement consistent error wrapping pattern
+  - Estimated effort: 2 hours
+
+- [ ] Add better logging in CI context
+  - Success Criteria: Test failures provide clear debugging information
+  - Add CI-specific logging enhancements
+  - Implement structured logging for test failures
+  - Estimated effort: 1 hour

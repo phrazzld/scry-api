@@ -10,8 +10,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -24,25 +26,41 @@ import (
 // TestTimeout defines a default timeout for test database operations.
 const TestTimeout = 5 * time.Second
 
-// IsIntegrationTestEnvironment returns true if the DATABASE_URL environment
-// variable is set, indicating that integration tests can be run.
+// IsIntegrationTestEnvironment returns true if any of the database URL environment
+// variables are set, indicating that integration tests can be run.
 func IsIntegrationTestEnvironment() bool {
-	return len(os.Getenv("DATABASE_URL")) > 0
+	// Check if any of the database URL environment variables are set
+	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
+
+	for _, envVar := range envVars {
+		if len(os.Getenv(envVar)) > 0 {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetTestDatabaseURL returns the database URL for tests.
-// It checks DATABASE_URL and SCRY_TEST_DB_URL environment variables
+// It checks DATABASE_URL, SCRY_TEST_DB_URL, and SCRY_DATABASE_URL environment variables
 // in that order, returning the first non-empty value.
 func GetTestDatabaseURL() string {
-	// First check for DATABASE_URL from integration tests
-	dbURL := os.Getenv("DATABASE_URL")
+	// Check environment variables in priority order
+	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
 
-	// Fall back to SCRY_TEST_DB_URL if DATABASE_URL is not set
-	if dbURL == "" {
-		dbURL = os.Getenv("SCRY_TEST_DB_URL")
+	for _, envVar := range envVars {
+		dbURL := os.Getenv(envVar)
+		if dbURL != "" {
+			// Log which environment variable was used if we're in CI
+			if os.Getenv("CI") != "" {
+				fmt.Printf("Using database URL from %s environment variable\n", envVar)
+			}
+			return dbURL
+		}
 	}
 
-	return dbURL
+	// No valid URL found
+	return ""
 }
 
 // SetupTestDatabaseSchema runs database migrations to set up the test database.
@@ -106,7 +124,8 @@ func ApplyMigrations(db *sql.DB, migrationsDir string) error {
 }
 
 // findProjectRoot locates the project root directory by traversing upwards
-// until it finds a directory with go.mod file.
+// until it finds a directory with go.mod file. Provides enhanced diagnostics
+// particularly for CI environments.
 func findProjectRoot() (string, error) {
 	// Start with current working directory
 	dir, err := os.Getwd()
@@ -114,10 +133,34 @@ func findProjectRoot() (string, error) {
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 
+	// Keep track of paths we've checked for debugging
+	checkedPaths := []string{}
+
+	// Special handling for GitHub Actions CI environment
+	if os.Getenv("GITHUB_WORKSPACE") != "" {
+		// In GitHub Actions, GITHUB_WORKSPACE is set to the root of the repository
+		githubWorkspace := os.Getenv("GITHUB_WORKSPACE")
+		goModPath := filepath.Join(githubWorkspace, "go.mod")
+
+		if _, err := os.Stat(goModPath); err == nil {
+			return githubWorkspace, nil
+		}
+
+		// Add to our debug tracking
+		checkedPaths = append(checkedPaths, goModPath)
+	}
+
 	// Traverse up until we find go.mod
-	for {
+	maxAttempts := 10 // Prevent infinite loops
+	attempts := 0
+
+	for attempts < maxAttempts {
+		attempts++
+
 		// Check if go.mod exists in the current directory
 		goModPath := filepath.Join(dir, "go.mod")
+		checkedPaths = append(checkedPaths, goModPath)
+
 		if _, err := os.Stat(goModPath); err == nil {
 			return dir, nil
 		}
@@ -126,10 +169,27 @@ func findProjectRoot() (string, error) {
 		parentDir := filepath.Dir(dir)
 		// If we're at the root and haven't found go.mod, we've gone too far
 		if parentDir == dir {
-			return "", fmt.Errorf("could not find go.mod in any parent directory")
+			break
 		}
 		dir = parentDir
 	}
+
+	// Enhanced error message with diagnostics
+	dirContents := ""
+	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
+		names := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			names = append(names, entry.Name())
+		}
+		dirContents = fmt.Sprintf("\nCurrent directory contents: %v", names)
+	}
+
+	return "", fmt.Errorf("could not find go.mod in any parent directory.\n"+
+		"Checked paths: %v\n"+
+		"Current directory: %s%s\n"+
+		"CI environment: %v\n"+
+		"GITHUB_WORKSPACE: %s",
+		checkedPaths, dir, dirContents, os.Getenv("CI") != "", os.Getenv("GITHUB_WORKSPACE"))
 }
 
 // testGooseLogger implements a minimal logger interface for goose
@@ -147,6 +207,47 @@ func (l *testGooseLogger) Printf(format string, v ...interface{}) {
 func (l *testGooseLogger) Fatalf(format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	l.t.Fatal("Goose fatal error: " + strings.TrimSpace(msg))
+}
+
+// getCurrentDir returns the current working directory or an error message if it fails
+func getCurrentDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Sprintf("error getting current directory: %v", err)
+	}
+	return dir
+}
+
+// maskDatabaseURL masks sensitive information in a database URL for safe logging
+// Format: postgres://username:password@hostname:port/database?parameters
+func maskDatabaseURL(dbURL string) string {
+	// If empty or invalid format, return safely
+	if dbURL == "" {
+		return ""
+	}
+
+	// Try regex matching first for consistent output format
+	re := regexp.MustCompile(`://([^:]+):([^@]+)@`)
+	if re.MatchString(dbURL) {
+		return re.ReplaceAllString(dbURL, "://$1:****@")
+	}
+
+	// Fall back to URL parsing if regex doesn't match
+	parsedURL, err := url.Parse(dbURL)
+	if err != nil {
+		// If both approaches fail, return a generic masked version
+		return "database-url-with-masked-credentials"
+	}
+
+	// For properly parsed URLs, mask the password
+	if parsedURL.User != nil {
+		username := parsedURL.User.Username()
+		parsedURL.User = url.UserPassword(username, "****")
+		return parsedURL.String()
+	}
+
+	// If no user info is found, return the original URL
+	return dbURL
 }
 
 // GetTestDBWithT returns a database connection for testing, with t.Helper() support.
@@ -186,18 +287,36 @@ func GetTestDBWithT(t *testing.T) *sql.DB {
 
 // GetTestDB returns a database connection for testing without t.Helper() support.
 // This is useful for non-test code that needs database access.
-// Returns nil if DATABASE_URL is not set.
+// Returns an error with detailed diagnostics if the database connection cannot be established.
 func GetTestDB() (*sql.DB, error) {
 	// Check if the database URL is available
 	dbURL := GetTestDatabaseURL()
 	if dbURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL or SCRY_TEST_DB_URL not set")
+		// Provide more detailed error information about environment variables
+		envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
+		missingVars := []string{}
+
+		for _, envVar := range envVars {
+			if os.Getenv(envVar) == "" {
+				missingVars = append(missingVars, envVar)
+			}
+		}
+
+		// Enhanced error message with detailed diagnostics
+		errMsg := fmt.Sprintf("database connection failed: no database URL available\n"+
+			"Required environment variables missing: %v\n"+
+			"CI environment: %v\n"+
+			"Current working directory: %s\n"+
+			"Please ensure one of DATABASE_URL, SCRY_TEST_DB_URL, or SCRY_DATABASE_URL is set.",
+			missingVars, os.Getenv("CI") != "", getCurrentDir())
+
+		return nil, errors.New(errMsg)
 	}
 
 	// Open database connection
 	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database connection: %w", err)
+		return nil, fmt.Errorf("failed to open database connection: %w\nDatabase URL format may be incorrect", err)
 	}
 
 	// Configure connection pool
@@ -211,11 +330,23 @@ func GetTestDB() (*sql.DB, error) {
 	err = db.PingContext(ctx)
 	if err != nil {
 		closeErr := db.Close()
+
+		// Combine both errors in the message with enhanced diagnostics
+		errMsg := fmt.Sprintf("database ping failed: %v\n"+
+			"Database URL used: %s (masked)\n"+
+			"CI environment: %v\n"+
+			"Please check:\n"+
+			"1. PostgreSQL service is running\n"+
+			"2. Credentials are correct\n"+
+			"3. Database exists\n"+
+			"4. Network connectivity/firewall settings",
+			err, maskDatabaseURL(dbURL), os.Getenv("CI") != "")
+
 		if closeErr != nil {
-			// Combine both errors in the message
-			return nil, fmt.Errorf("database ping failed: %w (close error: %v)", err, closeErr)
+			errMsg += fmt.Sprintf("\nAdditional error when closing connection: %v", closeErr)
 		}
-		return nil, fmt.Errorf("database ping failed: %w", err)
+
+		return nil, errors.New(errMsg)
 	}
 
 	return db, nil

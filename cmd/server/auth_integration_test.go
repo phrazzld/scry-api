@@ -20,6 +20,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -102,10 +103,13 @@ func setupTestServer(t *testing.T, tx *sql.Tx) *httptest.Server {
 }
 
 func TestAuthIntegration(t *testing.T) {
-	// Skip test if database is not available (testDB is set in TestMain)
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	// Skip test if database is not available
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
+
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
 
 	// Use transaction isolation
 	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
@@ -210,10 +214,13 @@ func TestAuthIntegration(t *testing.T) {
 
 // TestAuthValidation_Integration tests validation errors in the auth endpoints
 func TestAuthValidation_Integration(t *testing.T) {
-	// Skip test if database is not available (testDB is set in TestMain)
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	// Skip test if database is not available
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
+
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
 
 	// Use transaction isolation
 	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {

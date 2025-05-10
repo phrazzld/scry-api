@@ -18,15 +18,19 @@ import (
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRefreshTokenAPI_Integration(t *testing.T) {
 	// Skip test if database is not available
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
+
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
 
 	// Use transaction isolation pattern
 	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
@@ -170,9 +174,12 @@ func TestRefreshTokenAPI_Integration(t *testing.T) {
 // Test to verify validation errors in RefreshToken API
 func TestRefreshTokenValidation_Integration(t *testing.T) {
 	// Skip test if database is not available
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
+
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
 
 	// Use transaction isolation pattern
 	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
@@ -234,9 +241,12 @@ func TestRefreshTokenValidation_Integration(t *testing.T) {
 // Test to verify an expired refresh token is rejected
 func TestExpiredRefreshToken_Integration(t *testing.T) {
 	// Skip test if database is not available
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
+
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
 
 	// Use transaction isolation pattern
 	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {

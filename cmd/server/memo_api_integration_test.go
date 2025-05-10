@@ -13,6 +13,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/api"
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,9 +21,12 @@ import (
 // TestCreateMemoAPI_Integration tests the memo creation endpoint with transaction isolation
 func TestCreateMemoAPI_Integration(t *testing.T) {
 	// Skip test if database is not available
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
+
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
 
 	// Use transaction isolation pattern
 	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {

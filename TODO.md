@@ -182,3 +182,86 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Fixed CI failure when verifying migrations after applying them
   - Estimated effort: 1 hour
   - Implementation: Added explicit SetTableName call in runMigrations function
+
+## Current CI Failures in Card Management API PR (T045-T050)
+
+### T045: Resolve Undefined TestUtils References
+
+- [x] Fix undefined testutils.WithTx references
+  - Success Criteria: No "undefined: testutils.WithTx" errors in CI
+  - Files to fix:
+    - internal/service/card_service_operations_test.go
+    - internal/platform/postgres/user_store_update_delete_test.go
+    - internal/platform/postgres/user_store_test.go
+    - internal/platform/postgres/user_store_get_test.go
+  - Approach: Update import paths to use the correct package or create missing function in appropriate location
+  - Estimated effort: 2 hours
+  - Implementation: Fixed build tag in testutils/db_compat.go and ensured all necessary functions are forwarded from testdb
+
+- [x] Fix undefined testutils.GetTestDB reference
+  - Success Criteria: No "undefined: testutils.GetTestDB" errors in CI
+  - Files to fix: internal/service/card_service_operations_test.go
+  - Approach: Update import to use testdb.GetTestDB or create forwarding function
+  - Estimated effort: 30 minutes
+  - Implementation: Added proper forwarding function in testutils/db_compat.go
+
+- [x] Fix undefined testutils.SetupTestDatabaseSchema reference
+  - Success Criteria: No "undefined: testutils.SetupTestDatabaseSchema" errors
+  - Files to fix: internal/platform/postgres/user_store_test.go
+  - Approach: Update import to use testdb package or create forwarding function
+  - Estimated effort: 30 minutes
+  - Implementation: Fixed implementation in testutils/db_compat.go
+
+### T046: Fix Database Migration Issues
+
+- [ ] Resolve "relation already exists" errors during migrations
+  - Success Criteria: No "ERROR: relation 'users' already exists" errors
+  - Approach: Implement proper migration versioning checks or add conditional CREATE IF NOT EXISTS
+  - Create script to reset test database before migrations in CI
+  - Estimated effort: 1 hour
+
+- [ ] Fix migration table name inconsistency
+  - Success Criteria: Consistent use of either "schema_migrations" or "goose_db_version"
+  - Approach: Standardize migration table name across all test and application code
+  - Add explicit configuration for migration table name in test setup
+  - Estimated effort: 1 hour
+
+### T047: Fix Transaction Handling in Tests
+
+- [ ] Resolve transaction abort errors in TestAuthValidation_Integration
+  - Success Criteria: No "current transaction is aborted" errors in test logs
+  - Approach: Implement proper transaction isolation and rollback for each test case
+  - Add test cleanup between test cases to prevent transaction contamination
+  - Estimated effort: 2 hours
+
+- [ ] Fix nil pointer panic in TestCardEditIntegration
+  - Success Criteria: No "invalid memory address or nil pointer dereference" errors
+  - Files to fix: cmd/server/card_api_test.go
+  - Approach: Add proper null checks and error handling for card-related operations
+  - Ensure all dependencies are properly initialized before test execution
+  - Estimated effort: 1 hour
+
+### T048: Fix Auth Endpoint Status Code Issues
+
+- [ ] Fix TestAuthValidation_Integration/Login_-_Non-existent_User test
+  - Success Criteria: Test expects 404 but gets 500 status code
+  - Approach: Update auth handler to return 404 for non-existent users instead of 500
+  - Ensure error handling differentiates between not found and database errors
+  - Estimated effort: 1 hour
+
+### T049: Create Database Reset and Setup Script for CI
+
+- [ ] Create script to properly reset database between test runs
+  - Success Criteria: Clean database state before each test run
+  - Approach: Script should drop all tables and re-apply migrations
+  - Add to CI workflow before running tests
+  - Estimated effort: 1 hour
+
+### T050: Update PR Documentation with CI Fix Strategy
+
+- [ ] Document CI failures and resolution approach in PR description
+  - Success Criteria: Clear documentation of what was fixed and how
+  - Approach: Summarize test failures, root causes, and solutions implemented
+  - Include before/after error rates and any performance improvements
+  - Link to relevant issues or documentation
+  - Estimated effort: 30 minutes

@@ -1,8 +1,8 @@
-//go:build integration_test_internal
+//go:build integration
 
 // This file is part of the compatibility layer for supporting older test code
-// while transitioning to the new structure. The build tag "integration_test_internal" ensures
-// this file is skipped during normal builds to avoid function redeclarations.
+// while transitioning to the new structure. The build tag "integration" ensures
+// it's only included during integration tests, avoiding function redeclarations.
 
 package testutils
 
@@ -14,7 +14,18 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/stretchr/testify/require"
 )
+
+// IsIntegrationTestEnvironment forwards to testdb.IsIntegrationTestEnvironment
+func IsIntegrationTestEnvironment() bool {
+	return testdb.IsIntegrationTestEnvironment()
+}
+
+// ShouldSkipDatabaseTest forwards to testdb.ShouldSkipDatabaseTest
+func ShouldSkipDatabaseTest() bool {
+	return testdb.ShouldSkipDatabaseTest()
+}
 
 // WithTx executes a test function within a transaction, automatically rolling back
 // after the test completes. This is a compatibility function that forwards to testdb.WithTx.
@@ -34,6 +45,17 @@ func GetTestDBWithT(t *testing.T) *sql.DB {
 // This maintains the original function signature for backward compatibility.
 func GetTestDB() (*sql.DB, error) {
 	return testdb.GetTestDB()
+}
+
+// MustGetTestDatabaseURL returns the test database URL or panics if it's not available.
+// This is a compatibility helper function for test code only.
+func MustGetTestDatabaseURL() string {
+	dbURL := testdb.GetTestDatabaseURL()
+	if dbURL == "" {
+		// ALLOW-PANIC
+		panic("No test database URL available. Set DATABASE_URL, SCRY_TEST_DB_URL, or SCRY_DATABASE_URL")
+	}
+	return dbURL
 }
 
 // SetupTestDatabaseSchemaWithT runs database migrations to set up the test database.
@@ -80,4 +102,19 @@ func SetupTestDatabaseSchema(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// AssertCloseNoError asserts that the given closer can be closed without error
+func AssertCloseNoError(t *testing.T, closer interface{ Close() error }) {
+	t.Helper()
+	if closer == nil {
+		return
+	}
+	require.NoError(t, closer.Close(), "Failed to close resource")
+}
+
+// RunInTx is an alias for WithTx for backward compatibility
+func RunInTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
+	t.Helper()
+	WithTx(t, db, fn)
 }

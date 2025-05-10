@@ -104,8 +104,16 @@ jobs:
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
 
-      - name: Apply database migrations
+      - name: Reset and prepare database
         run: |
+          # Make the reset script executable
+          chmod +x ./scripts/reset-test-db.sh
+
+          # Reset the database to ensure clean state
+          echo "Resetting database to ensure clean state..."
+          ./scripts/reset-test-db.sh
+
+          # Apply migrations to the clean database
           echo "Applying database migrations..."
           go run cmd/server/main.go -migrate=up
 
@@ -137,6 +145,14 @@ jobs:
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
       - name: Run tests
         run: |
+          # Reset database again right before tests to ensure clean state
+          echo "Resetting database before tests..."
+          ./scripts/reset-test-db.sh
+
+          # Apply migrations again to ensure proper schema
+          echo "Re-applying migrations for tests..."
+          go run cmd/server/main.go -migrate=up
+
           echo "Running tests with integration build tag..."
           go test -v -race -coverprofile=coverage.out -tags=integration ./...
         env:

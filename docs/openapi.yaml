@@ -1,0 +1,670 @@
+openapi: 3.0.3
+info:
+  title: Scry API
+  description: |
+    API for Scry, a spaced repetition learning system with AI-generated cards.
+    This API allows users to manage memos, cards, and review cards using a spaced repetition algorithm.
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: API base path
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or registration
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        trace_id:
+          type: string
+          description: Unique ID for tracing the request through the system
+      required:
+        - error
+
+    AuthResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Unique ID of the authenticated user
+        token:
+          type: string
+          description: JWT access token for authentication
+        refresh_token:
+          type: string
+          description: JWT refresh token for getting new access tokens
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time of the access token
+      required:
+        - user_id
+        - token
+        - refresh_token
+        - expires_at
+
+    RefreshTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: New JWT access token
+        refresh_token:
+          type: string
+          description: New JWT refresh token
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time of the new access token
+      required:
+        - access_token
+        - refresh_token
+        - expires_at
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          format: password
+          description: User's password (min length 12)
+      required:
+        - email
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          description: User's password
+      required:
+        - email
+        - password
+
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: JWT refresh token
+      required:
+        - refresh_token
+
+    MemoRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Text content of the memo
+      required:
+        - text
+
+    MemoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique ID of the memo
+        user_id:
+          type: string
+          format: uuid
+          description: ID of the user who created the memo
+        text:
+          type: string
+          description: Text content of the memo
+        status:
+          type: string
+          enum: [pending, processing, completed, completed_with_errors, failed]
+          description: Current status of the memo's card generation process
+        created_at:
+          type: string
+          format: date-time
+          description: Time when the memo was created
+        updated_at:
+          type: string
+          format: date-time
+          description: Time when the memo was last updated
+      required:
+        - id
+        - user_id
+        - text
+        - status
+        - created_at
+        - updated_at
+
+    CardResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique ID of the card
+        user_id:
+          type: string
+          format: uuid
+          description: ID of the user who owns the card
+        memo_id:
+          type: string
+          format: uuid
+          description: ID of the memo this card was generated from
+        content:
+          type: object
+          description: JSON content of the card (structure depends on card type)
+        created_at:
+          type: string
+          format: date-time
+          description: Time when the card was created
+        updated_at:
+          type: string
+          format: date-time
+          description: Time when the card was last updated
+      required:
+        - id
+        - user_id
+        - memo_id
+        - content
+        - created_at
+        - updated_at
+
+    EditCardRequest:
+      type: object
+      properties:
+        content:
+          type: object
+          description: Updated JSON content for the card
+      required:
+        - content
+
+    SubmitAnswerRequest:
+      type: object
+      properties:
+        outcome:
+          type: string
+          enum: [again, hard, good, easy]
+          description: The result of the card review
+      required:
+        - outcome
+
+    PostponeCardRequest:
+      type: object
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          description: Number of days to postpone the card review
+      required:
+        - days
+
+    UserCardStatsResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: ID of the user
+        card_id:
+          type: string
+          format: uuid
+          description: ID of the card
+        interval:
+          type: integer
+          description: Current interval in days
+        ease_factor:
+          type: number
+          format: float
+          description: Current ease factor
+        consecutive_correct:
+          type: integer
+          description: Count of consecutive correct answers
+        last_reviewed_at:
+          type: string
+          format: date-time
+          description: Time when the card was last reviewed
+        next_review_at:
+          type: string
+          format: date-time
+          description: Time when the card should next be reviewed
+        review_count:
+          type: integer
+          description: Total number of reviews for this card
+      required:
+        - user_id
+        - card_id
+        - interval
+        - ease_factor
+        - consecutive_correct
+        - last_reviewed_at
+        - next_review_at
+        - review_count
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Creates a new user account with the provided email and password
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in a user
+      description: Authenticates a user with email and password
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Obtains a new access token using a refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /memos:
+    post:
+      tags:
+        - Memos
+      summary: Create a new memo
+      description: |
+        Creates a new memo and enqueues a task to generate cards from the memo.
+        The generation process happens asynchronously.
+      operationId: createMemo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoRequest'
+      responses:
+        '202':
+          description: Memo created and processing started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cards/next:
+    get:
+      tags:
+        - Card Review
+      summary: Get next card for review
+      description: Retrieves the next card due for review
+      operationId: getNextCard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Next card retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '204':
+          description: No cards due for review
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cards/{id}/answer:
+    post:
+      tags:
+        - Card Review
+      summary: Submit answer for a card
+      description: Submits the result of reviewing a card and updates its review schedule
+      operationId: submitAnswer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Card ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAnswerRequest'
+      responses:
+        '200':
+          description: Answer submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCardStatsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cards/{id}:
+    put:
+      tags:
+        - Card Management
+      summary: Edit a card
+      description: Updates the content of an existing card
+      operationId: editCard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Card ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditCardRequest'
+      responses:
+        '204':
+          description: Card updated successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden (card belongs to another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Card Management
+      summary: Delete a card
+      description: |
+        Deletes a card and its associated user_card_stats records.
+        This operation is permanent and cannot be undone.
+      operationId: deleteCard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Card ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Card deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden (card belongs to another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cards/{id}/postpone:
+    post:
+      tags:
+        - Card Management
+      summary: Postpone a card review
+      description: Postpones the next review date of a card by a specified number of days
+      operationId: postponeCard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Card ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostponeCardRequest'
+      responses:
+        '200':
+          description: Card review postponed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCardStatsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden (card belongs to another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Card not found or stats not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

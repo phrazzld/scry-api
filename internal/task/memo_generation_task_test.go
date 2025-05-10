@@ -18,8 +18,8 @@ import (
 // createCardServiceMock creates a card service mock for testing
 func createCardServiceMock(
 	createCardsFunc func(ctx context.Context, cards []*domain.Card) error,
-) *mocks.CardService {
-	return &mocks.CardService{
+) *mocks.MockCardService {
+	return &mocks.MockCardService{
 		CreateCardsFunc: createCardsFunc,
 		GetCardFunc: func(ctx context.Context, cardID uuid.UUID) (*domain.Card, error) {
 			return nil, nil // Default implementation
@@ -35,7 +35,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 
 	t.Run("creates task with valid parameters", func(t *testing.T) {
 		memoService := &mocks.MockMemoService{}
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
 		})
@@ -51,7 +51,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 	})
 
 	t.Run("fails with nil memo service", func(t *testing.T) {
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
 		})
@@ -78,7 +78,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 
 	t.Run("fails with nil card service", func(t *testing.T) {
 		memoService := &mocks.MockMemoService{}
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 
 		task, err := NewMemoGenerationTask(validMemoID, memoService, generator, nil, logger)
 
@@ -89,7 +89,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 
 	t.Run("fails with nil logger", func(t *testing.T) {
 		memoService := &mocks.MockMemoService{}
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
 		})
@@ -103,7 +103,7 @@ func TestNewMemoGenerationTask(t *testing.T) {
 
 	t.Run("fails with nil memo ID", func(t *testing.T) {
 		memoService := &mocks.MockMemoService{}
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 		cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 			return nil
 		})
@@ -122,7 +122,7 @@ func TestMemoGenerationTaskInterface(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	validMemoID := uuid.New()
 	memoService := &mocks.MockMemoService{}
-	generator := &mocks.Generator{}
+	generator := &mocks.MockGenerator{}
 	cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 		return nil
 	})
@@ -143,7 +143,7 @@ func TestMemoGenerationTaskPayload(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	validMemoID := uuid.New()
 	memoService := &mocks.MockMemoService{}
-	generator := &mocks.Generator{}
+	generator := &mocks.MockGenerator{}
 	cardService := createCardServiceMock(func(ctx context.Context, cards []*domain.Card) error {
 		return nil
 	})
@@ -193,7 +193,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 			},
 		}
 
-		generator := &mocks.Generator{
+		generator := &mocks.MockGenerator{
 			GenerateCardsFunc: func(ctx context.Context, text string, userID uuid.UUID) ([]*domain.Card, error) {
 				return cards, nil
 			},
@@ -230,7 +230,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 			},
 		}
 
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 		cardService := createCardServiceMock(nil)
 		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -268,7 +268,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 			},
 		}
 
-		generator := &mocks.Generator{}
+		generator := &mocks.MockGenerator{}
 		cardService := createCardServiceMock(nil)
 		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -307,7 +307,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 			},
 		}
 
-		generator := &mocks.Generator{
+		generator := &mocks.MockGenerator{
 			GenerateCardsFunc: func(ctx context.Context, text string, userID uuid.UUID) ([]*domain.Card, error) {
 				return nil, genErr
 			},
@@ -360,7 +360,7 @@ func TestMemoGenerationTask_Execute(t *testing.T) {
 			},
 		}
 
-		generator := &mocks.Generator{
+		generator := &mocks.MockGenerator{
 			GenerateCardsFunc: func(ctx context.Context, text string, userID uuid.UUID) ([]*domain.Card, error) {
 				return cards, nil
 			},

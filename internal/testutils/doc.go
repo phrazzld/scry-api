@@ -1,3 +1,5 @@
+//go:build !compatibility && ignore_redeclarations
+
 // Package testutils provides testing utilities for the Scry API.
 //
 // This package contains helpers for:

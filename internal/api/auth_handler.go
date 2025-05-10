@@ -125,15 +125,11 @@ func (h *AuthHandler) WithTimeFunc(timeFunc func() time.Time) *AuthHandler {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 
-	// Parse request
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
-	}
+	// Get logger from context or use default
+	log := h.logger
 
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	// Parse and validate request
+	if !parseAndValidateRequest(w, r, &req, log) {
 		return
 	}
 
@@ -171,15 +167,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshTokenRequest
 
-	// Parse request
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
-	}
+	// Get logger from context or use default
+	log := h.logger
 
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	// Parse and validate request
+	if !parseAndValidateRequest(w, r, &req, log) {
 		return
 	}
 
@@ -194,7 +186,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	userID := claims.UserID
 
 	// Log successful refresh token validation
-	h.logger.Debug("refresh token validated successfully",
+	log.Debug("refresh token validated successfully",
 		slog.String("user_id", userID.String()),
 		slog.String("token_id", claims.ID))
 
@@ -217,15 +209,11 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
-	// Parse request
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
-	}
+	// Get logger from context or use default
+	log := h.logger
 
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	// Parse and validate request
+	if !parseAndValidateRequest(w, r, &req, log) {
 		return
 	}
 

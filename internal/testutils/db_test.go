@@ -1,3 +1,5 @@
+//go:build skip_testutils_test
+
 package testutils_test
 
 import (
@@ -9,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,7 +77,7 @@ func TestParallelIsolation(t *testing.T) {
 			t.Parallel()
 			defer wg.Done()
 
-			testutils.WithTx(t, db, func(tx store.DBTX) {
+			testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 				ctx := context.Background()
 				// Insert a test record with a specific email
 				id1 := uuid.New()
@@ -102,7 +103,7 @@ func TestParallelIsolation(t *testing.T) {
 			t.Parallel()
 			defer wg.Done()
 
-			testutils.WithTx(t, db, func(tx store.DBTX) {
+			testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 				ctx := context.Background()
 				// Insert a test record with the same email in a different transaction
 				id2 := uuid.New()

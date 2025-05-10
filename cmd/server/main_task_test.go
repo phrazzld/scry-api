@@ -1,3 +1,5 @@
+//go:build integration || test_without_external_deps
+
 package main
 
 import (
@@ -17,9 +19,9 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
-	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testdb"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,8 +37,8 @@ func TestMain(m *testing.M) {
 	dbAvailable := false
 
 	// Only try to connect if DATABASE_URL is set
-	if testutils.IsIntegrationTestEnvironment() {
-		dbURL := os.Getenv("DATABASE_URL")
+	if db.IsIntegrationTestEnvironment() {
+		dbURL := db.GetTestDatabaseURL()
 		var err error
 		testDB, err = sql.Open("pgx", dbURL)
 		if err == nil {
@@ -50,7 +52,7 @@ func TestMain(m *testing.M) {
 			defer cancel()
 			if err := testDB.PingContext(ctx); err == nil {
 				// Database is available, set up schema
-				if err := testutils.SetupTestDatabaseSchema(testDB); err == nil {
+				if err := db.SetupTestDatabaseSchema(testDB); err == nil {
 					// Create migrations config
 					cfg := &config.Config{
 						Database: config.DatabaseConfig{
@@ -196,12 +198,15 @@ func TestTaskRunnerIntegration(t *testing.T) {
 	// t.Parallel()
 
 	// Skip if database is not available
-	if testDB == nil {
-		t.Skip("Skipping integration test - database connection not available")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
 
+	// Get a test database connection
+	testDB := testdb.GetTestDBWithT(t)
+
 	// Get the database URL for this test
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := db.GetTestDatabaseURL()
 
 	// First, ensure that all migrations have been run so we have the required tables
 	// This is needed because TestMigrationFlow might have run down migrations
@@ -249,7 +254,7 @@ func TestTaskRunnerIntegration(t *testing.T) {
 		t.Fatalf("Failed to restore working directory: %v", err)
 	}
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Set up the configuration
 		cfg := &config.Config{
 			Task: config.TaskConfig{

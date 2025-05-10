@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib" // Register pgx driver for database/sql
 	"github.com/phrazzld/scry-api/internal/api"
 	apiMiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
@@ -165,7 +166,8 @@ type appDependencies struct {
 	JWTService        auth.JWTService
 	PasswordVerifier  auth.PasswordVerifier
 	Generator         task.Generator                // Interface for card generation
-	CardService       task.CardService              // Interface for card service operations
+	SRSService        srs.Service                   // Interface for SRS algorithm operations
+	CardService       service.CardService           // Interface for card service operations
 	MemoService       service.MemoService           // Interface for memo service operations
 	CardReviewService card_review.CardReviewService // Interface for card review operations
 
@@ -319,8 +321,8 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 	// Use memo service from dependencies, which has been properly initialized in startServer
 	memoHandler := api.NewMemoHandler(deps.MemoService, deps.Logger)
 
-	// Use the card review service from dependencies
-	cardHandler := api.NewCardHandler(deps.CardReviewService, deps.Logger)
+	// Use card service directly from dependencies (now properly typed as service.CardService)
+	cardHandler := api.NewCardHandler(deps.CardReviewService, deps.CardService, deps.Logger)
 
 	// Register routes
 	r.Route("/api", func(r chi.Router) {
@@ -338,6 +340,11 @@ func setupRouter(deps *appDependencies) *chi.Mux {
 			// Card review endpoints
 			r.Get("/cards/next", cardHandler.GetNextReviewCard)
 			r.Post("/cards/{id}/answer", cardHandler.SubmitAnswer)
+
+			// Card management endpoints
+			r.Put("/cards/{id}", cardHandler.EditCard)
+			r.Delete("/cards/{id}", cardHandler.DeleteCard)
+			r.Post("/cards/{id}/postpone", cardHandler.PostponeCard)
 		})
 	})
 
@@ -460,30 +467,32 @@ func startServer(cfg *config.Config) {
 		os.Exit(1)
 	}
 
-	// Create a card repository adapter for the card service
-	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
-	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
-
-	// Create the card service
-	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, logger)
-	if err != nil {
-		logger.Error("Failed to create card service", "error", err)
-		os.Exit(1)
-	}
-	deps.CardService = cardService
-
 	// Create SRS service with default parameters
 	srsService, err := srs.NewDefaultService()
 	if err != nil {
 		logger.Error("Failed to create SRS service", "error", err)
 		os.Exit(1)
 	}
+	// Store SRS service in dependencies for use by other services
+	deps.SRSService = srsService
+
+	// Create a card repository adapter for the card service
+	cardRepoAdapter := service.NewCardRepositoryAdapter(deps.CardStore, deps.DB)
+	statsRepoAdapter := service.NewStatsRepositoryAdapter(deps.UserCardStatsStore)
+
+	// Create the card service using SRS service from dependencies
+	cardService, err := service.NewCardService(cardRepoAdapter, statsRepoAdapter, deps.SRSService, logger)
+	if err != nil {
+		logger.Error("Failed to create card service", "error", err)
+		os.Exit(1)
+	}
+	deps.CardService = cardService
 
 	// Create card review service with direct store dependencies
 	cardReviewService, err := card_review.NewCardReviewService(
 		deps.CardStore,
 		deps.UserCardStatsStore,
-		srsService,
+		deps.SRSService, // Use SRS service from dependencies
 		logger,
 	)
 	if err != nil {
@@ -492,11 +501,11 @@ func startServer(cfg *config.Config) {
 	}
 	deps.CardReviewService = cardReviewService
 
-	// Create the task factory
+	// Create the task factory - ensuring all services are initialized first
 	memoTaskFactory := task.NewMemoGenerationTaskFactory(
 		memoServiceAdapter,
 		deps.Generator,
-		deps.CardService, // Use CardService instead of CardRepository
+		deps.CardService, // CardService is now properly initialized with srsService
 		logger,
 	)
 
@@ -663,6 +672,10 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 	// Configure goose to use the custom slog logger adapter
 	goose.SetLogger(&slogGooseLogger{})
 
+	// Set the migration table name to "schema_migrations" to ensure consistency
+	// between migration runs and verification checks
+	goose.SetTableName("schema_migrations")
+
 	// pgx driver is automatically registered with database/sql
 	// when the stdlib package is imported
 
@@ -740,6 +753,9 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
+
+	// Set the migration table name to match what's used in testdb and testutils/db
+	goose.SetTableName("schema_migrations")
 
 	// Execute the requested migration command
 	slog.Info("Executing migration command", "command", command)

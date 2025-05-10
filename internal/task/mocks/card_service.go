@@ -7,22 +7,22 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 )
 
-// CardService is a mock implementation of the CardService interface
-type CardService struct {
+// MockCardService is a mock implementation of the card service for testing.
+type MockCardService struct {
 	CreateCardsFunc func(ctx context.Context, cards []*domain.Card) error
 	GetCardFunc     func(ctx context.Context, cardID uuid.UUID) (*domain.Card, error)
 }
 
-// CreateCards creates multiple cards and their associated stats in a single transaction
-func (m *CardService) CreateCards(ctx context.Context, cards []*domain.Card) error {
+// CreateCards implements the CardService interface for testing.
+func (m *MockCardService) CreateCards(ctx context.Context, cards []*domain.Card) error {
 	if m.CreateCardsFunc != nil {
 		return m.CreateCardsFunc(ctx, cards)
 	}
 	return nil
 }
 
-// GetCard retrieves a card by its ID
-func (m *CardService) GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error) {
+// GetCard implements the CardService interface for testing.
+func (m *MockCardService) GetCard(ctx context.Context, cardID uuid.UUID) (*domain.Card, error) {
 	if m.GetCardFunc != nil {
 		return m.GetCardFunc(ctx, cardID)
 	}

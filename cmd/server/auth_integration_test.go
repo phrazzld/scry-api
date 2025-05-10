@@ -222,211 +222,259 @@ func TestAuthValidation_Integration(t *testing.T) {
 	// Get a test database connection
 	testDB := testdb.GetTestDBWithT(t)
 
-	// Use transaction isolation
-	testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
-		// Start test server with transaction isolation
-		testServer := setupTestServer(t, tx)
-
-		// Test cases for registration validation
-		t.Run("Registration - Invalid Email Format", func(t *testing.T) {
-			payload := map[string]interface{}{
-				"email":    "invalid-email",
-				"password": "securepassword123456",
-			}
-
-			reqBody, err := json.Marshal(payload)
-			require.NoError(t, err)
-
-			resp, err := http.Post(
-				testServer.URL+"/api/auth/register",
-				"application/json",
-				bytes.NewBuffer(reqBody),
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
+	// Define subtests - each with isolated transactions
+	tests := []struct {
+		name string
+		run  func(t *testing.T, testServer *httptest.Server)
+	}{
+		{
+			name: "Registration - Invalid Email Format",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				payload := map[string]interface{}{
+					"email":    "invalid-email",
+					"password": "securepassword123456",
 				}
-			}()
 
-			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+				reqBody, err := json.Marshal(payload)
+				require.NoError(t, err)
 
-			// Verify error response contains email validation error
-			var errResp shared.ErrorResponse
-			err = json.NewDecoder(resp.Body).Decode(&errResp)
-			require.NoError(t, err)
-			assert.Contains(t, errResp.Error, "email")
-		})
+				resp, err := http.Post(
+					testServer.URL+"/api/auth/register",
+					"application/json",
+					bytes.NewBuffer(reqBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
 
-		t.Run("Registration - Password Too Short", func(t *testing.T) {
-			payload := map[string]interface{}{
-				"email":    "valid@example.com",
-				"password": "short",
-			}
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
-			reqBody, err := json.Marshal(payload)
-			require.NoError(t, err)
-
-			resp, err := http.Post(
-				testServer.URL+"/api/auth/register",
-				"application/json",
-				bytes.NewBuffer(reqBody),
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
+				// Verify error response contains email validation error
+				var errResp shared.ErrorResponse
+				err = json.NewDecoder(resp.Body).Decode(&errResp)
+				require.NoError(t, err)
+				assert.Contains(t, errResp.Error, "email")
+			},
+		},
+		{
+			name: "Registration - Password Too Short",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				payload := map[string]interface{}{
+					"email":    "valid@example.com",
+					"password": "short",
 				}
-			}()
 
-			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+				reqBody, err := json.Marshal(payload)
+				require.NoError(t, err)
 
-			// Verify error response contains password validation error
-			var errResp shared.ErrorResponse
-			err = json.NewDecoder(resp.Body).Decode(&errResp)
-			require.NoError(t, err)
-			assert.Contains(t, errResp.Error, "too short")
-		})
+				resp, err := http.Post(
+					testServer.URL+"/api/auth/register",
+					"application/json",
+					bytes.NewBuffer(reqBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
 
-		t.Run("Registration - Missing Fields", func(t *testing.T) {
-			payload := map[string]interface{}{}
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
-			reqBody, err := json.Marshal(payload)
-			require.NoError(t, err)
+				// Verify error response contains password validation error
+				var errResp shared.ErrorResponse
+				err = json.NewDecoder(resp.Body).Decode(&errResp)
+				require.NoError(t, err)
+				assert.Contains(t, errResp.Error, "too short")
+			},
+		},
+		{
+			name: "Registration - Missing Fields",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				payload := map[string]interface{}{}
 
-			resp, err := http.Post(
-				testServer.URL+"/api/auth/register",
-				"application/json",
-				bytes.NewBuffer(reqBody),
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
+				reqBody, err := json.Marshal(payload)
+				require.NoError(t, err)
+
+				resp, err := http.Post(
+					testServer.URL+"/api/auth/register",
+					"application/json",
+					bytes.NewBuffer(reqBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
+
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			},
+		},
+		{
+			name: "Registration - Email Already Exists",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				// Create a test user with a known email
+				userEmail := "duplicate@example.com"
+				password := "securepassword123456"
+
+				// Create the user using plain HTTP request
+				createPayload := map[string]interface{}{
+					"email":    userEmail,
+					"password": password,
 				}
-			}()
+				createBody, err := json.Marshal(createPayload)
+				require.NoError(t, err)
 
-			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		})
+				createResp, err := http.Post(
+					testServer.URL+"/api/auth/register",
+					"application/json",
+					bytes.NewBuffer(createBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := createResp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close create response body: %v", err)
+					}
+				}()
 
-		t.Run("Registration - Email Already Exists", func(t *testing.T) {
-			// Create a test user with a known email
-			userEmail := "duplicate@example.com"
-			password := "securepassword123456"
+				// Verify first registration worked
+				require.Equal(t, http.StatusCreated, createResp.StatusCode,
+					"First registration should succeed but got status: %d", createResp.StatusCode)
 
-			// Create the user using plain HTTP request
-			createPayload := map[string]interface{}{
-				"email":    userEmail,
-				"password": password,
-			}
-			createBody, err := json.Marshal(createPayload)
-			require.NoError(t, err)
+				// Try to register with the same email
+				duplicateResp, err := http.Post(
+					testServer.URL+"/api/auth/register",
+					"application/json",
+					bytes.NewBuffer(createBody), // Same payload creates a duplicate
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := duplicateResp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
 
-			_, err = http.Post(
-				testServer.URL+"/api/auth/register",
-				"application/json",
-				bytes.NewBuffer(createBody),
-			)
-			require.NoError(t, err)
-
-			// Try to register with the same email
-			duplicateResp, err := http.Post(
-				testServer.URL+"/api/auth/register",
-				"application/json",
-				bytes.NewBuffer(createBody), // Same payload creates a duplicate
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := duplicateResp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
+				assert.Equal(t, http.StatusConflict, duplicateResp.StatusCode)
+			},
+		},
+		{
+			name: "Login - Non-existent User",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				payload := map[string]interface{}{
+					"email":    "nonexistent@example.com",
+					"password": "securepassword123456",
 				}
-			}()
 
-			assert.Equal(t, http.StatusConflict, duplicateResp.StatusCode)
-		})
+				reqBody, err := json.Marshal(payload)
+				require.NoError(t, err)
 
-		// Test cases for login validation
-		t.Run("Login - Non-existent User", func(t *testing.T) {
-			payload := map[string]interface{}{
-				"email":    "nonexistent@example.com",
-				"password": "securepassword123456",
-			}
+				resp, err := http.Post(
+					testServer.URL+"/api/auth/login",
+					"application/json",
+					bytes.NewBuffer(reqBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
 
-			reqBody, err := json.Marshal(payload)
-			require.NoError(t, err)
+				assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+			},
+		},
+		{
+			name: "Login - Incorrect Password",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				// Create a test user first
+				userEmail := "test-user@example.com"
+				password := "securepassword123456"
 
-			resp, err := http.Post(
-				testServer.URL+"/api/auth/login",
-				"application/json",
-				bytes.NewBuffer(reqBody),
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
+				// Create the user
+				createPayload := map[string]interface{}{
+					"email":    userEmail,
+					"password": password,
 				}
-			}()
+				createBody, err := json.Marshal(createPayload)
+				require.NoError(t, err)
 
-			assert.Equal(t, http.StatusNotFound, resp.StatusCode)
-		})
+				createResp, err := http.Post(
+					testServer.URL+"/api/auth/register",
+					"application/json",
+					bytes.NewBuffer(createBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := createResp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close create response body: %v", err)
+					}
+				}()
 
-		t.Run("Login - Incorrect Password", func(t *testing.T) {
-			// Create a test user first
-			userEmail := "test-user@example.com"
-			password := "securepassword123456"
+				// Verify registration was successful
+				require.Equal(t, http.StatusCreated, createResp.StatusCode,
+					"Registration should succeed but got status: %d", createResp.StatusCode)
 
-			// Create the user
-			createPayload := map[string]interface{}{
-				"email":    userEmail,
-				"password": password,
-			}
-			createBody, err := json.Marshal(createPayload)
-			require.NoError(t, err)
-
-			_, err = http.Post(
-				testServer.URL+"/api/auth/register",
-				"application/json",
-				bytes.NewBuffer(createBody),
-			)
-			require.NoError(t, err)
-
-			// Try to login with incorrect password
-			loginPayload := map[string]interface{}{
-				"email":    userEmail,
-				"password": "wrong-password123456",
-			}
-			loginBody, err := json.Marshal(loginPayload)
-			require.NoError(t, err)
-
-			resp, err := http.Post(
-				testServer.URL+"/api/auth/login",
-				"application/json",
-				bytes.NewBuffer(loginBody),
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
+				// Try to login with incorrect password
+				loginPayload := map[string]interface{}{
+					"email":    userEmail,
+					"password": "wrong-password123456",
 				}
-			}()
+				loginBody, err := json.Marshal(loginPayload)
+				require.NoError(t, err)
 
-			assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+				resp, err := http.Post(
+					testServer.URL+"/api/auth/login",
+					"application/json",
+					bytes.NewBuffer(loginBody),
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
+
+				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			},
+		},
+		{
+			name: "Login - Invalid JSON",
+			run: func(t *testing.T, testServer *httptest.Server) {
+				resp, err := http.Post(
+					testServer.URL+"/api/auth/login",
+					"application/json",
+					bytes.NewBuffer(
+						[]byte(`{"email": "test@example.com", "password": "test"`),
+					), // Missing closing brace
+				)
+				require.NoError(t, err)
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Warning: Failed to close response body: %v", err)
+					}
+				}()
+
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			},
+		},
+	}
+
+	// Run each test in its own transaction
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Use a fresh transaction for each test case for proper isolation
+			testdb.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
+				// Set up a test server with the current transaction
+				testServer := setupTestServer(t, tx)
+				defer testServer.Close()
+
+				// Run the test
+				tt.run(t, testServer)
+			})
 		})
-
-		t.Run("Login - Invalid JSON", func(t *testing.T) {
-			resp, err := http.Post(
-				testServer.URL+"/api/auth/login",
-				"application/json",
-				bytes.NewBuffer([]byte(`{"email": "test@example.com", "password": "test"`)), // Missing closing brace
-			)
-			require.NoError(t, err)
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: Failed to close response body: %v", err)
-				}
-			}()
-
-			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		})
-	})
+	}
 }

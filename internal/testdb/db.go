@@ -41,6 +41,13 @@ func IsIntegrationTestEnvironment() bool {
 	return false
 }
 
+// ShouldSkipDatabaseTest returns true if the database connection environment variables
+// are not set, indicating that database integration tests should be skipped.
+// This provides a consistent way for tests to check for database availability.
+func ShouldSkipDatabaseTest() bool {
+	return !IsIntegrationTestEnvironment()
+}
+
 // GetTestDatabaseURL returns the database URL for tests.
 // It checks DATABASE_URL, SCRY_TEST_DB_URL, and SCRY_DATABASE_URL environment variables
 // in that order, returning the first non-empty value.
@@ -64,38 +71,97 @@ func GetTestDatabaseURL() string {
 }
 
 // SetupTestDatabaseSchema runs database migrations to set up the test database.
+// It provides enhanced error messages with diagnostics information for common failures.
 func SetupTestDatabaseSchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 
+	// Check database connection first
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		dbURL := GetTestDatabaseURL()
+		errDetail := formatDBConnectionError(err, dbURL)
+		t.Fatalf("Database connection failed before migrations: %v", errDetail)
+	}
+
 	// Find project root to locate migration files
 	projectRoot, err := findProjectRoot()
-	require.NoError(t, err, "Failed to find project root")
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
 
 	// Set up goose for migrations
 	migrationsDir := filepath.Join(projectRoot, "internal", "platform", "postgres", "migrations")
-	require.DirExists(t, migrationsDir, "Migrations directory does not exist: %s", migrationsDir)
 
-	// Configure goose
+	// Check that migrations directory exists
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		errDetail := fmt.Errorf("migrations directory not found at %s: %w", migrationsDir, err)
+		t.Fatalf("Migrations directory error: %v", errDetail)
+	}
+
+	// Configure goose with custom logger
 	goose.SetLogger(&testGooseLogger{t: t})
 	goose.SetTableName("schema_migrations")
 	goose.SetBaseFS(os.DirFS(migrationsDir))
 
-	// Run migrations
-	err = goose.Up(db, ".")
-	require.NoError(t, err, "Failed to run migrations")
+	// Try to run migrations with enhanced error reporting
+	if err := goose.Up(db, "."); err != nil {
+		errDetail := formatMigrationError(err, migrationsDir)
+		t.Fatalf("Migration failed: %v", errDetail)
+	}
+
+	t.Logf("Database migrations applied successfully to schema")
 }
 
 // WithTx executes a test function within a transaction, automatically rolling back
 // after the test completes. This ensures test isolation and prevents side effects.
+// It provides enhanced error handling and diagnostics for transaction failures.
 func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
-	// Start a transaction
-	tx, err := db.Begin()
-	require.NoError(t, err, "Failed to begin transaction")
+	// Verify database connection is active
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		dbURL := GetTestDatabaseURL()
+		errDetail := formatDBConnectionError(err, dbURL)
+		t.Fatalf("Database connection failed before transaction: %v", errDetail)
+	}
+
+	// Start a transaction with timeout context
+	txCtx, txCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer txCancel()
+
+	tx, err := db.BeginTx(txCtx, nil)
+	if err != nil {
+		t.Fatalf(
+			"Failed to begin transaction: %v\nThis may indicate database connectivity issues or resource constraints",
+			err,
+		)
+	}
+
+	// Add transaction metadata for debugging if available
+	if tx != nil {
+		// Some drivers support querying transaction state
+		t.Logf("Transaction started successfully")
+	}
 
 	// Ensure rollback happens after test completes or fails
 	defer func() {
+		if r := recover(); r != nil {
+			// If there was a panic, try to roll back the transaction before re-panicking
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+				t.Logf("Warning: failed to rollback transaction after panic: %v", rollbackErr)
+			}
+			// Re-panic with the original error
+			// ALLOW-PANIC
+			panic(r)
+		}
+
+		// Normal rollback path
 		err := tx.Rollback()
 		// sql.ErrTxDone is expected if tx is already committed or rolled back
 		if err != nil && !errors.Is(err, sql.ErrTxDone) {
@@ -109,15 +175,43 @@ func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 
 // ApplyMigrations runs migrations without using testing.T
 // This exists for backward compatibility with code that was written
-// before the testdb package was created
+// before the testdb package was created.
+// The function includes enhanced error handling and diagnostics.
 func ApplyMigrations(db *sql.DB, migrationsDir string) error {
+	// Verify database connection is active
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		// We can't use formatDBConnectionError here since we don't have the URL
+		// Instead, create a descriptive error message
+		return fmt.Errorf("database connection failed before migrations: %w", err)
+	}
+
+	// Verify migrations directory exists
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		return fmt.Errorf("migrations directory not found at %s: %w", migrationsDir, err)
+	}
+
 	// Configure goose
 	goose.SetTableName("schema_migrations")
 	goose.SetBaseFS(os.DirFS(migrationsDir))
 
-	// Run migrations
+	// Run migrations with comprehensive error handling
 	if err := goose.Up(db, "."); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+		// Create detailed error with migration information
+		migrationFiles := ""
+		if entries, err := os.ReadDir(migrationsDir); err == nil && len(entries) > 0 {
+			names := make([]string, 0, len(entries))
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					names = append(names, entry.Name())
+				}
+			}
+			migrationFiles = fmt.Sprintf(" (available migrations: %v)", names)
+		}
+
+		return fmt.Errorf("failed to run migrations in %s%s: %w", migrationsDir, migrationFiles, err)
 	}
 
 	return nil
@@ -260,25 +354,8 @@ func findProjectRoot() (string, error) {
 		}
 	}
 
-	// Enhanced error message with diagnostics
-	dirContents := ""
-	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
-		names := make([]string, 0, len(entries))
-		for _, entry := range entries {
-			names = append(names, entry.Name())
-		}
-		dirContents = fmt.Sprintf("\nCurrent directory contents: %v", names)
-	}
-
-	return "", fmt.Errorf("could not find go.mod in any parent directory.\n"+
-		"Checked environment variables: %v\n"+
-		"Checked paths: %v\n"+
-		"Current directory: %s%s\n"+
-		"CI environment: %v\n"+
-		"CI environment vars: GITHUB_WORKSPACE=%s, CI_PROJECT_DIR=%s\n"+
-		"To fix this, set SCRY_PROJECT_ROOT environment variable to the project root directory",
-		checkedEnvVars, checkedPaths, dir, dirContents,
-		isCIEnvironment(), os.Getenv("GITHUB_WORKSPACE"), os.Getenv("CI_PROJECT_DIR"))
+	// Use our standardized error formatting function
+	return "", formatProjectRootError(checkedPaths, checkedEnvVars)
 }
 
 // isCIEnvironment returns true if running in a CI environment
@@ -326,6 +403,125 @@ func getCurrentDir() string {
 		return fmt.Sprintf("error getting current directory: %v", err)
 	}
 	return dir
+}
+
+// Error Helper Functions
+
+// formatDBConnectionError creates a detailed error message for database connection failures.
+// It includes environment variable status, connection details, and troubleshooting guidance.
+func formatDBConnectionError(baseErr error, dbURL string) error {
+	// Basic environment info
+	envInfo := fmt.Sprintf("CI environment: %v\nCurrent working directory: %s",
+		isCIEnvironment(), getCurrentDir())
+
+	// Database connection info (safely masked)
+	dbInfo := fmt.Sprintf("Database URL used: %s (masked)", maskDatabaseURL(dbURL))
+
+	// Format the comprehensive error message
+	errMsg := fmt.Sprintf("Database connection failed: %v\n%s\n%s\n"+
+		"Please check:\n"+
+		"1. PostgreSQL service is running\n"+
+		"2. Credentials and connection string are correct\n"+
+		"3. Database exists and is accessible\n"+
+		"4. Network connectivity and firewall settings",
+		baseErr, dbInfo, envInfo)
+
+	return fmt.Errorf("%s", errMsg)
+}
+
+// formatEnvVarError creates a detailed error message when required environment variables are missing.
+// It provides guidance on which variables should be set and current environment status.
+func formatEnvVarError() error {
+	// Check which environment variables are missing
+	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
+	missingVars := []string{}
+
+	for _, envVar := range envVars {
+		if os.Getenv(envVar) == "" {
+			missingVars = append(missingVars, envVar)
+		}
+	}
+
+	// Environment status information
+	envInfo := fmt.Sprintf("CI environment: %v\nCurrent working directory: %s",
+		isCIEnvironment(), getCurrentDir())
+
+	// Create the error message
+	errMsg := fmt.Sprintf("Database connection failed: no database URL available\n"+
+		"Required environment variables missing: %v\n%s\n"+
+		"Please ensure one of DATABASE_URL, SCRY_TEST_DB_URL, or SCRY_DATABASE_URL is set.",
+		missingVars, envInfo)
+
+	return fmt.Errorf("%s", errMsg)
+}
+
+// formatProjectRootError creates a detailed error message when the project root cannot be found.
+// It includes paths checked, environment variables, and suggested actions.
+func formatProjectRootError(checkedPaths []string, checkedEnvVars []string) error {
+	dir := getCurrentDir()
+
+	// Get current directory contents for debugging
+	dirContents := ""
+	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
+		names := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			names = append(names, entry.Name())
+		}
+		dirContents = fmt.Sprintf("\nCurrent directory contents: %v", names)
+	}
+
+	// Create comprehensive error message
+	errMsg := fmt.Sprintf("Could not find go.mod in any parent directory.\n"+
+		"Checked environment variables: %v\n"+
+		"Checked paths: %v\n"+
+		"Current directory: %s%s\n"+
+		"CI environment: %v\n"+
+		"CI environment vars: GITHUB_WORKSPACE=%s, CI_PROJECT_DIR=%s\n"+
+		"To fix this, set SCRY_PROJECT_ROOT environment variable to the project root directory",
+		checkedEnvVars, checkedPaths, dir, dirContents,
+		isCIEnvironment(), os.Getenv("GITHUB_WORKSPACE"), os.Getenv("CI_PROJECT_DIR"))
+
+	return fmt.Errorf("%s", errMsg)
+}
+
+// formatMigrationError creates a detailed error message when database migrations fail.
+// It includes information about the migrations directory, error details, and suggestions.
+func formatMigrationError(baseErr error, migrationsDir string) error {
+	// Verify if the migrations directory exists
+	dirExists := "exists"
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		dirExists = "does not exist"
+	}
+
+	// Get list of migration files for debugging if directory exists
+	migrationFiles := ""
+	if dirExists == "exists" {
+		if entries, err := os.ReadDir(migrationsDir); err == nil && len(entries) > 0 {
+			names := make([]string, 0, len(entries))
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					names = append(names, entry.Name())
+				}
+			}
+			migrationFiles = fmt.Sprintf("\nMigration files: %v", names)
+		}
+	}
+
+	// Environment information
+	envInfo := fmt.Sprintf("CI environment: %v\nCurrent working directory: %s",
+		isCIEnvironment(), getCurrentDir())
+
+	// Create comprehensive error message
+	errMsg := fmt.Sprintf("Failed to run database migrations: %v\n"+
+		"Migrations directory: %s (%s)%s\n%s\n"+
+		"Please check:\n"+
+		"1. Migrations directory path is correct\n"+
+		"2. Migration files exist and are valid\n"+
+		"3. Database connection is working\n"+
+		"4. Database user has permissions to create tables and modify schema",
+		baseErr, migrationsDir, dirExists, migrationFiles, envInfo)
+
+	return fmt.Errorf("%s", errMsg)
 }
 
 // maskDatabaseURL masks sensitive information in a database URL for safe logging
@@ -402,25 +598,7 @@ func GetTestDB() (*sql.DB, error) {
 	// Check if the database URL is available
 	dbURL := GetTestDatabaseURL()
 	if dbURL == "" {
-		// Provide more detailed error information about environment variables
-		envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
-		missingVars := []string{}
-
-		for _, envVar := range envVars {
-			if os.Getenv(envVar) == "" {
-				missingVars = append(missingVars, envVar)
-			}
-		}
-
-		// Enhanced error message with detailed diagnostics
-		errMsg := fmt.Sprintf("database connection failed: no database URL available\n"+
-			"Required environment variables missing: %v\n"+
-			"CI environment: %v\n"+
-			"Current working directory: %s\n"+
-			"Please ensure one of DATABASE_URL, SCRY_TEST_DB_URL, or SCRY_DATABASE_URL is set.",
-			missingVars, os.Getenv("CI") != "", getCurrentDir())
-
-		return nil, errors.New(errMsg)
+		return nil, formatEnvVarError()
 	}
 
 	// Open database connection
@@ -439,24 +617,18 @@ func GetTestDB() (*sql.DB, error) {
 	defer cancel()
 	err = db.PingContext(ctx)
 	if err != nil {
+		// Close the connection if ping fails
 		closeErr := db.Close()
 
-		// Combine both errors in the message with enhanced diagnostics
-		errMsg := fmt.Sprintf("database ping failed: %v\n"+
-			"Database URL used: %s (masked)\n"+
-			"CI environment: %v\n"+
-			"Please check:\n"+
-			"1. PostgreSQL service is running\n"+
-			"2. Credentials are correct\n"+
-			"3. Database exists\n"+
-			"4. Network connectivity/firewall settings",
-			err, maskDatabaseURL(dbURL), os.Getenv("CI") != "")
+		// Create the base error with detailed diagnostics
+		baseErr := formatDBConnectionError(err, dbURL)
 
+		// Add any additional connection close errors if they occurred
 		if closeErr != nil {
-			errMsg += fmt.Sprintf("\nAdditional error when closing connection: %v", closeErr)
+			return nil, fmt.Errorf("%v\nAdditional error when closing connection: %w", baseErr, closeErr)
 		}
 
-		return nil, errors.New(errMsg)
+		return nil, baseErr
 	}
 
 	return db, nil
@@ -476,22 +648,10 @@ func CleanupDB(t *testing.T, db *sql.DB) {
 
 // RunInTx executes the given function within a transaction.
 // The transaction is automatically rolled back after the function completes.
+// This function is an alias for WithTx maintained for backward compatibility.
 func RunInTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
-	// Start a transaction
-	tx, err := db.BeginTx(context.Background(), nil)
-	require.NoError(t, err, "Failed to begin transaction")
-
-	// Ensure rollback happens after test completes or fails
-	defer func() {
-		err := tx.Rollback()
-		// sql.ErrTxDone is expected if tx is already committed or rolled back
-		if err != nil && !errors.Is(err, sql.ErrTxDone) {
-			t.Logf("Warning: failed to rollback transaction: %v", err)
-		}
-	}()
-
-	// Execute the test function with the transaction
-	fn(t, tx)
+	// Simply call WithTx to avoid code duplication
+	WithTx(t, db, fn)
 }

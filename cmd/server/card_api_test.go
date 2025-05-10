@@ -15,7 +15,6 @@ import (
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils/api"
-	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +76,7 @@ func setupTestUserCardStats(
 // TestCardEditIntegration tests the PUT /cards/{id} endpoint with real dependencies
 func TestCardEditIntegration(t *testing.T) {
 	// Skip test if database connection not available
-	if db.ShouldSkipDatabaseTest() {
+	if testdb.ShouldSkipDatabaseTest() {
 		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
 
@@ -195,7 +194,7 @@ func TestCardEditIntegration(t *testing.T) {
 // TestCardDeleteIntegration tests the DELETE /cards/{id} endpoint with real dependencies
 func TestCardDeleteIntegration(t *testing.T) {
 	// Skip test if database connection not available
-	if db.ShouldSkipDatabaseTest() {
+	if testdb.ShouldSkipDatabaseTest() {
 		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
 
@@ -292,7 +291,7 @@ func TestCardDeleteIntegration(t *testing.T) {
 // TestCardPostponeIntegration tests the POST /cards/{id}/postpone endpoint with real dependencies
 func TestCardPostponeIntegration(t *testing.T) {
 	// Skip test if database connection not available
-	if db.ShouldSkipDatabaseTest() {
+	if testdb.ShouldSkipDatabaseTest() {
 		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
 

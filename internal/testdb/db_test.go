@@ -3,6 +3,7 @@
 package testdb
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -81,6 +82,127 @@ func TestMaskDatabaseURL(t *testing.T) {
 			result := maskDatabaseURL(tt.url)
 			if result != tt.expected {
 				t.Errorf("maskDatabaseURL(%q) = %q, want %q", tt.url, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestErrorFormatting verifies that error formatting functions provide detailed and helpful error messages
+func TestErrorFormatting(t *testing.T) {
+	tests := []struct {
+		name           string
+		errorGenerator func() error
+		expectedParts  []string
+	}{
+		{
+			name: "Environment Variable Error",
+			errorGenerator: func() error {
+				// Force all env vars to be empty for this test
+				origDBURL := os.Getenv("DATABASE_URL")
+				origTestDBURL := os.Getenv("SCRY_TEST_DB_URL")
+				origSCRYDBURL := os.Getenv("SCRY_DATABASE_URL")
+				defer func() {
+					if err := os.Setenv("DATABASE_URL", origDBURL); err != nil {
+						t.Logf("Failed to restore DATABASE_URL: %v", err)
+					}
+					if err := os.Setenv("SCRY_TEST_DB_URL", origTestDBURL); err != nil {
+						t.Logf("Failed to restore SCRY_TEST_DB_URL: %v", err)
+					}
+					if err := os.Setenv("SCRY_DATABASE_URL", origSCRYDBURL); err != nil {
+						t.Logf("Failed to restore SCRY_DATABASE_URL: %v", err)
+					}
+				}()
+
+				if err := os.Unsetenv("DATABASE_URL"); err != nil {
+					t.Logf("Failed to unset DATABASE_URL: %v", err)
+				}
+				if err := os.Unsetenv("SCRY_TEST_DB_URL"); err != nil {
+					t.Logf("Failed to unset SCRY_TEST_DB_URL: %v", err)
+				}
+				if err := os.Unsetenv("SCRY_DATABASE_URL"); err != nil {
+					t.Logf("Failed to unset SCRY_DATABASE_URL: %v", err)
+				}
+
+				return formatEnvVarError()
+			},
+			expectedParts: []string{
+				"Database connection failed",
+				"Required environment variables missing",
+				"DATABASE_URL",
+				"SCRY_TEST_DB_URL",
+				"Please ensure one of",
+			},
+		},
+		{
+			name: "Database Connection Error",
+			errorGenerator: func() error {
+				baseErr := fmt.Errorf("connection refused")
+				dbURL := "postgres://user:password@localhost:5432/invalid_db"
+				return formatDBConnectionError(baseErr, dbURL)
+			},
+			expectedParts: []string{
+				"Database connection failed",
+				"connection refused",
+				"Database URL used",
+				"postgres://user:****@localhost",
+				"PostgreSQL service is running",
+				"Credentials and connection string are correct",
+			},
+		},
+		{
+			name: "Project Root Error",
+			errorGenerator: func() error {
+				checkedPaths := []string{"/path/to/go.mod", "/another/path/go.mod"}
+				checkedEnvVars := []string{"SCRY_PROJECT_ROOT=not_found"}
+				return formatProjectRootError(checkedPaths, checkedEnvVars)
+			},
+			expectedParts: []string{
+				"Could not find go.mod",
+				"Checked environment variables",
+				"Checked paths",
+				"To fix this, set SCRY_PROJECT_ROOT",
+			},
+		},
+		{
+			name: "Migration Error",
+			errorGenerator: func() error {
+				baseErr := fmt.Errorf("migration failed: syntax error in migration file")
+				migrationsDir := "/path/to/migrations"
+				return formatMigrationError(baseErr, migrationsDir)
+			},
+			expectedParts: []string{
+				"Failed to run database migrations",
+				"migration failed: syntax error",
+				"Migrations directory",
+				"Please check",
+				"Migration files exist and are valid",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.errorGenerator()
+			if err == nil {
+				t.Fatalf("Expected error but got nil")
+			}
+
+			errMsg := err.Error()
+			t.Logf("Generated error message:\n%s", errMsg)
+
+			// Verify the error contains all expected parts
+			for _, part := range tt.expectedParts {
+				if !contains(errMsg, part) {
+					t.Errorf("Error message doesn't contain expected part: %q", part)
+				}
+			}
+
+			// Verify the error message length is sufficient for diagnostics
+			if len(errMsg) < 100 {
+				t.Errorf(
+					"Error message is suspiciously short (%d chars), may not contain enough diagnostics",
+					len(errMsg),
+				)
 			}
 		})
 	}

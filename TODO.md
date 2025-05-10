@@ -148,17 +148,22 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
 
 ## Future Improvements
 
-- [ ] Consolidate test utilities for better maintainability
+- [x] Consolidate test utilities for better maintainability (T041)
   - Success Criteria: Reduced duplication in test utility code
   - Move all database operations to testdb package
   - Create clear documentation for test utilities
   - Estimated effort: 4 hours
+  - Implementation: Created comprehensive docs in testdb package and migration guide
 
-- [ ] Improve error handling in test utilities
+- [x] Improve error handling in test utilities (T042)
   - Success Criteria: Clear, actionable error messages when tests fail
-  - Add better diagnostics for database connection issues
-  - Implement consistent error wrapping pattern
+  - Added better diagnostics for database connection issues
+  - Implemented consistent error wrapping pattern
+  - Added helper functions for formatted error messages
+  - Added test cases to verify improved error handling
+  - Fixed import issues in test files
   - Estimated effort: 2 hours
+  - Implementation: Created comprehensive error helpers with detailed diagnostic information
 
 - [ ] Add better logging in CI context
   - Success Criteria: Test failures provide clear debugging information

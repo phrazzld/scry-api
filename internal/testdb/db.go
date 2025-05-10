@@ -102,7 +102,7 @@ func SetupTestDatabaseSchema(t *testing.T, db *sql.DB) {
 
 	// Configure goose with custom logger
 	goose.SetLogger(&testGooseLogger{t: t})
-	goose.SetTableName("schema_migrations")
+	goose.SetTableName(MigrationTableName)
 	goose.SetBaseFS(os.DirFS(migrationsDir))
 
 	// Try to run migrations with enhanced error reporting

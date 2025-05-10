@@ -119,6 +119,7 @@ jobs:
 
           # Verify migrations applied successfully
           echo "Verifying migration status..."
+          # This queries the migration table (should match MigrationTableName in testdb package)
           PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT COUNT(*) FROM schema_migrations;"
         env:
           # Database connection variables

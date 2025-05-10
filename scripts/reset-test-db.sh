@@ -15,6 +15,7 @@
 set -e
 
 # Default values
+# This should match the MigrationTableName constant in internal/testdb/migration_helpers.go
 SCHEMA_MIGRATIONS_TABLE="schema_migrations"
 POSTGRES_SCHEMA="public"
 
@@ -66,7 +67,7 @@ fi
 
 echo "Connected successfully to database: $PGDATABASE"
 
-# Drop all tables including schema_migrations without destroying the database
+# Drop all tables including the migration table without destroying the database
 echo "Dropping all tables in schema $POSTGRES_SCHEMA..."
 
 # First, get a list of all tables to drop

@@ -10,6 +10,8 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// The MigrationTableName constant is now defined in constants.go
+
 // ApplyMigrations runs the migrations in the specified directory.
 // This is a helper function that doesn't require testing.T.
 func ApplyMigrations(db *sql.DB, migrationsDir string) error {
@@ -18,8 +20,9 @@ func ApplyMigrations(db *sql.DB, migrationsDir string) error {
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
 
-	// Configure goose with silent logger
+	// Configure goose with silent logger and set migration table name
 	goose.SetLogger(&silentLogger{})
+	goose.SetTableName(MigrationTableName)
 
 	// Verify migrations directory exists
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {

@@ -31,6 +31,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -672,10 +673,6 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 	// Configure goose to use the custom slog logger adapter
 	goose.SetLogger(&slogGooseLogger{})
 
-	// Set the migration table name to "schema_migrations" to ensure consistency
-	// between migration runs and verification checks
-	goose.SetTableName("schema_migrations")
-
 	// pgx driver is automatically registered with database/sql
 	// when the stdlib package is imported
 
@@ -754,8 +751,8 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
 
-	// Set the migration table name to match what's used in testdb and testutils/db
-	goose.SetTableName("schema_migrations")
+	// Set the migration table name to match what's used throughout the codebase
+	goose.SetTableName(testdb.MigrationTableName)
 
 	// Execute the requested migration command
 	slog.Info("Executing migration command", "command", command)

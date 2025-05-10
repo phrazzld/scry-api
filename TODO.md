@@ -247,11 +247,12 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
 
 ### T048: Fix Auth Endpoint Status Code Issues
 
-- [ ] Fix TestAuthValidation_Integration/Login_-_Non-existent_User test
+- [x] Fix TestAuthValidation_Integration/Login_-_Non-existent_User test
   - Success Criteria: Test expects 404 but gets 500 status code
   - Approach: Update auth handler to return 404 for non-existent users instead of 500
   - Ensure error handling differentiates between not found and database errors
   - Estimated effort: 1 hour
+  - Implementation: Fixed by explicitly returning 404 for non-existent users and 401 for incorrect passwords
 
 ### T049: Create Database Reset and Setup Script for CI
 

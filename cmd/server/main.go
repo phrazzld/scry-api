@@ -672,6 +672,10 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 	// Configure goose to use the custom slog logger adapter
 	goose.SetLogger(&slogGooseLogger{})
 
+	// Set the migration table name to "schema_migrations" to ensure consistency
+	// between migration runs and verification checks
+	goose.SetTableName("schema_migrations")
+
 	// pgx driver is automatically registered with database/sql
 	// when the stdlib package is imported
 
@@ -749,6 +753,9 @@ func runMigrations(cfg *config.Config, command string, args ...string) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
+
+	// Set the migration table name to match what's used in testdb and testutils/db
+	goose.SetTableName("schema_migrations")
 
 	// Execute the requested migration command
 	slog.Info("Executing migration command", "command", command)

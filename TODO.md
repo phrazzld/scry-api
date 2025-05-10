@@ -174,3 +174,11 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Created test utilities for capturing and analyzing log output
   - Estimated effort: 1 hour
   - Implementation: Created CIHandler to automatically add CI metadata and source location
+
+- [x] Fix migration table name inconsistency (T044)
+  - Success Criteria: CI pipeline successfully applies and verifies migrations
+  - Fixed migration table name mismatch between application and test code
+  - Ensured consistent use of "schema_migrations" table name across all code
+  - Fixed CI failure when verifying migrations after applying them
+  - Estimated effort: 1 hour
+  - Implementation: Added explicit SetTableName call in runMigrations function

@@ -89,13 +89,36 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Verify database connectivity
+        run: |
+          echo "Verifying database connectivity with enhanced checks..."
+          chmod +x ./scripts/wait-for-db.sh
+          ./scripts/wait-for-db.sh --attempts 20 --sleep 3 --timeout 90
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+
       - name: Apply database migrations
-        run: go run cmd/server/main.go -migrate=up
+        run: |
+          echo "Applying database migrations..."
+          go run cmd/server/main.go -migrate=up
+
+          # Verify migrations applied successfully
+          echo "Verifying migration status..."
+          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT COUNT(*) FROM schema_migrations;"
         env:
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          # Project root variable (leveraging T036 fix)
+          SCRY_PROJECT_ROOT: ${{ github.workspace }}
 
           # Required environment variables for configuration validation
           SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
@@ -113,12 +136,16 @@ jobs:
           SCRY_TASK_QUEUE_SIZE: "100"
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -tags=integration ./...
+        run: |
+          echo "Running tests with integration build tag..."
+          go test -v -race -coverprofile=coverage.out -tags=integration ./...
         env:
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          # Project root variable (leveraging T036 fix)
+          SCRY_PROJECT_ROOT: ${{ github.workspace }}
 
           # Required environment variables for configuration validation
           SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long

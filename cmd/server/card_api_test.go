@@ -178,10 +178,19 @@ func TestCardEditIntegration(t *testing.T) {
 				if tc.name == "Success" {
 					updatedCard, err := cardStore.GetByID(ctx, tc.cardID)
 					require.NoError(t, err, "Failed to get updated card")
+					require.NotNil(t, updatedCard, "Updated card should not be nil")
+					require.NotNil(t, updatedCard.Content, "Card content should not be nil")
 
 					var updatedContent map[string]interface{}
 					err = json.Unmarshal(updatedCard.Content, &updatedContent)
 					require.NoError(t, err, "Failed to unmarshal updated content")
+					require.NotNil(t, updatedContent, "Unmarshaled content should not be nil")
+
+					// Check that front and back exist in the map
+					_, frontExists := updatedContent["front"]
+					_, backExists := updatedContent["back"]
+					require.True(t, frontExists, "Content should have 'front' field")
+					require.True(t, backExists, "Content should have 'back' field")
 
 					assert.Equal(t, "Updated question", updatedContent["front"], "Card front should be updated")
 					assert.Equal(t, "Updated answer", updatedContent["back"], "Card back should be updated")

@@ -165,8 +165,12 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Estimated effort: 2 hours
   - Implementation: Created comprehensive error helpers with detailed diagnostic information
 
-- [ ] Add better logging in CI context
+- [x] Add better logging in CI context (T043)
   - Success Criteria: Test failures provide clear debugging information
-  - Add CI-specific logging enhancements
-  - Implement structured logging for test failures
+  - Added CI-specific logging enhancements
+  - Implemented structured logging for test failures
+  - Added utilities to help with test error diagnostics
+  - Added automatic source location info in CI environments
+  - Created test utilities for capturing and analyzing log output
   - Estimated effort: 1 hour
+  - Implementation: Created CIHandler to automatically add CI metadata and source location

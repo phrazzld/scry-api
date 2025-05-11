@@ -67,10 +67,26 @@ fi
 
 echo "Connected successfully to database: $PGDATABASE"
 
-# Drop all tables including the migration table without destroying the database
+# First, drop all custom types (ENUMs) in the schema
+echo "Dropping all custom types in schema $POSTGRES_SCHEMA..."
+psql -c "DO \$\$
+BEGIN
+    FOR type_name IN
+        SELECT t.typname
+        FROM pg_type t
+        JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname = 'public'
+        AND t.typtype = 'e'  -- 'e' for enum types
+    LOOP
+        EXECUTE 'DROP TYPE IF EXISTS ' || type_name || ' CASCADE';
+        RAISE NOTICE 'Dropped type: %', type_name;
+    END LOOP;
+END \$\$;"
+
+# Now drop all tables including the migration table without destroying the database
 echo "Dropping all tables in schema $POSTGRES_SCHEMA..."
 
-# First, get a list of all tables to drop
+# Get a list of all tables to drop
 TABLES=$(psql -t -c "SELECT tablename FROM pg_tables WHERE schemaname = '$POSTGRES_SCHEMA' AND tablename != 'spatial_ref_sys';")
 
 # Check if any tables exist

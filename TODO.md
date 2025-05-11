@@ -67,7 +67,7 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Success Criteria: Build fails if coverage falls below target threshold
   - Command added to verify coverage is above 70%
 
-- [ ] (Optional) Upload coverage reports to a service
+- [ ] Implement Codecov
   - Success Criteria: Coverage trends are visible on PRs
   - Options: Codecov, Coveralls, or similar service
   - Note: This is marked as optional and can be addressed in a future task
@@ -265,9 +265,37 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
 
 ### T050: Update PR Documentation with CI Fix Strategy
 
-- [ ] Document CI failures and resolution approach in PR description
+- [x] Document CI failures and resolution approach in PR description
   - Success Criteria: Clear documentation of what was fixed and how
   - Approach: Summarize test failures, root causes, and solutions implemented
   - Include before/after error rates and any performance improvements
   - Link to relevant issues or documentation
   - Estimated effort: 30 minutes
+  - Implementation: Created comprehensive PR-DESCRIPTION-CI-FIXES.md document with detailed analysis of CI issues, root causes, and solutions
+
+## T051: Fix Database Reset for Custom PostgreSQL Types
+
+- [x] Update reset-test-db.sh to drop custom types
+  - Success Criteria: No "ERROR: type already exists" errors during migrations
+  - Approach: Add SQL to identify and drop all custom types in the public schema
+  - Implementation: Added DO block to drop all ENUM types before dropping tables
+  - Estimated effort: 1 hour
+
+- [ ] Test updated reset script in CI environment
+  - Success Criteria: Script successfully drops all custom types and tables
+  - Approach: Add explicit testing for the reset script
+  - Verify by running migrations after reset
+  - Estimated effort: 30 minutes
+
+- [ ] Update CI workflow to use enhanced reset script
+  - Success Criteria: CI pipeline consistently passes without type-related errors
+  - Approach: Make sure reset script runs before migrations
+  - Add clear error messages and logging
+  - Estimated effort: 30 minutes
+
+- [x] Consider defensive migration patterns
+  - Success Criteria: Migrations are more resilient to pre-existing database objects
+  - Approach: Evaluated and implemented "IF NOT EXISTS" patterns for type creation
+  - Applied pattern to memo_status enum creation in migration file
+  - Estimated effort: 2 hours (optional)
+  - Implementation: Used DO block with conditional check before type creation

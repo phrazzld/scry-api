@@ -60,7 +60,34 @@ func GetTestDatabaseURL() string {
 		if dbURL != "" {
 			// Log which environment variable was used if we're in CI
 			if os.Getenv("CI") != "" {
-				fmt.Printf("Using database URL from %s environment variable\n", envVar)
+				fmt.Printf("Using database URL from %s environment variable: %s\n",
+					envVar, maskDatabaseURL(dbURL))
+
+				// Check for potential user issues in CI environment to prevent "role root does not exist" errors
+				if isCIEnvironment() {
+					// Parse URL to check for problematic usernames
+					parsedURL, err := url.Parse(dbURL)
+					if err == nil && parsedURL.User != nil {
+						username := parsedURL.User.Username()
+						if username == "root" {
+							fmt.Println(
+								"WARNING: Database URL contains 'root' user which may not exist in CI PostgreSQL. " +
+									"Consider using 'postgres' user instead.",
+							)
+
+							// Check if we can automatically fix this in CI
+							if os.Getenv("GITHUB_ACTIONS") != "" &&
+								(username == "root" || username == "") {
+								// Fix the URL to use postgres user
+								password, _ := parsedURL.User.Password()
+								parsedURL.User = url.UserPassword("postgres", password)
+								fmt.Printf("Auto-fixing database URL to use 'postgres' user: %s\n",
+									maskDatabaseURL(parsedURL.String()))
+								return parsedURL.String()
+							}
+						}
+					}
+				}
 			}
 			return dbURL
 		}
@@ -121,21 +148,53 @@ func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()
 
 	// Verify database connection is active
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
 		dbURL := GetTestDatabaseURL()
+
+		// Log more diagnostic information in CI environments
+		if isCIEnvironment() {
+			fmt.Printf("CI Debug: Database ping failed with error: %v\n", err)
+			fmt.Printf("CI Debug: Database URL (masked): %s\n", maskDatabaseURL(dbURL))
+
+			// Try to diagnose connection issues
+			parsedURL, parseErr := url.Parse(dbURL)
+			if parseErr == nil && parsedURL.User != nil {
+				username := parsedURL.User.Username()
+				fmt.Printf("CI Debug: Attempting connection with user: %s\n", username)
+			}
+
+			// Try a simpler query to check connectivity
+			queryCtx, queryCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer queryCancel()
+			var one int
+			if queryErr := db.QueryRowContext(queryCtx, "SELECT 1").Scan(&one); queryErr != nil {
+				fmt.Printf("CI Debug: Simple 'SELECT 1' query also failed: %v\n", queryErr)
+			} else {
+				fmt.Printf("CI Debug: Simple 'SELECT 1' query succeeded with result: %d\n", one)
+			}
+		}
+
 		errDetail := formatDBConnectionError(err, dbURL)
 		t.Fatalf("Database connection failed before transaction: %v", errDetail)
 	}
 
 	// Start a transaction with timeout context
-	txCtx, txCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	txCtx, txCancel := context.WithTimeout(context.Background(), 10*time.Second) // Increased timeout
 	defer txCancel()
 
 	tx, err := db.BeginTx(txCtx, nil)
 	if err != nil {
+		// Additional diagnostics in CI
+		if isCIEnvironment() {
+			fmt.Printf("CI Debug: Transaction start failed: %v\n", err)
+			stats := db.Stats()
+			fmt.Printf("CI Debug: Current connection stats: MaxOpen=%d, Open=%d, InUse=%d, Idle=%d\n",
+				stats.MaxOpenConnections, stats.OpenConnections, stats.InUse, stats.Idle)
+		}
+
 		t.Fatalf(
 			"Failed to begin transaction: %v\nThis may indicate database connectivity issues or resource constraints",
 			err,
@@ -146,6 +205,14 @@ func WithTx(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	if tx != nil {
 		// Some drivers support querying transaction state
 		t.Logf("Transaction started successfully")
+
+		// In CI, verify transaction is working with a simple query
+		if isCIEnvironment() {
+			var one int
+			if err := tx.QueryRow("SELECT 1").Scan(&one); err != nil {
+				t.Logf("Warning: Test transaction may be unstable - simple query failed: %v", err)
+			}
+		}
 	}
 
 	// Ensure rollback happens after test completes or fails
@@ -281,6 +348,34 @@ func findProjectRoot() (string, error) {
 
 		if _, err := os.Stat(goModPath); err == nil {
 			return gitlabProjectDir, nil
+		}
+	}
+
+	// 3a. More explicit GitHub Actions detection with better debugging
+	if isCIEnvironment() && os.Getenv("GITHUB_ACTIONS") != "" {
+		// Try to be even more explicit by looking at GITHUB_WORKSPACE
+		githubWorkspace := os.Getenv("GITHUB_WORKSPACE")
+		if githubWorkspace != "" {
+			// Log for debugging in CI
+			fmt.Printf("CI debug: Checking GITHUB_WORKSPACE=%s for go.mod\n", githubWorkspace)
+
+			// Try direct path again with explicit logging
+			goModPath := filepath.Join(githubWorkspace, "go.mod")
+			if _, err := os.Stat(goModPath); err == nil {
+				fmt.Printf("CI debug: Found go.mod at %s\n", goModPath)
+				return githubWorkspace, nil
+			} else {
+				fmt.Printf("CI debug: go.mod not found at %s: %v\n", goModPath, err)
+			}
+
+			// List directory contents for debugging
+			if entries, err := os.ReadDir(githubWorkspace); err == nil {
+				names := make([]string, 0, len(entries))
+				for _, entry := range entries {
+					names = append(names, entry.Name())
+				}
+				fmt.Printf("CI debug: GITHUB_WORKSPACE contents: %v\n", names)
+			}
 		}
 	}
 

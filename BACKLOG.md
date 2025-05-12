@@ -26,7 +26,7 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Implement basic request body validation.
 
 * Implement semantic versioning (ideally automatically managed somehow ... conventional commits?)
-- create better code coverage visibility
+- create better code coverage visibility ie implement codecov
 
 * **Testing:**
     * Adhere strictly to `DEVELOPMENT_PHILOSOPHY.md`.

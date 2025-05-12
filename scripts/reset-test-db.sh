@@ -70,6 +70,8 @@ echo "Connected successfully to database: $PGDATABASE"
 # First, drop all custom types (ENUMs) in the schema
 echo "Dropping all custom types in schema $POSTGRES_SCHEMA..."
 psql -c "DO \$\$
+DECLARE
+    type_name text;
 BEGIN
     FOR type_name IN
         SELECT t.typname

@@ -15,6 +15,8 @@ Modified `scripts/reset-test-db.sh` to drop all custom types (ENUMs) before drop
 
 ```sql
 DO $$
+DECLARE
+    type_name text;
 BEGIN
     FOR type_name IN
         SELECT t.typname

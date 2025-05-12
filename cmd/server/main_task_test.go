@@ -83,7 +83,7 @@ func TestMain(m *testing.M) {
 								fmt.Printf("Failed to change working directory to project root: %v - skipping integration tests\n", err)
 							} else {
 								// Run migrations to ensure all tables exist including tasks table
-								if err := runMigrations(cfg, "up"); err != nil {
+								if err := runMigrations(cfg, "up", false); err != nil {
 									fmt.Printf("Failed to run migrations: %v - skipping integration tests\n", err)
 								} else {
 									dbAvailable = true
@@ -244,7 +244,7 @@ func TestTaskRunnerIntegration(t *testing.T) {
 	}
 
 	// Run migrations to ensure all tables exist
-	if err := runMigrations(cfg, "up"); err != nil &&
+	if err := runMigrations(cfg, "up", false); err != nil &&
 		!strings.Contains(err.Error(), "no migrations to run") {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}

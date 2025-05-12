@@ -51,41 +51,75 @@ func ShouldSkipDatabaseTest() bool {
 // GetTestDatabaseURL returns the database URL for tests.
 // It checks DATABASE_URL, SCRY_TEST_DB_URL, and SCRY_DATABASE_URL environment variables
 // in that order, returning the first non-empty value.
+//
+// In CI environments, it ensures the URL uses the 'postgres' user and provides
+// enhanced diagnostics when issues are detected.
 func GetTestDatabaseURL() string {
 	// Check environment variables in priority order
 	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
+
+	// Log environment variables in CI for diagnostics
+	if isCIEnvironment() {
+		fmt.Println("CI debug: Database URL environment variables:")
+		for _, envVar := range envVars {
+			value := os.Getenv(envVar)
+			if value != "" {
+				fmt.Printf("  %s=%s\n", envVar, maskDatabaseURL(value))
+			} else {
+				fmt.Printf("  %s=<not set>\n", envVar)
+			}
+		}
+	}
 
 	for _, envVar := range envVars {
 		dbURL := os.Getenv(envVar)
 		if dbURL != "" {
 			// Log which environment variable was used if we're in CI
-			if os.Getenv("CI") != "" {
+			if isCIEnvironment() {
 				fmt.Printf("Using database URL from %s environment variable: %s\n",
 					envVar, maskDatabaseURL(dbURL))
 
-				// Check for potential user issues in CI environment to prevent "role root does not exist" errors
-				if isCIEnvironment() {
-					// Parse URL to check for problematic usernames
-					parsedURL, err := url.Parse(dbURL)
-					if err == nil && parsedURL.User != nil {
-						username := parsedURL.User.Username()
-						if username == "root" {
-							fmt.Println(
-								"WARNING: Database URL contains 'root' user which may not exist in CI PostgreSQL. " +
-									"Consider using 'postgres' user instead.",
-							)
+				// In CI, we should always standardize to use postgres user
+				// Parse URL to check for problematic usernames
+				parsedURL, err := url.Parse(dbURL)
+				if err != nil {
+					fmt.Printf("CI debug: Error parsing database URL: %v\n", err)
+				} else if parsedURL.User != nil {
+					username := parsedURL.User.Username()
+					fmt.Printf("CI debug: Detected database username: %s\n", username)
 
-							// Check if we can automatically fix this in CI
-							if os.Getenv("GITHUB_ACTIONS") != "" &&
-								(username == "root" || username == "") {
-								// Fix the URL to use postgres user
-								password, _ := parsedURL.User.Password()
-								parsedURL.User = url.UserPassword("postgres", password)
-								fmt.Printf("Auto-fixing database URL to use 'postgres' user: %s\n",
-									maskDatabaseURL(parsedURL.String()))
-								return parsedURL.String()
+					// In CI, especially GitHub Actions, always standardize to postgres user
+					if username != "postgres" {
+						fmt.Printf(
+							"WARNING: Database URL contains '%s' user which may cause issues in CI PostgreSQL.\n"+
+								"Standardizing to use 'postgres' user for consistency.\n",
+							username,
+						)
+
+						// Fix the URL to use postgres user
+						password, _ := parsedURL.User.Password()
+						parsedURL.User = url.UserPassword("postgres", password)
+						standardizedURL := parsedURL.String()
+						fmt.Printf("CI debug: Standardized database URL: %s\n",
+							maskDatabaseURL(standardizedURL))
+
+						// Always standardize database URL in CI environments
+						// Explicitly set all database URL environment variables to ensure consistency
+						for _, otherEnvVar := range envVars {
+							oldValue := os.Getenv(otherEnvVar)
+							if oldValue != "" {
+								// Only log if we're actually changing something
+								if oldValue != standardizedURL {
+									fmt.Printf("CI debug: Setting %s to standardized URL\n", otherEnvVar)
+								}
+								if err := os.Setenv(otherEnvVar, standardizedURL); err != nil {
+									fmt.Printf("CI debug: Failed to set %s environment variable: %v\n", otherEnvVar, err)
+								}
 							}
 						}
+
+						// Always return the standardized URL in CI environments
+						return standardizedURL
 					}
 				}
 			}
@@ -94,6 +128,10 @@ func GetTestDatabaseURL() string {
 	}
 
 	// No valid URL found
+	if isCIEnvironment() {
+		fmt.Println("ERROR: No database URL found in CI environment. This will cause tests to fail.")
+		fmt.Println("Please ensure one of DATABASE_URL, SCRY_TEST_DB_URL, or SCRY_DATABASE_URL is set.")
+	}
 	return ""
 }
 
@@ -112,6 +150,40 @@ func SetupTestDatabaseSchema(t *testing.T, db *sql.DB) {
 		t.Fatalf("Database connection failed before migrations: %v", errDetail)
 	}
 
+	// Log database connection info in CI
+	if isCIEnvironment() {
+		// Verify database version
+		var version string
+		versionErr := db.QueryRowContext(ctx, "SELECT version()").Scan(&version)
+		if versionErr != nil {
+			t.Logf("CI debug: Failed to query database version: %v", versionErr)
+		} else {
+			t.Logf("CI debug: Connected to PostgreSQL: %s", version)
+		}
+
+		// Check database user
+		var user string
+		userErr := db.QueryRowContext(ctx, "SELECT current_user").Scan(&user)
+		if userErr != nil {
+			t.Logf("CI debug: Failed to query current database user: %v", userErr)
+		} else {
+			t.Logf("CI debug: Connected as database user: %s", user)
+		}
+
+		// Check if migrations table exists
+		var migTableExists bool
+		tableQuery := fmt.Sprintf(
+			"SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = '%s')",
+			MigrationTableName,
+		)
+		tableErr := db.QueryRowContext(ctx, tableQuery).Scan(&migTableExists)
+		if tableErr != nil {
+			t.Logf("CI debug: Failed to check for migrations table: %v", tableErr)
+		} else {
+			t.Logf("CI debug: Migrations table '%s' exists: %v", MigrationTableName, migTableExists)
+		}
+	}
+
 	// Find project root to locate migration files
 	projectRoot, err := findProjectRoot()
 	if err != nil {
@@ -127,6 +199,23 @@ func SetupTestDatabaseSchema(t *testing.T, db *sql.DB) {
 		t.Fatalf("Migrations directory error: %v", errDetail)
 	}
 
+	// In CI, list available migration files for diagnostics
+	if isCIEnvironment() {
+		t.Logf("CI debug: Migrations directory: %s", migrationsDir)
+		entries, readErr := os.ReadDir(migrationsDir)
+		if readErr != nil {
+			t.Logf("CI debug: Failed to read migrations directory: %v", readErr)
+		} else {
+			migFiles := make([]string, 0, len(entries))
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					migFiles = append(migFiles, entry.Name())
+				}
+			}
+			t.Logf("CI debug: Available migration files: %v", migFiles)
+		}
+	}
+
 	// Configure goose with custom logger
 	goose.SetLogger(&testGooseLogger{t: t})
 	goose.SetTableName(MigrationTableName)
@@ -138,7 +227,43 @@ func SetupTestDatabaseSchema(t *testing.T, db *sql.DB) {
 		t.Fatalf("Migration failed: %v", errDetail)
 	}
 
-	t.Logf("Database migrations applied successfully to schema")
+	// Verify migrations were applied successfully
+	var migrationCount int
+	countErr := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", MigrationTableName)).
+		Scan(&migrationCount)
+	if countErr != nil {
+		t.Fatalf("Failed to verify migrations: %v", countErr)
+	}
+
+	t.Logf("Database migrations applied successfully: %d migrations in schema", migrationCount)
+
+	// In CI, list applied migrations for verification
+	if isCIEnvironment() {
+		rows, queryErr := db.QueryContext(
+			ctx,
+			fmt.Sprintf("SELECT version_id, is_applied FROM %s ORDER BY version_id", MigrationTableName),
+		)
+		if queryErr != nil {
+			t.Logf("CI debug: Failed to query migration history: %v", queryErr)
+		} else {
+			defer func() {
+				if err := rows.Close(); err != nil {
+					t.Logf("Warning: failed to close rows: %v", err)
+				}
+			}()
+
+			t.Logf("CI debug: Applied migrations:")
+			for rows.Next() {
+				var versionID string
+				var isApplied bool
+				if err := rows.Scan(&versionID, &isApplied); err != nil {
+					t.Logf("CI debug: Failed to scan migration row: %v", err)
+					continue
+				}
+				t.Logf("CI debug:   Migration %s, applied: %v", versionID, isApplied)
+			}
+		}
+	}
 }
 
 // WithTx executes a test function within a transaction, automatically rolling back

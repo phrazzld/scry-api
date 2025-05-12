@@ -37,6 +37,16 @@ else
   fi
 fi
 
+# For CI, always use explicit postgres user to avoid common "role does not exist" errors
+if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ]; then
+  # Log the original database URL (safely masked)
+  echo "CI debug: Original DB_URL (masked): $(echo $DB_URL | sed -E 's/\/\/([^:]+):([^@]+)@/\/\/\1:****@/')"
+
+  # Standardize in CI environment to ensure consistency
+  DB_URL="postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable"
+  echo "CI debug: Enforcing standardized database URL in CI environment"
+fi
+
 # Extract database name from connection string
 DB_NAME=$(echo "$DB_URL" | sed -E 's/.*\/([^?]*).*/\1/')
 

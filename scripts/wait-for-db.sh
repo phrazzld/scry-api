@@ -10,6 +10,18 @@ SLEEP_TIME=2
 DB_URL="${DATABASE_URL:-postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable}"
 TIMEOUT=60
 
+# For CI, always use explicit postgres user
+if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ]; then
+  # Log the original database URL (safely masked)
+  if [ -n "$DATABASE_URL" ]; then
+    echo "CI debug: Original DATABASE_URL (masked): $(echo $DATABASE_URL | sed -E 's/\/\/([^:]+):([^@]+)@/\/\/\1:****@/')"
+  fi
+
+  # Force the use of postgres user in CI environment
+  DB_URL="postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable"
+  echo "CI debug: Enforcing standardized DATABASE_URL in CI environment"
+fi
+
 # Help message
 function show_help {
   echo "Usage: $0 [options]"

@@ -281,17 +281,19 @@ After analyzing multiple approaches for integrating PostgreSQL into our GitHub A
   - Implementation: Added DO block to drop all ENUM types before dropping tables
   - Estimated effort: 1 hour
 
-- [ ] Test updated reset script in CI environment
+- [x] Test updated reset script in CI environment
   - Success Criteria: Script successfully drops all custom types and tables
-  - Approach: Add explicit testing for the reset script
-  - Verify by running migrations after reset
+  - Approach: Added explicit testing for the reset script
+  - Verified by running migrations in CI
   - Estimated effort: 30 minutes
+  - Implementation: Fixed PSQL syntax error and verified custom types are dropped correctly
 
-- [ ] Update CI workflow to use enhanced reset script
+- [x] Update CI workflow to use enhanced reset script
   - Success Criteria: CI pipeline consistently passes without type-related errors
-  - Approach: Make sure reset script runs before migrations
-  - Add clear error messages and logging
+  - Approach: Made sure reset script runs before migrations
+  - Added clear error messages and logging
   - Estimated effort: 30 minutes
+  - Implementation: Added NOTICE messages when dropping types for better debugging
 
 - [x] Consider defensive migration patterns
   - Success Criteria: Migrations are more resilient to pre-existing database objects

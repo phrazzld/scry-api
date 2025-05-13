@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -55,53 +56,75 @@ func ShouldSkipDatabaseTest() bool {
 // In CI environments, it ensures the URL uses the 'postgres' user and provides
 // enhanced diagnostics when issues are detected.
 func GetTestDatabaseURL() string {
+	// Get default logger
+	logger := slog.Default().With(
+		slog.String("function", "GetTestDatabaseURL"),
+		slog.Bool("ci_environment", isCIEnvironment()),
+	)
+
 	// Check environment variables in priority order
 	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
 
 	// Log environment variables in CI for diagnostics
 	if isCIEnvironment() {
-		fmt.Println("CI debug: Database URL environment variables:")
+		// Collect environment variable values for structured logging
+		envValues := make(map[string]string)
 		for _, envVar := range envVars {
 			value := os.Getenv(envVar)
 			if value != "" {
-				fmt.Printf("  %s=%s\n", envVar, maskDatabaseURL(value))
+				envValues[envVar] = maskDatabaseURL(value)
 			} else {
-				fmt.Printf("  %s=<not set>\n", envVar)
+				envValues[envVar] = "<not set>"
 			}
 		}
+
+		// Log all environment variables in a single structured log entry
+		logger.Debug("checking database URL environment variables",
+			slog.Any("environment_variables", envValues),
+		)
 	}
 
 	for _, envVar := range envVars {
 		dbURL := os.Getenv(envVar)
 		if dbURL != "" {
-			// Log which environment variable was used if we're in CI
+			// Found a database URL, determine if standardization is needed
 			if isCIEnvironment() {
-				fmt.Printf("Using database URL from %s environment variable: %s\n",
-					envVar, maskDatabaseURL(dbURL))
+				logger.Info("found database URL",
+					slog.String("source", envVar),
+					slog.String("url", maskDatabaseURL(dbURL)),
+				)
 
 				// In CI, we should always standardize to use postgres user
 				// Parse URL to check for problematic usernames
 				parsedURL, err := url.Parse(dbURL)
 				if err != nil {
-					fmt.Printf("CI debug: Error parsing database URL: %v\n", err)
+					logger.Error("failed to parse database URL",
+						slog.String("url", maskDatabaseURL(dbURL)),
+						slog.String("error", err.Error()),
+					)
 				} else if parsedURL.User != nil {
 					username := parsedURL.User.Username()
-					fmt.Printf("CI debug: Detected database username: %s\n", username)
+					logger.Debug("detected database username",
+						slog.String("username", username),
+					)
 
 					// In CI, especially GitHub Actions, always standardize to postgres user
 					if username != "postgres" {
-						fmt.Printf(
-							"WARNING: Database URL contains '%s' user which may cause issues in CI PostgreSQL.\n"+
-								"Standardizing to use 'postgres' user for consistency.\n",
-							username,
+						logger.Warn("non-standard database username detected in CI",
+							slog.String("detected_username", username),
+							slog.String("required_username", "postgres"),
+							slog.String("action", "standardizing"),
 						)
 
 						// Fix the URL to use postgres user
 						password, _ := parsedURL.User.Password()
 						parsedURL.User = url.UserPassword("postgres", password)
 						standardizedURL := parsedURL.String()
-						fmt.Printf("CI debug: Standardized database URL: %s\n",
-							maskDatabaseURL(standardizedURL))
+
+						logger.Info("standardized database URL for CI",
+							slog.String("original_url", maskDatabaseURL(dbURL)),
+							slog.String("standardized_url", maskDatabaseURL(standardizedURL)),
+						)
 
 						// Always standardize database URL in CI environments
 						// Explicitly set all database URL environment variables to ensure consistency
@@ -110,10 +133,18 @@ func GetTestDatabaseURL() string {
 							if oldValue != "" {
 								// Only log if we're actually changing something
 								if oldValue != standardizedURL {
-									fmt.Printf("CI debug: Setting %s to standardized URL\n", otherEnvVar)
+									logger.Debug("updating environment variable",
+										slog.String("variable", otherEnvVar),
+										slog.String("old_value", maskDatabaseURL(oldValue)),
+										slog.String("new_value", maskDatabaseURL(standardizedURL)),
+									)
 								}
+
 								if err := os.Setenv(otherEnvVar, standardizedURL); err != nil {
-									fmt.Printf("CI debug: Failed to set %s environment variable: %v\n", otherEnvVar, err)
+									logger.Error("failed to set environment variable",
+										slog.String("variable", otherEnvVar),
+										slog.String("error", err.Error()),
+									)
 								}
 							}
 						}
@@ -129,8 +160,11 @@ func GetTestDatabaseURL() string {
 
 	// No valid URL found
 	if isCIEnvironment() {
-		fmt.Println("ERROR: No database URL found in CI environment. This will cause tests to fail.")
-		fmt.Println("Please ensure one of DATABASE_URL, SCRY_TEST_DB_URL, or SCRY_DATABASE_URL is set.")
+		logger.Error("no database URL found in CI environment",
+			slog.String("checked_variables", strings.Join(envVars, ", ")),
+			slog.String("impact", "tests will fail"),
+			slog.String("resolution", "set at least one database URL environment variable"),
+		)
 	}
 	return ""
 }

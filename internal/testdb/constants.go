@@ -1,3 +1,5 @@
+//go:build integration || test_without_external_deps
+
 package testdb
 
 // MigrationTableName is the name of the table used by goose to track migrations.

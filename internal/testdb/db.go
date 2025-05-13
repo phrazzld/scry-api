@@ -54,19 +54,25 @@ func ShouldSkipDatabaseTest() bool {
 // in that order, returning the first non-empty value.
 //
 // In CI environments, it ensures the URL uses the 'postgres' user and provides
-// enhanced diagnostics when issues are detected.
+// enhanced diagnostics when issues are detected. For GitHub Actions specifically,
+// it enforces both username and password to be 'postgres'.
 func GetTestDatabaseURL() string {
-	// Get default logger
+	// Detect environment type for logging and configuration
+	inCI := isCIEnvironment()
+	inGitHubActions := isGitHubActionsCI()
+
+	// Get default logger with environment context
 	logger := slog.Default().With(
 		slog.String("function", "GetTestDatabaseURL"),
-		slog.Bool("ci_environment", isCIEnvironment()),
+		slog.Bool("ci_environment", inCI),
+		slog.Bool("github_actions", inGitHubActions),
 	)
 
 	// Check environment variables in priority order
 	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
 
 	// Log environment variables in CI for diagnostics
-	if isCIEnvironment() {
+	if inCI {
 		// Collect environment variable values for structured logging
 		envValues := make(map[string]string)
 		for _, envVar := range envVars {
@@ -84,82 +90,64 @@ func GetTestDatabaseURL() string {
 		)
 	}
 
+	// Search for a valid database URL in the priority order
 	for _, envVar := range envVars {
 		dbURL := os.Getenv(envVar)
-		if dbURL != "" {
-			// Found a database URL, determine if standardization is needed
-			if isCIEnvironment() {
-				logger.Info("found database URL",
-					slog.String("source", envVar),
-					slog.String("url", maskDatabaseURL(dbURL)),
-				)
+		if dbURL == "" {
+			continue // Skip empty environment variables
+		}
 
-				// In CI, we should always standardize to use postgres user
-				// Parse URL to check for problematic usernames
-				parsedURL, err := url.Parse(dbURL)
-				if err != nil {
-					logger.Error("failed to parse database URL",
-						slog.String("url", maskDatabaseURL(dbURL)),
-						slog.String("error", err.Error()),
-					)
-				} else if parsedURL.User != nil {
-					username := parsedURL.User.Username()
-					logger.Debug("detected database username",
-						slog.String("username", username),
-					)
+		// Found a database URL
+		logger.Info("found database URL",
+			slog.String("source", envVar),
+			slog.String("url", maskDatabaseURL(dbURL)),
+		)
 
-					// In CI, especially GitHub Actions, always standardize to postgres user
-					if username != "postgres" {
-						logger.Warn("non-standard database username detected in CI",
-							slog.String("detected_username", username),
-							slog.String("required_username", "postgres"),
-							slog.String("action", "standardizing"),
-						)
-
-						// Fix the URL to use postgres user
-						password, _ := parsedURL.User.Password()
-						parsedURL.User = url.UserPassword("postgres", password)
-						standardizedURL := parsedURL.String()
-
-						logger.Info("standardized database URL for CI",
-							slog.String("original_url", maskDatabaseURL(dbURL)),
-							slog.String("standardized_url", maskDatabaseURL(standardizedURL)),
-						)
-
-						// Always standardize database URL in CI environments
-						// Explicitly set all database URL environment variables to ensure consistency
-						for _, otherEnvVar := range envVars {
-							oldValue := os.Getenv(otherEnvVar)
-							if oldValue != "" {
-								// Only log if we're actually changing something
-								if oldValue != standardizedURL {
-									logger.Debug("updating environment variable",
-										slog.String("variable", otherEnvVar),
-										slog.String("old_value", maskDatabaseURL(oldValue)),
-										slog.String("new_value", maskDatabaseURL(standardizedURL)),
-									)
-								}
-
-								if err := os.Setenv(otherEnvVar, standardizedURL); err != nil {
-									logger.Error("failed to set environment variable",
-										slog.String("variable", otherEnvVar),
-										slog.String("error", err.Error()),
-									)
-								}
-							}
-						}
-
-						// Always return the standardized URL in CI environments
-						return standardizedURL
-					}
-				}
-			}
+		// If not in CI, return the URL as-is
+		if !inCI {
 			return dbURL
 		}
+
+		// CI environment handling - standardize the database URL
+		standardizedURL, err := standardizeDatabaseURL(dbURL, inGitHubActions, logger)
+		if err != nil {
+			logger.Error("failed to standardize database URL",
+				slog.String("url", maskDatabaseURL(dbURL)),
+				slog.String("error", err.Error()),
+			)
+
+			// For GitHub Actions, return a fallback URL if standardization fails
+			if inGitHubActions {
+				fallbackURL := "postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable"
+				logger.Warn("using fallback database URL for GitHub Actions",
+					slog.String("fallback_url", maskDatabaseURL(fallbackURL)),
+				)
+
+				// Update all environment variables with the fallback URL
+				updateEnvironmentVariables(envVars, fallbackURL, logger)
+				return fallbackURL
+			}
+
+			// For other CI environments, return the original URL if we can't standardize
+			return dbURL
+		}
+
+		// If URL was successfully standardized
+		if standardizedURL != dbURL {
+			logger.Info("standardized database URL for CI",
+				slog.String("original_url", maskDatabaseURL(dbURL)),
+				slog.String("standardized_url", maskDatabaseURL(standardizedURL)),
+			)
+
+			// Update all environment variables with the standardized URL
+			updateEnvironmentVariables(envVars, standardizedURL, logger)
+		}
+
+		return standardizedURL
 	}
 
 	// No valid URL found
-	if isCIEnvironment() {
+	if inCI {
 		logger.Error("no database URL found in CI environment",
 			slog.String("checked_variables", strings.Join(envVars, ", ")),
 			slog.String("impact", "tests will fail"),
@@ -612,7 +600,9 @@ func findProjectRoot() (string, error) {
 	return "", formatProjectRootError(checkedPaths, checkedEnvVars)
 }
 
-// isCIEnvironment returns true if running in a CI environment
+// isCIEnvironment returns true if running in a CI environment.
+// It checks common CI environment variables across different CI systems.
+// Use isGitHubActionsCI() for GitHub Actions specific detection.
 func isCIEnvironment() bool {
 	// Check common CI environment variables
 	ciVars := []string{
@@ -631,6 +621,12 @@ func isCIEnvironment() bool {
 	}
 
 	return false
+}
+
+// isGitHubActionsCI returns true if specifically running in GitHub Actions CI.
+// This is used for GitHub Actions-specific configuration settings.
+func isGitHubActionsCI() bool {
+	return os.Getenv("GITHUB_ACTIONS") != "" && os.Getenv("GITHUB_WORKSPACE") != ""
 }
 
 // testGooseLogger implements a minimal logger interface for goose
@@ -657,6 +653,90 @@ func getCurrentDir() string {
 		return fmt.Sprintf("error getting current directory: %v", err)
 	}
 	return dir
+}
+
+// standardizeDatabaseURL ensures the database URL uses the correct credentials for CI.
+// For GitHub Actions, it enforces 'postgres' as both username and password.
+// For other CI environments, it ensures 'postgres' is used as the username at minimum.
+func standardizeDatabaseURL(dbURL string, isGitHubActions bool, logger *slog.Logger) (string, error) {
+	// Parse the URL
+	parsedURL, err := url.Parse(dbURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse database URL: %w", err)
+	}
+
+	// Check if URL contains user info
+	if parsedURL.User == nil {
+		// Add default user info if none is present
+		parsedURL.User = url.UserPassword("postgres", "postgres")
+		logger.Debug("adding default postgres credentials to URL with no user info")
+		return parsedURL.String(), nil
+	}
+
+	// Get current username and password
+	username := parsedURL.User.Username()
+	password, passwordSet := parsedURL.User.Password()
+
+	// Log detected credentials (masking the password)
+	logger.Debug("detected database credentials",
+		slog.String("username", username),
+		slog.Bool("password_set", passwordSet),
+	)
+
+	// Determine if standardization is needed
+	needsUpdate := false
+
+	// For GitHub Actions, standardize both username and password to 'postgres'
+	if isGitHubActions {
+		if username != "postgres" || (passwordSet && password != "postgres") {
+			parsedURL.User = url.UserPassword("postgres", "postgres")
+			logger.Debug("standardizing GitHub Actions credentials",
+				slog.String("username", "postgres"),
+				slog.String("password", "****"),
+			)
+			needsUpdate = true
+		}
+	} else if username != "postgres" {
+		// For other CI environments, only standardize the username
+		parsedURL.User = url.UserPassword("postgres", password)
+		logger.Debug("standardizing CI username only",
+			slog.String("username", "postgres"),
+		)
+		needsUpdate = true
+	}
+
+	// Return standardized URL if updated, or original URL if no update needed
+	if needsUpdate {
+		return parsedURL.String(), nil
+	}
+	return dbURL, nil
+}
+
+// updateEnvironmentVariables updates all database-related environment variables
+// with the standardized URL for consistency across the application.
+func updateEnvironmentVariables(envVars []string, standardizedURL string, logger *slog.Logger) {
+	for _, envVar := range envVars {
+		oldValue := os.Getenv(envVar)
+		if oldValue == "" {
+			continue // Skip unset variables
+		}
+
+		// Only update and log if we're actually changing something
+		if oldValue != standardizedURL {
+			logger.Debug("updating environment variable",
+				slog.String("variable", envVar),
+				slog.String("old_value", maskDatabaseURL(oldValue)),
+				slog.String("new_value", maskDatabaseURL(standardizedURL)),
+			)
+
+			if err := os.Setenv(envVar, standardizedURL); err != nil {
+				logger.Error("failed to set environment variable",
+					slog.String("variable", envVar),
+					slog.String("error", err.Error()),
+				)
+			}
+		}
+	}
 }
 
 // Error Helper Functions

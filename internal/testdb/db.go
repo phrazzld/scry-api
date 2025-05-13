@@ -446,35 +446,75 @@ func ApplyMigrations(db *sql.DB, migrationsDir string) error {
 // - Ensure the repository is properly cloned in the CI environment
 // - Check if the repository is part of a monorepo structure
 func findProjectRoot() (string, error) {
+	// Create a logger with relevant context
+	logger := slog.Default().With(
+		slog.String("function", "findProjectRoot"),
+		slog.Bool("ci_environment", isCIEnvironment()),
+		slog.Bool("github_actions", isGitHubActionsCI()),
+	)
+
+	// Log initial working directory for context
+	startDir, err := os.Getwd()
+	if err != nil {
+		logger.Error("failed to get current working directory",
+			slog.String("error", err.Error()))
+		startDir = "<unknown>"
+	}
+	logger.Info("starting project root detection",
+		slog.String("working_directory", startDir))
+
 	// Keep track of paths we've checked for debugging
 	checkedPaths := []string{}
 	checkedEnvVars := []string{}
 
 	// 1. Check for explicit project root environment variable
+	logger.Debug("checking for explicit project root environment variable")
 	if projectRoot := os.Getenv("SCRY_PROJECT_ROOT"); projectRoot != "" {
+		logger.Info("SCRY_PROJECT_ROOT environment variable is set",
+			slog.String("value", projectRoot))
+
 		checkedEnvVars = append(checkedEnvVars, "SCRY_PROJECT_ROOT="+projectRoot)
 		goModPath := filepath.Join(projectRoot, "go.mod")
 		checkedPaths = append(checkedPaths, goModPath)
 
+		// Check if go.mod exists at this path
+		logger.Debug("checking for go.mod file",
+			slog.String("path", goModPath))
 		if _, err := os.Stat(goModPath); err == nil {
+			logger.Info("project root found via SCRY_PROJECT_ROOT environment variable",
+				slog.String("project_root", projectRoot))
 			return projectRoot, nil
+		} else {
+			logger.Warn("SCRY_PROJECT_ROOT is set but go.mod not found at specified path",
+				slog.String("project_root", projectRoot),
+				slog.String("go_mod_path", goModPath),
+				slog.String("error", err.Error()))
 		}
-
-		// If SCRY_PROJECT_ROOT is set but invalid, log a warning
-		fmt.Printf("Warning: SCRY_PROJECT_ROOT is set to %q but go.mod not found at %s\n",
-			projectRoot, goModPath)
+	} else {
+		logger.Debug("SCRY_PROJECT_ROOT environment variable is not set")
 	}
 
 	// 2. Special handling for GitHub Actions CI environment
+	logger.Debug("checking for GitHub Actions environment")
 	if githubWorkspace := os.Getenv("GITHUB_WORKSPACE"); githubWorkspace != "" {
+		logger.Info("GITHUB_WORKSPACE environment variable is set",
+			slog.String("value", githubWorkspace))
+
 		checkedEnvVars = append(checkedEnvVars, "GITHUB_WORKSPACE="+githubWorkspace)
 
 		// Try direct path
 		goModPath := filepath.Join(githubWorkspace, "go.mod")
 		checkedPaths = append(checkedPaths, goModPath)
 
+		logger.Debug("checking for go.mod at GitHub workspace root",
+			slog.String("path", goModPath))
 		if _, err := os.Stat(goModPath); err == nil {
+			logger.Info("project root found via GITHUB_WORKSPACE",
+				slog.String("project_root", githubWorkspace))
 			return githubWorkspace, nil
+		} else {
+			logger.Debug("go.mod not found at GitHub workspace root",
+				slog.String("error", err.Error()))
 		}
 
 		// Try with 'scry-api' subdirectory for monorepo setups
@@ -482,73 +522,139 @@ func findProjectRoot() (string, error) {
 		goModPath = filepath.Join(repoPath, "go.mod")
 		checkedPaths = append(checkedPaths, goModPath)
 
+		logger.Debug("checking for go.mod in scry-api subdirectory (monorepo case)",
+			slog.String("path", goModPath))
 		if _, err := os.Stat(goModPath); err == nil {
+			logger.Info("project root found via GITHUB_WORKSPACE/scry-api",
+				slog.String("project_root", repoPath))
 			return repoPath, nil
+		} else {
+			logger.Debug("go.mod not found in scry-api subdirectory",
+				slog.String("error", err.Error()))
 		}
+	} else {
+		logger.Debug("GITHUB_WORKSPACE environment variable is not set")
 	}
 
 	// 3. Check for GitLab CI environment
+	logger.Debug("checking for GitLab CI environment")
 	if gitlabProjectDir := os.Getenv("CI_PROJECT_DIR"); gitlabProjectDir != "" {
+		logger.Info("CI_PROJECT_DIR environment variable is set",
+			slog.String("value", gitlabProjectDir))
+
 		checkedEnvVars = append(checkedEnvVars, "CI_PROJECT_DIR="+gitlabProjectDir)
 		goModPath := filepath.Join(gitlabProjectDir, "go.mod")
 		checkedPaths = append(checkedPaths, goModPath)
 
+		logger.Debug("checking for go.mod in GitLab project directory",
+			slog.String("path", goModPath))
 		if _, err := os.Stat(goModPath); err == nil {
+			logger.Info("project root found via CI_PROJECT_DIR",
+				slog.String("project_root", gitlabProjectDir))
 			return gitlabProjectDir, nil
+		} else {
+			logger.Debug("go.mod not found in GitLab project directory",
+				slog.String("error", err.Error()))
 		}
+	} else {
+		logger.Debug("CI_PROJECT_DIR environment variable is not set")
 	}
 
-	// 3a. More explicit GitHub Actions detection with better debugging
-	if isCIEnvironment() && os.Getenv("GITHUB_ACTIONS") != "" {
+	// 3a. More explicit GitHub Actions detection with better diagnostics
+	if isCIEnvironment() && isGitHubActionsCI() {
+		logger.Debug("performing additional GitHub Actions specific detection")
+
 		// Try to be even more explicit by looking at GITHUB_WORKSPACE
 		githubWorkspace := os.Getenv("GITHUB_WORKSPACE")
 		if githubWorkspace != "" {
-			// Log for debugging in CI
-			fmt.Printf("CI debug: Checking GITHUB_WORKSPACE=%s for go.mod\n", githubWorkspace)
+			logger.Info("checking GitHub workspace contents for diagnostics",
+				slog.String("github_workspace", githubWorkspace))
 
-			// Try direct path again with explicit logging
+			// Try direct path again with detailed logging
 			goModPath := filepath.Join(githubWorkspace, "go.mod")
-			if _, err := os.Stat(goModPath); err == nil {
-				fmt.Printf("CI debug: Found go.mod at %s\n", goModPath)
+
+			fileInfo, err := os.Stat(goModPath)
+			if err == nil {
+				logger.Info("found go.mod in GitHub workspace",
+					slog.String("path", goModPath),
+					slog.Int64("size", fileInfo.Size()),
+					slog.String("mode", fileInfo.Mode().String()),
+				)
 				return githubWorkspace, nil
 			} else {
-				fmt.Printf("CI debug: go.mod not found at %s: %v\n", goModPath, err)
+				logger.Warn("go.mod not found in GitHub workspace with explicit check",
+					slog.String("path", goModPath),
+					slog.String("error", err.Error()),
+				)
 			}
 
-			// List directory contents for debugging
-			if entries, err := os.ReadDir(githubWorkspace); err == nil {
+			// List directory contents for diagnostics
+			entries, readErr := os.ReadDir(githubWorkspace)
+			if readErr != nil {
+				logger.Warn("failed to read GitHub workspace directory contents",
+					slog.String("error", readErr.Error()))
+			} else {
 				names := make([]string, 0, len(entries))
 				for _, entry := range entries {
 					names = append(names, entry.Name())
 				}
-				fmt.Printf("CI debug: GITHUB_WORKSPACE contents: %v\n", names)
+				logger.Info("GitHub workspace directory contents",
+					slog.Any("entries", names))
 			}
+		} else {
+			logger.Warn("GITHUB_WORKSPACE not available despite GitHub Actions detection")
 		}
 	}
 
 	// 4. Start with current working directory and traverse upwards
+	logger.Info("falling back to directory traversal strategy")
 	dir, err := os.Getwd()
 	if err != nil {
+		logger.Error("failed to get current directory",
+			slog.String("error", err.Error()))
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
+	logger.Debug("beginning traversal from current directory",
+		slog.String("directory", dir))
 
 	// Try common project subdirectories first if we might be in a nested location
 	if isCIEnvironment() {
+		logger.Debug("checking if current directory is a known project subdirectory")
+
 		// Check if we're in a subdirectory of the project
 		commonDirs := []string{"internal", "cmd", "pkg", "test"}
 		for _, subdir := range commonDirs {
 			if strings.HasSuffix(dir, subdir) || strings.Contains(dir, "/"+subdir+"/") {
+				logger.Info("detected common project subdirectory pattern",
+					slog.String("pattern", subdir),
+					slog.String("current_dir", dir))
+
 				// Try to find project root by traversing up
 				potentialRoot := dir
+				logger.Debug("traversing up from subdirectory",
+					slog.String("starting_dir", potentialRoot))
+
 				for i := 0; i < 5; i++ { // Go up max 5 levels
 					potentialRoot = filepath.Dir(potentialRoot)
 					goModPath := filepath.Join(potentialRoot, "go.mod")
 					checkedPaths = append(checkedPaths, goModPath)
 
+					logger.Debug("checking potential project root",
+						slog.String("path", potentialRoot),
+						slog.String("go_mod_path", goModPath),
+						slog.Int("level", i+1))
+
 					if _, err := os.Stat(goModPath); err == nil {
+						logger.Info("project root found by subdirectory traversal",
+							slog.String("project_root", potentialRoot),
+							slog.String("original_subdirectory", subdir))
 						return potentialRoot, nil
+					} else {
+						logger.Debug("go.mod not found at potential root",
+							slog.String("error", err.Error()))
 					}
 				}
+				logger.Debug("reached maximum traversal depth without finding project root")
 				break
 			}
 		}
@@ -557,30 +663,50 @@ func findProjectRoot() (string, error) {
 	// Standard traversal - go up until we find go.mod
 	maxAttempts := 10 // Prevent infinite loops
 	attempts := 0
+	logger.Info("performing standard directory traversal",
+		slog.String("starting_dir", dir),
+		slog.Int("max_attempts", maxAttempts))
 
 	for attempts < maxAttempts {
 		attempts++
+		logger.Debug("checking directory in traversal",
+			slog.String("directory", dir),
+			slog.Int("attempt", attempts))
 
 		// Check if go.mod exists in the current directory
 		goModPath := filepath.Join(dir, "go.mod")
 		checkedPaths = append(checkedPaths, goModPath)
 
 		if _, err := os.Stat(goModPath); err == nil {
+			logger.Info("project root found by standard traversal",
+				slog.String("project_root", dir),
+				slog.Int("attempts", attempts))
 			return dir, nil
+		} else {
+			logger.Debug("go.mod not found, moving up a directory",
+				slog.String("current_dir", dir))
 		}
 
 		// Move up one directory
 		parentDir := filepath.Dir(dir)
 		// If we're at the root and haven't found go.mod, we've gone too far
 		if parentDir == dir {
+			logger.Warn("reached filesystem root without finding project root",
+				slog.String("path", dir))
 			break
 		}
 		dir = parentDir
 	}
 
 	// Last resort: Check for specific project structure patterns
+	logger.Info("trying last resort pattern matching strategy")
 	currentDir, _ := os.Getwd()
+
 	for _, segment := range []string{"scry-api", "scry", "scry-api-go"} {
+		logger.Debug("checking for project name pattern in path",
+			slog.String("pattern", segment),
+			slog.String("path", currentDir))
+
 		if strings.Contains(currentDir, segment) {
 			// Extract the project root by finding the segment in the path
 			idx := strings.Index(currentDir, segment)
@@ -589,12 +715,28 @@ func findProjectRoot() (string, error) {
 				goModPath := filepath.Join(possibleRoot, "go.mod")
 				checkedPaths = append(checkedPaths, goModPath)
 
+				logger.Debug("found pattern match, checking for go.mod",
+					slog.String("pattern", segment),
+					slog.String("possible_root", possibleRoot),
+					slog.String("go_mod_path", goModPath))
+
 				if _, err := os.Stat(goModPath); err == nil {
+					logger.Info("project root found by pattern matching",
+						slog.String("project_root", possibleRoot),
+						slog.String("matched_pattern", segment))
 					return possibleRoot, nil
+				} else {
+					logger.Debug("go.mod not found at pattern-matched path",
+						slog.String("error", err.Error()))
 				}
 			}
 		}
 	}
+
+	// No project root found
+	logger.Error("failed to find project root by any method",
+		slog.Int("checked_paths_count", len(checkedPaths)),
+		slog.Int("checked_env_vars_count", len(checkedEnvVars)))
 
 	// Use our standardized error formatting function
 	return "", formatProjectRootError(checkedPaths, checkedEnvVars)

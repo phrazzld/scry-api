@@ -1,4 +1,4 @@
-//go:build (integration || test_without_external_deps) && !exported_core_functions
+//go:build exported_core_functions
 
 package testdb
 
@@ -29,9 +29,4 @@ func FindMigrationsDir() (string, error) {
 	return migrationsDir, nil
 }
 
-// FindProjectRoot is a public wrapper around findProjectRoot that allows
-// external packages to use the project root detection logic in production code.
-func FindProjectRoot() (string, error) {
-	// Call the internal function
-	return findProjectRoot()
-}
+ internal/testdb/project_root.go internal/testdb/constants_exports.go

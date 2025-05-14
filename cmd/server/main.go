@@ -33,14 +33,13 @@ import (
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/task"
-	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Constant for the migrations directory path
-// Used in the migration command implementation
-// This is a relative path from the project root
+// migrationsDir is the relative path to migrations from the project root
+// This is deprecated in favor of testdb.FindMigrationsDir() but kept for compatibility
+// with existing code that expects this constant
 const migrationsDir = "internal/platform/postgres/migrations"
 
 // TaskFactoryEventHandler is an event handler that creates tasks when events are emitted
@@ -678,37 +677,52 @@ func (l *slogGooseLogger) Fatalf(format string, v ...interface{}) {
 	// The error will be returned to main which will handle the exit
 }
 
-// runMigrations handles the execution of database migrations.
-// It connects to the database using configuration from cfg, then executes
-// the specified migration command (up, down, status, create, version).
-// The args parameter is used for command-specific arguments, such as
-// the migration name when creating a new migration.
-//
-// This function encapsulates all migration-related logic and will be expanded
-// in future tasks to handle different migration commands
-func runMigrations(cfg *config.Config, command string, verbose bool, args ...string) error {
+// executeMigration is a centralized function that executes migration commands.
+// It encapsulates all the common logic for database connectivity, error handling,
+// and migration execution. This is the core migration execution logic that is used
+// by both runMigrations and verifyMigrations.
+func executeMigration(cfg *config.Config, command string, verbose bool, args ...string) error {
+	// Use a correlation ID for all migration logs to allow tracing the entire operation
+	correlationID := uuid.New().String()
+	migrationLogger := slog.Default().With(
+		"correlation_id", correlationID,
+		"component", "migrations",
+		"command", command,
+	)
+
+	startTime := time.Now()
+	migrationLogger.Info("Starting migration operation",
+		"operation", fmt.Sprintf("goose %s", command),
+		"verbose", verbose,
+		"mode", getExecutionMode())
+
 	// Configure goose to use the custom slog logger adapter
 	goose.SetLogger(&slogGooseLogger{})
 
-	// pgx driver is automatically registered with database/sql
-	// when the stdlib package is imported
-
-	// Validate database URL before attempting to connect
+	// Validate database URL
 	if cfg.Database.URL == "" {
+		migrationLogger.Error("Database URL is empty",
+			"error", "missing configuration",
+			"resolution", "check DATABASE_URL environment variable or config file")
 		return fmt.Errorf("database URL is empty: check your configuration")
 	}
 
-	// In CI environment, log database URL (masked) for diagnostics
-	if os.Getenv("CI") != "" {
-		// Mask the password in the URL for safe logging
-		safeURL := maskDatabaseURL(cfg.Database.URL)
-		slog.Info("CI debug: Using database URL", "url", safeURL)
-	}
+	// Always log database URL (masked) for diagnostics
+	// Mask the password in the URL for safe logging
+	safeURL := maskDatabaseURL(cfg.Database.URL)
+	dbURLSource := detectDatabaseURLSource(cfg.Database.URL)
+	migrationLogger.Info("Using database URL",
+		"url", safeURL,
+		"source", dbURLSource,
+		"host", extractHostFromURL(cfg.Database.URL))
 
 	// Open a database connection using the configured Database URL
-	slog.Info("Opening database connection for migrations")
+	migrationLogger.Info("Opening database connection for migrations")
 	db, err := sql.Open("pgx", cfg.Database.URL)
 	if err != nil {
+		migrationLogger.Error("Failed to open database connection",
+			"error", err,
+			"error_type", fmt.Sprintf("%T", err))
 		return fmt.Errorf(
 			"failed to open database connection: %w (check connection string format and credentials)",
 			err,
@@ -717,29 +731,45 @@ func runMigrations(cfg *config.Config, command string, verbose bool, args ...str
 
 	// Ensure the database connection is closed when the function returns
 	defer func() {
-		slog.Debug("Closing database connection")
+		migrationLogger.Debug("Closing database connection")
 		err := db.Close()
 		if err != nil {
-			slog.Error("Error closing database connection",
+			migrationLogger.Error("Error closing database connection",
 				"error", err,
 				"error_type", fmt.Sprintf("%T", err))
 		}
+
+		// Log the total execution time at the end
+		duration := time.Since(startTime)
+		migrationLogger.Info("Migration operation completed",
+			"operation", fmt.Sprintf("goose %s", command),
+			"duration_ms", duration.Milliseconds(),
+			"success", err == nil)
 	}()
 
 	// Set connection pool parameters
 	db.SetMaxOpenConns(5)                  // Limit connections to avoid overwhelming the database
 	db.SetMaxIdleConns(2)                  // Keep a few connections ready
 	db.SetConnMaxLifetime(time.Minute * 5) // Recreate connections that have been open too long
+	migrationLogger.Debug("Configured database connection pool",
+		"max_open_conns", 5,
+		"max_idle_conns", 2,
+		"conn_max_lifetime_minutes", 5)
 
 	// Verify database connectivity with a ping
-	slog.Debug("Verifying database connection with ping")
+	migrationLogger.Debug("Verifying database connection with ping")
+	pingStartTime := time.Now()
 	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(pingCtx); err != nil {
-		// Check for specific error types and provide targeted advice
+		pingDuration := time.Since(pingStartTime)
+		migrationLogger.Error("Database ping failed",
+			"error", err,
+			"duration_ms", pingDuration.Milliseconds(),
+			"error_type", fmt.Sprintf("%T", err))
 
-		// Context deadline exceeded error (connection timeout)
+		// Check for specific error types and provide targeted advice
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf(
 				"database ping timed out after 5s: %w (check network connectivity, firewall rules, and server load)",
@@ -769,150 +799,359 @@ func runMigrations(cfg *config.Config, command string, verbose bool, args ...str
 		)
 	}
 
+	pingDuration := time.Since(pingStartTime)
+	migrationLogger.Info("Database connection verified successfully",
+		"duration_ms", pingDuration.Milliseconds())
+
 	// In CI or verbose mode, log database connection information
 	if verbose || os.Getenv("CI") != "" {
-		// Log database version
-		var version string
-		versionErr := db.QueryRowContext(pingCtx, "SELECT version()").Scan(&version)
-		if versionErr != nil {
-			slog.Warn("Failed to query database version", "error", versionErr)
-		} else {
-			slog.Info("Connected to PostgreSQL", "version", version)
-		}
-
-		// Log database user
-		var user string
-		userErr := db.QueryRowContext(pingCtx, "SELECT current_user").Scan(&user)
-		if userErr != nil {
-			slog.Warn("Failed to query current database user", "error", userErr)
-		} else {
-			slog.Info("Connected as database user", "user", user)
-		}
-
-		// Check if migrations table exists
-		var migTableExists bool
-		tableQuery := fmt.Sprintf(
-			"SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = '%s')",
-			testdb.MigrationTableName,
-		)
-		tableErr := db.QueryRowContext(pingCtx, tableQuery).Scan(&migTableExists)
-		if tableErr != nil {
-			slog.Warn("Failed to check for migrations table", "error", tableErr)
-		} else {
-			slog.Info("Migrations table status", "table", testdb.MigrationTableName, "exists", migTableExists)
-		}
+		logDatabaseInfo(db, pingCtx, migrationLogger)
 	}
 
-	// Verify migrations directory exists
+	// Use the migrations directory path directly for now
+	// The standardized function testdb.FindMigrationsDir() should be used in the future
+	// when build constraints are addressed
 	migrationsDirPath := migrationsDir
-	if _, err := os.Stat(migrationsDirPath); os.IsNotExist(err) {
-		// Try looking for it relative to the current directory
+
+	// Get the absolute path for better logging
+	absPath, err := filepath.Abs(migrationsDirPath)
+	if err != nil {
+		migrationLogger.Warn("Could not resolve absolute path for migrations directory",
+			"relative_path", migrationsDirPath,
+			"error", err)
+		// Continue with relative path
+	} else {
+		migrationsDirPath = absPath
+	}
+
+	// Log the migration directory path
+	migrationLogger.Info("Using migrations directory",
+		"path", migrationsDirPath,
+		"exists", directoryExists(migrationsDirPath))
+
+	// Check if directory exists before proceeding
+	if !directoryExists(migrationsDirPath) {
+		// Try to find migrations relative to current directory
 		cwd, _ := os.Getwd()
 		altPath := filepath.Join(cwd, migrationsDir)
-		if _, err := os.Stat(altPath); os.IsNotExist(err) {
-			return fmt.Errorf("migrations directory not found at %s or %s: %w", migrationsDirPath, altPath, err)
+		migrationLogger.Warn("Migrations directory not found at specified path, trying alternative",
+			"original_path", migrationsDirPath,
+			"alternative_path", altPath)
+
+		if directoryExists(altPath) {
+			migrationsDirPath = altPath
+			migrationLogger.Info("Found migrations at alternative path", "path", migrationsDirPath)
+		} else {
+			migrationLogger.Error("Failed to locate migrations directory",
+				"original_path", migrationsDirPath,
+				"alternative_path", altPath)
+			return fmt.Errorf("migrations directory not found at %s or %s", migrationsDirPath, altPath)
 		}
-		migrationsDirPath = altPath
-		slog.Info("Using alternate migrations path", "path", migrationsDirPath)
 	}
 
-	// In CI or verbose mode, list available migration files
-	if verbose || os.Getenv("CI") != "" {
-		entries, readErr := os.ReadDir(migrationsDirPath)
-		if readErr != nil {
-			slog.Warn("Failed to read migrations directory", "error", readErr)
-		} else {
-			migFiles := make([]string, 0, len(entries))
-			for _, entry := range entries {
-				if !entry.IsDir() {
-					migFiles = append(migFiles, entry.Name())
-				}
-			}
-			slog.Info("Available migration files", "count", len(migFiles), "files", migFiles)
+	// List available migration files (always do this for better logging)
+	migFilesData, err := enumerateMigrationFiles(migrationsDirPath)
+	if err != nil {
+		migrationLogger.Warn("Failed to read migrations directory", "error", err)
+	} else {
+		// Log migration files information
+		migrationLogger.Info("Found migration files",
+			"count", len(migFilesData.Files),
+			"sql_count", migFilesData.SQLCount,
+			"newest_file", migFilesData.NewestFile,
+			"oldest_file", migFilesData.OldestFile)
+
+		// In verbose mode, log all files
+		if verbose || os.Getenv("CI") != "" {
+			migrationLogger.Info("Migration files list", "files", migFilesData.Files)
 		}
 	}
 
 	// Set the migration directory
-	slog.Debug("Setting up migration directory", "dir", migrationsDirPath)
+	migrationLogger.Debug("Setting up migration configuration", "dir", migrationsDirPath)
+
+	// Set the dialect
+	dialectStartTime := time.Now()
 	if err := goose.SetDialect("postgres"); err != nil {
+		migrationLogger.Error("Failed to set dialect", "error", err)
 		return fmt.Errorf("failed to set dialect: %w", err)
 	}
+	migrationLogger.Debug("Set database dialect",
+		"dialect", "postgres",
+		"duration_ms", time.Since(dialectStartTime).Milliseconds())
 
-	// Set the migration table name to match what's used throughout the codebase
-	goose.SetTableName(testdb.MigrationTableName)
+	// Set the migration table name to "schema_migrations" which is standard
+	// This should use testdb.MigrationTableName in the future when build constraints are addressed
+	const migrationTable = "schema_migrations"
+	goose.SetTableName(migrationTable)
+	migrationLogger.Debug("Set migration table name", "table", migrationTable)
 
 	// Execute the requested migration command
-	slog.Info("Executing migration command", "command", command)
+	migrationLogger.Info("Starting migration command execution",
+		"command", command,
+		"args", args)
+
+	// Log current database migration version before executing command
+	var currentVersion string
+	versionErr := db.QueryRow("SELECT version_id FROM schema_migrations ORDER BY version_id DESC LIMIT 1").
+		Scan(&currentVersion)
+	if versionErr != nil {
+		if errors.Is(versionErr, sql.ErrNoRows) {
+			migrationLogger.Info("No migrations currently applied", "status", "clean database")
+			currentVersion = "0"
+		} else {
+			migrationLogger.Warn("Failed to retrieve current migration version",
+				"error", versionErr,
+				"error_type", fmt.Sprintf("%T", versionErr))
+		}
+	} else {
+		migrationLogger.Info("Current database migration version", "version", currentVersion)
+	}
+
+	// Execute the command with timing
+	commandStartTime := time.Now()
 
 	switch command {
 	case "up":
+		migrationLogger.Info("Applying pending migrations")
 		err = goose.Up(db, migrationsDirPath)
 	case "down":
+		migrationLogger.Info("Rolling back one migration version")
 		err = goose.Down(db, migrationsDirPath)
 	case "reset":
+		migrationLogger.Info("Resetting all migrations (roll back to zero)")
 		err = goose.Reset(db, migrationsDirPath)
 	case "status":
+		migrationLogger.Info("Checking migration status")
 		err = goose.Status(db, migrationsDirPath)
 	case "version":
+		migrationLogger.Info("Retrieving current migration version")
 		err = goose.Version(db, migrationsDirPath)
 	case "create":
 		// The migration name is required when creating a new migration
 		if len(args) == 0 || args[0] == "" {
+			migrationLogger.Error("Migration create command requires a name parameter")
 			return fmt.Errorf("migration name is required for 'create' command")
 		}
 
 		// Define the migration type (SQL by default)
 		migrationName := args[0]
+		migrationLogger.Info("Creating new migration",
+			"name", migrationName,
+			"type", "sql",
+			"directory", migrationsDirPath)
 		err = goose.Create(db, migrationsDirPath, migrationName, "sql")
 	default:
+		migrationLogger.Error("Unknown migration command",
+			"command", command,
+			"valid_commands", []string{"up", "down", "reset", "status", "version", "create"})
 		return fmt.Errorf(
 			"unknown migration command: %s (expected up, down, reset, status, version, or create)",
 			command,
 		)
 	}
 
+	// Log command execution time
+	commandDuration := time.Since(commandStartTime)
+
 	if err != nil {
+		migrationLogger.Error("Migration command failed",
+			"command", command,
+			"error", err,
+			"error_type", fmt.Sprintf("%T", err),
+			"duration_ms", commandDuration.Milliseconds())
 		return fmt.Errorf("migration command '%s' failed: %w", command, err)
+	}
+
+	migrationLogger.Info("Migration command executed successfully",
+		"command", command,
+		"duration_ms", commandDuration.Milliseconds())
+
+	// Check if migration version changed
+	if command == "up" || command == "down" || command == "reset" {
+		// Get new version
+		var newVersion string
+		newVersionErr := db.QueryRow("SELECT version_id FROM schema_migrations ORDER BY version_id DESC LIMIT 1").
+			Scan(&newVersion)
+		if newVersionErr != nil {
+			if errors.Is(newVersionErr, sql.ErrNoRows) {
+				migrationLogger.Info(
+					"Database schema is now at base version",
+					"new_version",
+					"0",
+					"previous_version",
+					currentVersion,
+				)
+			} else {
+				migrationLogger.Warn("Failed to retrieve new migration version", "error", newVersionErr)
+			}
+		} else if newVersion != currentVersion {
+			migrationLogger.Info("Database schema version changed",
+				"previous_version", currentVersion,
+				"new_version", newVersion)
+		} else {
+			migrationLogger.Info("Database schema version unchanged", "version", newVersion)
+		}
 	}
 
 	// Verify migrations applied successfully
 	if command == "up" && (verbose || os.Getenv("CI") != "") {
-		// Check migration count in the database
-		var migrationCount int
-		countErr := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM %s", testdb.MigrationTableName)).Scan(&migrationCount)
-		if countErr != nil {
-			slog.Warn("Failed to verify migration count", "error", countErr)
-		} else {
-			slog.Info("Migration verification", "migrations_applied", migrationCount)
-		}
+		verifyAppliedMigrations(db, migrationLogger)
+	}
 
-		// List applied migrations for verification
-		rows, queryErr := db.Query(
-			fmt.Sprintf("SELECT version_id, is_applied FROM %s ORDER BY version_id", testdb.MigrationTableName),
-		)
-		if queryErr != nil {
-			slog.Warn("Failed to query migration history", "error", queryErr)
-		} else {
-			defer func() {
-				if err := rows.Close(); err != nil {
-					slog.Warn("Failed to close rows", "error", err)
-				}
-			}()
+	return nil
+}
 
-			slog.Info("Applied migrations:")
-			for rows.Next() {
-				var versionID string
-				var isApplied bool
-				if err := rows.Scan(&versionID, &isApplied); err != nil {
-					slog.Warn("Failed to scan migration row", "error", err)
-					continue
-				}
-				slog.Info("  Migration", "version_id", versionID, "applied", isApplied)
+// logDatabaseInfo logs detailed information about the database connection
+// This is used for diagnostics in CI and with verbose mode
+func logDatabaseInfo(db *sql.DB, ctx context.Context, logger *slog.Logger) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	logger.Info("Gathering detailed database information")
+	infoStartTime := time.Now()
+
+	// Log database version
+	var version string
+	versionErr := db.QueryRowContext(ctx, "SELECT version()").Scan(&version)
+	if versionErr != nil {
+		logger.Warn("Failed to query database version",
+			"error", versionErr,
+			"error_type", fmt.Sprintf("%T", versionErr))
+	} else {
+		logger.Info("Database version information",
+			"system", "PostgreSQL",
+			"version", version)
+	}
+
+	// Log database user
+	var user string
+	userErr := db.QueryRowContext(ctx, "SELECT current_user").Scan(&user)
+	if userErr != nil {
+		logger.Warn("Failed to query current database user",
+			"error", userErr,
+			"error_type", fmt.Sprintf("%T", userErr))
+	} else {
+		logger.Info("Database connection credentials", "user", user)
+	}
+
+	// Log database name
+	var dbName string
+	dbNameErr := db.QueryRowContext(ctx, "SELECT current_database()").Scan(&dbName)
+	if dbNameErr != nil {
+		logger.Warn("Failed to query current database name",
+			"error", dbNameErr,
+			"error_type", fmt.Sprintf("%T", dbNameErr))
+	} else {
+		logger.Info("Connected to database", "database", dbName)
+	}
+
+	// Check if migrations table exists
+	const migrationTable = "schema_migrations"
+	var migTableExists bool
+	tableQuery := fmt.Sprintf(
+		"SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = '%s')",
+		migrationTable,
+	)
+	tableErr := db.QueryRowContext(ctx, tableQuery).Scan(&migTableExists)
+	if tableErr != nil {
+		logger.Warn("Failed to check for migrations table",
+			"error", tableErr,
+			"table", migrationTable)
+	} else {
+		logger.Info("Migration tracking table",
+			"table", migrationTable,
+			"exists", migTableExists)
+
+		// If table exists, check the migration count
+		if migTableExists {
+			var migrationCount int
+			countErr := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", migrationTable)).Scan(&migrationCount)
+			if countErr != nil {
+				logger.Warn("Failed to count applied migrations", "error", countErr)
+			} else {
+				logger.Info("Migration status summary", "count", migrationCount)
 			}
 		}
 	}
 
-	return nil
+	logger.Debug("Database information gathering completed",
+		"duration_ms", time.Since(infoStartTime).Milliseconds())
+}
+
+// verifyAppliedMigrations verifies and logs information about applied migrations
+func verifyAppliedMigrations(db *sql.DB, logger *slog.Logger) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	logger.Info("Verifying applied migrations")
+	verifyStartTime := time.Now()
+
+	// Check migration count in the database
+	const migrationTable = "schema_migrations"
+	var migrationCount int
+	countErr := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM %s", migrationTable)).Scan(&migrationCount)
+	if countErr != nil {
+		logger.Warn("Failed to verify migration count",
+			"error", countErr,
+			"error_type", fmt.Sprintf("%T", countErr))
+	} else {
+		logger.Info("Verification complete",
+			"migrations_applied", migrationCount,
+			"table", migrationTable)
+	}
+
+	// List applied migrations for verification
+	rows, queryErr := db.Query(
+		fmt.Sprintf("SELECT version_id, is_applied FROM %s ORDER BY version_id", migrationTable),
+	)
+	if queryErr != nil {
+		logger.Warn("Failed to query migration history",
+			"error", queryErr,
+			"error_type", fmt.Sprintf("%T", queryErr))
+	} else {
+		defer func() {
+			if err := rows.Close(); err != nil {
+				logger.Warn("Failed to close rows", "error", err)
+			}
+		}()
+
+		// Collect all applied migrations for structured logging
+		appliedMigrations := make([]string, 0, migrationCount)
+		for rows.Next() {
+			var versionID string
+			var isApplied bool
+			if err := rows.Scan(&versionID, &isApplied); err != nil {
+				logger.Warn("Failed to scan migration row", "error", err)
+				continue
+			}
+			if isApplied {
+				appliedMigrations = append(appliedMigrations, versionID)
+			}
+		}
+
+		// Log the collected migrations
+		logger.Info("Applied migration versions",
+			"versions", appliedMigrations,
+			"count", len(appliedMigrations))
+	}
+
+	logger.Debug("Migration verification completed",
+		"duration_ms", time.Since(verifyStartTime).Milliseconds())
+}
+
+// runMigrations handles the execution of database migrations.
+// It connects to the database using configuration from cfg, then executes
+// the specified migration command (up, down, status, create, version).
+// The args parameter is used for command-specific arguments, such as
+// the migration name when creating a new migration.
+//
+// This function encapsulates all migration-related logic and will be expanded
+// in future tasks to handle different migration commands
+func runMigrations(cfg *config.Config, command string, verbose bool, args ...string) error {
+	return executeMigration(cfg, command, verbose, args...)
 }
 
 // verifyMigrations checks if migrations can be applied without actually applying them.
@@ -920,145 +1159,10 @@ func runMigrations(cfg *config.Config, command string, verbose bool, args ...str
 func verifyMigrations(cfg *config.Config, verbose bool) error {
 	slog.Info("Verifying database migrations setup")
 
-	// Validate database URL before attempting to connect
-	if cfg.Database.URL == "" {
-		return fmt.Errorf("database URL is empty: check your configuration")
-	}
-
-	// In CI environment, log database URL (masked) for diagnostics
-	if os.Getenv("CI") != "" {
-		// Mask the password in the URL for safe logging
-		safeURL := maskDatabaseURL(cfg.Database.URL)
-		slog.Info("CI debug: Using database URL", "url", safeURL)
-	}
-
-	// Open a database connection using the configured Database URL
-	slog.Info("Opening database connection for migration verification")
-	db, err := sql.Open("pgx", cfg.Database.URL)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to open database connection: %w (check connection string format and credentials)",
-			err,
-		)
-	}
-
-	// Ensure the database connection is closed when the function returns
-	defer func() {
-		slog.Debug("Closing database connection")
-		if err := db.Close(); err != nil {
-			slog.Error("Error closing database connection", "error", err)
-		}
-	}()
-
-	// Set connection pool parameters
-	db.SetMaxOpenConns(2)
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(time.Minute * 5)
-
-	// Verify database connectivity with a ping
-	slog.Info("Verifying database connectivity")
-	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(pingCtx); err != nil {
-		return fmt.Errorf("database ping failed: %w", err)
-	}
-
-	// Log database connection information
-	// Log database version
-	var version string
-	versionErr := db.QueryRowContext(pingCtx, "SELECT version()").Scan(&version)
-	if versionErr != nil {
-		slog.Warn("Failed to query database version", "error", versionErr)
-	} else {
-		slog.Info("Connected to PostgreSQL", "version", version)
-	}
-
-	// Log database user
-	var user string
-	userErr := db.QueryRowContext(pingCtx, "SELECT current_user").Scan(&user)
-	if userErr != nil {
-		slog.Warn("Failed to query current database user", "error", userErr)
-	} else {
-		slog.Info("Connected as database user", "user", user)
-	}
-
-	// Check if migrations table exists
-	slog.Info("Checking for migrations table")
-	var migTableExists bool
-	tableQuery := fmt.Sprintf(
-		"SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = '%s')",
-		testdb.MigrationTableName,
-	)
-	tableErr := db.QueryRowContext(pingCtx, tableQuery).Scan(&migTableExists)
-	if tableErr != nil {
-		slog.Warn("Failed to check for migrations table", "error", tableErr)
-	} else {
-		slog.Info("Migrations table status", "table", testdb.MigrationTableName, "exists", migTableExists)
-	}
-
-	// Verify migrations directory exists
-	slog.Info("Verifying migrations directory")
-	migrationsDirPath := migrationsDir
-	if _, err := os.Stat(migrationsDirPath); os.IsNotExist(err) {
-		// Try looking for it relative to the current directory
-		cwd, _ := os.Getwd()
-		altPath := filepath.Join(cwd, migrationsDir)
-		if _, err := os.Stat(altPath); os.IsNotExist(err) {
-			return fmt.Errorf("migrations directory not found at %s or %s: %w", migrationsDirPath, altPath, err)
-		}
-		migrationsDirPath = altPath
-		slog.Info("Using alternate migrations path", "path", migrationsDirPath)
-	}
-
-	// List available migration files
-	entries, readErr := os.ReadDir(migrationsDirPath)
-	if readErr != nil {
-		return fmt.Errorf("failed to read migrations directory: %w", readErr)
-	}
-
-	migFiles := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			migFiles = append(migFiles, entry.Name())
-		}
-	}
-	slog.Info("Available migration files", "count", len(migFiles), "files", migFiles)
-
-	// If migrations table exists, check which migrations are applied
-	if migTableExists {
-		slog.Info("Checking applied migrations")
-		rows, queryErr := db.Query(
-			fmt.Sprintf("SELECT version_id, is_applied FROM %s ORDER BY version_id", testdb.MigrationTableName),
-		)
-		if queryErr != nil {
-			slog.Warn("Failed to query migration history", "error", queryErr)
-		} else {
-			defer func() {
-				if err := rows.Close(); err != nil {
-					slog.Warn("Failed to close rows", "error", err)
-				}
-			}()
-
-			appliedMigrations := []string{}
-			for rows.Next() {
-				var versionID string
-				var isApplied bool
-				if err := rows.Scan(&versionID, &isApplied); err != nil {
-					slog.Warn("Failed to scan migration row", "error", err)
-					continue
-				}
-				if isApplied {
-					appliedMigrations = append(appliedMigrations, versionID)
-				}
-			}
-
-			slog.Info("Applied migrations", "count", len(appliedMigrations), "versions", appliedMigrations)
-		}
-	}
-
-	slog.Info("Migration verification completed successfully")
-	return nil
+	// Use the centralized migration function with the "status" command
+	// This will check connectivity, locate migrations, and verify database
+	// state without applying any changes
+	return executeMigration(cfg, "status", true)
 }
 
 // maskDatabaseURL masks the password in a database URL for safe logging.
@@ -1077,4 +1181,95 @@ func maskDatabaseURL(dbURL string) string {
 	}
 
 	return dbURL
+}
+
+// getExecutionMode returns the current execution mode (CI, local, etc.)
+func getExecutionMode() string {
+	if os.Getenv("CI") != "" {
+		return "CI"
+	}
+	if os.Getenv("GITHUB_ACTIONS") != "" {
+		return "GitHub Actions"
+	}
+	if os.Getenv("GITLAB_CI") != "" {
+		return "GitLab CI"
+	}
+	return "local"
+}
+
+// detectDatabaseURLSource attempts to determine the source of the database URL
+func detectDatabaseURLSource(dbURL string) string {
+	// Check environment variables in order of preference
+	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
+
+	for _, envVar := range envVars {
+		if value := os.Getenv(envVar); value == dbURL {
+			return fmt.Sprintf("environment variable %s", envVar)
+		}
+	}
+
+	// If we couldn't match to an environment variable
+	return "configuration"
+}
+
+// extractHostFromURL extracts the hostname from a database URL for logging
+func extractHostFromURL(dbURL string) string {
+	parsedURL, err := url.Parse(dbURL)
+	if err != nil {
+		return "unknown"
+	}
+
+	return parsedURL.Hostname()
+}
+
+// directoryExists checks if a directory exists at the given path
+func directoryExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// MigrationFilesData holds structured information about migration files
+type MigrationFilesData struct {
+	Files      []string
+	SQLCount   int
+	NewestFile string
+	OldestFile string
+}
+
+// enumerateMigrationFiles lists and categorizes migration files in a directory
+func enumerateMigrationFiles(dirPath string) (MigrationFilesData, error) {
+	result := MigrationFilesData{}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return result, err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		result.Files = append(result.Files, name)
+
+		// Count SQL files
+		if filepath.Ext(name) == ".sql" {
+			result.SQLCount++
+
+			// Track oldest and newest based on filename (migrations are typically named with timestamps)
+			if result.OldestFile == "" || name < result.OldestFile {
+				result.OldestFile = name
+			}
+
+			if result.NewestFile == "" || name > result.NewestFile {
+				result.NewestFile = name
+			}
+		}
+	}
+
+	return result, nil
 }

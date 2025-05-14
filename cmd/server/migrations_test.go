@@ -7,11 +7,11 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/phrazzld/scry-api/internal/config"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/pressly/goose/v3"
 )
@@ -23,8 +23,8 @@ func TestMigrationFlow(t *testing.T) {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
-	// Get database URL from environment
-	dbURL := testutils.GetTestDatabaseURL(t)
+	// Get database URL from environment using the standardized function
+	dbURL := testdb.GetTestDatabaseURL()
 
 	// Create a minimal config for the test
 	cfg := &config.Config{
@@ -33,17 +33,11 @@ func TestMigrationFlow(t *testing.T) {
 		},
 	}
 
-	// Get the project root directory for migrations
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatalf("Failed to get current file path from runtime.Caller")
+	// Get the project root directory using the standardized function
+	projectRoot, err := testdb.FindProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
 	}
-
-	// Get the directory containing this file (cmd/server)
-	thisDir := filepath.Dir(thisFile)
-
-	// Go up two levels: from cmd/server to project root
-	projectRoot := filepath.Dir(filepath.Dir(thisDir))
 
 	// Change working directory to project root so that the relative path in migrationsDir works
 	origWD, err := os.Getwd()
@@ -66,7 +60,7 @@ func TestMigrationFlow(t *testing.T) {
 		t.Fatalf("Failed to run migrations up: %v", err)
 	}
 
-	// Connect to the database to verify tables were created
+	// Connect to the database to verify tables were created using the standardized connection string
 	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		t.Fatalf("Failed to open database connection: %v", err)
@@ -149,19 +143,11 @@ func TestMigrationsValidSyntax(t *testing.T) {
 	// Set up goose logger with a test adapter that fails the test on fatal errors
 	goose.SetLogger(&testGooseLogger{t: t})
 
-	// Get the directory of the current file using runtime.Caller
-	// This is more reliable than os.Getwd() because it's not affected by
-	// where the test is run from
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatalf("Failed to get current file path from runtime.Caller")
+	// Get project root using the standardized function
+	projectRoot, err := testdb.FindProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
 	}
-
-	// Get the directory containing this file (cmd/server)
-	thisDir := filepath.Dir(thisFile)
-
-	// Go up two levels: from cmd/server to project root
-	projectRoot := filepath.Dir(filepath.Dir(thisDir))
 
 	// Construct path to migrations directory
 	absoluteMigrationsDir := filepath.Join(projectRoot, migrationsDir)

@@ -165,16 +165,31 @@ go test -v ./internal/testdb -run TestDatabaseConnectivity
 
 ## Environment Variables Reference
 
+For a complete reference of all environment variables used in the project, including application configuration variables, see [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md).
+
+Below are the CI-specific environment variables:
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `CI` | No | - | Flag indicating CI environment |
 | `GITHUB_ACTIONS` | No | - | Flag for GitHub Actions environment |
 | `GITHUB_WORKSPACE` | Yes (in GitHub Actions) | - | Root directory of checked out repository |
-| `DATABASE_URL` | Yes | - | Primary database connection string |
-| `SCRY_TEST_DB_URL` | No | - | Secondary test database connection string |
+| `CI_PROJECT_DIR` | Yes (in GitLab CI) | - | Root directory of the GitLab repository |
+| `GITLAB_CI` | No | - | Flag for GitLab CI environment |
+| `JENKINS_URL` | No | - | Flag for Jenkins CI environment |
+| `TRAVIS` | No | - | Flag for Travis CI environment |
+| `CIRCLECI` | No | - | Flag for Circle CI environment |
 | `SCRY_PROJECT_ROOT` | No | - | Explicit override for project root |
-| `LOG_LEVEL` | No | "info" | Log level (debug, info, warn, error) |
-| `LOG_FORMAT` | No | "json" | Log format (json, text) |
+
+Database-related environment variables with special behavior in CI:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | - | Primary database connection string (will be standardized in CI) |
+| `SCRY_DATABASE_URL` | No | - | Standard database connection string |
+| `SCRY_TEST_DB_URL` | No | - | Test-specific database connection string |
+
+Note: In CI environments, the database URL is automatically standardized to use `postgres:postgres` credentials, regardless of what was provided in the environment variables.
 
 ## Best Practices
 

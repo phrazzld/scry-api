@@ -28,5 +28,3 @@ func FindMigrationsDir() (string, error) {
 
 	return migrationsDir, nil
 }
-
- internal/testdb/project_root.go internal/testdb/constants_exports.go

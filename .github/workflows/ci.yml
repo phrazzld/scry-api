@@ -117,10 +117,14 @@ jobs:
           echo "Applying database migrations..."
           go run cmd/server/main.go -migrate=up
 
-          # Verify migrations applied successfully
-          echo "Verifying migration status..."
-          # This queries the migration table (should match MigrationTableName in testdb package)
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT COUNT(*) FROM schema_migrations;"
+          # Execute detailed migration validation
+          echo "Validating migrations were applied correctly..."
+          # This uses our enhanced validation logic that will fail CI if migrations aren't properly applied
+          go run cmd/server/main.go -validate-migrations -verbose
+
+          # Log migration table content for diagnostics
+          echo "Migration table contents (diagnostic info):"
+          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version_id, is_applied FROM schema_migrations ORDER BY version_id;"
         env:
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
@@ -153,6 +157,10 @@ jobs:
           # Apply migrations again to ensure proper schema
           echo "Re-applying migrations for tests..."
           go run cmd/server/main.go -migrate=up
+
+          # Validate migrations before running tests
+          echo "Validating migrations before tests..."
+          go run cmd/server/main.go -validate-migrations
 
           echo "Running tests with integration build tag..."
           go test -v -race -coverprofile=coverage.out -tags=integration ./...

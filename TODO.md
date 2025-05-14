@@ -95,7 +95,7 @@
 
 ## Issue 3: Migration Execution
 
-### Task 3.1: Ensure Migration Tool Uses Standardized Inputs
+### Task 3.1: Ensure Migration Tool Uses Standardized Inputs [x]
 - **Priority**: High
 - **Description**: Ensure migrations use correct database URL and file paths
 - **Implementation**:
@@ -120,7 +120,7 @@
   - CI logs show detailed migration information
 - **Dependencies**: Task 3.1
 
-### Task 3.3: Verify Full Migration Execution in CI
+### Task 3.3: Verify Full Migration Execution in CI [x]
 - **Priority**: High
 - **Description**: Confirm migrations run successfully in CI
 - **Implementation**:

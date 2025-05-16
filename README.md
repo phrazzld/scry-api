@@ -145,6 +145,10 @@ This project uses pre-commit hooks to ensure code quality and consistency across
 
 The project uses the following pre-commit hooks:
 
+**Code Quality & Build Checks**
+- `golangci-lint`: Runs comprehensive Go linting with the same configuration as CI
+- `go-build-check`: Verifies that the application builds without errors
+
 **Formatting Hooks**
 - `trailing-whitespace`: Removes trailing whitespace at the end of lines
 - `end-of-file-fixer`: Ensures files end with a newline
@@ -156,12 +160,12 @@ The project uses the following pre-commit hooks:
 - `check-merge-conflict`: Prevents committing files with merge conflict markers
 - `check-added-large-files`: Prevents committing large files (>500KB)
 
-**Linting Hooks**
-- `golangci-lint`: Runs comprehensive Go linters with the same configuration as CI
-
 **Custom Hooks**
 - `go-mod-tidy`: Ensures go.mod is always tidy
 - `warn-long-files`: Warns (but doesn't block commits) when files exceed 500 lines, encouraging modular code design
+- `fail-extremely-long-files`: Fails the commit if any file exceeds 1000 lines
+- `check-for-panics`: Prevents committing code with direct panic() calls without exemption
+- `check-sql-ordering`: Ensures all ORDER BY clauses include a secondary sort key for deterministic results
 
 ##### Usage
 

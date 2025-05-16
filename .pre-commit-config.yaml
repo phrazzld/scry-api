@@ -61,6 +61,15 @@ repos:
         types: [go]
         pass_filenames: false  # Run once per commit, not per file
 
+      # Ensure code builds successfully
+      - id: go-build-check
+        name: go build check
+        entry: bash -c 'go build -v ./cmd/...'
+        language: system
+        types: [go]
+        pass_filenames: false  # Run once per commit, not per file
+        description: Verifies that the application builds without errors
+
       # Run glance after commit to update directory overviews (async)
       - id: run-glance
         name: Run glance to update directory overviews (async)

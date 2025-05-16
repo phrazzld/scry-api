@@ -11,22 +11,22 @@ import (
 const (
 	// StandardCIUser is the standard username used in CI environments
 	StandardCIUser = "postgres"
-	
+
 	// StandardCIPassword is the standard password used in CI environments
 	StandardCIPassword = "postgres"
-	
+
 	// StandardCIHost is the standard host used in CI environments
 	StandardCIHost = "localhost"
-	
+
 	// StandardCIPort is the standard port used in CI environments
 	StandardCIPort = "5432"
-	
+
 	// StandardCIDatabase is the standard database name used in CI environments
 	StandardCIDatabase = "scry_test"
-	
+
 	// StandardCIOptions contains standard connection options for CI environments
 	StandardCIOptions = "sslmode=disable"
-	
+
 	// MigrationTableName is the name of the database table that tracks migrations
 	MigrationTableName = "schema_migrations"
 )
@@ -41,14 +41,14 @@ const (
 // If no environment variables are set, it returns an empty string.
 func GetTestDatabaseURL(logger *slog.Logger) string {
 	envVars := []string{EnvDatabaseURL, EnvScryTestDBURL, EnvScryDatabaseURL}
-	
+
 	// Check if we have any database URL set
 	var dbURL string
-	
+
 	for i, envVar := range envVars {
 		if val := os.Getenv(envVar); val != "" {
 			dbURL = val
-			
+
 			// Log a deprecation warning if not using the standardized name
 			if i != 1 && logger != nil { // EnvScryTestDBURL is at index 1
 				logger.Warn("Using non-standardized database URL environment variable",
@@ -62,11 +62,11 @@ func GetTestDatabaseURL(logger *slog.Logger) string {
 					"value", MaskSensitiveValue(val),
 				)
 			}
-			
+
 			break
 		}
 	}
-	
+
 	// If no database URL is set, return empty string
 	if dbURL == "" {
 		if logger != nil {
@@ -74,7 +74,7 @@ func GetTestDatabaseURL(logger *slog.Logger) string {
 		}
 		return ""
 	}
-	
+
 	// If running in CI, standardize the URL
 	if IsCI() {
 		standardizedURL, err := standardizeDatabaseURL(dbURL, logger)
@@ -87,7 +87,7 @@ func GetTestDatabaseURL(logger *slog.Logger) string {
 			}
 			return dbURL
 		}
-		
+
 		if standardizedURL != dbURL {
 			if logger != nil {
 				logger.Info("Standardized database URL for CI environment",
@@ -95,14 +95,14 @@ func GetTestDatabaseURL(logger *slog.Logger) string {
 					"standardized", MaskSensitiveValue(standardizedURL),
 				)
 			}
-			
+
 			// Update environment variables for consistency
 			updateDatabaseEnvironmentVariables(standardizedURL, logger)
-			
+
 			return standardizedURL
 		}
 	}
-	
+
 	return dbURL
 }
 
@@ -113,7 +113,7 @@ func standardizeDatabaseURL(dbURL string, logger *slog.Logger) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse database URL: %w", err)
 	}
-	
+
 	// Check if this is a postgres URL
 	if parsedURL.Scheme != "postgres" {
 		if logger != nil {
@@ -123,30 +123,30 @@ func standardizeDatabaseURL(dbURL string, logger *slog.Logger) (string, error) {
 		}
 		return dbURL, nil
 	}
-	
+
 	// Extract user info
 	username := ""
 	password := ""
-	
+
 	if parsedURL.User != nil {
 		username = parsedURL.User.Username()
 		password, _ = parsedURL.User.Password()
 	}
-	
+
 	// Check if standardization is needed
 	if username == StandardCIUser && password == StandardCIPassword {
 		return dbURL, nil // Already using standard credentials
 	}
-	
+
 	// Standardize the URL for CI
 	standardizedURL := *parsedURL
 	standardizedURL.User = url.UserPassword(StandardCIUser, StandardCIPassword)
-	
+
 	// In CI environments, also standardize host and database if not explicitly set
 	if IsCI() {
 		host := parsedURL.Hostname()
 		port := parsedURL.Port()
-		
+
 		if host == "" || host == "localhost" || host == "127.0.0.1" {
 			// Keep the local hostname but ensure port is standard
 			if port == "" {
@@ -154,19 +154,19 @@ func standardizeDatabaseURL(dbURL string, logger *slog.Logger) (string, error) {
 				standardizedURL.Host = hostPort
 			}
 		}
-		
+
 		// Extract path (database name) and standardize if empty
 		path := strings.TrimPrefix(parsedURL.Path, "/")
 		if path == "" {
 			standardizedURL.Path = "/" + StandardCIDatabase
 		}
-		
+
 		// Add standard options if none are provided
 		if parsedURL.RawQuery == "" {
 			standardizedURL.RawQuery = StandardCIOptions
 		}
 	}
-	
+
 	return standardizedURL.String(), nil
 }
 
@@ -175,7 +175,7 @@ func standardizeDatabaseURL(dbURL string, logger *slog.Logger) (string, error) {
 func updateDatabaseEnvironmentVariables(standardizedURL string, logger *slog.Logger) {
 	// List of environment variables to update
 	envVars := []string{EnvDatabaseURL, EnvScryTestDBURL, EnvScryDatabaseURL}
-	
+
 	for _, envVar := range envVars {
 		if os.Getenv(envVar) != "" {
 			if logger != nil {

@@ -54,8 +54,11 @@ func TestGetTestDatabaseURL(t *testing.T) {
 			expected: "postgres://primary:primary@localhost:5432/primary",
 		},
 		{
-			name:     "DATABASE_URL set (CI environment)",
-			envVars:  map[string]string{EnvDatabaseURL: "postgres://user:password@localhost:5432/testdb", EnvCI: "true"},
+			name: "DATABASE_URL set (CI environment)",
+			envVars: map[string]string{
+				EnvDatabaseURL: "postgres://user:password@localhost:5432/testdb",
+				EnvCI:          "true",
+			},
 			isCI:     true,
 			expected: "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable",
 		},
@@ -96,11 +99,14 @@ func TestGetTestDatabaseURL(t *testing.T) {
 
 			// Test the function
 			got := GetTestDatabaseURL(logger)
-			
+
 			// In CI mode, we standardize the URL, so just check that the username and password are correct
 			if tc.isCI && got != "" {
 				if !strings.Contains(got, "postgres:postgres") {
-					t.Errorf("GetTestDatabaseURL() = %v, doesn't contain standard CI credentials", MaskSensitiveValue(got))
+					t.Errorf(
+						"GetTestDatabaseURL() = %v, doesn't contain standard CI credentials",
+						MaskSensitiveValue(got),
+					)
 				}
 			} else if got != tc.expected {
 				t.Errorf("GetTestDatabaseURL() = %v, want %v", MaskSensitiveValue(got), MaskSensitiveValue(tc.expected))
@@ -108,14 +114,14 @@ func TestGetTestDatabaseURL(t *testing.T) {
 
 			// Verify logging behavior
 			logOutput := logBuffer.String()
-			
+
 			// Check for deprecation warnings for non-standardized vars
 			if tc.envVars[EnvDatabaseURL] != "" && !strings.Contains(logOutput, "non-standardized") {
 				t.Errorf("Expected deprecation warning for DATABASE_URL but none was logged")
 			}
-			
-			if tc.envVars[EnvScryDatabaseURL] != "" && tc.envVars[EnvDatabaseURL] == "" && 
-			   tc.envVars[EnvScryTestDBURL] == "" && !strings.Contains(logOutput, "non-standardized") {
+
+			if tc.envVars[EnvScryDatabaseURL] != "" && tc.envVars[EnvDatabaseURL] == "" &&
+				tc.envVars[EnvScryTestDBURL] == "" && !strings.Contains(logOutput, "non-standardized") {
 				t.Errorf("Expected deprecation warning for SCRY_DATABASE_URL but none was logged")
 			}
 		})
@@ -179,12 +185,12 @@ func TestStandardizeDatabaseURL(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := standardizeDatabaseURL(tc.input, logger)
-			
+
 			if (err != nil) != tc.wantErr {
 				t.Errorf("standardizeDatabaseURL() error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
-			
+
 			if !tc.wantErr && got != tc.expected {
 				t.Errorf("standardizeDatabaseURL() = %v, want %v", got, tc.expected)
 			}
@@ -200,8 +206,8 @@ func TestUpdateDatabaseEnvironmentVariables(t *testing.T) {
 
 	// Save current environment
 	savedEnv := map[string]string{
-		EnvDatabaseURL:    os.Getenv(EnvDatabaseURL),
-		EnvScryTestDBURL:  os.Getenv(EnvScryTestDBURL),
+		EnvDatabaseURL:     os.Getenv(EnvDatabaseURL),
+		EnvScryTestDBURL:   os.Getenv(EnvScryTestDBURL),
 		EnvScryDatabaseURL: os.Getenv(EnvScryDatabaseURL),
 	}
 
@@ -218,8 +224,8 @@ func TestUpdateDatabaseEnvironmentVariables(t *testing.T) {
 
 	// Set up test environment
 	testVars := map[string]string{
-		EnvDatabaseURL:    "postgres://user1:pass1@localhost:5432/db1",
-		EnvScryTestDBURL:  "postgres://user2:pass2@localhost:5432/db2",
+		EnvDatabaseURL:     "postgres://user1:pass1@localhost:5432/db1",
+		EnvScryTestDBURL:   "postgres://user2:pass2@localhost:5432/db2",
 		EnvScryDatabaseURL: "postgres://user3:pass3@localhost:5432/db3",
 	}
 

@@ -10,14 +10,14 @@ import (
 
 // Project root marker files
 const (
-	GoModFile    = "go.mod"    // Primary marker file for Go projects
-	GitDirectory = ".git"      // Git directory marker
+	GoModFile    = "go.mod" // Primary marker file for Go projects
+	GitDirectory = ".git"   // Git directory marker
 )
 
 // Common errors for project root detection
 var (
 	ErrProjectRootNotFound = errors.New("unable to find project root")
-	ErrInvalidProjectRoot = errors.New("invalid project root: no go.mod file found")
+	ErrInvalidProjectRoot  = errors.New("invalid project root: no go.mod file found")
 )
 
 // FindProjectRoot returns the absolute path to the project root directory.
@@ -49,12 +49,12 @@ func FindProjectRoot(logger *slog.Logger) (string, error) {
 				"project_root", projectRoot,
 			)
 		}
-		
+
 		// Verify the directory exists and contains a go.mod file
 		if !isValidProjectRoot(projectRoot) {
 			return "", fmt.Errorf("%w at %s", ErrInvalidProjectRoot, projectRoot)
 		}
-		
+
 		return projectRoot, nil
 	}
 
@@ -67,12 +67,12 @@ func FindProjectRoot(logger *slog.Logger) (string, error) {
 					"github_workspace", githubWorkspace,
 				)
 			}
-			
+
 			// Verify the directory exists and contains a go.mod file
 			if !isValidProjectRoot(githubWorkspace) {
 				return "", fmt.Errorf("%w at %s", ErrInvalidProjectRoot, githubWorkspace)
 			}
-			
+
 			return githubWorkspace, nil
 		}
 	}
@@ -86,12 +86,12 @@ func FindProjectRoot(logger *slog.Logger) (string, error) {
 					"gitlab_project_dir", gitlabProjectDir,
 				)
 			}
-			
+
 			// Verify the directory exists and contains a go.mod file
 			if !isValidProjectRoot(gitlabProjectDir) {
 				return "", fmt.Errorf("%w at %s", ErrInvalidProjectRoot, gitlabProjectDir)
 			}
-			
+
 			return gitlabProjectDir, nil
 		}
 	}
@@ -100,12 +100,12 @@ func FindProjectRoot(logger *slog.Logger) (string, error) {
 	if logger != nil {
 		logger.Info("No environment variables found for project root, auto-detecting...")
 	}
-	
+
 	projectRoot, err := findProjectRootByTraversal(workingDir, logger)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return projectRoot, nil
 }
 
@@ -115,7 +115,7 @@ func FindProjectRoot(logger *slog.Logger) (string, error) {
 func findProjectRootByTraversal(startDir string, logger *slog.Logger) (string, error) {
 	currentDir := startDir
 	maxIterations := 10 // Limit traversal to prevent infinite loops
-	
+
 	for i := 0; i < maxIterations; i++ {
 		if logger != nil {
 			logger.Debug("Checking directory for project markers",
@@ -123,7 +123,7 @@ func findProjectRootByTraversal(startDir string, logger *slog.Logger) (string, e
 				"iteration", i+1,
 			)
 		}
-		
+
 		// Check for go.mod (primary marker)
 		goModPath := filepath.Join(currentDir, GoModFile)
 		if fileExists(goModPath) {
@@ -135,7 +135,7 @@ func findProjectRootByTraversal(startDir string, logger *slog.Logger) (string, e
 			}
 			return currentDir, nil
 		}
-		
+
 		// Check for .git directory (secondary marker)
 		gitDirPath := filepath.Join(currentDir, GitDirectory)
 		if dirExists(gitDirPath) {
@@ -145,22 +145,22 @@ func findProjectRootByTraversal(startDir string, logger *slog.Logger) (string, e
 					"git_dir_path", gitDirPath,
 				)
 			}
-			
+
 			// Prefer directories with go.mod, but accept .git if we're sure it's valid
 			return currentDir, nil
 		}
-		
+
 		// Move up one directory
 		parentDir := filepath.Dir(currentDir)
-		
+
 		// If we've reached the filesystem root, stop traversing
 		if parentDir == currentDir {
 			break
 		}
-		
+
 		currentDir = parentDir
 	}
-	
+
 	// If we got here, we couldn't find the project root
 	if logger != nil {
 		logger.Error("Failed to find project root by directory traversal",
@@ -168,7 +168,7 @@ func findProjectRootByTraversal(startDir string, logger *slog.Logger) (string, e
 			"max_iterations", maxIterations,
 		)
 	}
-	
+
 	return "", ErrProjectRootNotFound
 }
 
@@ -177,7 +177,7 @@ func isValidProjectRoot(dir string) bool {
 	if !dirExists(dir) {
 		return false
 	}
-	
+
 	goModPath := filepath.Join(dir, GoModFile)
 	return fileExists(goModPath)
 }
@@ -207,22 +207,22 @@ func FindMigrationsDir(logger *slog.Logger) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to find project root: %w", err)
 	}
-	
+
 	// The standard path to migrations directory is:
 	// internal/platform/postgres/migrations
 	migrationsPath := filepath.Join(projectRoot, "internal", "platform", "postgres", "migrations")
-	
+
 	if logger != nil {
 		logger.Debug("Resolved migrations directory path",
 			"project_root", projectRoot,
 			"migrations_path", migrationsPath,
 		)
 	}
-	
+
 	// Verify the directory exists
 	if !dirExists(migrationsPath) {
 		return "", fmt.Errorf("migrations directory not found at %s", migrationsPath)
 	}
-	
+
 	return migrationsPath, nil
 }

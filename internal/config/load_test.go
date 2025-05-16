@@ -15,11 +15,11 @@ func TestLoadWithLegacyEnvironmentVariables(t *testing.T) {
 
 	// Save the current environment
 	savedEnv := map[string]string{
-		"SCRY_DATABASE_URL":    os.Getenv("SCRY_DATABASE_URL"),
-		"DATABASE_URL":         os.Getenv("DATABASE_URL"),
+		"SCRY_DATABASE_URL":     os.Getenv("SCRY_DATABASE_URL"),
+		"DATABASE_URL":          os.Getenv("DATABASE_URL"),
 		"SCRY_SERVER_LOG_LEVEL": os.Getenv("SCRY_SERVER_LOG_LEVEL"),
-		"LOG_LEVEL":            os.Getenv("LOG_LEVEL"),
-		"SCRY_AUTH_JWT_SECRET": os.Getenv("SCRY_AUTH_JWT_SECRET"),
+		"LOG_LEVEL":             os.Getenv("LOG_LEVEL"),
+		"SCRY_AUTH_JWT_SECRET":  os.Getenv("SCRY_AUTH_JWT_SECRET"),
 	}
 
 	// Restore the environment after the test
@@ -127,8 +127,8 @@ func TestLoadFailsWithMissingRequiredConfig(t *testing.T) {
 	// Save the current environment
 	savedEnv := map[string]string{
 		"SCRY_AUTH_JWT_SECRET": os.Getenv("SCRY_AUTH_JWT_SECRET"),
-		"SCRY_DATABASE_URL":   os.Getenv("SCRY_DATABASE_URL"),
-		"DATABASE_URL":        os.Getenv("DATABASE_URL"),
+		"SCRY_DATABASE_URL":    os.Getenv("SCRY_DATABASE_URL"),
+		"DATABASE_URL":         os.Getenv("DATABASE_URL"),
 	}
 
 	// Restore the environment after the test

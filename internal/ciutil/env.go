@@ -11,27 +11,27 @@ import (
 // These constants ensure consistent access and prevent typos.
 const (
 	// CI environment detection variables
-	EnvCI             = "CI"
-	EnvGitHubActions  = "GITHUB_ACTIONS"
-	EnvGitHubWorkspace = "GITHUB_WORKSPACE"
-	EnvGitLabCI       = "GITLAB_CI"
+	EnvCI               = "CI"
+	EnvGitHubActions    = "GITHUB_ACTIONS"
+	EnvGitHubWorkspace  = "GITHUB_WORKSPACE"
+	EnvGitLabCI         = "GITLAB_CI"
 	EnvGitLabProjectDir = "CI_PROJECT_DIR"
-	EnvJenkinsURL     = "JENKINS_URL"
-	EnvTravisCI       = "TRAVIS"
-	EnvCircleCI       = "CIRCLECI"
-	
+	EnvJenkinsURL       = "JENKINS_URL"
+	EnvTravisCI         = "TRAVIS"
+	EnvCircleCI         = "CIRCLECI"
+
 	// Project-specific environment variables
 	EnvScryProjectRoot = "SCRY_PROJECT_ROOT"
-	
+
 	// Database connection environment variables
-	EnvDatabaseURL      = "DATABASE_URL"
-	EnvScryTestDBURL    = "SCRY_TEST_DB_URL" // Preferred standardized name
-	EnvScryDatabaseURL  = "SCRY_DATABASE_URL"
-	
+	EnvDatabaseURL     = "DATABASE_URL"
+	EnvScryTestDBURL   = "SCRY_TEST_DB_URL" // Preferred standardized name
+	EnvScryDatabaseURL = "SCRY_DATABASE_URL"
+
 	// Log settings
 	EnvLogLevel  = "LOG_LEVEL"
 	EnvLogFormat = "LOG_FORMAT"
-	
+
 	// Common default values
 	DefaultLogLevel  = "info"
 	DefaultLogFormat = "json"
@@ -98,13 +98,13 @@ func MaskSensitiveValue(value string) string {
 			}
 		}
 	}
-	
+
 	// For non-database URL values that might contain tokens or keys
-	if len(value) > 8 && (strings.Contains(value, "key") || 
-	                       strings.Contains(value, "token") || 
-	                       strings.Contains(value, "secret")) {
+	if len(value) > 8 && (strings.Contains(value, "key") ||
+		strings.Contains(value, "token") ||
+		strings.Contains(value, "secret")) {
 		return value[:4] + "****" + value[len(value)-4:]
 	}
-	
+
 	return value
 }

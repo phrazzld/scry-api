@@ -17,9 +17,9 @@ func TestFindProjectRoot(t *testing.T) {
 	// Save current environment
 	savedEnv := map[string]string{
 		EnvScryProjectRoot:  os.Getenv(EnvScryProjectRoot),
-		EnvGitHubActions:   os.Getenv(EnvGitHubActions),
-		EnvGitHubWorkspace: os.Getenv(EnvGitHubWorkspace),
-		EnvGitLabCI:        os.Getenv(EnvGitLabCI),
+		EnvGitHubActions:    os.Getenv(EnvGitHubActions),
+		EnvGitHubWorkspace:  os.Getenv(EnvGitHubWorkspace),
+		EnvGitLabCI:         os.Getenv(EnvGitLabCI),
 		EnvGitLabProjectDir: os.Getenv(EnvGitLabProjectDir),
 	}
 
@@ -54,7 +54,7 @@ func TestFindProjectRoot(t *testing.T) {
 				os.Unsetenv(EnvGitHubWorkspace)
 				os.Unsetenv(EnvGitLabCI)
 				os.Unsetenv(EnvGitLabProjectDir)
-				
+
 				// Set explicit project root to current directory
 				os.Setenv(EnvScryProjectRoot, currentDir)
 			},
@@ -70,7 +70,7 @@ func TestFindProjectRoot(t *testing.T) {
 				os.Unsetenv(EnvScryProjectRoot)
 				os.Unsetenv(EnvGitLabCI)
 				os.Unsetenv(EnvGitLabProjectDir)
-				
+
 				// Set GitHub Actions environment
 				os.Setenv(EnvGitHubActions, "true")
 				os.Setenv(EnvGitHubWorkspace, currentDir)
@@ -87,7 +87,7 @@ func TestFindProjectRoot(t *testing.T) {
 				os.Unsetenv(EnvScryProjectRoot)
 				os.Unsetenv(EnvGitHubActions)
 				os.Unsetenv(EnvGitHubWorkspace)
-				
+
 				// Set GitLab CI environment
 				os.Setenv(EnvGitLabCI, "true")
 				os.Setenv(EnvGitLabProjectDir, currentDir)
@@ -122,7 +122,7 @@ func TestFindProjectRoot(t *testing.T) {
 				os.Unsetenv(EnvGitHubWorkspace)
 				os.Unsetenv(EnvGitLabCI)
 				os.Unsetenv(EnvGitLabProjectDir)
-				
+
 				// Set invalid project root
 				os.Setenv(EnvScryProjectRoot, "/path/that/does/not/exist")
 			},
@@ -137,26 +137,26 @@ func TestFindProjectRoot(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up environment for this test
 			tc.setupEnv()
-			
+
 			// Reset the log buffer
 			logBuffer.Reset()
-			
+
 			// Call the function
 			result, err := FindProjectRoot(logger)
-			
+
 			// Check for expected error
 			if (err != nil) != tc.wantErr {
 				t.Errorf("FindProjectRoot() error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
-			
+
 			// If no error, check the result
 			if err == nil {
 				if !tc.checkResult(result) {
 					t.Errorf("FindProjectRoot() = %v, which does not meet expected criteria", result)
 				}
 			}
-			
+
 			// Check that appropriate logging occurred
 			logOutput := logBuffer.String()
 			if err == nil && !strings.Contains(logOutput, "project root") {
@@ -200,11 +200,11 @@ func TestFindMigrationsDir(t *testing.T) {
 	// This test is environment-dependent, so we'll focus on correct behavior
 	// rather than specific paths
 	_, err = FindMigrationsDir(logger)
-	
+
 	// We don't specifically check for error or success here, as it depends on
 	// the actual directory structure. Instead, we just verify the function runs
 	// and produces appropriate logs.
-	
+
 	// Check that appropriate logging occurred
 	logOutput := logBuffer.String()
 	if !strings.Contains(logOutput, "migrations") {
@@ -213,12 +213,6 @@ func TestFindMigrationsDir(t *testing.T) {
 }
 
 func TestIsValidProjectRoot(t *testing.T) {
-	// Get current directory (should be within the project)
-	currentDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "project-root-test")
 	if err != nil {

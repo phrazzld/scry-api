@@ -106,7 +106,7 @@ func TestIsGitHubActions(t *testing.T) {
 		{
 			name: "Both GitHub Actions and Workspace",
 			envVars: map[string]string{
-				EnvGitHubActions:  "true",
+				EnvGitHubActions:   "true",
 				EnvGitHubWorkspace: "/github/workspace",
 			},
 			expected: true,

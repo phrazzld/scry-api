@@ -106,9 +106,9 @@ func LoadWithLogger(logger *slog.Logger) (*Config, error) {
 	// Explicitly bind critical environment variables to ensure they are properly mapped
 	// This provides more reliable binding for essential configuration values
 	bindEnvs := []struct {
-		key            string   // config key in dot notation (e.g., "server.port")
-		envVar         string   // primary environment variable (e.g., "SCRY_SERVER_PORT")
-		legacyEnvVars  []string // legacy environment variables for backward compatibility
+		key           string   // config key in dot notation (e.g., "server.port")
+		envVar        string   // primary environment variable (e.g., "SCRY_SERVER_PORT")
+		legacyEnvVars []string // legacy environment variables for backward compatibility
 	}{
 		{"database.url", "SCRY_DATABASE_URL", []string{"DATABASE_URL"}},
 		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET", nil},
@@ -169,9 +169,9 @@ func LoadWithLogger(logger *slog.Logger) (*Config, error) {
 				// Mask sensitive values in logs
 				value := fmt.Sprintf("%v", v.Get(env.key))
 				if strings.Contains(env.key, "secret") ||
-				   strings.Contains(env.key, "password") ||
-				   strings.Contains(env.key, "key") ||
-				   strings.Contains(env.key, "url") {
+					strings.Contains(env.key, "password") ||
+					strings.Contains(env.key, "key") ||
+					strings.Contains(env.key, "url") {
 					// Show only first and last few characters
 					if len(value) > 8 {
 						value = value[:4] + "****" + value[len(value)-4:]

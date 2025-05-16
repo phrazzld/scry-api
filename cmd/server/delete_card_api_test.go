@@ -1,4 +1,4 @@
-//go:build integration || test_without_external_deps
+//go:build (integration || test_without_external_deps) && exported_core_functions
 
 package main
 

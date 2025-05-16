@@ -19,7 +19,7 @@ import (
 // TestMigrationFlow tests the entire migration flow if there's a database URL available.
 // This is an integration test and will be skipped if DATABASE_URL isn't set.
 func TestMigrationFlow(t *testing.T) {
-	if !testutils.IsIntegrationTestEnvironment() {
+	if !IsIntegrationTestEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 
@@ -55,7 +55,7 @@ func TestMigrationFlow(t *testing.T) {
 	}
 
 	// Run the migration up
-	err = runMigrations(cfg, "up")
+	err = runMigrations(cfg, "up", false)
 	if err != nil {
 		t.Fatalf("Failed to run migrations up: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestMigrationFlow(t *testing.T) {
 	// Run migrations down to clean up - need to run multiple times to go all the way down
 	// Since runMigrations("down") only goes down one version at a time
 	for i := 0; i < 10; i++ { // 10 iterations should be more than enough for all migrations
-		err = runMigrations(cfg, "down")
+		err = runMigrations(cfg, "down", false)
 		if err != nil {
 			// If we get the "no migrations" error, we've gone all the way down
 			if err.Error() == "migration down failed: no migrations to run. current version: 0" ||

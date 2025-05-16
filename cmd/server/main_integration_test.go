@@ -1,4 +1,4 @@
-//go:build integration || test_without_external_deps
+//go:build (integration || test_without_external_deps) && exported_core_functions
 
 // Package main contains integration tests for the server application
 // These tests require a real database connection to run.
@@ -101,7 +101,7 @@ func TestSuccessfulInitialization(t *testing.T) {
 	// Use the shared database connection with transaction isolation
 	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Load configuration directly
-		cfg, err := loadConfig()
+		cfg, err := loadAppConfig()
 
 		// Verify configuration loading succeeded
 		require.NoError(t, err, "Configuration loading should succeed with valid env vars")

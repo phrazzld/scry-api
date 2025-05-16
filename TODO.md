@@ -170,7 +170,7 @@
 
 ## Issue 5: Code Organization and Size
 
-### Task 5.1: Refactor cmd/server/main.go into Smaller Files
+### Task 5.1: Refactor cmd/server/main.go into Smaller Files [x]
 - **Priority**: Medium
 - **Description**: Break down the large main.go file (1108 lines) into smaller, more modular files
 - **Implementation**:

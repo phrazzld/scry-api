@@ -508,3 +508,39 @@ The transaction pattern ensures atomic operations. If any step in a transaction 
 3. The system remains in a consistent state
 
 This is critical for operations that must succeed or fail as a unit, such as creating a user and their associated profile, or updating multiple related records.
+
+## Database Cascade Behavior
+
+The Scry database schema includes foreign key constraints with CASCADE DELETE behavior for certain relationships, which developers should be aware of when working with the store interfaces.
+
+### Card and UserCardStats Relationship
+
+When a card is deleted from the database using the CardStore.Delete method, the following cascade behavior occurs:
+
+1. The `user_card_stats` table has a foreign key constraint on `card_id` with `ON DELETE CASCADE` configured.
+2. When a record is deleted from the `cards` table, all corresponding records in the `user_card_stats` table are automatically deleted by the database.
+3. This ensures that no orphaned user_card_stats records remain after a card is deleted.
+
+#### Implementation Details:
+
+```sql
+-- In the database schema (see migrations)
+CREATE TABLE user_card_stats (
+    user_id UUID NOT NULL,
+    card_id UUID NOT NULL,
+    -- other fields...
+    PRIMARY KEY (user_id, card_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+);
+```
+
+#### Implications for Developers:
+
+1. **No Manual Cleanup Required**: When deleting a card, you do not need to separately delete associated UserCardStats records.
+2. **Atomic Deletion**: The database ensures that both the card and its stats are deleted together in an atomic operation.
+3. **Performance Consideration**: Cascade deletes are handled at the database level, which is more efficient than application-level cleanup.
+4. **Transaction Safety**: When deleting cards within a transaction, all cascaded deletions are part of the same transaction and will be rolled back if the transaction fails.
+5. **API Response Design**: Remember that when a DELETE call succeeds, all related stats are also gone. API responses should be designed with this in mind.
+
+When implementing store methods or service layer logic that deletes cards, you can rely on this cascade behavior instead of explicitly managing the deletion of related user_card_stats records.

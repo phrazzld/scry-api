@@ -1,3 +1,5 @@
+//go:build integration
+
 package service_test
 
 import (
@@ -117,7 +119,7 @@ func TestUserService_CreateUser_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -132,7 +134,8 @@ func TestUserService_CreateUser_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing store
-			userService := service.NewUserService(failingStore, db, logger)
+			userService, err := service.NewUserService(failingStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Attempt to create a user - this should fail after committing to DB but before committing the transaction
 			email := "tx-rollback-test@example.com"
@@ -165,7 +168,8 @@ func TestUserService_CreateUser_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the succeeding store
-			userService := service.NewUserService(successStore, db, logger)
+			userService, err := service.NewUserService(successStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Create a user - this should succeed
 			email := "tx-commit-success@example.com"
@@ -201,7 +205,7 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -220,11 +224,12 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing store
-			userService := service.NewUserService(failingStore, db, logger)
+			userService, err := service.NewUserService(failingStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Attempt to update email - this should fail during GetByID
 			newEmail := "new-email-getbyid-fail@example.com"
-			err := userService.UpdateUserEmail(ctx, userID, newEmail)
+			err = userService.UpdateUserEmail(ctx, userID, newEmail)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -254,11 +259,12 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing store
-			userService := service.NewUserService(failingStore, db, logger)
+			userService, err := service.NewUserService(failingStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Attempt to update email - this should fail during Update
 			newEmail := "new-email-update-fail@example.com"
-			err := userService.UpdateUserEmail(ctx, userID, newEmail)
+			err = userService.UpdateUserEmail(ctx, userID, newEmail)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -287,11 +293,12 @@ func TestUserService_UpdateUserEmail_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the succeeding store
-			userService := service.NewUserService(successStore, db, logger)
+			userService, err := service.NewUserService(successStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Update the email - this should succeed
 			newEmail := "new-email-success@example.com"
-			err := userService.UpdateUserEmail(ctx, userID, newEmail)
+			err = userService.UpdateUserEmail(ctx, userID, newEmail)
 
 			// Verify the operation succeeded
 			assert.NoError(t, err, "Operation should succeed")
@@ -320,7 +327,7 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -347,11 +354,12 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing store
-			userService := service.NewUserService(failingStore, db, logger)
+			userService, err := service.NewUserService(failingStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Attempt to update password - this should fail after Get but before Update
 			newPassword := "NewSecurePass456!"
-			err := userService.UpdateUserPassword(ctx, userID, newPassword)
+			err = userService.UpdateUserPassword(ctx, userID, newPassword)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -376,11 +384,12 @@ func TestUserService_UpdateUserPassword_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the succeeding store
-			userService := service.NewUserService(successStore, db, logger)
+			userService, err := service.NewUserService(successStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Update the password - this should succeed
 			newPassword := "SuccessPassword789!"
-			err := userService.UpdateUserPassword(ctx, userID, newPassword)
+			err = userService.UpdateUserPassword(ctx, userID, newPassword)
 
 			// Verify the operation succeeded
 			assert.NoError(t, err, "Operation should succeed")
@@ -410,7 +419,7 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -433,10 +442,11 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the failing store
-			userService := service.NewUserService(failingStore, db, logger)
+			userService, err := service.NewUserService(failingStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Attempt to delete the user - this should fail
-			err := userService.DeleteUser(ctx, userIDFail)
+			err = userService.DeleteUser(ctx, userIDFail)
 
 			// Verify the operation failed
 			assert.Error(t, err, "Operation should fail")
@@ -464,10 +474,11 @@ func TestUserService_DeleteUser_Atomicity(t *testing.T) {
 			}
 
 			// Create service with the succeeding store
-			userService := service.NewUserService(successStore, db, logger)
+			userService, err := service.NewUserService(successStore, db, logger)
+			require.NoError(t, err, "Failed to create user service")
 
 			// Delete the user - this should succeed
-			err := userService.DeleteUser(ctx, userIDSuccess)
+			err = userService.DeleteUser(ctx, userIDSuccess)
 
 			// Verify the operation succeeded
 			assert.NoError(t, err, "Operation should succeed")

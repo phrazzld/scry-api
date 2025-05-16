@@ -10,6 +10,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// createTestJWTService creates a JWT service with the given parameters for testing.
+// This is a helper function to avoid duplication in tests.
+func createTestJWTService(
+	secret string,
+	tokenLifetime time.Duration,
+	timeFunc func() time.Time,
+	refreshLifetime ...time.Duration,
+) JWTService {
+	// Set default refresh token lifetime if not provided
+	refreshTokenLifetime := tokenLifetime * 7 // Default is 7x access token lifetime
+	if len(refreshLifetime) > 0 && refreshLifetime[0] > 0 {
+		refreshTokenLifetime = refreshLifetime[0]
+	}
+
+	return &hmacJWTService{
+		signingKey:           []byte(secret),
+		tokenLifetime:        tokenLifetime,
+		refreshTokenLifetime: refreshTokenLifetime,
+		timeFunc:             timeFunc,
+		clockSkew:            0, // No clock skew for tests to make them deterministic
+	}
+}
+
 func TestGenerateToken(t *testing.T) {
 	t.Parallel()
 
@@ -20,7 +43,7 @@ func TestGenerateToken(t *testing.T) {
 	userID := uuid.New()
 
 	// Create service with fixed time function for predictable testing
-	svc := NewTestJWTService(secret, tokenLifetime, func() time.Time {
+	svc := createTestJWTService(secret, tokenLifetime, func() time.Time {
 		return fixedTime
 	})
 
@@ -65,7 +88,7 @@ func TestValidateToken(t *testing.T) {
 		{
 			name: "valid token",
 			setupFunc: func() (JWTService, string) {
-				svc := NewTestJWTService(secret, tokenLifetime, func() time.Time {
+				svc := createTestJWTService(secret, tokenLifetime, func() time.Time {
 					return fixedTime
 				})
 				token, _ := svc.GenerateToken(context.Background(), userID)
@@ -77,13 +100,13 @@ func TestValidateToken(t *testing.T) {
 			name: "expired token",
 			setupFunc: func() (JWTService, string) {
 				// Create token at fixed time
-				genSvc := NewTestJWTService(secret, tokenLifetime, func() time.Time {
+				genSvc := createTestJWTService(secret, tokenLifetime, func() time.Time {
 					return fixedTime
 				})
 				token, _ := genSvc.GenerateToken(context.Background(), userID)
 
 				// Validate token at a later time (after expiry)
-				valSvc := NewTestJWTService(secret, tokenLifetime, func() time.Time {
+				valSvc := createTestJWTService(secret, tokenLifetime, func() time.Time {
 					return fixedTime.Add(tokenLifetime + time.Hour)
 				})
 				return valSvc, token
@@ -94,13 +117,13 @@ func TestValidateToken(t *testing.T) {
 			name: "invalid signature",
 			setupFunc: func() (JWTService, string) {
 				// Generate with one secret
-				genSvc := NewTestJWTService(secret, tokenLifetime, func() time.Time {
+				genSvc := createTestJWTService(secret, tokenLifetime, func() time.Time {
 					return fixedTime
 				})
 				token, _ := genSvc.GenerateToken(context.Background(), userID)
 
 				// Validate with different secret
-				valSvc := NewTestJWTService(wrongSecret, tokenLifetime, func() time.Time {
+				valSvc := createTestJWTService(wrongSecret, tokenLifetime, func() time.Time {
 					return fixedTime
 				})
 				return valSvc, token
@@ -110,7 +133,7 @@ func TestValidateToken(t *testing.T) {
 		{
 			name: "malformed token",
 			setupFunc: func() (JWTService, string) {
-				svc := NewTestJWTService(secret, tokenLifetime, func() time.Time {
+				svc := createTestJWTService(secret, tokenLifetime, func() time.Time {
 					return fixedTime
 				})
 				return svc, "this.is.not.a.valid.jwt.token"
@@ -159,7 +182,7 @@ func TestValidateRefreshToken(t *testing.T) {
 		{
 			name: "valid refresh token",
 			setupFunc: func() (JWTService, string) {
-				svc := NewTestJWTService(
+				svc := createTestJWTService(
 					secret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -176,7 +199,7 @@ func TestValidateRefreshToken(t *testing.T) {
 			name: "expired refresh token",
 			setupFunc: func() (JWTService, string) {
 				// Create token at fixed time
-				genSvc := NewTestJWTService(
+				genSvc := createTestJWTService(
 					secret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -187,7 +210,7 @@ func TestValidateRefreshToken(t *testing.T) {
 				token, _ := genSvc.GenerateRefreshToken(context.Background(), userID)
 
 				// Validate token at a later time (after expiry)
-				valSvc := NewTestJWTService(
+				valSvc := createTestJWTService(
 					secret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -203,7 +226,7 @@ func TestValidateRefreshToken(t *testing.T) {
 			name: "invalid signature",
 			setupFunc: func() (JWTService, string) {
 				// Generate with one secret
-				genSvc := NewTestJWTService(
+				genSvc := createTestJWTService(
 					secret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -214,7 +237,7 @@ func TestValidateRefreshToken(t *testing.T) {
 				token, _ := genSvc.GenerateRefreshToken(context.Background(), userID)
 
 				// Validate with different secret
-				valSvc := NewTestJWTService(
+				valSvc := createTestJWTService(
 					wrongSecret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -229,7 +252,7 @@ func TestValidateRefreshToken(t *testing.T) {
 		{
 			name: "malformed token",
 			setupFunc: func() (JWTService, string) {
-				svc := NewTestJWTService(
+				svc := createTestJWTService(
 					secret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -244,7 +267,7 @@ func TestValidateRefreshToken(t *testing.T) {
 		{
 			name: "wrong token type (access token)",
 			setupFunc: func() (JWTService, string) {
-				svc := NewTestJWTService(
+				svc := createTestJWTService(
 					secret,
 					accessTokenLifetime,
 					func() time.Time {
@@ -292,7 +315,7 @@ func TestGenerateRefreshToken(t *testing.T) {
 	userID := uuid.New()
 
 	// Create service with fixed time function for predictable testing
-	svc := NewTestJWTService(
+	svc := createTestJWTService(
 		secret,
 		accessTokenLifetime,
 		func() time.Time {

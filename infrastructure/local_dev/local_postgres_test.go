@@ -101,8 +101,9 @@ func TestLocalPostgresSetup(t *testing.T) {
 
 	// Try running migrations (this would ideally call the migrations code directly)
 	// For now, just check if migration table can be created
+	// Use schema_migrations to maintain consistency with the rest of the codebase
 	_, err = db.Exec(
-		"CREATE TABLE IF NOT EXISTS goose_db_version (id SERIAL PRIMARY KEY, version_id BIGINT NOT NULL, is_applied BOOLEAN NOT NULL, tstamp TIMESTAMP WITH TIME ZONE DEFAULT NOW())",
+		"CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, version_id BIGINT NOT NULL, is_applied BOOLEAN NOT NULL, tstamp TIMESTAMP WITH TIME ZONE DEFAULT NOW())",
 	)
 	if err != nil {
 		t.Fatalf("Failed to create migration table: %v", err)

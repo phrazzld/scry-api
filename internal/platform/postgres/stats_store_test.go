@@ -1,12 +1,11 @@
+//go:build integration
+
 package postgres
 
 import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/store"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -22,69 +22,10 @@ import (
 // Test timeout to prevent long-running tests
 const testStatsTimeout = 5 * time.Second
 
-// checkStatsIntegrationTestEnvironment checks if we're running in an environment
-// where integration tests can be executed, by checking DATABASE_URL
-func checkStatsIntegrationTestEnvironment() bool {
-	return os.Getenv("DATABASE_URL") != ""
-}
-
-// getTestDBForStatsStore gets a connection to the test database
-func getTestDBForStatsStore() (*sql.DB, error) {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL environment variable not set")
-	}
-
-	db, err := sql.Open("pgx", dbURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database connection: %w", err)
-	}
-
-	// Set connection pool parameters
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
-	// Verify the connection works
-	if err := db.Ping(); err != nil {
-		_ = db.Close() // Explicitly ignore error from Close
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	return db, nil
-}
-
-// withTxForStatsTest executes a function within a transaction and rolls it back afterward.
-// This ensures that tests are isolated and don't affect each other.
-func withTxForStatsTest(t *testing.T, db *sql.DB, fn func(tx *sql.Tx)) {
-	t.Helper()
-
-	// Start a transaction
-	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
-	})
-	require.NoError(t, err, "Failed to begin transaction")
-
-	// Ensure the transaction is rolled back when the test completes
-	defer func() {
-		err := tx.Rollback()
-		// Ignore error if transaction was already committed
-		if err != nil && !errors.Is(err, sql.ErrTxDone) {
-			t.Logf("Error rolling back transaction: %v", err)
-		}
-	}()
-
-	// Execute the test function
-	fn(tx)
-}
-
 // TestUserCardStatsStoreIntegration runs a complete set of integration tests for the UserCardStatsStore implementation.
 // This ensures all methods work as expected with a real database connection.
 func TestUserCardStatsStoreIntegration(t *testing.T) {
-	// Skip the integration test wrapper if not in integration test environment
-	if !checkStatsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
+	// Test methods will handle skipping if needed using testdb.GetTestDBWithT
 
 	// Test all methods
 	t.Run("TestPostgresUserCardStatsStore_Get", TestPostgresUserCardStatsStore_Get)
@@ -98,23 +39,13 @@ func TestUserCardStatsStoreIntegration(t *testing.T) {
 
 // TestPostgresUserCardStatsStore_Get tests the Get method
 func TestPostgresUserCardStatsStore_Get(t *testing.T) {
-	// Skip if not in integration test environment
-	if !checkStatsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForStatsStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := testdb.GetTestDBWithT(t)
 
-	withTxForStatsTest(t, db, func(tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create necessary stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -210,23 +141,13 @@ func TestPostgresUserCardStatsStore_Get(t *testing.T) {
 
 // TestPostgresUserCardStatsStore_Update tests the Update method
 func TestPostgresUserCardStatsStore_Update(t *testing.T) {
-	// Skip if not in integration test environment
-	if !checkStatsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForStatsStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := testdb.GetTestDBWithT(t)
 
-	withTxForStatsTest(t, db, func(tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create necessary stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -440,23 +361,13 @@ func TestPostgresUserCardStatsStore_Update(t *testing.T) {
 
 // TestPostgresUserCardStatsStore_GetForUpdate tests the GetForUpdate method
 func TestPostgresUserCardStatsStore_GetForUpdate(t *testing.T) {
-	// Skip if not in integration test environment
-	if !checkStatsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForStatsStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := testdb.GetTestDBWithT(t)
 
-	withTxForStatsTest(t, db, func(tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create necessary stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)
@@ -617,23 +528,13 @@ func TestPostgresUserCardStatsStore_GetForUpdate(t *testing.T) {
 
 // TestPostgresUserCardStatsStore_Delete tests the Delete method
 func TestPostgresUserCardStatsStore_Delete(t *testing.T) {
-	// Skip if not in integration test environment
-	if !checkStatsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := getTestDBForStatsStore()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
+	db := testdb.GetTestDBWithT(t)
 
-	withTxForStatsTest(t, db, func(tx *sql.Tx) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create necessary stores
 		userStore := NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := NewPostgresMemoStore(tx, nil)

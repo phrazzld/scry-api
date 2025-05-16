@@ -159,6 +159,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
+      - name: Build main application
+        run: go build ./cmd/server
+
       - name: Verify database connectivity
         run: |
           echo "Verifying database connectivity with enhanced checks..."

@@ -292,7 +292,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         2. Observe the "Reset and prepare database" step logs for successful execution using the package path and no compilation errors.
     - **Depends‑on:** none
 
-- [ ] **T002 · Feature · P0: add dedicated 'go build ./cmd/server' step to ci pipeline**
+- [x] **T002 · Feature · P0: add dedicated 'go build ./cmd/server' step to ci pipeline**
     - **Context:** `CI Resolution Plan > Resolution Steps > Issue 2: Missing Early Build Verification for cmd/server Package in CI`
     - **Action:**
         1. Open the CI workflow file: `.github/workflows/ci.yml`.

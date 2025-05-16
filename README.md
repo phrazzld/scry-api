@@ -190,26 +190,25 @@ The pre-commit configuration is in `.pre-commit-config.yaml` at the root of the 
 
 ### Building the Project
 ```bash
-go build ./cmd/server
+make build
 ```
+
+For more build options, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md#build-and-deployment).
 
 ## Running Tests
 Run the full test suite:
 ```bash
-go test ./...
+make test
 ```
 
-To run tests for a specific package:
-```bash
-go test ./internal/domain
-```
+For more testing options (coverage, integration tests, etc.), see the [Development Guide](docs/DEVELOPMENT_GUIDE.md#testing).
 
 ## Usage / Running the Application
 1. Ensure your configuration is set up (either via `.env` file or `config.yaml` as described above)
 
 2. Start the API server:
    ```bash
-   go run ./cmd/server/main.go
+   make run-server
    ```
 
 3. The server will be available at `http://localhost:8080` (or the port specified in your configuration)
@@ -228,27 +227,32 @@ To run migrations:
 
 ```bash
 # Run all pending migrations
-go run cmd/server/main.go -migrate=up
+make migrate-up
 
 # Rollback the last migration
-go run cmd/server/main.go -migrate=down
+make migrate-down
 
 # Show migration status
-go run cmd/server/main.go -migrate=status
+make migrate-status
 
 # Show current version
-go run cmd/server/main.go -migrate=version
+make migrate-version
 
 # Create a new migration
-go run cmd/server/main.go -migrate=create -name=create_users_table
+make migrate-create NAME=create_users_table
 ```
+
+For more database operations, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md#database-operations).
 
 Migration files are stored in `internal/platform/postgres/migrations/`. See the [migrations README](internal/platform/postgres/migrations/README.md) for more details.
 
 ## Key Scripts / Commands
-- Format code: `go fmt ./...`
-- Lint code: `golangci-lint run`
-- Run tests with coverage: `go test -cover ./...`
+- Format code: `make fmt`
+- Lint code: `make lint`
+- Run tests with coverage: `make test-coverage`
+- View all available commands: `make help`
+
+For a comprehensive list of development commands, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md).
 
 ## Architecture Overview
 The project follows a clean architecture approach with clear separation of concerns:

@@ -4,14 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- **Build:** `go build ./cmd/server`
-- **Run server:** `go run ./cmd/server/main.go`
-- **Format code:** `go fmt ./...`
-- **Lint code:** `golangci-lint run`
-- **Run all tests:** `go test ./...`
+The project uses a Makefile for standardized commands. See all available commands with `make help`.
+
+- **Build:** `make build`
+- **Run server:** `make run-server`
+- **Format code:** `make fmt`
+- **Lint code:** `make lint`
+- **Run all tests:** `make test`
 - **Run specific test:** `go test -v ./path/to/package -run TestName`
-- **Run tests without external deps:** `go test -v -tags=test_without_external_deps ./...`
-- **Database migrations:** `go run cmd/server/main.go -migrate=up`
+- **Run tests without external deps:** `make test-no-deps`
+- **Database migrations:** `make migrate-up`
+
+For comprehensive command documentation, see [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md).
 
 ## Coding Standards
 

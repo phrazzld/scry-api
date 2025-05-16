@@ -321,7 +321,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** none
 
 ### Documentation
-- [ ] **T003 · Chore · P1: update project documentation with correct 'go run ./cmd/server' command and centralize command guidance**
+- [x] **T003 · Chore · P1: update project documentation with correct 'go run ./cmd/server' command and centralize command guidance**
     - **Context:** `CI Resolution Plan > Resolution Steps > Issue 3: Incorrect or Misleading Commands in Documentation` and `Prevention Measures > Bullet 3 (Standardize and Document Run Commands)`
     - **Action:**
         1. Identify all project documents (e.g., `README.md`, `CLAUDE.md`, `docs/DEVELOPMENT_GUIDE.md`) that provide instructions for building, running, or migrating the application.

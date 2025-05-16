@@ -1,5 +1,3 @@
-//go:build exported_core_functions
-
 package main
 
 import (
@@ -19,7 +17,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/pressly/goose/v3"
 )
 
@@ -106,9 +103,9 @@ func executeMigration(cfg *config.Config, command string, verbose bool, args ...
 	testDBURL := ""
 
 	// Use the standardized function when available
-	if testDBURL = testdb.GetTestDatabaseURL(); testDBURL != "" {
+	if testDBURL = GetTestDatabaseURL(); testDBURL != "" {
 		migrationLogger.Info("Using standardized test database URL",
-			"source", "testdb.GetTestDatabaseURL")
+			"source", "GetTestDatabaseURL")
 		dbURL = testDBURL
 	}
 
@@ -225,12 +222,12 @@ func executeMigration(cfg *config.Config, command string, verbose bool, args ...
 	migrationsDirPath := ""
 
 	// First try using the standardized FindMigrationsDir function
-	migrationsPath, migrationsErr := testdb.FindMigrationsDir()
+	migrationsPath, migrationsErr := FindMigrationsDir()
 	if migrationsErr == nil && directoryExists(migrationsPath) {
 		migrationsDirPath = migrationsPath
 		migrationLogger.Info("Using standardized migrations directory path",
 			"path", migrationsDirPath,
-			"source", "testdb.FindMigrationsDir")
+			"source", "FindMigrationsDir")
 	} else {
 		// Fall back to the traditional approach if the standardized function fails
 		migrationLogger.Debug("Standardized migrations path detection failed, using fallback",
@@ -308,7 +305,7 @@ func executeMigration(cfg *config.Config, command string, verbose bool, args ...
 		"duration_ms", time.Since(dialectStartTime).Milliseconds())
 
 	// Set the migration table name using the standardized constant
-	migrationTableName := testdb.MigrationTableName
+	migrationTableName := MigrationTableName
 	goose.SetTableName(migrationTableName)
 	migrationLogger.Debug("Set migration table name", "table", migrationTableName)
 
@@ -479,7 +476,7 @@ func logDatabaseInfo(db *sql.DB, ctx context.Context, logger *slog.Logger) {
 	}
 
 	// Check if migrations table exists
-	migrationTable := testdb.MigrationTableName
+	migrationTable := MigrationTableName
 	var migTableExists bool
 	tableQuery := fmt.Sprintf(
 		"SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = '%s')",
@@ -522,7 +519,7 @@ func verifyAppliedMigrations(db *sql.DB, logger *slog.Logger) error {
 	verifyStartTime := time.Now()
 
 	// Check migration count in the database
-	migrationTable := testdb.MigrationTableName
+	migrationTable := MigrationTableName
 	var migrationCount int
 	countErr := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM %s", migrationTable)).Scan(&migrationCount)
 	if countErr != nil {
@@ -679,10 +676,10 @@ func validateAppliedMigrations(cfg *config.Config, verbose bool) error {
 	dbURL := cfg.Database.URL
 
 	// Try to use the standardized test database URL if available
-	testDBURL := testdb.GetTestDatabaseURL()
+	testDBURL := GetTestDatabaseURL()
 	if testDBURL != "" {
 		logger.Info("Using standardized test database URL",
-			"source", "testdb.GetTestDatabaseURL")
+			"source", "GetTestDatabaseURL")
 		dbURL = testDBURL
 	}
 
@@ -807,7 +804,7 @@ type MigrationFilesData struct {
 // getMigrationsPath returns the path to the migrations directory
 func getMigrationsPath() (string, error) {
 	// First try to use the standardized migrations directory function
-	migrationsPath, err := testdb.FindMigrationsDir()
+	migrationsPath, err := FindMigrationsDir()
 	if err == nil && directoryExists(migrationsPath) {
 		// Found migrations directory using the standardized function
 		return migrationsPath, nil

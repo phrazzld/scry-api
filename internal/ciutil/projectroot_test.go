@@ -27,9 +27,13 @@ func TestFindProjectRoot(t *testing.T) {
 	defer func() {
 		for k, v := range savedEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", k, err)
+				}
 			} else {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Logf("Failed to restore environment variable %s: %v", k, err)
+				}
 			}
 		}
 	}()
@@ -50,13 +54,23 @@ func TestFindProjectRoot(t *testing.T) {
 			name: "Explicit SCRY_PROJECT_ROOT",
 			setupEnv: func() {
 				// Reset CI variables
-				os.Unsetenv(EnvGitHubActions)
-				os.Unsetenv(EnvGitHubWorkspace)
-				os.Unsetenv(EnvGitLabCI)
-				os.Unsetenv(EnvGitLabProjectDir)
+				if err := os.Unsetenv(EnvGitHubActions); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubActions, err)
+				}
+				if err := os.Unsetenv(EnvGitHubWorkspace); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubWorkspace, err)
+				}
+				if err := os.Unsetenv(EnvGitLabCI); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabCI, err)
+				}
+				if err := os.Unsetenv(EnvGitLabProjectDir); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabProjectDir, err)
+				}
 
 				// Set explicit project root to current directory
-				os.Setenv(EnvScryProjectRoot, currentDir)
+				if err := os.Setenv(EnvScryProjectRoot, currentDir); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", EnvScryProjectRoot, err)
+				}
 			},
 			wantErr: false,
 			checkResult: func(result string) bool {
@@ -67,13 +81,23 @@ func TestFindProjectRoot(t *testing.T) {
 			name: "GitHub Actions environment",
 			setupEnv: func() {
 				// Reset other variables
-				os.Unsetenv(EnvScryProjectRoot)
-				os.Unsetenv(EnvGitLabCI)
-				os.Unsetenv(EnvGitLabProjectDir)
+				if err := os.Unsetenv(EnvScryProjectRoot); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvScryProjectRoot, err)
+				}
+				if err := os.Unsetenv(EnvGitLabCI); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabCI, err)
+				}
+				if err := os.Unsetenv(EnvGitLabProjectDir); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabProjectDir, err)
+				}
 
 				// Set GitHub Actions environment
-				os.Setenv(EnvGitHubActions, "true")
-				os.Setenv(EnvGitHubWorkspace, currentDir)
+				if err := os.Setenv(EnvGitHubActions, "true"); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", EnvGitHubActions, err)
+				}
+				if err := os.Setenv(EnvGitHubWorkspace, currentDir); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", EnvGitHubWorkspace, err)
+				}
 			},
 			wantErr: false,
 			checkResult: func(result string) bool {
@@ -84,13 +108,23 @@ func TestFindProjectRoot(t *testing.T) {
 			name: "GitLab CI environment",
 			setupEnv: func() {
 				// Reset other variables
-				os.Unsetenv(EnvScryProjectRoot)
-				os.Unsetenv(EnvGitHubActions)
-				os.Unsetenv(EnvGitHubWorkspace)
+				if err := os.Unsetenv(EnvScryProjectRoot); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvScryProjectRoot, err)
+				}
+				if err := os.Unsetenv(EnvGitHubActions); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubActions, err)
+				}
+				if err := os.Unsetenv(EnvGitHubWorkspace); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubWorkspace, err)
+				}
 
 				// Set GitLab CI environment
-				os.Setenv(EnvGitLabCI, "true")
-				os.Setenv(EnvGitLabProjectDir, currentDir)
+				if err := os.Setenv(EnvGitLabCI, "true"); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", EnvGitLabCI, err)
+				}
+				if err := os.Setenv(EnvGitLabProjectDir, currentDir); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", EnvGitLabProjectDir, err)
+				}
 			},
 			wantErr: false,
 			checkResult: func(result string) bool {
@@ -101,11 +135,21 @@ func TestFindProjectRoot(t *testing.T) {
 			name: "Auto-detection",
 			setupEnv: func() {
 				// Reset all environment variables
-				os.Unsetenv(EnvScryProjectRoot)
-				os.Unsetenv(EnvGitHubActions)
-				os.Unsetenv(EnvGitHubWorkspace)
-				os.Unsetenv(EnvGitLabCI)
-				os.Unsetenv(EnvGitLabProjectDir)
+				if err := os.Unsetenv(EnvScryProjectRoot); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvScryProjectRoot, err)
+				}
+				if err := os.Unsetenv(EnvGitHubActions); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubActions, err)
+				}
+				if err := os.Unsetenv(EnvGitHubWorkspace); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubWorkspace, err)
+				}
+				if err := os.Unsetenv(EnvGitLabCI); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabCI, err)
+				}
+				if err := os.Unsetenv(EnvGitLabProjectDir); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabProjectDir, err)
+				}
 			},
 			wantErr: false,
 			checkResult: func(result string) bool {
@@ -118,13 +162,23 @@ func TestFindProjectRoot(t *testing.T) {
 			name: "Invalid SCRY_PROJECT_ROOT",
 			setupEnv: func() {
 				// Reset CI variables
-				os.Unsetenv(EnvGitHubActions)
-				os.Unsetenv(EnvGitHubWorkspace)
-				os.Unsetenv(EnvGitLabCI)
-				os.Unsetenv(EnvGitLabProjectDir)
+				if err := os.Unsetenv(EnvGitHubActions); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubActions, err)
+				}
+				if err := os.Unsetenv(EnvGitHubWorkspace); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitHubWorkspace, err)
+				}
+				if err := os.Unsetenv(EnvGitLabCI); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabCI, err)
+				}
+				if err := os.Unsetenv(EnvGitLabProjectDir); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", EnvGitLabProjectDir, err)
+				}
 
 				// Set invalid project root
-				os.Setenv(EnvScryProjectRoot, "/path/that/does/not/exist")
+				if err := os.Setenv(EnvScryProjectRoot, "/path/that/does/not/exist"); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", EnvScryProjectRoot, err)
+				}
 			},
 			wantErr: true,
 			checkResult: func(result string) bool {
@@ -187,19 +241,30 @@ func TestFindMigrationsDir(t *testing.T) {
 	defer func() {
 		for k, v := range savedEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", k, err)
+				}
 			} else {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Logf("Failed to restore environment variable %s: %v", k, err)
+				}
 			}
 		}
 	}()
 
 	// Set project root to current directory to simplify testing
-	os.Setenv(EnvScryProjectRoot, currentDir)
+	if err := os.Setenv(EnvScryProjectRoot, currentDir); err != nil {
+		t.Fatalf("Failed to set environment variable %s: %v", EnvScryProjectRoot, err)
+	}
 
 	// This test is environment-dependent, so we'll focus on correct behavior
 	// rather than specific paths
 	_, err = FindMigrationsDir(logger)
+	if err == nil {
+		t.Log("FindMigrationsDir found migrations directory successfully")
+	} else {
+		t.Logf("FindMigrationsDir returned error (expected in test environment): %v", err)
+	}
 
 	// We don't specifically check for error or success here, as it depends on
 	// the actual directory structure. Instead, we just verify the function runs
@@ -218,7 +283,11 @@ func TestIsValidProjectRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory %s: %v", tempDir, err)
+		}
+	}()
 
 	// Create a go.mod file in the temp directory
 	goModPath := filepath.Join(tempDir, GoModFile)

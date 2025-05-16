@@ -1,5 +1,3 @@
-//go:build exported_core_functions
-
 package main
 
 import (

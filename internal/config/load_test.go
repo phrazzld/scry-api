@@ -26,9 +26,13 @@ func TestLoadWithLegacyEnvironmentVariables(t *testing.T) {
 	defer func() {
 		for key, value := range savedEnv {
 			if value == "" {
-				os.Unsetenv(key)
+				if err := os.Unsetenv(key); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", key, err)
+				}
 			} else {
-				os.Setenv(key, value)
+				if err := os.Setenv(key, value); err != nil {
+					t.Logf("Failed to restore environment variable %s: %v", key, err)
+				}
 			}
 		}
 	}()
@@ -82,12 +86,16 @@ func TestLoadWithLegacyEnvironmentVariables(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear environment variables that might interfere
 			for key := range savedEnv {
-				os.Unsetenv(key)
+				if err := os.Unsetenv(key); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", key, err)
+				}
 			}
 
 			// Set environment variables for this test
 			for key, value := range tc.envVars {
-				os.Setenv(key, value)
+				if err := os.Setenv(key, value); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", key, err)
+				}
 			}
 
 			// Reset log buffer
@@ -135,16 +143,22 @@ func TestLoadFailsWithMissingRequiredConfig(t *testing.T) {
 	defer func() {
 		for key, value := range savedEnv {
 			if value == "" {
-				os.Unsetenv(key)
+				if err := os.Unsetenv(key); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", key, err)
+				}
 			} else {
-				os.Setenv(key, value)
+				if err := os.Setenv(key, value); err != nil {
+					t.Logf("Failed to restore environment variable %s: %v", key, err)
+				}
 			}
 		}
 	}()
 
 	// Clear required environment variables
 	for key := range savedEnv {
-		os.Unsetenv(key)
+		if err := os.Unsetenv(key); err != nil {
+			t.Logf("Failed to unset environment variable %s: %v", key, err)
+		}
 	}
 
 	// Attempt to load with missing required values
@@ -165,7 +179,11 @@ func TestLoadConfigFromYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		if err := os.Remove(tempFile.Name()); err != nil {
+			t.Logf("Failed to remove temp file %s: %v", tempFile.Name(), err)
+		}
+	}()
 
 	// Write sample configuration to the file
 	configContent := `
@@ -189,7 +207,9 @@ task:
 	if _, err := tempFile.Write([]byte(configContent)); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	tempFile.Close()
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
+	}
 
 	// Save current environment and working directory
 	savedEnv := map[string]string{
@@ -214,11 +234,17 @@ task:
 	if err := os.Rename(tempFile.Name(), configPath); err != nil {
 		t.Fatalf("Failed to rename config file: %v", err)
 	}
-	defer os.Remove(configPath)
+	defer func() {
+		if err := os.Remove(configPath); err != nil {
+			t.Logf("Failed to remove config file %s: %v", configPath, err)
+		}
+	}()
 
 	// Clear environment variables to ensure we're loading from the file
 	for key := range savedEnv {
-		os.Unsetenv(key)
+		if err := os.Unsetenv(key); err != nil {
+			t.Logf("Failed to unset environment variable %s: %v", key, err)
+		}
 	}
 
 	// Create a logger to capture output
@@ -238,9 +264,13 @@ task:
 	}
 	for key, value := range savedEnv {
 		if value == "" {
-			os.Unsetenv(key)
+			if err := os.Unsetenv(key); err != nil {
+				t.Logf("Failed to unset environment variable %s: %v", key, err)
+			}
 		} else {
-			os.Setenv(key, value)
+			if err := os.Setenv(key, value); err != nil {
+				t.Logf("Failed to restore environment variable %s: %v", key, err)
+			}
 		}
 	}
 

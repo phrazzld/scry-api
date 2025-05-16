@@ -142,7 +142,12 @@ func LoadWithLogger(logger *slog.Logger) (*Config, error) {
 				legacyValue := os.Getenv(legacyEnvVar)
 				if legacyValue != "" {
 					// Set the standardized env var to maintain consistency
-					os.Setenv(env.envVar, legacyValue)
+					if err := os.Setenv(env.envVar, legacyValue); err != nil && logger != nil {
+						logger.Warn("Failed to set standardized environment variable",
+							"envVar", env.envVar,
+							"error", err,
+						)
+					}
 
 					// Log deprecation warning if logger is provided
 					if logger != nil {

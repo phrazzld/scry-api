@@ -80,16 +80,22 @@ func TestGetTestDatabaseURL(t *testing.T) {
 
 			// Set up test environment
 			for k, v := range tc.envVars {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", k, err)
+				}
 			}
 
 			// Clean up after the test
 			defer func() {
 				for k, v := range savedEnv {
 					if v == "" {
-						os.Unsetenv(k)
+						if err := os.Unsetenv(k); err != nil {
+							t.Logf("Failed to unset environment variable %s: %v", k, err)
+						}
 					} else {
-						os.Setenv(k, v)
+						if err := os.Setenv(k, v); err != nil {
+							t.Logf("Failed to restore environment variable %s: %v", k, err)
+						}
 					}
 				}
 			}()
@@ -179,8 +185,14 @@ func TestStandardizeDatabaseURL(t *testing.T) {
 	}
 
 	// Set CI environment for testing
-	os.Setenv(EnvCI, "true")
-	defer os.Unsetenv(EnvCI)
+	if err := os.Setenv(EnvCI, "true"); err != nil {
+		t.Fatalf("Failed to set CI environment variable: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv(EnvCI); err != nil {
+			t.Logf("Failed to unset CI environment variable: %v", err)
+		}
+	}()
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -215,9 +227,13 @@ func TestUpdateDatabaseEnvironmentVariables(t *testing.T) {
 	defer func() {
 		for k, v := range savedEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", k, err)
+				}
 			} else {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Logf("Failed to restore environment variable %s: %v", k, err)
+				}
 			}
 		}
 	}()
@@ -230,7 +246,9 @@ func TestUpdateDatabaseEnvironmentVariables(t *testing.T) {
 	}
 
 	for k, v := range testVars {
-		os.Setenv(k, v)
+		if err := os.Setenv(k, v); err != nil {
+			t.Fatalf("Failed to set environment variable %s: %v", k, err)
+		}
 	}
 
 	// Test the function

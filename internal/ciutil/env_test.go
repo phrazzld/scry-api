@@ -60,16 +60,22 @@ func TestIsCI(t *testing.T) {
 
 			// Set up test environment
 			for k, v := range tc.envVars {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", k, err)
+				}
 			}
 
 			// Clean up after the test
 			defer func() {
 				for k, v := range savedEnv {
 					if v == "" {
-						os.Unsetenv(k)
+						if err := os.Unsetenv(k); err != nil {
+							t.Logf("Failed to unset environment variable %s: %v", k, err)
+						}
 					} else {
-						os.Setenv(k, v)
+						if err := os.Setenv(k, v); err != nil {
+							t.Logf("Failed to restore environment variable %s: %v", k, err)
+						}
 					}
 				}
 			}()
@@ -123,16 +129,22 @@ func TestIsGitHubActions(t *testing.T) {
 
 			// Set up test environment
 			for k, v := range tc.envVars {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", k, err)
+				}
 			}
 
 			// Clean up after the test
 			defer func() {
 				for k, v := range savedEnv {
 					if v == "" {
-						os.Unsetenv(k)
+						if err := os.Unsetenv(k); err != nil {
+							t.Logf("Failed to unset environment variable %s: %v", k, err)
+						}
 					} else {
-						os.Setenv(k, v)
+						if err := os.Setenv(k, v); err != nil {
+							t.Logf("Failed to restore environment variable %s: %v", k, err)
+						}
 					}
 				}
 			}()
@@ -206,16 +218,22 @@ func TestGetEnvWithFallbacks(t *testing.T) {
 
 			// Set up test environment
 			for k, v := range tc.envVars {
-				os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Fatalf("Failed to set environment variable %s: %v", k, err)
+				}
 			}
 
 			// Clean up after the test
 			defer func() {
 				for k, v := range savedEnv {
 					if v == "" {
-						os.Unsetenv(k)
+						if err := os.Unsetenv(k); err != nil {
+							t.Logf("Failed to unset environment variable %s: %v", k, err)
+						}
 					} else {
-						os.Setenv(k, v)
+						if err := os.Setenv(k, v); err != nil {
+							t.Logf("Failed to restore environment variable %s: %v", k, err)
+						}
 					}
 				}
 			}()

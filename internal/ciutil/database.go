@@ -184,7 +184,12 @@ func updateDatabaseEnvironmentVariables(standardizedURL string, logger *slog.Log
 					"value", MaskSensitiveValue(standardizedURL),
 				)
 			}
-			os.Setenv(envVar, standardizedURL)
+			if err := os.Setenv(envVar, standardizedURL); err != nil && logger != nil {
+				logger.Warn("Failed to update environment variable",
+					"var", envVar,
+					"error", err,
+				)
+			}
 		}
 	}
 }

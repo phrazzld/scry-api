@@ -354,7 +354,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         4. Confirm the CI pipeline passes with the refactored code.
     - **Depends‑on:** [T001, T002]
 
-- [ ] **T007 · Chore · P2: audit 'cmd/server' build tag usage against 'docs/BUILD_TAGS.md'**
+- [x] **T007 · Chore · P2: audit 'cmd/server' build tag usage against 'docs/BUILD_TAGS.md'**
     - **Context:** `CI Resolution Plan > Prevention Measures > Bullet 5 (Build Tag Policy Adherence)`
     - **Action:**
         1. Review all `.go` files within the `cmd/server` package and other core application logic areas.

@@ -368,7 +368,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** none
 
 ### Tooling
-- [ ] **T005 · Chore · P1: add 'go build ./cmd/server' pre-commit hook**
+- [x] **T005 · Chore · P1: add 'go build ./cmd/server' pre-commit hook**
     - **Context:** `CI Resolution Plan > Prevention Measures > Bullet 2 (Strengthen Pre-commit Hooks)`
     - **Action:**
         1. Edit the `.pre-commit-config.yaml` file.

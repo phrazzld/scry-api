@@ -70,6 +70,15 @@ repos:
         pass_filenames: false  # Run once per commit, not per file
         description: Verifies that the application builds without errors
 
+      # Ensure main server application builds successfully
+      - id: go-build-server
+        name: go build ./cmd/server
+        entry: bash -c 'go build -o /dev/null ./cmd/server'
+        language: system
+        types: [go]
+        pass_filenames: false  # Run once per commit, not per file
+        description: Verifies that the main server application builds without errors
+
       # Run glance after commit to update directory overviews (async)
       - id: run-glance
         name: Run glance to update directory overviews (async)

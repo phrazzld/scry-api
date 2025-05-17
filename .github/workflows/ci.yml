@@ -78,6 +78,7 @@ jobs:
       - name: Verify Go build
         run: |
           echo "Verifying that the application builds successfully..."
+          echo "Running: go build -v ./cmd/server/..."
           go build -v ./cmd/server/...
           echo "Build verification completed successfully"
 
@@ -160,7 +161,11 @@ jobs:
           sudo apt-get install -y postgresql-client
 
       - name: Build main application
-        run: go build ./cmd/server
+        run: |
+          echo "Building main application..."
+          echo "Running: go build ./cmd/server"
+          go build ./cmd/server
+          echo "Build completed successfully"
 
       - name: Verify database connectivity
         run: |
@@ -183,10 +188,12 @@ jobs:
 
           # Apply migrations to the clean database
           echo "Applying database migrations..."
+          echo "Running: go run ./cmd/server -migrate=up"
           go run ./cmd/server -migrate=up
 
           # Execute detailed migration validation
           echo "Validating migrations were applied correctly..."
+          echo "Running: go run ./cmd/server -validate-migrations -verbose"
           # This uses our enhanced validation logic that will fail CI if migrations aren't properly applied
           go run ./cmd/server -validate-migrations -verbose
 
@@ -224,13 +231,16 @@ jobs:
 
           # Apply migrations again to ensure proper schema
           echo "Re-applying migrations for tests..."
+          echo "Running: go run ./cmd/server -migrate=up"
           go run ./cmd/server -migrate=up
 
           # Validate migrations before running tests
           echo "Validating migrations before tests..."
+          echo "Running: go run ./cmd/server -validate-migrations"
           go run ./cmd/server -validate-migrations
 
           echo "Running tests with integration build tag..."
+          echo "Running: go test -v -race -coverprofile=coverage.out -tags=integration ./..."
           go test -v -race -coverprofile=coverage.out -tags=integration ./...
         env:
           # Database connection variables
@@ -257,6 +267,7 @@ jobs:
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
       - name: Check coverage
         run: |
+          echo "Running: go tool cover -func=coverage.out"
           go tool cover -func=coverage.out
 
           # Extract coverage percentage and compare with minimum threshold
@@ -283,7 +294,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Build application
-        run: go build -v ./cmd/server/...
+        run: |
+          echo "Building application..."
+          echo "Running: go build -v ./cmd/server/..."
+          go build -v ./cmd/server/...
+          echo "Build completed successfully"
 
   # Optional job that runs tests with the real Gemini API (without the test_without_external_deps build tag)
   # This job is triggered manually via workflow_dispatch or on a weekly schedule
@@ -346,6 +361,7 @@ jobs:
         id: tests
         run: |
           echo "Running tests against real Gemini API at $(date)"
+          echo "Running: go test -v -timeout 5m ./internal/platform/gemini/..."
           go test -v -timeout 5m ./internal/platform/gemini/...
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

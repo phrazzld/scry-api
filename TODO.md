@@ -308,7 +308,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         2. (Optional) Temporarily introduce a syntax error in a non-`main.go` file within the `cmd/server` package, confirm the new build step fails early, then revert the error.
     - **Depends‑on:** none
 
-- [ ] **T008 · Chore · P2: enhance ci log verbosity for go command execution steps**
+- [x] **T008 · Chore · P2: enhance ci log verbosity for go command execution steps**
     - **Context:** `CI Resolution Plan > Prevention Measures > Bullet 6 (Improve CI Observability)`
     - **Action:**
         1. Review CI steps in `.github/workflows/ci.yml` that execute Go commands (e.g., build, run, test) or other critical script executions.

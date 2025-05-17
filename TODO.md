@@ -381,7 +381,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         2. Temporarily introduce a build error in the `cmd/server` package, run pre-commit hooks, and verify the new hook fails, preventing the commit. Revert the error.
     - **Depends‑on:** [T002]
 
-- [ ] **T006 · Chore · P1: synchronize pre-commit 'golangci-lint' configuration with ci settings**
+- [x] **T006 · Chore · P1: synchronize pre-commit 'golangci-lint' configuration with ci settings**
     - **Context:** `CI Resolution Plan > Prevention Measures > Bullet 2 (Strengthen Pre-commit Hooks)`
     - **Action:**
         1. Compare the `golangci-lint` configuration (e.g., `.golangci.yml`, command-line arguments, linter version) used in CI with the configuration in `.pre-commit-config.yaml`.

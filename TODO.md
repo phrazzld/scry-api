@@ -336,7 +336,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** [T001]
 
 ### Backend (`cmd/server`)
-- [ ] **T004 · Refactor · P2: refactor 'cmd/server/main.go' for improved modularity and adherence to length guidelines**
+- [x] **T004 · Refactor · P2: refactor 'cmd/server/main.go' for improved modularity and adherence to length guidelines**
     - **Context:** `CI Resolution Plan > Resolution Steps > Issue 4: (Recommended) Refactor cmd/server/main.go for Maintainability and Adherence to Standards`
     - **Action:**
         1. Identify logical sections within `cmd/server/main.go` (e.g., config loading, logger setup, database setup, router setup, application struct definition).

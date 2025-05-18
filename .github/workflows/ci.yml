@@ -262,8 +262,14 @@ jobs:
           go run ./cmd/server -validate-migrations
 
           echo "Running tests with integration build tag..."
-          echo "Running: go test -v -race -coverprofile=coverage.out -tags=integration ./..."
-          go test -v -race -coverprofile=coverage.out -tags=integration ./...
+          echo "Running: go test -v -json -race -coverprofile=coverage.out -tags=integration ./... | tee test-results.json"
+          go test -v -json -race -coverprofile=coverage.out -tags=integration ./... | tee test-results.json
+
+          # Extract test failures if any exist
+          if [ -f test-results.json ]; then
+            echo "Test failures summary:"
+            grep '"Action":"fail"' test-results.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+          fi
         env:
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
@@ -302,6 +308,15 @@ jobs:
             echo "Code coverage is below 70%"
             exit 1
           fi
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always() # Upload even if tests fail
+        with:
+          name: test-results-${{ runner.os }}-${{ github.run_id }}
+          path: |
+            test-results.json
+            coverage.out
+          retention-days: 30
 
   build:
     name: Build
@@ -383,12 +398,22 @@ jobs:
         id: tests
         run: |
           echo "Running tests against real Gemini API at $(date)"
-          echo "Running: go test -v -timeout 5m ./internal/platform/gemini/..."
-          go test -v -timeout 5m ./internal/platform/gemini/...
+          echo "Running: go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json"
+          go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Add any other environment variables needed for tests here
           GO_TEST_TIMEOUT: 5m
+
+      # Upload test results if any exist
+      - name: Upload Gemini test results
+        uses: actions/upload-artifact@v4
+        if: always() # Upload even if tests fail
+        with:
+          name: gemini-test-results-${{ runner.os }}-${{ github.run_id }}
+          path: |
+            gemini-test-results.json
+          retention-days: 30
 
       # Add a summary of the test run
       - name: Gemini integration test summary
@@ -400,6 +425,12 @@ jobs:
             echo "::warning::⚠️ Gemini API integration tests failed at $(date)"
             echo "::warning::This could be due to API changes, rate limits, or temporary service issues."
             echo "::warning::Review logs for detailed failure information."
+
+            # Extract test failures if any exist
+            if [ -f gemini-test-results.json ]; then
+              echo "Failed tests:"
+              grep '"Action":"fail"' gemini-test-results.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+            fi
           fi
           echo "::notice::These tests run with the actual Gemini API and may be affected by external factors."
           echo "::notice::Consider checking the Gemini API status if tests fail unexpectedly."

@@ -536,7 +536,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** T016
 
 ### CI Infrastructure
-- [ ] **T019 · Chore · P1: enable verbose test logging in CI**
+- [x] **T019 · Chore · P1: enable verbose test logging in CI**
     - **Context:** Immediate Actions Needed > Insufficient Log Information
     - **Action:**
         1. Update CI workflow to use verbose test flags (-v)

@@ -129,9 +129,34 @@ jobs:
         # Note: This includes gofmt and goimports checks, making a separate format job unnecessary
 
   test:
-    name: Test
+    name: Test - ${{ matrix.package }}
     runs-on: ubuntu-latest
     needs: pre-flight
+    strategy:
+      fail-fast: false # Allow other jobs to continue if one fails
+      matrix:
+        package:
+          - cmd/server
+          - internal/api
+          - internal/api/middleware
+          - internal/api/shared
+          - internal/ciutil
+          - internal/config
+          - internal/domain
+          - internal/domain/srs
+          - internal/events
+          - internal/generation
+          - internal/platform/gemini
+          - internal/platform/logger
+          - internal/platform/postgres
+          - internal/redact
+          - internal/service
+          - internal/service/auth
+          - internal/service/card_review
+          - internal/store
+          - internal/task
+          - internal/testutils
+          - infrastructure
     services:
       postgres:
         image: postgres:15
@@ -261,14 +286,15 @@ jobs:
           echo "Running: go run ./cmd/server -validate-migrations"
           go run ./cmd/server -validate-migrations
 
-          echo "Running tests with integration build tag..."
-          echo "Running: go test -v -json -race -coverprofile=coverage.out -tags=integration ./... | tee test-results.json"
-          go test -v -json -race -coverprofile=coverage.out -tags=integration ./... | tee test-results.json
+          echo "Running tests for package: ${{ matrix.package }}"
+          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
+          go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
 
           # Extract test failures if any exist
-          if [ -f test-results.json ]; then
-            echo "Test failures summary:"
-            grep '"Action":"fail"' test-results.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+          if [ -f test-results-${PACKAGE_NAME}.json ]; then
+            echo "Test failures summary for ${{ matrix.package }}:"
+            grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
           fi
         env:
           # Database connection variables
@@ -293,29 +319,81 @@ jobs:
           SCRY_TASK_WORKER_COUNT: "2"
           SCRY_TASK_QUEUE_SIZE: "100"
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
-      - name: Check coverage
+      - name: Check package coverage
         run: |
-          echo "Running: go tool cover -func=coverage.out"
-          go tool cover -func=coverage.out
+          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          echo "Running: go tool cover -func=coverage-${PACKAGE_NAME}.out"
+          go tool cover -func=coverage-${PACKAGE_NAME}.out
 
-          # Extract coverage percentage and compare with minimum threshold
-          total_coverage=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
-          echo "Total coverage: $total_coverage"
-
-          # Convert to integer (remove decimal part) for comparison
-          coverage_int=$(echo $total_coverage | cut -d. -f1)
-          if [ "$coverage_int" -lt "70" ]; then
-            echo "Code coverage is below 70%"
-            exit 1
-          fi
+          # Extract coverage percentage for this package
+          total_coverage=$(go tool cover -func=coverage-${PACKAGE_NAME}.out | grep total: | awk '{print $3}' | sed 's/%//')
+          echo "Coverage for ${{ matrix.package }}: $total_coverage"
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always() # Upload even if tests fail
         with:
-          name: test-results-${{ runner.os }}-${{ github.run_id }}
+          name: test-results-${{ matrix.package }}-${{ runner.os }}-${{ github.run_id }}
           path: |
-            test-results.json
-            coverage.out
+            test-results-*.json
+            coverage-*.out
+          retention-days: 30
+
+  coverage-check:
+    name: Overall Coverage Check
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: coverage-reports/
+
+      - name: Merge coverage reports
+        run: |
+          echo "Merging coverage reports from all packages..."
+          # Create a temporary directory for all coverage files
+          mkdir -p merged-coverage
+
+          # Find all coverage files and copy them to the temp directory
+          find coverage-reports -name "*.out" -exec cp {} merged-coverage/ \;
+
+          # Use go tool to merge all coverage files
+          echo "Coverage files found:"
+          ls -la merged-coverage/
+
+          # Create a merged coverage report
+          echo "mode: set" > merged-coverage.out
+          tail -q -n +2 merged-coverage/*.out >> merged-coverage.out
+
+          # Display merged coverage
+          echo "Merged coverage report:"
+          go tool cover -func=merged-coverage.out
+
+          # Check overall coverage threshold
+          total_coverage=$(go tool cover -func=merged-coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+          echo "Total project coverage: $total_coverage"
+
+          # Convert to integer (remove decimal part) for comparison
+          coverage_int=$(echo $total_coverage | cut -d. -f1)
+          if [ "$coverage_int" -lt "70" ]; then
+            echo "Overall code coverage is below 70%"
+            exit 1
+          fi
+
+      - name: Upload merged coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-coverage-${{ runner.os }}-${{ github.run_id }}
+          path: merged-coverage.out
           retention-days: 30
 
   build:

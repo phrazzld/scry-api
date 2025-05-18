@@ -549,7 +549,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Trigger a test run and confirm logs show all test details
     - **Depends‑on:** none
 
-- [ ] **T020 · Chore · P1: split CI test execution by package**
+- [x] **T020 · Chore · P1: split CI test execution by package**
     - **Context:** Prevention Measures > Consider splitting test execution by package
     - **Action:**
         1. Update CI workflow to run tests per package

@@ -429,7 +429,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** none
 
 ### Build & Configuration Verification
-- [ ] **T011 · Chore · P1: audit build tags in cmd/server package**
+- [x] **T011 · Chore · P1: audit build tags in cmd/server package**
     - **Context:** Ensure core application files don't have restrictive build tags preventing migration execution
     - **Action:**
         1. Review all files in `cmd/server/` package

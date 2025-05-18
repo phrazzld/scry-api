@@ -482,7 +482,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Review documentation for clarity
     - **Depends‑on:** none
 
-- [ ] **T015 · Docs · P3: update code review checklist**
+- [x] **T015 · Docs · P3: update code review checklist**
     - **Context:** Add database driver and build tag checks to review process
     - **Action:**
         1. Locate project's code review checklist or create one

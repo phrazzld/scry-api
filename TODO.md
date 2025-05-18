@@ -471,7 +471,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** [T010]
 
 ### Documentation & Standards
-- [ ] **T014 · Docs · P3: update Go development philosophy with driver import guidance**
+- [x] **T014 · Docs · P3: update Go development philosophy with driver import guidance**
     - **Context:** Document requirement for database driver imports
     - **Action:**
         1. Edit `docs/DEVELOPMENT_PHILOSOPHY_APPENDIX_GO.md`
@@ -492,6 +492,101 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Checklist includes both verification items
     - **Verification:**
         1. Document review confirms updates
+    - **Depends‑on:** none
+
+## CI Failure Resolution - 2025-05-18
+
+### Test Execution Issues
+- [ ] **T016 · Test · P0: retrieve and analyze full CI test logs**
+    - **Context:** Immediate Actions Needed > Get Full Test Logs
+    - **Action:**
+        1. Download complete test logs for the failed CI run (Run ID: 15096488474)
+        2. Identify specific failing tests, error messages, or compilation errors
+        3. Create detailed failure analysis
+    - **Done‑when:**
+        1. Full test log is available and failing tests are clearly identified
+        2. Root cause of test failures is documented
+    - **Verification:**
+        1. Specific failing tests are identified with error messages
+    - **Depends‑on:** none
+
+- [ ] **T017 · Test · P0: fix zero test coverage in internal/testutils packages**
+    - **Context:** Root Cause Analysis > Issue 1: Zero Coverage in Test Utilities
+    - **Action:**
+        1. Review internal/testutils and subpackages for missing or non-executing tests
+        2. Determine if these packages should have meaningful coverage or be excluded
+        3. Either implement missing tests or properly exclude from coverage metrics
+    - **Done‑when:**
+        1. All testutils packages have appropriate test coverage or are explicitly excluded from coverage
+    - **Verification:**
+        1. Coverage report shows >0% if tests exist, or package is excluded from coverage calculations
+    - **Depends‑on:** T016
+
+- [ ] **T018 · Test · P0: unskip tests marked as skipped during refactoring**
+    - **Context:** Root Cause Analysis > Tests being skipped during refactoring
+    - **Action:**
+        1. Identify all tests skipped due to "refactoring in progress"
+        2. Either complete refactoring and re-enable, or implement temporary fixes to unblock CI
+        3. Remove skip annotations and ensure tests run
+    - **Done‑when:**
+        1. No tests remain skipped due to refactoring
+        2. All previously skipped tests execute and pass
+    - **Verification:**
+        1. Test output shows all previously skipped tests now run and report results
+    - **Depends‑on:** T016
+
+### CI Infrastructure
+- [ ] **T019 · Chore · P1: enable verbose test logging in CI**
+    - **Context:** Immediate Actions Needed > Insufficient Log Information
+    - **Action:**
+        1. Update CI workflow to use verbose test flags (-v)
+        2. Ensure test output is not truncated
+        3. Configure log artifact retention for failed runs
+    - **Done‑when:**
+        1. CI test jobs output complete, verbose logs
+        2. Logs are downloadable as artifacts after runs
+    - **Verification:**
+        1. Trigger a test run and confirm logs show all test details
+    - **Depends‑on:** none
+
+- [ ] **T020 · Chore · P1: split CI test execution by package**
+    - **Context:** Prevention Measures > Consider splitting test execution by package
+    - **Action:**
+        1. Update CI workflow to run tests per package
+        2. Report individual package results and coverage
+        3. Ensure failures in one package don't halt others
+    - **Done‑when:**
+        1. Each package's test results are reported independently in CI
+        2. Package-level coverage metrics are visible
+    - **Verification:**
+        1. CI dashboard shows separate results for each package
+    - **Depends‑on:** none
+
+### Quality Gates
+- [ ] **T021 · Chore · P1: implement pre-push hook for test execution**
+    - **Context:** Prevention Measures > Implement pre-push hooks
+    - **Action:**
+        1. Configure pre-push hook that runs full test suite
+        2. Include in .pre-commit-config.yaml
+        3. Document installation in CONTRIBUTING.md
+    - **Done‑when:**
+        1. Developers cannot push if tests fail locally
+        2. Hook is part of standard dev setup
+    - **Verification:**
+        1. Attempt push with broken test; confirm push is blocked
+    - **Depends‑on:** none
+
+- [ ] **T022 · Test · P1: enforce test coverage thresholds**
+    - **Context:** Prevention Measures > Add test coverage thresholds
+    - **Action:**
+        1. Set minimum coverage thresholds in CI (70% overall)
+        2. Configure per-package thresholds where appropriate
+        3. Fail builds if coverage drops below threshold
+    - **Done‑when:**
+        1. CI fails when coverage is below threshold
+        2. Coverage reports show which packages fail requirements
+    - **Verification:**
+        1. Lower coverage intentionally and confirm CI fails appropriately
     - **Depends‑on:** none
 
 ## Prevention Measures

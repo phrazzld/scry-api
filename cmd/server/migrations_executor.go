@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/pressly/goose/v3"
 )

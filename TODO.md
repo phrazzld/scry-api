@@ -408,6 +408,92 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         2. Introduce a lint error, then a test failure, then a build error, confirming the script catches each issue in turn.
     - **Depends‑on:** none
 
+## CI Failure Resolution - 2025-05-17
+
+### Critical Database Driver Fix
+- [x] **T010 · Bugfix · P0: add missing pgx driver import to migrations executor**
+    - **Context:** CI failing with `sql: unknown driver "pgx" (forgotten import?)` in `cmd/server/migrations_executor.go`
+    - **Action:**
+        1. Open file `cmd/server/migrations_executor.go`
+        2. Add import statement: `import _ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver`
+        3. Run `goimports` to fix import ordering
+        4. Commit with message: `fix(db): add missing pgx driver import for migrations executor`
+    - **Done‑when:**
+        1. The pgx driver blank import is present and correctly formatted
+        2. Database migrations execute successfully locally
+        3. CI pipeline passes all checks
+    - **Verification:**
+        1. Run `go run ./cmd/server -migrate=status` locally without "unknown driver" error
+        2. Execute `./scripts/run-ci-checks.sh` and confirm it passes
+        3. Push fix and verify CI "Reset and prepare database" step passes
+    - **Depends‑on:** none
+
+### Build & Configuration Verification
+- [ ] **T011 · Chore · P1: audit build tags in cmd/server package**
+    - **Context:** Ensure core application files don't have restrictive build tags preventing migration execution
+    - **Action:**
+        1. Review all files in `cmd/server/` package
+        2. Check for build tags on: `app.go`, `config.go`, `logger.go`, `database.go`, `migrations_*.go`
+        3. Remove any restrictive build tags from core logic files
+        4. Ensure all files have `package main` declaration
+    - **Done‑when:**
+        1. Core application files have no restrictive build tags
+        2. All migration-critical files are included in build
+    - **Verification:**
+        1. Run `go build ./cmd/server` with no "undefined" errors
+    - **Depends‑on:** none
+
+### CI & Testing Improvements
+- [ ] **T012 · Feature · P2: update local CI script with migration checks**
+    - **Context:** Strengthen `scripts/run-ci-checks.sh` to catch database driver issues
+    - **Action:**
+        1. Add `go build ./cmd/server` to the script
+        2. Add migration smoke test: `go run ./cmd/server -migrate=status`
+        3. Ensure script fails on missing drivers or build errors
+    - **Done‑when:**
+        1. Script runs build verification
+        2. Script runs migration smoke test
+    - **Verification:**
+        1. Run script locally and verify new checks execute
+    - **Depends‑on:** [T010]
+
+- [ ] **T013 · Feature · P2: add migration smoke test to CI pipeline**
+    - **Context:** Add early database connectivity check to CI workflow
+    - **Action:**
+        1. Edit CI workflow file (`.github/workflows/ci.yml`)
+        2. Add "Migration Smoke Test" step before database reset
+        3. Step should run: `go run ./cmd/server -migrate=status`
+    - **Done‑when:**
+        1. CI includes migration smoke test step
+        2. Step runs before full database operations
+    - **Verification:**
+        1. Push changes and verify new CI step executes
+    - **Depends‑on:** [T010]
+
+### Documentation & Standards
+- [ ] **T014 · Docs · P3: update Go development philosophy with driver import guidance**
+    - **Context:** Document requirement for database driver imports
+    - **Action:**
+        1. Edit `docs/DEVELOPMENT_PHILOSOPHY_APPENDIX_GO.md`
+        2. Add section: "Any Go main package using database/sql MUST ensure required database drivers are explicitly imported via blank imports (`_ "driver/path"`) within that package's scope."
+    - **Done‑when:**
+        1. Documentation includes database driver import requirement
+    - **Verification:**
+        1. Review documentation for clarity
+    - **Depends‑on:** none
+
+- [ ] **T015 · Docs · P3: update code review checklist**
+    - **Context:** Add database driver and build tag checks to review process
+    - **Action:**
+        1. Locate project's code review checklist or create one
+        2. Add item: "Verify database driver imports in files using sql.Open()"
+        3. Add item: "Check for restrictive build tags on core application files"
+    - **Done‑when:**
+        1. Checklist includes both verification items
+    - **Verification:**
+        1. Document review confirms updates
+    - **Depends‑on:** none
+
 ## Prevention Measures
 
 1. Run dedicated CI-specific tests early in the pipeline

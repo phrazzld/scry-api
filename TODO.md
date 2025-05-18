@@ -393,7 +393,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         2. Ensure pre-commit linting passes/fails consistently with CI for the same code state by testing with code that triggers specific linters.
     - **Depends‑on:** none
 
-- [ ] **T009 · Feature · P3: develop local script to simulate key ci pipeline checks**
+- [x] **T009 · Feature · P3: develop local script to simulate key ci pipeline checks**
     - **Context:** `CI Resolution Plan > Prevention Measures > Bullet 7 (Local CI Simulation Script (Optional))`
     - **Action:**
         1. Create a new script (e.g., `scripts/run-ci-checks.sh` or a `Makefile` target like `make ci-local`).
@@ -407,11 +407,6 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Run the script locally on clean code and confirm it passes all checks.
         2. Introduce a lint error, then a test failure, then a build error, confirming the script catches each issue in turn.
     - **Depends‑on:** none
-
-## Clarifications & Assumptions
-- [ ] **Issue:** The plan's "Prevention Measures" include "CI Script Code Review" (Bullet 4), which is a process/policy change rather than a discrete engineering task with a specific code/config deliverable. This should be handled as a team policy discussion and documentation update if necessary, outside of a typical engineering ticket.
-    - **Context:** `CI Resolution Plan > Prevention Measures > Bullet 4 (CI Script Code Review)`
-    - **Blocking?:** no
 
 ## Prevention Measures
 

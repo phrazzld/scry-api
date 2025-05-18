@@ -250,7 +250,33 @@ Migration files are stored in `internal/platform/postgres/migrations/`. See the 
 - Format code: `make fmt`
 - Lint code: `make lint`
 - Run tests with coverage: `make test-coverage`
+- Run local CI checks: `./scripts/run-ci-checks.sh`
 - View all available commands: `make help`
+
+### Running Local CI Checks
+
+Before pushing code, you can run a subset of CI checks locally to catch issues early:
+
+```bash
+# Run all CI checks
+./scripts/run-ci-checks.sh
+
+# Run checks with verbose output
+./scripts/run-ci-checks.sh --verbose
+
+# Skip tests for quick checks
+./scripts/run-ci-checks.sh --skip-tests
+
+# Get help and see all options
+./scripts/run-ci-checks.sh --help
+```
+
+The script runs the following checks:
+- Build verification (`go build ./cmd/server`)
+- Code formatting check
+- Linting with golangci-lint
+- Tests with race detection and coverage
+- go.mod tidiness check
 
 For a comprehensive list of development commands, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md).
 

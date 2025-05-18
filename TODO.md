@@ -444,7 +444,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** none
 
 ### CI & Testing Improvements
-- [ ] **T012 · Feature · P2: update local CI script with migration checks**
+- [x] **T012 · Feature · P2: update local CI script with migration checks**
     - **Context:** Strengthen `scripts/run-ci-checks.sh` to catch database driver issues
     - **Action:**
         1. Add `go build ./cmd/server` to the script
@@ -457,7 +457,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Run script locally and verify new checks execute
     - **Depends‑on:** [T010]
 
-- [ ] **T013 · Feature · P2: add migration smoke test to CI pipeline**
+- [x] **T013 · Feature · P2: add migration smoke test to CI pipeline**
     - **Context:** Add early database connectivity check to CI workflow
     - **Action:**
         1. Edit CI workflow file (`.github/workflows/ci.yml`)

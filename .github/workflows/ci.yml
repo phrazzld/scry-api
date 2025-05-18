@@ -167,6 +167,28 @@ jobs:
           go build ./cmd/server
           echo "Build completed successfully"
 
+      - name: Migration Smoke Test
+        run: |
+          echo "Running migration smoke test to verify database driver..."
+          echo "Running: go run ./cmd/server -migrate=status"
+          if go run ./cmd/server -migrate=status; then
+            echo "Migration smoke test passed successfully"
+          else
+            echo "Migration smoke test failed - likely database driver issue"
+            exit 1
+          fi
+        env:
+          # Database connection variables
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          # Project root variable
+          SCRY_PROJECT_ROOT: ${{ github.workspace }}
+          # Required environment variables
+          SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
+          SCRY_LLM_GEMINI_API_KEY: ci-test-gemini-key
+          SCRY_LLM_PROMPT_TEMPLATE_PATH: prompts/flashcard_template.txt
+
       - name: Verify database connectivity
         run: |
           echo "Verifying database connectivity with enhanced checks..."

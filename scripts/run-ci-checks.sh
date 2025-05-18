@@ -81,7 +81,34 @@ else
     FAILED_CHECKS+=("build")
 fi
 
-# 2. Format check
+# 2. Migration smoke test
+print_step "Running migration smoke test"
+# Set minimal environment variables for the migration check
+export SCRY_DATABASE_URL="${SCRY_DATABASE_URL:-}"
+export SCRY_AUTH_JWT_SECRET="${SCRY_AUTH_JWT_SECRET:-test-secret-for-ci-checks}"
+export SCRY_LLM_GEMINI_API_KEY="${SCRY_LLM_GEMINI_API_KEY:-test-key-for-ci-checks}"
+export SCRY_LLM_PROMPT_TEMPLATE_PATH="${SCRY_LLM_PROMPT_TEMPLATE_PATH:-prompts/flashcard_template.txt}"
+
+if [ -n "$SCRY_DATABASE_URL" ]; then
+    # Only run migration status if database URL is available
+    if go run ./cmd/server -migrate=status &>/dev/null; then
+        print_success "Migration check passed"
+    else
+        print_error "Migration check failed - potential database driver issue"
+        if [ "$VERBOSE" = true ]; then
+            echo "Re-running with verbose output:"
+            go run ./cmd/server -migrate=status
+        fi
+        FAILED_CHECKS+=("migration")
+    fi
+else
+    print_warning "Skipping migration check (SCRY_DATABASE_URL not set)"
+    if [ "$VERBOSE" = true ]; then
+        echo "Set SCRY_DATABASE_URL to enable migration checks"
+    fi
+fi
+
+# 3. Format check
 print_step "Checking code formatting"
 if [ -z "$(gofmt -l .)" ]; then
     print_success "Code is properly formatted"
@@ -94,7 +121,7 @@ else
     FAILED_CHECKS+=("formatting")
 fi
 
-# 3. Linting
+# 4. Linting
 print_step "Running golangci-lint"
 if golangci-lint run --verbose --build-tags=test_without_external_deps; then
     print_success "Linting passed"
@@ -103,7 +130,7 @@ else
     FAILED_CHECKS+=("linting")
 fi
 
-# 4. Testing (unless skipped)
+# 5. Testing (unless skipped)
 if [ "$SKIP_TESTS" = false ]; then
     print_step "Running tests"
     if go test -v -race -coverprofile=coverage.out -tags=integration ./...; then
@@ -128,7 +155,7 @@ else
     print_warning "Tests skipped"
 fi
 
-# 5. go mod tidy check
+# 6. go mod tidy check
 print_step "Checking go.mod tidiness"
 cp go.mod go.mod.backup
 cp go.sum go.sum.backup

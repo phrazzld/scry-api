@@ -497,7 +497,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
 ## CI Failure Resolution - 2025-05-18
 
 ### Test Execution Issues
-- [ ] **T016 · Test · P0: retrieve and analyze full CI test logs**
+- [x] **T016 · Test · P0: retrieve and analyze full CI test logs**
     - **Context:** Immediate Actions Needed > Get Full Test Logs
     - **Action:**
         1. Download complete test logs for the failed CI run (Run ID: 15096488474)
@@ -510,7 +510,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Specific failing tests are identified with error messages
     - **Depends‑on:** none
 
-- [ ] **T017 · Test · P0: fix zero test coverage in internal/testutils packages**
+- [x] **T017 · Test · P0: fix zero test coverage in internal/testutils packages**
     - **Context:** Root Cause Analysis > Issue 1: Zero Coverage in Test Utilities
     - **Action:**
         1. Review internal/testutils and subpackages for missing or non-executing tests

@@ -134,7 +134,7 @@ repos:
         description: Prevents pushing code with failing tests to the remote repository
         language: system
         entry: bash -c 'go test ./... -tags=test_without_external_deps -timeout=5m'
-        stages: [push]  # Run before push to remote
+        stages: [pre-push]  # Run before push to remote
         types: [go]  # Run for Go files
         pass_filenames: false  # Run once per push, not per file
         verbose: true  # Show test output

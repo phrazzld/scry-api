@@ -563,7 +563,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
     - **Depends‑on:** none
 
 ### Quality Gates
-- [ ] **T021 · Chore · P1: implement pre-push hook for test execution**
+- [x] **T021 · Chore · P1: implement pre-push hook for test execution**
     - **Context:** Prevention Measures > Implement pre-push hooks
     - **Action:**
         1. Configure pre-push hook that runs full test suite

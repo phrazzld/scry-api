@@ -589,6 +589,35 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Lower coverage intentionally and confirm CI fails appropriately
     - **Depends‑on:** none
 
+## Current Tasks
+
+- [x] **T023 · Test · P1: Fix failing redaction tests**
+    - **Context:** Pre-push hook failing due to redaction test failures after API error leak test implementation
+    - **Action:**
+        1. Analyze failing tests in internal/redact package
+        2. Update expected test patterns to match current redaction implementation
+        3. Ensure consistent behavior between error leak tests and redaction tests
+    - **Done‑when:**
+        1. All redaction tests pass
+        2. Pre-push hook completes successfully
+    - **Verification:**
+        1. Run `go test ./internal/redact/...` locally and confirm all tests pass
+        2. Push commit without errors from pre-push hook
+    - **Depends‑on:** none
+
+- [ ] **T024 · Test · P1: Fix API error redaction tests**
+    - **Context:** API error redaction tests failing after changes to internal/redact package
+    - **Action:**
+        1. Analyze failing tests in internal/api error_redaction_test.go
+        2. Update error_redaction_test.go to be compatible with new redaction patterns
+        3. Ensure error_log_redaction_test.go passes with current redaction implementation
+    - **Done‑when:**
+        1. All API error redaction tests pass
+        2. Redact package tests continue to pass
+    - **Verification:**
+        1. Run `go test ./internal/api/...` and `go test ./internal/redact/...` locally and confirm all tests pass
+    - **Depends‑on:** none
+
 ## Prevention Measures
 
 1. Run dedicated CI-specific tests early in the pipeline

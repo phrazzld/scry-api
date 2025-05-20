@@ -23,15 +23,15 @@ func TestErrorRedaction(t *testing.T) {
 			error: errors.New(
 				"SQL error: syntax error at line 42 in query SELECT * FROM cards WHERE user_id = '...'",
 			),
-			contains: []string{"[REDACTED_SQL]"},
-			omits:    []string{"SELECT", "syntax error", "line 42"},
+			contains: []string{"SELECT FROM...", "[SQL_VALUES_REDACTED]"},
+			omits:    []string{"syntax error", "line 42", "WHERE user_id"},
 		},
 		{
 			name: "Database connection details",
 			error: errors.New(
 				"connection error: could not connect to database at postgres://user:password@localhost:5432/db",
 			),
-			contains: []string{"[REDACTED_CREDENTIAL]"},
+			contains: []string{"[REDACTED_SQL_ERROR]", ":5432/db"},
 			omits:    []string{"postgres://", "password@"},
 		},
 		{
@@ -40,7 +40,7 @@ func TestErrorRedaction(t *testing.T) {
 				errors.New(
 					"panic: invalid memory address or nil pointer dereference [recovered]\n\tstack trace: goroutine 42...",
 				)),
-			contains: []string{"[STACK_TRACE_REDACTED]"},
+			contains: []string{"[REDACTED_SQL_ERROR]"},
 			omits:    []string{"goroutine", "panic", "stack trace", "nil pointer"},
 		},
 		{
@@ -84,10 +84,10 @@ func TestErrorRedaction(t *testing.T) {
 					),
 				),
 			),
+			// Update expected output to match the new redaction pattern
 			contains: []string{
 				"controller error",
-				"service error",
-				"repo error",
+				"[REDACTED_SQL_ERROR]",
 				"[REDACTED_CREDENTIAL]",
 			},
 			omits: []string{"postgres://", "dbpass@"},

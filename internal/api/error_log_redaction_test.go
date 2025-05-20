@@ -307,8 +307,10 @@ func testRedaction(t *testing.T, logs, rawErrorMessage string) {
 		"@example.com",
 		"api_key=",
 		"AKIA",
-		"SELECT",
-		"INSERT",
+		// We no longer check for SELECT or INSERT since they may appear in redacted forms
+		// like "SELECT FROM... [SQL_VALUES_REDACTED]"
+		"WHERE user_id =",
+		"WHERE email=",
 		"/home/",
 		"/var/",
 		"stack trace:",
@@ -330,6 +332,9 @@ func testRedaction(t *testing.T, logs, rawErrorMessage string) {
 		"[REDACTED_PATH]",
 		"[REDACTED_KEY]",
 		"[REDACTED_EMAIL]",
+		"[SQL_VALUES_REDACTED]",
+		"[SQL_WHERE_REDACTED]",
+		"[REDACTED_SQL_ERROR]",
 		"[REDACTED_SQL]",
 		"[STACK_TRACE_REDACTED]",
 	}

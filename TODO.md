@@ -25,7 +25,7 @@
     - **Verification:** Review CI logs to confirm the command works and migration step passes
     - **Depends‑on:** none
 
-- [ ] **T002 · Bugfix · P0: add early build verification step for `cmd/server` in CI**
+- [x] **T002 · Bugfix · P0: add early build verification step for `cmd/server` in CI**
     - **Context:** CI failures due to build issues not caught early in the pipeline
     - **Action:** Add a new step in the CI workflow to build the main application using `go build ./cmd/server`
     - **Done‑when:** CI pipeline includes and passes the build verification step

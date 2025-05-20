@@ -75,11 +75,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Verify Go build
+      - name: Build main application
         run: |
-          echo "Verifying that the application builds successfully..."
-          echo "Running: go build -v ./cmd/server/..."
-          go build -v ./cmd/server/...
+          echo "Running early build verification for main application..."
+          echo "Running: go build ./cmd/server"
+          go build ./cmd/server
           echo "Build verification completed successfully"
 
       - name: Run CI pre-flight checks

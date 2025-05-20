@@ -463,19 +463,54 @@ jobs:
           echo "System information:" > test-diagnostics-${{ matrix.package }}/system-info.txt
           uname -a >> test-diagnostics-${{ matrix.package }}/system-info.txt
           free -h >> test-diagnostics-${{ matrix.package }}/system-info.txt 2>/dev/null || echo "free command not available" >> test-diagnostics-${{ matrix.package }}/system-info.txt
+          df -h >> test-diagnostics-${{ matrix.package }}/system-info.txt 2>/dev/null || echo "df command not available" >> test-diagnostics-${{ matrix.package }}/system-info.txt
 
           # Go environment
           echo "Go environment:" > test-diagnostics-${{ matrix.package }}/go-env.txt
           go env >> test-diagnostics-${{ matrix.package }}/go-env.txt
+          go version >> test-diagnostics-${{ matrix.package }}/go-env.txt
+
+          # Save test results JSON as parsed output for easier analysis
+          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          if [ -f test-results-${PACKAGE_NAME}.json ]; then
+            echo "Test failure details:" > test-diagnostics-${{ matrix.package }}/test-failures.txt
+            # Extract and format test failures
+            grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json |
+              jq -r 'select(.Test != null) | "- Test: \(.Test)\n  Package: \(.Package)\n  Output: \(.Output)\n---"' >> test-diagnostics-${{ matrix.package }}/test-failures.txt ||
+              echo "No failure details available" >> test-diagnostics-${{ matrix.package }}/test-failures.txt
+
+            # Save full test output for reference
+            echo "Full test results JSON (for debugging):" > test-diagnostics-${{ matrix.package }}/full-test-results.txt
+            cat test-results-${PACKAGE_NAME}.json >> test-diagnostics-${{ matrix.package }}/full-test-results.txt
+
+            # Test statistics
+            echo "Test statistics:" > test-diagnostics-${{ matrix.package }}/test-stats.txt
+            PASSED_COUNT=$(grep -c '"Action":"pass"' test-results-${PACKAGE_NAME}.json || echo "0")
+            FAILED_COUNT=$(grep -c '"Action":"fail"' test-results-${PACKAGE_NAME}.json || echo "0")
+            SKIP_COUNT=$(grep -c '"Action":"skip"' test-results-${PACKAGE_NAME}.json || echo "0")
+            echo "- Tests passed: $PASSED_COUNT" >> test-diagnostics-${{ matrix.package }}/test-stats.txt
+            echo "- Tests failed: $FAILED_COUNT" >> test-diagnostics-${{ matrix.package }}/test-stats.txt
+            echo "- Tests skipped: $SKIP_COUNT" >> test-diagnostics-${{ matrix.package }}/test-stats.txt
+          else
+            echo "No test results JSON file found" > test-diagnostics-${{ matrix.package }}/test-info.txt
+          fi
 
           # Database information
           echo "Database information:" > test-diagnostics-${{ matrix.package }}/db-info.txt
           echo "Database URL: $DATABASE_URL" | sed 's/postgres:\/\/[^:]*:[^@]*@/postgres:\/\/user:pass@/' >> test-diagnostics-${{ matrix.package }}/db-info.txt
           PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "\\d" >> test-diagnostics-${{ matrix.package }}/db-info.txt 2>/dev/null || echo "Could not connect to database" >> test-diagnostics-${{ matrix.package }}/db-info.txt
+          # Get PostgreSQL server info
+          echo "PostgreSQL server information:" >> test-diagnostics-${{ matrix.package }}/db-info.txt
+          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version();" >> test-diagnostics-${{ matrix.package }}/db-info.txt 2>/dev/null || echo "Could not get PostgreSQL version" >> test-diagnostics-${{ matrix.package }}/db-info.txt
 
           # Environment variables (redacted)
           echo "Environment variables (redacted):" > test-diagnostics-${{ matrix.package }}/env-vars.txt
           env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> test-diagnostics-${{ matrix.package }}/env-vars.txt
+
+          # Save package info
+          echo "Package information:" > test-diagnostics-${{ matrix.package }}/package-info.txt
+          echo "Package: ${{ matrix.package }}" >> test-diagnostics-${{ matrix.package }}/package-info.txt
+          echo "Package name: ${PACKAGE_NAME}" >> test-diagnostics-${{ matrix.package }}/package-info.txt
 
           echo "::endgroup::"
 
@@ -487,6 +522,37 @@ jobs:
           name: test-diagnostics-${{ matrix.package }}-${{ runner.os }}-${{ github.run_id }}
           path: test-diagnostics-${{ matrix.package }}
           retention-days: 30
+
+      # Add job summary with artifact information
+      - name: Create job summary with artifact information
+        if: always() # Run this step regardless of test outcome
+        run: |
+          echo "## Test Summary for ${{ matrix.package }}" >> $GITHUB_STEP_SUMMARY
+
+          # Add status badge
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ **Status**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Add artifact information
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "📊 [Test Results Artifact](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})" >> $GITHUB_STEP_SUMMARY
+
+          # Add additional information for failed tests
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Diagnostic Information" >> $GITHUB_STEP_SUMMARY
+            echo "📋 [Failure Diagnostics Artifact](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ **To download and view artifacts:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Go to the Actions tab in the repository" >> $GITHUB_STEP_SUMMARY
+            echo "2. Select this workflow run" >> $GITHUB_STEP_SUMMARY
+            echo "3. Scroll down to the Artifacts section" >> $GITHUB_STEP_SUMMARY
+            echo "4. Download the relevant artifact zip file" >> $GITHUB_STEP_SUMMARY
+          fi
 
   coverage-check:
     name: Overall Coverage Check
@@ -527,7 +593,7 @@ jobs:
 
           # Create a merged coverage report
           echo "mode: set" > merged-coverage.out
-          tail -q -n +2 merged-coverage/*.out >> merged-coverage.out
+          tail -q -n +2 merged-coverage/*.out >> merged-coverage.out || echo "No coverage files found to merge"
 
           # Display merged coverage
           echo "Merged coverage report:"
@@ -561,6 +627,41 @@ jobs:
           name: merged-coverage-${{ runner.os }}-${{ github.run_id }}
           path: merged-coverage.out
           retention-days: 30
+
+  # Add a summary of artifacts for the entire workflow
+  artifact-summary:
+    name: Artifact Availability Summary
+    runs-on: ubuntu-latest
+    if: always() # Always run this job
+    needs: [test, coverage-check, build]
+    steps:
+      - name: Summarize artifact availability
+        run: |
+          echo "## 📊 CI Artifacts Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following artifacts are available for this workflow run:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Standard Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Test results for each package" >> $GITHUB_STEP_SUMMARY
+          echo "- Coverage reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### For Failed Tests" >> $GITHUB_STEP_SUMMARY
+          echo "If tests failed, additional diagnostic information is available in:" >> $GITHUB_STEP_SUMMARY
+          echo "- Test diagnostics artifacts (one per failed package)" >> $GITHUB_STEP_SUMMARY
+          echo "- Full test logs with error details" >> $GITHUB_STEP_SUMMARY
+          echo "- System and environment information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### How to Access Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to the **Actions** tab in the repository" >> $GITHUB_STEP_SUMMARY
+          echo "2. Select this workflow run: [Run #${{ github.run_id }}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})" >> $GITHUB_STEP_SUMMARY
+          echo "3. Scroll down to the **Artifacts** section" >> $GITHUB_STEP_SUMMARY
+          echo "4. Download the relevant artifact zip file" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Add notice about artifacts
+          echo "::notice::📋 Artifacts Summary Available: All test results and diagnostics for this workflow run can be viewed in the 'Artifact Availability Summary' job."
 
   build:
     name: Build
@@ -746,25 +847,55 @@ jobs:
           echo "System information:" > gemini-test-diagnostics/system-info.txt
           uname -a >> gemini-test-diagnostics/system-info.txt
           free -h >> gemini-test-diagnostics/system-info.txt 2>/dev/null || echo "free command not available" >> gemini-test-diagnostics/system-info.txt
+          df -h >> gemini-test-diagnostics/system-info.txt 2>/dev/null || echo "df command not available" >> gemini-test-diagnostics/system-info.txt
 
           # Go environment
           echo "Go environment:" > gemini-test-diagnostics/go-env.txt
           go env >> gemini-test-diagnostics/go-env.txt
+          go version >> gemini-test-diagnostics/go-env.txt
 
-          # Extract API errors to a separate file
-          echo "API Errors:" > gemini-test-diagnostics/api-errors.txt
+          # Save detailed test information
           if [ -f gemini-test-results.json ]; then
+            # Test failure details
+            echo "Test failure details:" > gemini-test-diagnostics/test-failures.txt
+            # Extract and format test failures
+            grep '"Action":"fail"' gemini-test-results.json |
+              jq -r 'select(.Test != null) | "- Test: \(.Test)\n  Package: \(.Package)\n  Output: \(.Output)\n---"' >> gemini-test-diagnostics/test-failures.txt ||
+              echo "No failure details available" >> gemini-test-diagnostics/test-failures.txt
+
+            # Save full test output for reference
+            echo "Full test results JSON (for debugging):" > gemini-test-diagnostics/full-test-results.txt
+            cat gemini-test-results.json >> gemini-test-diagnostics/full-test-results.txt
+
+            # Test statistics
+            echo "Test statistics:" > gemini-test-diagnostics/test-stats.txt
+            PASSED_COUNT=$(grep -c '"Action":"pass"' gemini-test-results.json || echo "0")
+            FAILED_COUNT=$(grep -c '"Action":"fail"' gemini-test-results.json || echo "0")
+            SKIP_COUNT=$(grep -c '"Action":"skip"' gemini-test-results.json || echo "0")
+            echo "- Tests passed: $PASSED_COUNT" >> gemini-test-diagnostics/test-stats.txt
+            echo "- Tests failed: $FAILED_COUNT" >> gemini-test-diagnostics/test-stats.txt
+            echo "- Tests skipped: $SKIP_COUNT" >> gemini-test-diagnostics/test-stats.txt
+
+            # Extract API errors to a separate file
+            echo "API Errors:" > gemini-test-diagnostics/api-errors.txt
             grep '"Action":"fail"' gemini-test-results.json |
               jq -r 'select(.Output != null) | .Output' |
               grep -E "Error:|Failed|API|Status Code:|response body:" >> gemini-test-diagnostics/api-errors.txt ||
               echo "No specific API errors found" >> gemini-test-diagnostics/api-errors.txt
+
+            # Copy test results file
+            cp gemini-test-results.json gemini-test-diagnostics/
           else
-            echo "No test results file found" >> gemini-test-diagnostics/api-errors.txt
+            echo "No test results file found" > gemini-test-diagnostics/test-info.txt
           fi
 
           # Environment variables (redacted)
           echo "Environment variables (redacted):" > gemini-test-diagnostics/env-vars.txt
           env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> gemini-test-diagnostics/env-vars.txt
+
+          # Internet connectivity check
+          echo "Internet connectivity check:" > gemini-test-diagnostics/connectivity.txt
+          curl -s --head https://generativelanguage.googleapis.com/ | head -n 1 >> gemini-test-diagnostics/connectivity.txt 2>/dev/null || echo "Could not connect to Gemini API" >> gemini-test-diagnostics/connectivity.txt
 
           echo "::endgroup::"
 

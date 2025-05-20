@@ -53,7 +53,7 @@
     - **Verification:** Review CI logs for improved clarity and detail
     - **Depends‑on:** none
 
-- [ ] **T006 · Chore · P1: add CI artifacts for failed test runs**
+- [x] **T006 · Chore · P1: add CI artifacts for failed test runs**
     - **Context:** Diagnostic information from CI failures not easily accessible
     - **Action:** Configure CI to upload test logs and reports as artifacts on failure
     - **Done‑when:** Artifacts are available for download on failed CI runs

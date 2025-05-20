@@ -522,7 +522,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Coverage report shows >0% if tests exist, or package is excluded from coverage calculations
     - **Depends‑on:** T016
 
-- [~] **T018 · Test · P0: unskip tests marked as skipped during refactoring**
+- [x] **T018 · Test · P0: unskip tests marked as skipped during refactoring**
     - **Context:** Root Cause Analysis > Tests being skipped during refactoring
     - **Action:**
         1. Identify all tests skipped due to "refactoring in progress"

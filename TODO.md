@@ -605,7 +605,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         2. Push commit without errors from pre-push hook
     - **Depends‑on:** none
 
-- [ ] **T024 · Test · P1: Fix API error redaction tests**
+- [x] **T024 · Test · P1: Fix API error redaction tests**
     - **Context:** API error redaction tests failing after changes to internal/redact package
     - **Action:**
         1. Analyze failing tests in internal/api error_redaction_test.go

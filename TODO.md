@@ -618,6 +618,194 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Run `go test ./internal/api/...` and `go test ./internal/redact/...` locally and confirm all tests pass
     - **Depends‑on:** none
 
+## CI Workflow (2025-05-20)
+- [ ] **T001 · Bugfix · P0: update CI migration command to use `go run ./cmd/server`**
+    - **Context:** CI failures due to refactoring cmd/server into multiple files
+    - **Action:**
+        1. Locate the CI workflow step responsible for database migrations.
+        2. Change the command from `go run ./cmd/server/main.go -migrate=...` to `go run ./cmd/server -migrate=...`.
+    - **Done‑when:**
+        1. The CI migration step completes successfully using the updated command.
+    - **Verification:**
+        1. Review CI logs to confirm the new command is used and the migration step passes.
+    - **Depends‑on:** none
+
+- [ ] **T002 · Bugfix · P0: add early build verification step for `cmd/server` in CI**
+    - **Context:** CI failures due to build issues not caught early in the pipeline
+    - **Action:**
+        1. Add a new step in the CI workflow, before database setup/migrations, to explicitly build the main application using `go build ./cmd/server`.
+    - **Done‑when:**
+        1. The CI pipeline includes the `go build ./cmd/server` step.
+        2. This build verification step passes successfully in CI.
+    - **Verification:**
+        1. Introduce a temporary build error in `cmd/server` and confirm the CI pipeline fails at this new build verification step.
+    - **Depends‑on:** none
+
+- [ ] **T003 · Bugfix · P1: enable CGo via `CGO_ENABLED=1` for CI integration tests**
+    - **Context:** Database tests failing due to disabled CGo in CI
+    - **Action:**
+        1. Identify CI jobs/steps that run integration tests (especially those interacting with the database).
+        2. Add the environment variable `CGO_ENABLED=1` to these specific CI jobs/steps.
+    - **Done‑when:**
+        1. `CGO_ENABLED=1` is set in the environment for CI integration test execution.
+        2. Database driver compilation (e.g., `pgx/v5/stdlib`) attempts to use CGo.
+    - **Verification:**
+        1. Review CI logs for the relevant jobs to confirm `CGO_ENABLED=1` is active.
+    - **Depends‑on:** none
+
+- [ ] **T004 · Chore · P1: ensure CI runner has required C libraries (gcc, libpq-dev) for CGo**
+    - **Context:** Database tests failing due to missing C libraries for CGo
+    - **Action:**
+        1. Verify that the CI runner environment has `gcc` and `libpq-dev` (or OS-equivalent) installed.
+        2. If missing, update the CI runner configuration/image to include these C libraries.
+    - **Done‑when:**
+        1. The CI runner environment provides `gcc` and `libpq-dev` (or equivalents).
+        2. CGo-dependent Go packages can successfully compile their C parts in CI.
+    - **Verification:**
+        1. Add a temporary CI step to check for the presence and version of `gcc` and `libpq-dev`.
+    - **Depends‑on:** none
+
+- [ ] **T005 · Chore · P1: improve CI test logging and error reporting**
+    - **Context:** CI failures providing insufficient diagnostic information
+    - **Action:**
+        1. Modify CI test execution commands to increase verbosity (e.g., `go test -v`).
+        2. Ensure error messages from failing tests are clearly captured and easily accessible in CI logs.
+    - **Done‑when:**
+        1. CI test logs provide more detailed information about test execution and failures.
+    - **Verification:**
+        1. Intentionally introduce a test failure and review CI logs for improved clarity and detail.
+    - **Depends‑on:** none
+
+- [ ] **T006 · Chore · P1: add CI artifacts for failed test runs**
+    - **Context:** Diagnostic information from CI failures not easily accessible
+    - **Action:**
+        1. Configure CI jobs to upload relevant artifacts (e.g., detailed test logs, coverage reports if generated) when test steps fail.
+    - **Done‑when:**
+        1. Artifacts containing diagnostic information are available for download on failed CI test runs.
+    - **Verification:**
+        1. Intentionally introduce a test failure and confirm that specified artifacts are uploaded and accessible from the CI run summary.
+    - **Depends‑on:** none
+
+## Test Environment & Failures
+- [ ] **T007 · Bugfix · P1: debug database URL standardization in CI environment**
+    - **Context:** Potential issues with database URL construction in CI
+    - **Action:**
+        1. Review how database connection URLs are constructed and consumed by tests in the CI environment.
+        2. Verify that necessary parameters (e.g., `?sslmode=disable`) are correctly applied and consistently handled.
+    - **Done‑when:**
+        1. Database connection logic in CI correctly handles URL parameters.
+        2. Tests relying on specific database URL configurations connect successfully.
+    - **Verification:**
+        1. Add logging in CI (if secure) to show the final database URL being used by tests.
+        2. Confirm tests pass that previously failed due to URL misconfiguration.
+    - **Depends‑on:** [T003, T004]
+
+- [ ] **T008 · Test · P1: address remaining specific test failures after environment fixes**
+    - **Context:** Test failures not resolved by environment configuration fixes
+    - **Action:**
+        1. Once CI environment issues (T001-T004, T007) are resolved, identify any persistently failing tests.
+        2. Investigate and fix the root cause of these specific test failures.
+    - **Done‑when:**
+        1. All previously failing tests (not attributable to environment issues) now pass in CI.
+    - **Verification:**
+        1. CI pipeline shows all test suites passing.
+    - **Depends‑on:** [T001, T002, T003, T004, T007]
+
+## Test Coverage
+- [ ] **T009 · Test · P1: analyze coverage reports from a successful CI run**
+    - **Context:** Multiple packages failing coverage threshold requirements
+    - **Action:**
+        1. After a CI run where all tests pass (post-T008), obtain and analyze the generated code coverage reports.
+        2. Identify packages and specific code areas that are below the 70% coverage threshold.
+    - **Done‑when:**
+        1. A documented analysis of low-coverage areas is produced.
+    - **Verification:**
+        1. Coverage report is available and reviewed.
+    - **Depends‑on:** [T008]
+
+- [ ] **T010 · Test · P1: add tests for low-coverage packages to meet 70% threshold**
+    - **Context:** Infrastructure package showing 0.0% coverage, other packages below threshold
+    - **Action:**
+        1. Based on the analysis from T009, write and add new unit/integration tests to improve coverage in the identified low-coverage packages.
+        2. Focus on the `infrastructure` package if it's still showing low coverage.
+    - **Done‑when:**
+        1. All targeted packages meet or exceed the 70% test coverage threshold in CI.
+    - **Verification:**
+        1. CI coverage reports confirm that all packages meet the 70% threshold.
+    - **Depends‑on:** [T009]
+
+- [ ] **T011 · Refactor · P2: ensure test utilities are correctly excluded from coverage calculations**
+    - **Context:** Test utility code potentially affecting coverage metrics
+    - **Action:**
+        1. Identify any test utility packages or files that should not contribute to coverage metrics.
+        2. Update the project's code coverage tool configuration to exclude these identified utilities.
+    - **Done‑when:**
+        1. Code coverage reports generated by CI accurately reflect the coverage of application code, excluding test utilities.
+    - **Verification:**
+        1. Review a generated coverage report to confirm that known test utility files/packages are not included in the statistics.
+    - **Depends‑on:** none
+
+## Documentation & Developer Tooling
+- [ ] **T012 · Chore · P2: standardize `go run ./cmd/server` command in documentation and scripts**
+    - **Context:** Inconsistent usage of command to run the server
+    - **Action:**
+        1. Search the entire repository for instances of `go run ./cmd/server/main.go`.
+        2. Replace these instances with `go run ./cmd/server` in all relevant documentation files and helper scripts.
+    - **Done‑when:**
+        1. All project documentation and scripts use the standardized `go run ./cmd/server` command.
+    - **Verification:**
+        1. Perform a repository-wide search to ensure no old command instances remain in docs/scripts.
+    - **Depends‑on:** none
+
+- [ ] **T013 · Chore · P2: add pre-commit hook for `go build ./cmd/server`**
+    - **Context:** Build issues not caught before commits
+    - **Action:**
+        1. Implement a pre-commit hook that executes `go build ./cmd/server`.
+        2. Ensure the hook fails the commit if the build command does not succeed.
+    - **Done‑when:**
+        1. The pre-commit hook is configured and active for developers.
+        2. Commits are prevented if `go build ./cmd/server` fails.
+    - **Verification:**
+        1. Introduce a build error in `cmd/server`, attempt to commit, and verify the pre-commit hook blocks the commit.
+    - **Depends‑on:** none
+
+- [ ] **T014 · Chore · P2: document CGo requirements for CI and local development**
+    - **Context:** Undocumented CGo dependencies causing test failures
+    - **Action:**
+        1. Update or create documentation detailing CGo requirements (e.g., `CGO_ENABLED=1` environment variable, necessary C libraries like `gcc` and `libpq-dev`).
+        2. Explain these requirements for both local development and the CI environment.
+    - **Done‑when:**
+        1. CGo requirements and setup instructions are clearly documented and accessible to developers.
+    - **Verification:**
+        1. Review the updated documentation for clarity, accuracy, and completeness.
+    - **Depends‑on:** none
+
+- [ ] **T015 · Feature · P2: create local CI simulation script for developers**
+    - **Context:** Difficulty replicating CI environment locally
+    - **Action:**
+        1. Develop a script that developers can run locally to simulate key CI checks (e.g., linting, building, running tests).
+        2. Document how to use this script.
+    - **Done‑when:**
+        1. A local CI simulation script is available and functional.
+        2. Developers can use the script to catch potential CI failures before pushing code.
+    - **Verification:**
+        1. Run the script locally on a clean branch and confirm it executes checks similar to CI.
+        2. Introduce a failure (e.g., lint error, test failure) and confirm the script reports it.
+    - **Depends‑on:** none
+
+- [ ] **T016 · Chore · P2: update code review checklist for CI/build considerations**
+    - **Context:** Code reviews not catching potential CI issues
+    - **Action:**
+        1. Add items to the existing code review checklist or guidelines to cover:
+            - Correct `go run` invocation for multi-file main packages.
+            - CGo implications for database code or other dependencies.
+            - Potential impact of changes on the CI environment.
+    - **Done‑when:**
+        1. The code review checklist/guidelines are updated with the new checks.
+    - **Verification:**
+        1. Review the updated checklist/guidelines.
+    - **Depends‑on:** none
+
 ## Prevention Measures
 
 1. Run dedicated CI-specific tests early in the pipeline

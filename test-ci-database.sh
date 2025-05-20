@@ -90,7 +90,7 @@ fi
 # Step 3: Test migration verification
 echo -e "\n${YELLOW}Step 3: Testing migration verification${NC}"
 echo -e "${YELLOW}Running migration verification${NC}"
-if ! go run ./cmd/server/main.go -migrate=up -verbose; then
+if ! go run ./cmd/server -migrate=up -verbose; then
   echo -e "${RED}Error: Migration verification failed${NC}"
   exit 1
 fi

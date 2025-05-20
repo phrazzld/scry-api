@@ -154,7 +154,7 @@ Common CI-specific commands:
 
 ```bash
 # Run migrations in CI
-go run ./cmd/server/main.go -migrate=up
+go run ./cmd/server -migrate=up
 
 # Run tests with CI-compatible tags
 go test -v -tags=test_without_external_deps ./...

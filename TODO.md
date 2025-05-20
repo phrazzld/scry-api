@@ -16,7 +16,7 @@
 
 ## CI Workflow (2025-05-20)
 
-- [ ] **T001 · Bugfix · P0: update CI migration command to use `go run ./cmd/server`**
+- [x] **T001 · Bugfix · P0: update CI migration command to use `go run ./cmd/server`**
     - **Context:** CI failures due to refactoring cmd/server into multiple files
     - **Action:**
         1. Locate the CI workflow step responsible for database migrations

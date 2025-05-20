@@ -32,7 +32,7 @@
     - **Verification:** Confirm the CI pipeline fails early when introducing a build error
     - **Depends‑on:** none
 
-- [ ] **T003 · Bugfix · P1: enable CGo via `CGO_ENABLED=1` for CI integration tests**
+- [x] **T003 · Bugfix · P1: enable CGo via `CGO_ENABLED=1` for CI integration tests**
     - **Context:** Database tests failing due to disabled CGo in CI
     - **Action:** Add the environment variable `CGO_ENABLED=1` to relevant CI jobs/steps
     - **Done‑when:** CGo is enabled for database-dependent test execution

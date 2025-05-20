@@ -85,8 +85,11 @@ jobs:
       - name: Run CI pre-flight checks
         run: |
           chmod +x ./scripts/ci-pre-flight.sh
+          echo "CGO is enabled: CGO_ENABLED=$CGO_ENABLED"
           ./scripts/ci-pre-flight.sh
         env:
+          # Enable CGo for PostgreSQL driver
+          CGO_ENABLED: 1
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
@@ -203,6 +206,8 @@ jobs:
             exit 1
           fi
         env:
+          # Enable CGo for PostgreSQL driver
+          CGO_ENABLED: 1
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
@@ -248,6 +253,8 @@ jobs:
           echo "Migration table contents (diagnostic info):"
           PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version_id, is_applied FROM schema_migrations ORDER BY version_id;"
         env:
+          # Enable CGo for PostgreSQL driver
+          CGO_ENABLED: 1
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
@@ -288,6 +295,7 @@ jobs:
 
           echo "Running tests for package: ${{ matrix.package }}"
           PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          echo "CGO is enabled for database-dependent test execution: CGO_ENABLED=$CGO_ENABLED"
           echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
           go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
 
@@ -297,6 +305,8 @@ jobs:
             grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
           fi
         env:
+          # Enable CGo for PostgreSQL driver
+          CGO_ENABLED: 1
           # Database connection variables
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable

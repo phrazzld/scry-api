@@ -53,20 +53,29 @@ The underlying command is `go run ./cmd/server`, which uses package-based execut
 
 ## Database Operations
 
+### CGo Requirements
+
+This project uses the PostgreSQL database driver, which requires CGo. Before running any database operations or tests, ensure:
+
+1. CGo is enabled: `export CGO_ENABLED=1`
+2. Required C libraries are installed: `gcc` and `libpq-dev`
+
+For detailed requirements and troubleshooting, see [CGo Requirements](environment/CGO_REQUIREMENTS.md).
+
 ### Migration Management
 
 ```bash
 # Apply all pending migrations
-make migrate-up
+CGO_ENABLED=1 make migrate-up
 
 # Rollback the last migration
-make migrate-down
+CGO_ENABLED=1 make migrate-down
 
 # Check migration status
-make migrate-status
+CGO_ENABLED=1 make migrate-status
 
 # View current migration version
-make migrate-version
+CGO_ENABLED=1 make migrate-version
 
 # Create a new migration
 make migrate-create NAME=add_user_preferences
@@ -79,23 +88,23 @@ All migration commands use the main server binary with the `-migrate` flag.
 ### Running Tests
 
 ```bash
-# Run all tests
-make test
+# Run all tests (CGo must be enabled for database tests)
+CGO_ENABLED=1 make test
 
 # Run tests with verbose output
-make test-verbose
+CGO_ENABLED=1 make test-verbose
 
-# Run integration tests (requires database)
-make test-integration
+# Run integration tests (requires database and CGo)
+CGO_ENABLED=1 make test-integration
 
 # Run tests without external dependencies
 make test-no-deps
 
 # Generate coverage report
-make test-coverage
+CGO_ENABLED=1 make test-coverage
 
 # Generate HTML coverage report
-make test-coverage-html
+CGO_ENABLED=1 make test-coverage-html
 ```
 
 ### Test Tags
@@ -231,6 +240,9 @@ This project uses package-based Go commands (e.g., `go run ./cmd/server`) instea
 - Verify PostgreSQL is running
 - Check DATABASE_URL environment variable
 - Ensure database exists and migrations are applied
+- Make sure CGo is enabled: `export CGO_ENABLED=1`
+- Verify CGo dependencies are installed (gcc, libpq-dev)
+- See [CGo Requirements](environment/CGO_REQUIREMENTS.md) for detailed troubleshooting
 
 **Build failures**
 - Run `make deps` to ensure dependencies are downloaded

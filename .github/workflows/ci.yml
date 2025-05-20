@@ -70,10 +70,22 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install PostgreSQL client tools
+      - name: Install required tools and libraries for CGo
         run: |
+          echo "Installing PostgreSQL client tools, C compiler, and development libraries for CGo..."
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client gcc libpq-dev
+
+          # Verify installations
+          echo "Verifying installed tools and libraries:"
+          echo "PostgreSQL client version:"
+          psql --version
+          echo "GCC version:"
+          gcc --version
+          echo "libpq availability:"
+          pkg-config --libs libpq || echo "libpq available (pkg-config not showing details)"
+          echo "Listing PostgreSQL dev files:"
+          ls -la /usr/include/postgresql/ || echo "PostgreSQL headers not found in default location"
 
       - name: Build main application
         run: |
@@ -183,10 +195,22 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install required tools
+      - name: Install required tools and libraries for CGo
         run: |
+          echo "Installing PostgreSQL client tools, C compiler, and development libraries for CGo..."
           sudo apt-get update
-          sudo apt-get install -y postgresql-client jq
+          sudo apt-get install -y postgresql-client jq gcc libpq-dev
+
+          # Verify installations
+          echo "Verifying installed tools and libraries:"
+          echo "PostgreSQL client version:"
+          psql --version
+          echo "GCC version:"
+          gcc --version
+          echo "libpq availability:"
+          pkg-config --libs libpq || echo "libpq available (pkg-config not showing details)"
+          echo "Listing PostgreSQL dev files:"
+          ls -la /usr/include/postgresql/ || echo "PostgreSQL headers not found in default location"
 
       - name: Build main application
         run: |
@@ -522,14 +546,33 @@ jobs:
           echo "::notice::Tests will be run without the test_without_external_deps build tag"
           echo "::notice::Timeout set to 5 minutes to account for API latency and potential retries"
 
+      # Install required libraries for CGo
+      - name: Install required tools and libraries for CGo
+        run: |
+          echo "Installing C compiler and development libraries for CGo..."
+          sudo apt-get update
+          sudo apt-get install -y gcc libpq-dev
+
+          # Verify installations
+          echo "Verifying installed libraries:"
+          echo "GCC version:"
+          gcc --version
+          echo "libpq availability:"
+          pkg-config --libs libpq || echo "libpq available (pkg-config not showing details)"
+          echo "Listing PostgreSQL dev files:"
+          ls -la /usr/include/postgresql/ || echo "PostgreSQL headers not found in default location"
+
       # Run tests specifically for the Gemini package without the test_without_external_deps tag
       - name: Run Gemini integration tests
         id: tests
         run: |
           echo "Running tests against real Gemini API at $(date)"
+          echo "CGO is enabled for tests: CGO_ENABLED=$CGO_ENABLED"
           echo "Running: go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json"
           go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json
         env:
+          # Enable CGo for PostgreSQL driver
+          CGO_ENABLED: 1
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Add any other environment variables needed for tests here
           GO_TEST_TIMEOUT: 5m

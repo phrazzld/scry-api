@@ -39,7 +39,7 @@
     - **Verification:** CI logs confirm `CGO_ENABLED=1` is active for test steps
     - **Depends‑on:** none
 
-- [ ] **T004 · Chore · P1: ensure CI runner has required C libraries for CGo**
+- [x] **T004 · Chore · P1: ensure CI runner has required C libraries for CGo**
     - **Context:** Database tests failing due to missing C libraries for CGo
     - **Action:** Verify and install required C libraries (`gcc`, `libpq-dev`) in CI environment
     - **Done‑when:** CGo-dependent packages can successfully compile in CI
@@ -92,7 +92,7 @@
     - **Verification:** Test that commits with build errors are prevented
     - **Depends‑on:** none
 
-- [ ] **T014 · Chore · P2: document CGo requirements**
+- [x] **T014 · Chore · P2: document CGo requirements**
     - **Context:** Undocumented CGo dependencies causing test failures
     - **Action:** Document CGo requirements and necessary C libraries
     - **Done‑when:** Requirements are clearly documented for developers

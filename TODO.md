@@ -576,7 +576,7 @@ Based on CI failure analysis, these tasks address compilation errors and linting
         1. Attempt push with broken test; confirm push is blocked
     - **Depends‑on:** none
 
-- [ ] **T022 · Test · P1: enforce test coverage thresholds**
+- [x] **T022 · Test · P1: enforce test coverage thresholds**
     - **Context:** Prevention Measures > Add test coverage thresholds
     - **Action:**
         1. Set minimum coverage thresholds in CI (70% overall)

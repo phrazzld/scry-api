@@ -180,10 +180,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install PostgreSQL client tools
+      - name: Install required tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client jq
 
       - name: Build main application
         run: |
@@ -328,6 +328,31 @@ jobs:
           # Extract coverage percentage for this package
           total_coverage=$(go tool cover -func=coverage-${PACKAGE_NAME}.out | grep total: | awk '{print $3}' | sed 's/%//')
           echo "Coverage for ${{ matrix.package }}: $total_coverage"
+
+          # Check if this package has a specific threshold in the config
+          if [[ -f "coverage-thresholds.json" ]]; then
+            # Check if this package should be excluded
+            is_excluded=$(jq -r --arg pkg "${{ matrix.package }}" '.excluded_packages[] | select(. == $pkg) | length > 0' coverage-thresholds.json)
+            if [[ "$is_excluded" == "true" ]]; then
+              echo "Package ${{ matrix.package }} is excluded from coverage requirements"
+              exit 0
+            fi
+
+            # Get package-specific threshold or use default
+            threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json)
+            echo "Required coverage threshold for ${{ matrix.package }}: $threshold%"
+
+            # Convert to integer (remove decimal part) for comparison
+            coverage_int=$(echo $total_coverage | cut -d. -f1)
+            if [[ $coverage_int -lt $threshold ]]; then
+              echo "::error::Package ${{ matrix.package }} has coverage $total_coverage% which is below the required threshold of $threshold%"
+              exit 1
+            else
+              echo "::notice::Package ${{ matrix.package }} meets coverage requirement: $total_coverage% (threshold: $threshold%)"
+            fi
+          else
+            echo "::warning::coverage-thresholds.json not found, skipping package-specific threshold check"
+          fi
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always() # Upload even if tests fail
@@ -350,6 +375,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
 
       - name: Download all coverage reports
         uses: actions/download-artifact@v4
@@ -382,11 +412,22 @@ jobs:
           total_coverage=$(go tool cover -func=merged-coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
           echo "Total project coverage: $total_coverage"
 
+          # Get overall threshold from configuration
+          if [[ -f "coverage-thresholds.json" ]]; then
+            overall_threshold=$(jq -r '.default_threshold' coverage-thresholds.json)
+            echo "Required overall coverage threshold: $overall_threshold%"
+          else
+            echo "::warning::coverage-thresholds.json not found, using default threshold of 70%"
+            overall_threshold=70
+          fi
+
           # Convert to integer (remove decimal part) for comparison
           coverage_int=$(echo $total_coverage | cut -d. -f1)
-          if [ "$coverage_int" -lt "70" ]; then
-            echo "Overall code coverage is below 70%"
+          if [ "$coverage_int" -lt "$overall_threshold" ]; then
+            echo "::error::Overall code coverage is $total_coverage% which is below the required threshold of $overall_threshold%"
             exit 1
+          else
+            echo "::notice::Project meets overall coverage requirement: $total_coverage% (threshold: $overall_threshold%)"
           fi
 
       - name: Upload merged coverage

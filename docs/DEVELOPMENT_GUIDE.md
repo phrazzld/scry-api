@@ -104,6 +104,17 @@ The project uses build tags to control test execution:
 - `integration`: Tests that require a database
 - `test_without_external_deps`: Tests that use mocked external services
 
+### Coverage Thresholds
+
+The project enforces code coverage thresholds in CI to maintain quality:
+
+- **Overall Project**: Minimum 70% coverage required
+- **Core Domain Logic**: Minimum 90-95% coverage required
+- **Service Layer**: Minimum 85-90% coverage required
+- **Data Access Layer**: Minimum 85% coverage required
+
+These thresholds are defined in `coverage-thresholds.json` and enforced in the CI pipeline. Pull requests will fail if they reduce coverage below these thresholds.
+
 ## Code Quality
 
 ### Linting and Formatting

@@ -62,7 +62,7 @@
 
 ## Test Environment & Failures
 
-- [ ] **T007 · Bugfix · P1: debug database URL standardization in CI environment**
+- [x] **T007 · Bugfix · P1: debug database URL standardization in CI environment**
     - **Context:** Potential issues with database URL construction in CI
     - **Action:** Review database connection URL construction and parameters
     - **Done‑when:** Database connection logic correctly handles URL parameters

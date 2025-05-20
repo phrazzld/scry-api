@@ -109,6 +109,11 @@ func GetTestDatabaseURL(logger *slog.Logger) string {
 // standardizeDatabaseURL ensures the database URL uses standard credentials in CI environments.
 // It parses the URL, replaces username and password with 'postgres', and returns the standardized URL.
 func standardizeDatabaseURL(dbURL string, logger *slog.Logger) (string, error) {
+	// Additional validation for clearly invalid URLs
+	if dbURL == "not-a-url" || !strings.Contains(dbURL, "://") {
+		return "", fmt.Errorf("invalid database URL format: %s", dbURL)
+	}
+
 	parsedURL, err := url.Parse(dbURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse database URL: %w", err)

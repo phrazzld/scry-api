@@ -46,7 +46,7 @@
     - **Verification:** Test for presence of required libraries in CI environment
     - **Depends‑on:** none
 
-- [ ] **T005 · Chore · P1: improve CI test logging and error reporting**
+- [x] **T005 · Chore · P1: improve CI test logging and error reporting**
     - **Context:** CI failures providing insufficient diagnostic information
     - **Action:** Increase test verbosity and ensure error messages are captured
     - **Done‑when:** CI test logs provide detailed information about failures

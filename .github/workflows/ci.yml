@@ -317,16 +317,64 @@ jobs:
           echo "Running: go run ./cmd/server -validate-migrations"
           go run ./cmd/server -validate-migrations
 
-          echo "Running tests for package: ${{ matrix.package }}"
+          echo "::group::Running tests for package: ${{ matrix.package }}"
           PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
-          echo "CGO is enabled for database-dependent test execution: CGO_ENABLED=$CGO_ENABLED"
-          echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
-          go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
 
-          # Extract test failures if any exist
+          # Log environment info for better diagnostics
+          echo "=== Test Environment Information ==="
+          echo "Go version: $(go version)"
+          echo "CGO enabled: CGO_ENABLED=$CGO_ENABLED"
+          echo "Test directory: $(pwd)"
+          echo "Package path: ${{ matrix.package }}"
+          echo "Database URL: $DATABASE_URL"
+          echo "=================================="
+
+          # Run tests with enhanced logging
+          echo "Running tests with enhanced verbosity and logging:"
+          echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
+
+          # Set GOTEST_DEBUG for additional debug output for failed tests
+          GOTEST_DEBUG=1 GODEBUG=gctrace=0 go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
+
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "Test exit code: $TEST_EXIT_CODE"
+          echo "::endgroup::"
+
+          # Extract and format test failures with enhanced details if any exist
           if [ -f test-results-${PACKAGE_NAME}.json ]; then
-            echo "Test failures summary for ${{ matrix.package }}:"
-            grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+            # Count failed tests
+            FAILURE_COUNT=$(grep -c '"Action":"fail"' test-results-${PACKAGE_NAME}.json || echo "0")
+
+            if [ "$FAILURE_COUNT" -gt "0" ]; then
+              echo "::error::Found $FAILURE_COUNT test failures in package ${{ matrix.package }}"
+              echo "::group::Test Failure Details for ${{ matrix.package }}"
+              echo "=== TEST FAILURE SUMMARY ==="
+
+              # Get basic failure information
+              echo "Failed tests:"
+              grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+
+              # Extract more detailed failure information including output and error messages
+              echo -e "\nDetailed failure information:"
+              grep -A 1 '"Action":"fail"' test-results-${PACKAGE_NAME}.json |
+                grep -v '"Action":"fail"' |
+                jq -r 'select(.Output != null) | "Test: \(.Test)\nOutput: \(.Output)\n---"' || true
+
+              echo -e "\nError messages:"
+              grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json |
+                jq -r 'select(.Output != null) | .Output' |
+                grep -E "Error:|Failed|Failure|Panic:" || echo "No specific error messages found"
+
+              echo "==========================="
+              echo "::endgroup::"
+            else
+              echo "::notice::All tests passed in package ${{ matrix.package }}"
+            fi
+
+            # Store exit code for later check
+            echo "$TEST_EXIT_CODE" > "test-exit-code-${PACKAGE_NAME}.txt"
+          else
+            echo "::warning::No test results file found for ${{ matrix.package }}"
           fi
         env:
           # Enable CGo for PostgreSQL driver
@@ -349,7 +397,10 @@ jobs:
           SCRY_LLM_MAX_RETRIES: "3"
           SCRY_LLM_RETRY_DELAY_SECONDS: "2"
           SCRY_SERVER_PORT: "8080"
-          SCRY_SERVER_LOG_LEVEL: info
+          SCRY_SERVER_LOG_LEVEL: debug # Set to debug for more detailed logs
+          GOLOG_LOG_LEVEL: debug
+          GO_TEST_VERBOSE: "1"
+          GO_TEST_LOG_LEVEL: debug
           SCRY_TASK_WORKER_COUNT: "2"
           SCRY_TASK_QUEUE_SIZE: "100"
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
@@ -387,7 +438,8 @@ jobs:
           else
             echo "::warning::coverage-thresholds.json not found, skipping package-specific threshold check"
           fi
-      - name: Upload test results
+      # Upload test artifacts with extended diagnostics
+      - name: Upload test results and diagnostics
         uses: actions/upload-artifact@v4
         if: always() # Upload even if tests fail
         with:
@@ -395,6 +447,45 @@ jobs:
           path: |
             test-results-*.json
             coverage-*.out
+            test-exit-code-*.txt
+          retention-days: 30
+
+      # For failed tests, gather and upload additional diagnostics
+      - name: Gather diagnostics for failed tests
+        if: failure() # Only run this when tests fail
+        run: |
+          echo "::group::Additional Diagnostics for ${{ matrix.package }}"
+
+          # Create diagnostics directory
+          mkdir -p test-diagnostics-${{ matrix.package }}
+
+          # System information
+          echo "System information:" > test-diagnostics-${{ matrix.package }}/system-info.txt
+          uname -a >> test-diagnostics-${{ matrix.package }}/system-info.txt
+          free -h >> test-diagnostics-${{ matrix.package }}/system-info.txt 2>/dev/null || echo "free command not available" >> test-diagnostics-${{ matrix.package }}/system-info.txt
+
+          # Go environment
+          echo "Go environment:" > test-diagnostics-${{ matrix.package }}/go-env.txt
+          go env >> test-diagnostics-${{ matrix.package }}/go-env.txt
+
+          # Database information
+          echo "Database information:" > test-diagnostics-${{ matrix.package }}/db-info.txt
+          echo "Database URL: $DATABASE_URL" | sed 's/postgres:\/\/[^:]*:[^@]*@/postgres:\/\/user:pass@/' >> test-diagnostics-${{ matrix.package }}/db-info.txt
+          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "\\d" >> test-diagnostics-${{ matrix.package }}/db-info.txt 2>/dev/null || echo "Could not connect to database" >> test-diagnostics-${{ matrix.package }}/db-info.txt
+
+          # Environment variables (redacted)
+          echo "Environment variables (redacted):" > test-diagnostics-${{ matrix.package }}/env-vars.txt
+          env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> test-diagnostics-${{ matrix.package }}/env-vars.txt
+
+          echo "::endgroup::"
+
+      # Upload diagnostics for failed tests
+      - name: Upload failure diagnostics
+        uses: actions/upload-artifact@v4
+        if: failure() # Only upload when tests fail
+        with:
+          name: test-diagnostics-${{ matrix.package }}-${{ runner.os }}-${{ github.run_id }}
+          path: test-diagnostics-${{ matrix.package }}
           retention-days: 30
 
   coverage-check:
@@ -566,18 +657,73 @@ jobs:
       - name: Run Gemini integration tests
         id: tests
         run: |
+          echo "::group::Running Gemini API integration tests"
           echo "Running tests against real Gemini API at $(date)"
-          echo "CGO is enabled for tests: CGO_ENABLED=$CGO_ENABLED"
+
+          # Log environment info for better diagnostics
+          echo "=== Test Environment Information ==="
+          echo "Go version: $(go version)"
+          echo "CGO enabled: CGO_ENABLED=$CGO_ENABLED"
+          echo "Test directory: $(pwd)"
+          echo "Test timeout: $GO_TEST_TIMEOUT"
+          echo "=================================="
+
           echo "Running: go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json"
-          go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json
+
+          # Use enhanced logging variables
+          GOTEST_DEBUG=1 GODEBUG=gctrace=0 go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json
+
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "Test exit code: $TEST_EXIT_CODE"
+          echo "::endgroup::"
+
+          # Provide detailed error reporting
+          if [ -f gemini-test-results.json ]; then
+            # Count failed tests
+            FAILURE_COUNT=$(grep -c '"Action":"fail"' gemini-test-results.json || echo "0")
+
+            if [ "$FAILURE_COUNT" -gt "0" ]; then
+              echo "::error::Found $FAILURE_COUNT test failures in Gemini API tests"
+              echo "::group::Gemini API Test Failure Details"
+              echo "=== TEST FAILURE SUMMARY ==="
+
+              # Get basic failure information
+              echo "Failed tests:"
+              grep '"Action":"fail"' gemini-test-results.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+
+              # Extract more detailed failure information including output and error messages
+              echo -e "\nDetailed failure information:"
+              grep -A 1 '"Action":"fail"' gemini-test-results.json |
+                grep -v '"Action":"fail"' |
+                jq -r 'select(.Output != null) | "Test: \(.Test)\nOutput: \(.Output)\n---"' || true
+
+              echo -e "\nAPI Error messages:"
+              grep '"Action":"fail"' gemini-test-results.json |
+                jq -r 'select(.Output != null) | .Output' |
+                grep -E "Error:|Failed|Failure|Panic:|API|Status Code:" || echo "No specific API error messages found"
+
+              echo "==========================="
+              echo "::endgroup::"
+            else
+              echo "::notice::All Gemini API tests passed successfully"
+            fi
+          else
+            echo "::warning::No Gemini API test results file found"
+          fi
         env:
           # Enable CGo for PostgreSQL driver
           CGO_ENABLED: 1
+          # Enhanced logging for tests
+          GO_TEST_VERBOSE: "1"
+          GOTEST_DEBUG: "1"
+          SCRY_SERVER_LOG_LEVEL: debug
+          GOLOG_LOG_LEVEL: debug
+          GO_TEST_LOG_LEVEL: debug
+          # API key and timeout
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Add any other environment variables needed for tests here
           GO_TEST_TIMEOUT: 5m
 
-      # Upload test results if any exist
+      # Upload test results if any exist with enhanced diagnostics
       - name: Upload Gemini test results
         uses: actions/upload-artifact@v4
         if: always() # Upload even if tests fail
@@ -587,22 +733,131 @@ jobs:
             gemini-test-results.json
           retention-days: 30
 
-      # Add a summary of the test run
+      # For failed Gemini tests, gather and upload additional diagnostics
+      - name: Gather diagnostics for failed Gemini tests
+        if: failure() # Only run this when tests fail
+        run: |
+          echo "::group::Additional Diagnostics for Gemini API Tests"
+
+          # Create diagnostics directory
+          mkdir -p gemini-test-diagnostics
+
+          # System information
+          echo "System information:" > gemini-test-diagnostics/system-info.txt
+          uname -a >> gemini-test-diagnostics/system-info.txt
+          free -h >> gemini-test-diagnostics/system-info.txt 2>/dev/null || echo "free command not available" >> gemini-test-diagnostics/system-info.txt
+
+          # Go environment
+          echo "Go environment:" > gemini-test-diagnostics/go-env.txt
+          go env >> gemini-test-diagnostics/go-env.txt
+
+          # Extract API errors to a separate file
+          echo "API Errors:" > gemini-test-diagnostics/api-errors.txt
+          if [ -f gemini-test-results.json ]; then
+            grep '"Action":"fail"' gemini-test-results.json |
+              jq -r 'select(.Output != null) | .Output' |
+              grep -E "Error:|Failed|API|Status Code:|response body:" >> gemini-test-diagnostics/api-errors.txt ||
+              echo "No specific API errors found" >> gemini-test-diagnostics/api-errors.txt
+          else
+            echo "No test results file found" >> gemini-test-diagnostics/api-errors.txt
+          fi
+
+          # Environment variables (redacted)
+          echo "Environment variables (redacted):" > gemini-test-diagnostics/env-vars.txt
+          env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> gemini-test-diagnostics/env-vars.txt
+
+          echo "::endgroup::"
+
+      # Upload diagnostics for failed tests
+      - name: Upload Gemini failure diagnostics
+        uses: actions/upload-artifact@v4
+        if: failure() # Only upload when tests fail
+        with:
+          name: gemini-test-diagnostics-${{ runner.os }}-${{ github.run_id }}
+          path: gemini-test-diagnostics
+          retention-days: 30
+
+      # Add a comprehensive summary of the test run with enhanced details
       - name: Gemini integration test summary
         if: always() # Run even if tests fail
         run: |
+          echo "::group::Gemini API Integration Test Summary"
+
+          # Create a summary report file
+          SUMMARY_FILE="gemini-test-summary.txt"
+          echo "=== GEMINI API INTEGRATION TEST SUMMARY ===" > $SUMMARY_FILE
+          echo "Date: $(date)" >> $SUMMARY_FILE
+          echo "Test result: ${{ steps.tests.outcome }}" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+
           if [ "${{ steps.tests.outcome }}" == "success" ]; then
             echo "::notice::✅ Gemini API integration tests completed successfully at $(date)"
+            echo "Test Status: SUCCESS" >> $SUMMARY_FILE
+
+            # Count passed tests
+            if [ -f gemini-test-results.json ]; then
+              PASSED_COUNT=$(grep -c '"Action":"pass"' gemini-test-results.json || echo "0")
+              echo "Total tests passed: $PASSED_COUNT" >> $SUMMARY_FILE
+            fi
           else
             echo "::warning::⚠️ Gemini API integration tests failed at $(date)"
             echo "::warning::This could be due to API changes, rate limits, or temporary service issues."
-            echo "::warning::Review logs for detailed failure information."
+            echo "Test Status: FAILED" >> $SUMMARY_FILE
+            echo "Possible causes:" >> $SUMMARY_FILE
+            echo "- API changes" >> $SUMMARY_FILE
+            echo "- Rate limits" >> $SUMMARY_FILE
+            echo "- Temporary service issues" >> $SUMMARY_FILE
+            echo "- Network connectivity problems" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
 
-            # Extract test failures if any exist
+            # Extract and format test failures if any exist
             if [ -f gemini-test-results.json ]; then
-              echo "Failed tests:"
-              grep '"Action":"fail"' gemini-test-results.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
+              echo "Failed tests:" >> $SUMMARY_FILE
+              PASSED_COUNT=$(grep -c '"Action":"pass"' gemini-test-results.json || echo "0")
+              FAILED_COUNT=$(grep -c '"Action":"fail"' gemini-test-results.json || echo "0")
+              SKIP_COUNT=$(grep -c '"Action":"skip"' gemini-test-results.json || echo "0")
+
+              echo "Test statistics:" >> $SUMMARY_FILE
+              echo "- Passed: $PASSED_COUNT" >> $SUMMARY_FILE
+              echo "- Failed: $FAILED_COUNT" >> $SUMMARY_FILE
+              echo "- Skipped: $SKIP_COUNT" >> $SUMMARY_FILE
+              echo "" >> $SUMMARY_FILE
+
+              echo "Failed test details:" >> $SUMMARY_FILE
+              grep '"Action":"fail"' gemini-test-results.json |
+                jq -r '"- \(.Package): \(.Test ?? "package failure")"' >> $SUMMARY_FILE ||
+                echo "Could not extract detailed failure information" >> $SUMMARY_FILE
+
+              echo "" >> $SUMMARY_FILE
+              echo "Error summary:" >> $SUMMARY_FILE
+              grep '"Action":"fail"' gemini-test-results.json |
+                jq -r 'select(.Output != null) | .Output' |
+                grep -E "Error:|API error:|Status Code:|response body:" >> $SUMMARY_FILE ||
+                echo "No specific API error details found" >> $SUMMARY_FILE
             fi
           fi
+
+          echo "" >> $SUMMARY_FILE
+          echo "IMPORTANT NOTES:" >> $SUMMARY_FILE
+          echo "- These tests run with the actual Gemini API and may be affected by external factors" >> $SUMMARY_FILE
+          echo "- Consider checking the Gemini API status if tests fail unexpectedly" >> $SUMMARY_FILE
+          echo "- The failure diagnostics artifact contains additional information" >> $SUMMARY_FILE
+          echo "====================================================" >> $SUMMARY_FILE
+
+          # Output the summary to the log
+          cat $SUMMARY_FILE
+
+          # Save the summary file for artifacts
+          mkdir -p gemini-test-diagnostics
+          cp $SUMMARY_FILE gemini-test-diagnostics/
+
+          echo "::endgroup::"
+
+          # Always output these notices outside the group
           echo "::notice::These tests run with the actual Gemini API and may be affected by external factors."
           echo "::notice::Consider checking the Gemini API status if tests fail unexpectedly."
+
+          # Add a prominent notice about diagnostics artifacts
+          if [ "${{ steps.tests.outcome }}" != "success" ]; then
+            echo "::notice::📊 Detailed diagnostics are available in the workflow artifacts."
+          fi

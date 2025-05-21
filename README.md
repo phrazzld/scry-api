@@ -251,33 +251,47 @@ Migration files are stored in `internal/platform/postgres/migrations/`. See the 
 - Format code: `make fmt`
 - Lint code: `make lint`
 - Run tests with coverage: `make test-coverage`
-- Run local CI checks: `./scripts/run-ci-checks.sh`
+- Run local CI checks: `./scripts/scry-local-ci.sh` or `./scripts/run-ci-checks.sh`
 - View all available commands: `make help`
 
 ### Running Local CI Checks
 
-Before pushing code, you can run a subset of CI checks locally to catch issues early:
+Before pushing code, you can run CI checks locally to catch issues early:
 
 ```bash
-# Run all CI checks
-./scripts/run-ci-checks.sh
+# Basic usage: run comprehensive CI checks (simulating CI environment)
+./scripts/scry-local-ci.sh
 
 # Run checks with verbose output
-./scripts/run-ci-checks.sh --verbose
+./scripts/scry-local-ci.sh --verbose
 
-# Skip tests for quick checks
-./scripts/run-ci-checks.sh --skip-tests
+# Run only essential checks (fast mode)
+./scripts/scry-local-ci.sh --quick
+
+# Skip specific checks
+./scripts/scry-local-ci.sh --skip-tests
+
+# Enable automatic fixing for issues where possible
+./scripts/scry-local-ci.sh --fix
 
 # Get help and see all options
-./scripts/run-ci-checks.sh --help
+./scripts/scry-local-ci.sh --help
 ```
 
-The script runs the following checks:
-- Build verification (`go build ./cmd/server`)
-- Code formatting check
-- Linting with golangci-lint
-- Tests with race detection and coverage
-- go.mod tidiness check
+The comprehensive script (`scry-local-ci.sh`) runs the following checks:
+- Pre-flight environment validation
+- Code formatting verification
+- Linting with golangci-lint using project configuration
+- Application build verification
+- Database migration checks (when --with-db is specified)
+- Unit and integration tests with appropriate tags
+- Test coverage analysis
+- go.mod tidiness verification
+
+For basic checks, the simpler script is also available:
+```bash
+./scripts/run-ci-checks.sh
+```
 
 For a comprehensive list of development commands, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md).
 

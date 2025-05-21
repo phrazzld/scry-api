@@ -99,11 +99,11 @@
     - **Verification:** Documentation review confirms completeness
     - **Depends‑on:** none
 
-- [ ] **T015 · Feature · P2: create local CI simulation script**
+- [x] **T015 · Feature · P2: create local CI simulation script**
     - **Context:** Difficulty replicating CI environment locally
-    - **Action:** Create a script to run key CI checks locally
+    - **Action:** Created comprehensive script (scry-local-ci.sh) that simulates CI pipeline checks locally
     - **Done‑when:** Script successfully simulates CI checks
-    - **Verification:** Script catches the same issues as CI would
+    - **Verification:** Script catches the same issues as CI would and includes all key CI pipeline stages
     - **Depends‑on:** none
 
 - [ ] **T016 · Chore · P2: update code review checklist**

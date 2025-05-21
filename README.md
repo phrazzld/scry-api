@@ -148,6 +148,7 @@ The project uses the following pre-commit hooks:
 **Code Quality & Build Checks**
 - `golangci-lint`: Runs comprehensive Go linting with the same configuration as CI
 - `go-build-check`: Verifies that the application builds without errors
+- `go-build-server`: Specifically verifies that the main server application (`cmd/server`) builds without errors
 
 **Formatting Hooks**
 - `trailing-whitespace`: Removes trailing whitespace at the end of lines

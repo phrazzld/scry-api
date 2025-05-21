@@ -106,11 +106,11 @@
     - **Verification:** Script catches the same issues as CI would and includes all key CI pipeline stages
     - **Depends‑on:** none
 
-- [ ] **T016 · Chore · P2: update code review checklist**
+- [x] **T016 · Chore · P2: update code review checklist**
     - **Context:** Code reviews not catching potential CI issues
-    - **Action:** Add CI/build considerations to review checklist
+    - **Action:** Added comprehensive CI/build considerations to code review checklist
     - **Done‑when:** Checklist includes new CI-related checks
-    - **Verification:** Review the updated guidelines
+    - **Verification:** Updated guidelines cover all key CI aspects (environment, build, testing, migrations, verification)
     - **Depends‑on:** none
 
 ## Prevention Best Practices

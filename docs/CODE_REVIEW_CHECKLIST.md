@@ -60,9 +60,33 @@ This checklist serves as a guide for code reviewers to ensure consistency, quali
 
 ## CI/CD
 
-- [ ] Changes don't break the CI pipeline
-- [ ] Pre-commit hooks are properly configured and pass
-- [ ] Build tags are used appropriately for test isolation
+### Environment Configuration
+- [ ] CGo is properly enabled for database-dependent code (`CGO_ENABLED=1` where required)
+- [ ] Required C libraries for database drivers are documented if needed
+- [ ] Environment variables are properly documented and validated
+- [ ] No hardcoded absolute paths or environment-specific configurations
+
+### Build Process
+- [ ] All packages build successfully with `go build ./...`
+- [ ] Server application builds with `go build ./cmd/server`
+- [ ] Command references use directory syntax (`go run ./cmd/server`) not file paths
+- [ ] Build tags don't prevent core application code from compiling normally
+
+### Testing Infrastructure
+- [ ] Database driver imports are present in files using `sql.Open()` (e.g., `_ "github.com/jackc/pgx/v5/stdlib"`)
+- [ ] Tests properly use build tags for isolation (`test_without_external_deps`, `integration`)
+- [ ] Test environment variables are properly set up and documented
+- [ ] Database tests properly initialize and clean up test data
+
+### Migration Validation
+- [ ] Migration commands use the correct format (`go run ./cmd/server -migrate=...`)
+- [ ] Migration validation is addressed when modifying schema
+- [ ] Migrations are tested in isolation to avoid side effects
+
+### Local Verification
+- [ ] Local CI checks run successfully before pushing (`./scripts/scry-local-ci.sh`)
+- [ ] Pre-commit hooks are installed and not bypassed
+- [ ] All CI failures are addressed before requesting review
 - [ ] Deployment considerations are addressed (if applicable)
 
 ## Final Checks

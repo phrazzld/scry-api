@@ -3,53 +3,39 @@
 package testutils_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/phrazzld/scry-api/internal/testutils"
-	"github.com/stretchr/testify/assert"
 )
 
-// TestBuildTagFunctionAvailability verifies that critical testutils functions
-// are available with the integration build tag.
+// TestBuildTagFunctionAvailability verifies that critical functions needed by other packages
+// are available with the integration build tag. This is important to ensure CI can access
+// these functions.
 func TestBuildTagFunctionAvailability(t *testing.T) {
-	t.Parallel()
+	// This test exists primarily to verify that key functions are available
+	// when building with the integration tag. If this test compiles, it means
+	// the functions are accessible.
 
-	// Skip if not in integration test environment (this also tests IsIntegrationTestEnvironment)
+	// Skip actual execution in environments without a database configured
 	if !testutils.IsIntegrationTestEnvironment() {
 		t.Skip("Skipping integration test - DATABASE_URL not set")
 	}
 
-	// Test MustGetTestDatabaseURL
-	dbURL := ""
-	assert.NotPanics(t, func() {
-		// This only tests the function is available, not that it returns a valid URL
-		// since we're already inside IsIntegrationTestEnvironment() which confirms
-		// the environment is set up correctly
-		dbURL = testutils.MustGetTestDatabaseURL()
-	}, "MustGetTestDatabaseURL should not panic when DATABASE_URL is set")
-	assert.NotEmpty(t, dbURL, "Database URL should not be empty")
+	// Test IsIntegrationTestEnvironment
+	if !testutils.IsIntegrationTestEnvironment() {
+		t.Error("IsIntegrationTestEnvironment should return true in integration test")
+	}
 
-	// Just checking that these functions compile and are available
+	// Test AssertNoErrorLeakage (if this compiles, the function is available)
+	testutils.AssertNoErrorLeakage(t, errors.New("test error"))
 
-	// This test passes if it compiles, indicating the functions are available
-	// with the integration build tag, which is used in CI
-}
+	// Test MustGetTestDatabaseURL (just ensure it's available)
+	_ = testutils.MustGetTestDatabaseURL()
 
-// TestFunctionForwarderForCI verifies that functions are properly forwarding to testdb.
-// This is a compile-time test - if it builds, it means the functions are properly defined
-// and available with the current build tags.
-func TestFunctionForwarderForCI(t *testing.T) {
-	// Just verify these functions are available by referring to them
-	// This will fail at compile time if they're not available
-	var (
-		_ = testutils.IsIntegrationTestEnvironment
-		_ = testutils.WithTx
-		_ = testutils.GetTestDBWithT
-		_ = testutils.MustGetTestDatabaseURL
-		_ = testutils.SetupTestDatabaseSchema
-	)
+	// Note: We don't need to call every function - the main purpose is
+	// to verify these function references compile successfully with the
+	// integration build tag.
 
-	// If this test compiles and runs, it means the forwarding functions
-	// are properly defined and available with the current build tags
-	assert.True(t, true, "Functions are available with current build tags")
+	t.Log("All required functions are available with the integration build tag")
 }

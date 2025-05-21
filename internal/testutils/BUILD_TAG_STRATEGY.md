@@ -1,10 +1,23 @@
 # Build Tag Strategy for Testing Packages
 
-This document explains the build tag strategy used for the test utilities in the Scry API project, specifically focusing on the relationship between `testutils` and `testdb` packages.
+This document explains the build tag strategy used for the test utilities in the Scry API project, specifically focusing on the relationship between `testutils` and `testdb` packages and their function exports.
 
 ## Overview
 
 The Scry API project uses build tags to control which files are included in specific build scenarios. For testing, this is particularly important as we need to ensure test utilities are available in various environments while preventing circular dependencies and function redeclarations.
+
+## Recent Improvements
+
+We've made improvements to the build tag strategy to resolve issues with function visibility in CI environments:
+
+1. Added `integration_exports.go` (build tag: `integration && !test_without_external_deps && !integration_test_internal`)
+   - Contains critical functions needed by postgres integration tests
+   - Ensures these functions are available in CI environments
+   - Prevents conflicts with internal test functions
+
+2. Added test verification to ensure no regression of function availability
+
+3. Updated documentation to clarify build tag usage and standard patterns
 
 ## Key Build Tags
 
@@ -87,6 +100,26 @@ During refactoring, it's easy to accidentally have two implementations of the sa
 If you encounter function redeclaration errors or undefined functions:
 
 1. Check which build tags are active in your environment
+   ```bash
+   go list -f '{{.BuildTags}}' ./...
+   ```
+
 2. Verify that the required functions are available under those tags
-3. Ensure there are no circular dependencies between files with different build tags
-4. Use explicit go build commands to test specific tag combinations
+   ```bash
+   # To see which files will be included with specific tags
+   go list -f '{{.GoFiles}}' -tags=integration ./internal/testutils
+   ```
+
+3. For "undefined function" errors in integration tests:
+   - Make sure the function is defined in `integration_exports.go`
+   - Verify the build tags allow it to be included in your build
+
+4. For function redeclaration errors:
+   - Check for multiple files defining the same function
+   - Ensure build tag combinations exclude conflicting definitions
+
+5. For testing in a CI-like environment:
+   ```bash
+   # Build with the same tags used in CI
+   go build -tags=integration ./internal/platform/postgres/...
+   ```

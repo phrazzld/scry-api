@@ -113,6 +113,106 @@
     - **Verification:** Updated guidelines cover all key CI aspects (environment, build, testing, migrations, verification)
     - **Depends‑on:** none
 
+## Card Management API CI Failures (2025-05-21)
+
+- [x] **T025 · Bugfix · P0: Fix testutils build tag conflicts**
+    - **Context:** CI tests failing due to undefined functions in testutils package
+    - **Action:**
+        1. Fix build tag conflicts between compatibility.go and db_forwarding.go
+        2. Ensure functions like IsIntegrationTestEnvironment and WithTx are properly exported
+        3. Verify build tags are correctly configured to expose these functions in CI environment
+    - **Done‑when:** CI tests can access all required testutils functions
+    - **Verification:** Tests requiring testutils functions pass in CI environment
+    - **Depends‑on:** none
+
+- [x] **T026 · Bugfix · P0: Resolve undefined function errors in postgres tests**
+    - **Context:** CI failing with "undefined: testutils.IsIntegrationTestEnvironment" and similar errors
+    - **Action:**
+        1. Ensure all testutils functions used in postgres package tests are properly exported
+        2. Update import paths and function references if necessary
+        3. Fix any conditional compilation flags affecting function visibility
+    - **Done‑when:** All postgres package tests compile successfully
+    - **Verification:** No undefined function errors in postgres package tests
+    - **Depends‑on:** [T025]
+
+- [ ] **T027 · Bugfix · P1: Fix CI artifact naming issues**
+    - **Context:** CI failing with "artifact name is not valid: test-diagnostics-internal/api-Linux-15163552397"
+    - **Action:**
+        1. Update artifact naming in CI configuration to avoid forward slashes
+        2. Replace path separators with appropriate characters (e.g., hyphens)
+        3. Ensure all artifact names follow GitHub Actions naming conventions
+    - **Done‑when:** Artifacts upload successfully in CI
+    - **Verification:** No artifact naming errors in CI logs
+    - **Depends‑on:** none
+
+- [ ] **T028 · Test · P1: Improve test coverage in internal/api package**
+    - **Context:** Coverage below threshold (52.2% vs required 85%)
+    - **Action:**
+        1. Identify untested code paths in internal/api package
+        2. Add missing test cases to improve coverage
+        3. Focus on high-impact areas like error handling and middleware
+    - **Done‑when:** Coverage meets or exceeds 85% threshold
+    - **Verification:** Coverage check passes in CI
+    - **Depends‑on:** none
+
+- [ ] **T029 · Test · P1: Fix coverage in internal/service/auth package**
+    - **Context:** Coverage below threshold (37.0% vs required 90%)
+    - **Action:**
+        1. Identify untested code paths in auth service
+        2. Add missing test cases, particularly for JWT validation logic
+        3. Ensure error paths are fully tested
+    - **Done‑when:** Coverage meets or exceeds 90% threshold
+    - **Verification:** Coverage check passes in CI
+    - **Depends‑on:** none
+
+- [ ] **T030 · Test · P1: Fix coverage in internal/domain/srs package**
+    - **Context:** Coverage slightly below threshold (94.1% vs required 95%)
+    - **Action:**
+        1. Identify remaining untested code paths in SRS algorithm package
+        2. Add targeted test cases to cover missing lines
+    - **Done‑when:** Coverage meets or exceeds 95% threshold
+    - **Verification:** Coverage check passes in CI
+    - **Depends‑on:** none
+
+- [ ] **T031 · Bugfix · P1: Fix failing tests in internal/config package**
+    - **Context:** CI reports "Found 2 test failures in package internal/config"
+    - **Action:**
+        1. Identify which specific tests are failing in the config package
+        2. Debug root causes of failures
+        3. Fix implementation or test expectations as needed
+    - **Done‑when:** All tests in internal/config package pass
+    - **Verification:** No test failures in config package during CI
+    - **Depends‑on:** none
+
+- [ ] **T032 · Bugfix · P2: Add coverage for internal/platform/postgres package**
+    - **Context:** Zero coverage reported (0.0% vs required 85%)
+    - **Action:**
+        1. Review why tests aren't being run or counted for coverage
+        2. Fix build tags or test setup preventing coverage calculation
+        3. Add missing tests if needed
+    - **Done‑when:** Coverage calculation works and meets threshold
+    - **Verification:** Coverage check passes in CI
+    - **Depends‑on:** [T025, T026]
+
+- [ ] **T033 · Test · P2: Improve infrastructure package test coverage**
+    - **Context:** Zero coverage reported for infrastructure package
+    - **Action:**
+        1. Add tests for infrastructure code
+        2. Ensure CI properly calculates coverage for this package
+    - **Done‑when:** Coverage meets required threshold
+    - **Verification:** Coverage check passes in CI
+    - **Depends‑on:** none
+
+- [ ] **T034 · Chore · P2: Fix build tag auditing**
+    - **Context:** Build tag conflicts causing function visibility issues
+    - **Action:**
+        1. Review all build tags across the codebase
+        2. Document build tag usage patterns and rules
+        3. Create validation script to detect tag conflicts
+    - **Done‑when:** No build tag conflicts remain
+    - **Verification:** All tests pass with correct function visibility
+    - **Depends‑on:** none
+
 ## Prevention Best Practices
 
 1. Run CI-specific tests early in the pipeline
@@ -120,3 +220,5 @@
 3. Simulate CI environment locally before pushing
 4. Never bypass pre-commit hooks
 5. Run build and test checks before pushing code
+6. Maintain consistent build tags across related files
+7. Regularly audit test coverage in all packages

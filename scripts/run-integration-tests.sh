@@ -41,7 +41,7 @@ echo "PostgreSQL is ready!"
 
 # Run migrations
 echo "Running database migrations..."
-go run cmd/server/main.go -migrate=up
+go run ./cmd/server -migrate=up
 
 # Run tests with integration tag
 echo "Running integration tests..."

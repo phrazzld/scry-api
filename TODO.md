@@ -78,7 +78,7 @@
 
 ## Documentation & Developer Tooling
 
-- [ ] **T012 · Chore · P2: standardize `go run ./cmd/server` command**
+- [x] **T012 · Chore · P2: standardize `go run ./cmd/server` command**
     - **Context:** Inconsistent usage of command to run the server
     - **Action:** Replace all instances of `go run ./cmd/server/main.go` with `go run ./cmd/server`
     - **Done‑when:** All documentation and scripts use the standardized command

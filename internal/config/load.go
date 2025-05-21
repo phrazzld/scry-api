@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -35,6 +37,13 @@ import (
 //   - A pointer to the populated and validated Config struct
 //   - An error if loading or validation fails, with context about the failure
 func Load() (*Config, error) {
+	return LoadWithLogger(nil)
+}
+
+// LoadWithLogger loads configuration with the provided logger for detailed logging.
+// This is the same as Load() but allows for logging configuration loading details.
+// See Load() for full documentation.
+func LoadWithLogger(logger *slog.Logger) (*Config, error) {
 	// Initialize a new viper instance
 	v := viper.New()
 
@@ -97,30 +106,92 @@ func Load() (*Config, error) {
 	// Explicitly bind critical environment variables to ensure they are properly mapped
 	// This provides more reliable binding for essential configuration values
 	bindEnvs := []struct {
-		key    string // config key in dot notation (e.g., "server.port")
-		envVar string // environment variable name (e.g., "SCRY_SERVER_PORT")
+		key           string   // config key in dot notation (e.g., "server.port")
+		envVar        string   // primary environment variable (e.g., "SCRY_SERVER_PORT")
+		legacyEnvVars []string // legacy environment variables for backward compatibility
 	}{
-		{"database.url", "SCRY_DATABASE_URL"},
-		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET"},
-		{"auth.bcrypt_cost", "SCRY_AUTH_BCRYPT_COST"},
-		{"auth.token_lifetime_minutes", "SCRY_AUTH_TOKEN_LIFETIME_MINUTES"},
-		{"auth.refresh_token_lifetime_minutes", "SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES"},
-		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY"},
-		{"llm.model_name", "SCRY_LLM_MODEL_NAME"},
-		{"llm.prompt_template_path", "SCRY_LLM_PROMPT_TEMPLATE_PATH"},
-		{"llm.max_retries", "SCRY_LLM_MAX_RETRIES"},
-		{"llm.retry_delay_seconds", "SCRY_LLM_RETRY_DELAY_SECONDS"},
-		{"server.port", "SCRY_SERVER_PORT"},
-		{"server.log_level", "SCRY_SERVER_LOG_LEVEL"},
-		{"task.worker_count", "SCRY_TASK_WORKER_COUNT"},
-		{"task.queue_size", "SCRY_TASK_QUEUE_SIZE"},
-		{"task.stuck_task_age_minutes", "SCRY_TASK_STUCK_TASK_AGE_MINUTES"},
+		{"database.url", "SCRY_DATABASE_URL", []string{"DATABASE_URL"}},
+		{"auth.jwt_secret", "SCRY_AUTH_JWT_SECRET", nil},
+		{"auth.bcrypt_cost", "SCRY_AUTH_BCRYPT_COST", nil},
+		{"auth.token_lifetime_minutes", "SCRY_AUTH_TOKEN_LIFETIME_MINUTES", nil},
+		{"auth.refresh_token_lifetime_minutes", "SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES", nil},
+		{"llm.gemini_api_key", "SCRY_LLM_GEMINI_API_KEY", nil},
+		{"llm.model_name", "SCRY_LLM_MODEL_NAME", nil},
+		{"llm.prompt_template_path", "SCRY_LLM_PROMPT_TEMPLATE_PATH", nil},
+		{"llm.max_retries", "SCRY_LLM_MAX_RETRIES", nil},
+		{"llm.retry_delay_seconds", "SCRY_LLM_RETRY_DELAY_SECONDS", nil},
+		{"server.port", "SCRY_SERVER_PORT", nil},
+		{"server.log_level", "SCRY_SERVER_LOG_LEVEL", []string{"LOG_LEVEL"}},
+		{"task.worker_count", "SCRY_TASK_WORKER_COUNT", nil},
+		{"task.queue_size", "SCRY_TASK_QUEUE_SIZE", nil},
+		{"task.stuck_task_age_minutes", "SCRY_TASK_STUCK_TASK_AGE_MINUTES", nil},
 	}
 
+	// Bind environment variables with support for legacy variable names
 	for _, env := range bindEnvs {
+		// First bind the primary standardized environment variable
 		err := v.BindEnv(env.key, env.envVar)
 		if err != nil {
 			return nil, fmt.Errorf("error binding environment variable %s: %w", env.envVar, err)
+		}
+
+		// If this variable has legacy alternatives, check for their existence
+		// and log appropriate deprecation warnings
+		if len(env.legacyEnvVars) > 0 && os.Getenv(env.envVar) == "" {
+			for _, legacyEnvVar := range env.legacyEnvVars {
+				legacyValue := os.Getenv(legacyEnvVar)
+				if legacyValue != "" {
+					// Set the standardized env var to maintain consistency
+					if err := os.Setenv(env.envVar, legacyValue); err != nil && logger != nil {
+						logger.Warn("Failed to set standardized environment variable",
+							"envVar", env.envVar,
+							"error", err,
+						)
+					}
+
+					// Log deprecation warning if logger is provided
+					if logger != nil {
+						logger.Warn("Using legacy environment variable",
+							"legacy_var", legacyEnvVar,
+							"preferred_var", env.envVar,
+							"config_key", env.key,
+						)
+					} else {
+						fmt.Printf("Warning: Using legacy environment variable %s. "+
+							"Please use %s instead.\n", legacyEnvVar, env.envVar)
+					}
+
+					break
+				}
+			}
+		}
+	}
+
+	// Log which environment variables are set (at debug level)
+	if logger != nil {
+		for _, env := range bindEnvs {
+			if v.Get(env.key) != nil {
+				// Mask sensitive values in logs
+				value := fmt.Sprintf("%v", v.Get(env.key))
+				if strings.Contains(env.key, "secret") ||
+					strings.Contains(env.key, "password") ||
+					strings.Contains(env.key, "key") ||
+					strings.Contains(env.key, "url") {
+					// Show only first and last few characters
+					if len(value) > 8 {
+						value = value[:4] + "****" + value[len(value)-4:]
+					} else {
+						value = "****" // Very short sensitive value
+					}
+				}
+
+				logger.Debug("Configuration value loaded",
+					"key", env.key,
+					"env_var", env.envVar,
+					"value", value,
+					"source", v.GetString(fmt.Sprintf("source.%s", env.key)),
+				)
+			}
 		}
 	}
 

@@ -35,6 +35,14 @@ func (a *statsRepositoryAdapter) Get(
 	return a.statsStore.Get(ctx, userID, cardID)
 }
 
+// GetForUpdate implements StatsRepository.GetForUpdate
+func (a *statsRepositoryAdapter) GetForUpdate(
+	ctx context.Context,
+	userID, cardID uuid.UUID,
+) (*domain.UserCardStats, error) {
+	return a.statsStore.GetForUpdate(ctx, userID, cardID)
+}
+
 // Update implements StatsRepository.Update
 func (a *statsRepositoryAdapter) Update(ctx context.Context, stats *domain.UserCardStats) error {
 	return a.statsStore.Update(ctx, stats)

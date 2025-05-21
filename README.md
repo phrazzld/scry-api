@@ -145,6 +145,11 @@ This project uses pre-commit hooks to ensure code quality and consistency across
 
 The project uses the following pre-commit hooks:
 
+**Code Quality & Build Checks**
+- `golangci-lint`: Runs comprehensive Go linting with the same configuration as CI
+- `go-build-check`: Verifies that the application builds without errors
+- `go-build-server`: Specifically verifies that the main server application (`cmd/server`) builds without errors
+
 **Formatting Hooks**
 - `trailing-whitespace`: Removes trailing whitespace at the end of lines
 - `end-of-file-fixer`: Ensures files end with a newline
@@ -156,12 +161,12 @@ The project uses the following pre-commit hooks:
 - `check-merge-conflict`: Prevents committing files with merge conflict markers
 - `check-added-large-files`: Prevents committing large files (>500KB)
 
-**Linting Hooks**
-- `golangci-lint`: Runs comprehensive Go linters with the same configuration as CI
-
 **Custom Hooks**
 - `go-mod-tidy`: Ensures go.mod is always tidy
 - `warn-long-files`: Warns (but doesn't block commits) when files exceed 500 lines, encouraging modular code design
+- `fail-extremely-long-files`: Fails the commit if any file exceeds 1000 lines
+- `check-for-panics`: Prevents committing code with direct panic() calls without exemption
+- `check-sql-ordering`: Ensures all ORDER BY clauses include a secondary sort key for deterministic results
 
 ##### Usage
 
@@ -186,26 +191,25 @@ The pre-commit configuration is in `.pre-commit-config.yaml` at the root of the 
 
 ### Building the Project
 ```bash
-go build ./cmd/server
+make build
 ```
+
+For more build options, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md#build-and-deployment).
 
 ## Running Tests
 Run the full test suite:
 ```bash
-go test ./...
+make test
 ```
 
-To run tests for a specific package:
-```bash
-go test ./internal/domain
-```
+For more testing options (coverage, integration tests, etc.), see the [Development Guide](docs/DEVELOPMENT_GUIDE.md#testing).
 
 ## Usage / Running the Application
 1. Ensure your configuration is set up (either via `.env` file or `config.yaml` as described above)
 
 2. Start the API server:
    ```bash
-   go run ./cmd/server/main.go
+   make run-server
    ```
 
 3. The server will be available at `http://localhost:8080` (or the port specified in your configuration)
@@ -224,27 +228,72 @@ To run migrations:
 
 ```bash
 # Run all pending migrations
-go run cmd/server/main.go -migrate=up
+make migrate-up
 
 # Rollback the last migration
-go run cmd/server/main.go -migrate=down
+make migrate-down
 
 # Show migration status
-go run cmd/server/main.go -migrate=status
+make migrate-status
 
 # Show current version
-go run cmd/server/main.go -migrate=version
+make migrate-version
 
 # Create a new migration
-go run cmd/server/main.go -migrate=create -name=create_users_table
+make migrate-create NAME=create_users_table
 ```
+
+For more database operations, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md#database-operations).
 
 Migration files are stored in `internal/platform/postgres/migrations/`. See the [migrations README](internal/platform/postgres/migrations/README.md) for more details.
 
 ## Key Scripts / Commands
-- Format code: `go fmt ./...`
-- Lint code: `golangci-lint run`
-- Run tests with coverage: `go test -cover ./...`
+- Format code: `make fmt`
+- Lint code: `make lint`
+- Run tests with coverage: `make test-coverage`
+- Run local CI checks: `./scripts/scry-local-ci.sh` or `./scripts/run-ci-checks.sh`
+- View all available commands: `make help`
+
+### Running Local CI Checks
+
+Before pushing code, you can run CI checks locally to catch issues early:
+
+```bash
+# Basic usage: run comprehensive CI checks (simulating CI environment)
+./scripts/scry-local-ci.sh
+
+# Run checks with verbose output
+./scripts/scry-local-ci.sh --verbose
+
+# Run only essential checks (fast mode)
+./scripts/scry-local-ci.sh --quick
+
+# Skip specific checks
+./scripts/scry-local-ci.sh --skip-tests
+
+# Enable automatic fixing for issues where possible
+./scripts/scry-local-ci.sh --fix
+
+# Get help and see all options
+./scripts/scry-local-ci.sh --help
+```
+
+The comprehensive script (`scry-local-ci.sh`) runs the following checks:
+- Pre-flight environment validation
+- Code formatting verification
+- Linting with golangci-lint using project configuration
+- Application build verification
+- Database migration checks (when --with-db is specified)
+- Unit and integration tests with appropriate tags
+- Test coverage analysis
+- go.mod tidiness verification
+
+For basic checks, the simpler script is also available:
+```bash
+./scripts/run-ci-checks.sh
+```
+
+For a comprehensive list of development commands, see the [Development Guide](docs/DEVELOPMENT_GUIDE.md).
 
 ## Architecture Overview
 The project follows a clean architecture approach with clear separation of concerns:

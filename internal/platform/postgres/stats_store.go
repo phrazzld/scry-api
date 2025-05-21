@@ -60,6 +60,12 @@ func (s *PostgresUserCardStatsStore) Create(
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("creating user card stats",
 		slog.String("user_id", stats.UserID.String()),
 		slog.String("card_id", stats.CardID.String()))
@@ -164,6 +170,12 @@ func (s *PostgresUserCardStatsStore) Get(
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("retrieving user card stats",
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()))
@@ -229,6 +241,12 @@ func (s *PostgresUserCardStatsStore) Update(
 ) error {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
 
 	log.Debug("updating user card stats",
 		slog.String("user_id", stats.UserID.String()),
@@ -310,6 +328,12 @@ func (s *PostgresUserCardStatsStore) Delete(ctx context.Context, userID, cardID 
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
 
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	log.Debug("deleting user card stats",
 		slog.String("user_id", userID.String()),
 		slog.String("card_id", cardID.String()))
@@ -353,6 +377,12 @@ func (s *PostgresUserCardStatsStore) GetForUpdate(
 ) (*domain.UserCardStats, error) {
 	// Get the logger from context or use default
 	log := logger.FromContextOrDefault(ctx, s.logger)
+
+	// Make sure we have a valid logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
 
 	log.Debug("retrieving user card stats with lock",
 		slog.String("user_id", userID.String()),

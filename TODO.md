@@ -135,7 +135,7 @@
     - **Verification:** No undefined function errors in postgres package tests
     - **Depends‑on:** [T025]
 
-- [ ] **T027 · Bugfix · P1: Fix CI artifact naming issues**
+- [x] **T027 · Bugfix · P1: Fix CI artifact naming issues**
     - **Context:** CI failing with "artifact name is not valid: test-diagnostics-internal/api-Linux-15163552397"
     - **Action:**
         1. Update artifact naming in CI configuration to avoid forward slashes

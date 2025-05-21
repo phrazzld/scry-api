@@ -6,6 +6,12 @@ name: CI Checks
 # - Building
 # - Optional Gemini API Integration Testing (without the test_without_external_deps tag)
 #
+# ARTIFACT NAMING REQUIREMENTS:
+# - GitHub Actions artifact names must NOT contain forward slashes (/)
+# - Package paths in matrix.package (like "internal/api") must be sanitized by replacing
+#   slashes with hyphens (like "internal-api") before using in artifact names
+# - The sanitization is handled by using steps like "Create sanitized package name"
+#
 # IMPORTANT NOTES ABOUT GEMINI API INTEGRATION TESTS:
 # 1. These tests require a valid Gemini API key stored as a GitHub Secret named GEMINI_API_KEY
 # 2. The tests connect to the real Gemini API and may incur costs
@@ -439,11 +445,21 @@ jobs:
             echo "::warning::coverage-thresholds.json not found, skipping package-specific threshold check"
           fi
       # Upload test artifacts with extended diagnostics
+      # Create sanitized package name for artifact naming (replace / with -)
+      - name: Create sanitized package name
+        id: sanitize
+        run: |
+          # Replace forward slashes with hyphens in package name
+          SANITIZED_PACKAGE=$(echo "${{ matrix.package }}" | tr '/' '-')
+          echo "sanitized_package=$SANITIZED_PACKAGE" >> $GITHUB_OUTPUT
+          echo "Sanitized package name: $SANITIZED_PACKAGE"
+
       - name: Upload test results and diagnostics
         uses: actions/upload-artifact@v4
         if: always() # Upload even if tests fail
         with:
-          name: test-results-${{ matrix.package }}-${{ runner.os }}-${{ github.run_id }}
+          # Use sanitized package name to avoid GitHub Actions artifact naming restrictions
+          name: test-results-${{ steps.sanitize.outputs.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
           path: |
             test-results-*.json
             coverage-*.out
@@ -456,71 +472,82 @@ jobs:
         run: |
           echo "::group::Additional Diagnostics for ${{ matrix.package }}"
 
-          # Create diagnostics directory
-          mkdir -p test-diagnostics-${{ matrix.package }}
+          # Get sanitized package name (same as in previous step)
+          SANITIZED_PACKAGE=$(echo "${{ matrix.package }}" | tr '/' '-')
+
+          # Create diagnostics directory with sanitized name
+          mkdir -p "test-diagnostics-${SANITIZED_PACKAGE}"
+
+          # Directory path with sanitized name for use in all commands below
+          DIAG_DIR="test-diagnostics-${SANITIZED_PACKAGE}"
 
           # System information
-          echo "System information:" > test-diagnostics-${{ matrix.package }}/system-info.txt
-          uname -a >> test-diagnostics-${{ matrix.package }}/system-info.txt
-          free -h >> test-diagnostics-${{ matrix.package }}/system-info.txt 2>/dev/null || echo "free command not available" >> test-diagnostics-${{ matrix.package }}/system-info.txt
-          df -h >> test-diagnostics-${{ matrix.package }}/system-info.txt 2>/dev/null || echo "df command not available" >> test-diagnostics-${{ matrix.package }}/system-info.txt
+          echo "System information:" > "${DIAG_DIR}/system-info.txt"
+          uname -a >> "${DIAG_DIR}/system-info.txt"
+          free -h >> "${DIAG_DIR}/system-info.txt" 2>/dev/null || echo "free command not available" >> "${DIAG_DIR}/system-info.txt"
+          df -h >> "${DIAG_DIR}/system-info.txt" 2>/dev/null || echo "df command not available" >> "${DIAG_DIR}/system-info.txt"
 
           # Go environment
-          echo "Go environment:" > test-diagnostics-${{ matrix.package }}/go-env.txt
-          go env >> test-diagnostics-${{ matrix.package }}/go-env.txt
-          go version >> test-diagnostics-${{ matrix.package }}/go-env.txt
+          echo "Go environment:" > "${DIAG_DIR}/go-env.txt"
+          go env >> "${DIAG_DIR}/go-env.txt"
+          go version >> "${DIAG_DIR}/go-env.txt"
 
           # Save test results JSON as parsed output for easier analysis
-          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
-          if [ -f test-results-${PACKAGE_NAME}.json ]; then
-            echo "Test failure details:" > test-diagnostics-${{ matrix.package }}/test-failures.txt
+          PACKAGE_NAME=${SANITIZED_PACKAGE}
+          if [ -f "test-results-${PACKAGE_NAME}.json" ]; then
+            echo "Test failure details:" > "${DIAG_DIR}/test-failures.txt"
             # Extract and format test failures
-            grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json |
-              jq -r 'select(.Test != null) | "- Test: \(.Test)\n  Package: \(.Package)\n  Output: \(.Output)\n---"' >> test-diagnostics-${{ matrix.package }}/test-failures.txt ||
-              echo "No failure details available" >> test-diagnostics-${{ matrix.package }}/test-failures.txt
+            grep '"Action":"fail"' "test-results-${PACKAGE_NAME}.json" |
+              jq -r 'select(.Test != null) | "- Test: \(.Test)\n  Package: \(.Package)\n  Output: \(.Output)\n---"' >> "${DIAG_DIR}/test-failures.txt" ||
+              echo "No failure details available" >> "${DIAG_DIR}/test-failures.txt"
 
             # Save full test output for reference
-            echo "Full test results JSON (for debugging):" > test-diagnostics-${{ matrix.package }}/full-test-results.txt
-            cat test-results-${PACKAGE_NAME}.json >> test-diagnostics-${{ matrix.package }}/full-test-results.txt
+            echo "Full test results JSON (for debugging):" > "${DIAG_DIR}/full-test-results.txt"
+            cat "test-results-${PACKAGE_NAME}.json" >> "${DIAG_DIR}/full-test-results.txt"
 
             # Test statistics
-            echo "Test statistics:" > test-diagnostics-${{ matrix.package }}/test-stats.txt
-            PASSED_COUNT=$(grep -c '"Action":"pass"' test-results-${PACKAGE_NAME}.json || echo "0")
-            FAILED_COUNT=$(grep -c '"Action":"fail"' test-results-${PACKAGE_NAME}.json || echo "0")
-            SKIP_COUNT=$(grep -c '"Action":"skip"' test-results-${PACKAGE_NAME}.json || echo "0")
-            echo "- Tests passed: $PASSED_COUNT" >> test-diagnostics-${{ matrix.package }}/test-stats.txt
-            echo "- Tests failed: $FAILED_COUNT" >> test-diagnostics-${{ matrix.package }}/test-stats.txt
-            echo "- Tests skipped: $SKIP_COUNT" >> test-diagnostics-${{ matrix.package }}/test-stats.txt
+            echo "Test statistics:" > "${DIAG_DIR}/test-stats.txt"
+            PASSED_COUNT=$(grep -c '"Action":"pass"' "test-results-${PACKAGE_NAME}.json" || echo "0")
+            FAILED_COUNT=$(grep -c '"Action":"fail"' "test-results-${PACKAGE_NAME}.json" || echo "0")
+            SKIP_COUNT=$(grep -c '"Action":"skip"' "test-results-${PACKAGE_NAME}.json" || echo "0")
+            echo "- Tests passed: $PASSED_COUNT" >> "${DIAG_DIR}/test-stats.txt"
+            echo "- Tests failed: $FAILED_COUNT" >> "${DIAG_DIR}/test-stats.txt"
+            echo "- Tests skipped: $SKIP_COUNT" >> "${DIAG_DIR}/test-stats.txt"
           else
-            echo "No test results JSON file found" > test-diagnostics-${{ matrix.package }}/test-info.txt
+            echo "No test results JSON file found" > "${DIAG_DIR}/test-info.txt"
           fi
 
           # Database information
-          echo "Database information:" > test-diagnostics-${{ matrix.package }}/db-info.txt
-          echo "Database URL: $DATABASE_URL" | sed 's/postgres:\/\/[^:]*:[^@]*@/postgres:\/\/user:pass@/' >> test-diagnostics-${{ matrix.package }}/db-info.txt
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "\\d" >> test-diagnostics-${{ matrix.package }}/db-info.txt 2>/dev/null || echo "Could not connect to database" >> test-diagnostics-${{ matrix.package }}/db-info.txt
+          echo "Database information:" > "${DIAG_DIR}/db-info.txt"
+          echo "Database URL: $DATABASE_URL" | sed 's/postgres:\/\/[^:]*:[^@]*@/postgres:\/\/user:pass@/' >> "${DIAG_DIR}/db-info.txt"
+          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "\\d" >> "${DIAG_DIR}/db-info.txt" 2>/dev/null || echo "Could not connect to database" >> "${DIAG_DIR}/db-info.txt"
           # Get PostgreSQL server info
-          echo "PostgreSQL server information:" >> test-diagnostics-${{ matrix.package }}/db-info.txt
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version();" >> test-diagnostics-${{ matrix.package }}/db-info.txt 2>/dev/null || echo "Could not get PostgreSQL version" >> test-diagnostics-${{ matrix.package }}/db-info.txt
+          echo "PostgreSQL server information:" >> "${DIAG_DIR}/db-info.txt"
+          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version();" >> "${DIAG_DIR}/db-info.txt" 2>/dev/null || echo "Could not get PostgreSQL version" >> "${DIAG_DIR}/db-info.txt"
 
           # Environment variables (redacted)
-          echo "Environment variables (redacted):" > test-diagnostics-${{ matrix.package }}/env-vars.txt
-          env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> test-diagnostics-${{ matrix.package }}/env-vars.txt
+          echo "Environment variables (redacted):" > "${DIAG_DIR}/env-vars.txt"
+          env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> "${DIAG_DIR}/env-vars.txt"
 
           # Save package info
-          echo "Package information:" > test-diagnostics-${{ matrix.package }}/package-info.txt
-          echo "Package: ${{ matrix.package }}" >> test-diagnostics-${{ matrix.package }}/package-info.txt
-          echo "Package name: ${PACKAGE_NAME}" >> test-diagnostics-${{ matrix.package }}/package-info.txt
+          echo "Package information:" > "${DIAG_DIR}/package-info.txt"
+          echo "Package: ${{ matrix.package }}" >> "${DIAG_DIR}/package-info.txt"
+          echo "Original package name: ${{ matrix.package }}" >> "${DIAG_DIR}/package-info.txt"
+          echo "Sanitized package name: ${SANITIZED_PACKAGE}" >> "${DIAG_DIR}/package-info.txt"
 
           echo "::endgroup::"
+
+          # Save sanitized package name for upload step
+          echo "sanitized_package=${SANITIZED_PACKAGE}" >> $GITHUB_ENV
 
       # Upload diagnostics for failed tests
       - name: Upload failure diagnostics
         uses: actions/upload-artifact@v4
         if: failure() # Only upload when tests fail
         with:
-          name: test-diagnostics-${{ matrix.package }}-${{ runner.os }}-${{ github.run_id }}
-          path: test-diagnostics-${{ matrix.package }}
+          # Use sanitized package name from environment variable
+          name: test-diagnostics-${{ env.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
+          path: test-diagnostics-${{ env.sanitized_package }}
           retention-days: 30
 
       # Add job summary with artifact information
@@ -575,6 +602,7 @@ jobs:
       - name: Download all coverage reports
         uses: actions/download-artifact@v4
         with:
+          # This pattern will match all test result artifacts with sanitized names
           pattern: test-results-*
           path: coverage-reports/
 
@@ -904,6 +932,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure() # Only upload when tests fail
         with:
+          # Using a safe name without forward slashes
           name: gemini-test-diagnostics-${{ runner.os }}-${{ github.run_id }}
           path: gemini-test-diagnostics
           retention-days: 30

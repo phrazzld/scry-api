@@ -28,6 +28,57 @@ func TestNewDefaultService(t *testing.T) {
 	}
 }
 
+func TestNewServiceWithParams(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		params      *Params
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid_params",
+			params:      NewDefaultParams(),
+			expectError: false,
+		},
+		{
+			name:        "nil_params",
+			params:      nil,
+			expectError: true,
+			errorMsg:    "params cannot be nil",
+		},
+		{
+			name: "custom_params",
+			params: NewParams(ParamsConfig{
+				MinEaseFactor: 1.5,
+				MaxEaseFactor: 3.0,
+			}),
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, err := NewServiceWithParams(tt.params)
+
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+				require.Nil(t, service)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, service)
+
+				// Verify params were set correctly
+				defaultService, ok := service.(*defaultService)
+				require.True(t, ok, "Expected *defaultService type")
+				require.Equal(t, tt.params, defaultService.params)
+			}
+		})
+	}
+}
+
 func TestCalculateNextReview(t *testing.T) {
 	t.Parallel() // Enable parallel execution
 	service, err := NewDefaultService()

@@ -156,7 +156,7 @@
     - **Verification:** All new tests pass, coverage improved by ~20%
     - **Depends‑on:** none
 
-- [ ] **T029 · Test · P1: Fix coverage in internal/service/auth package**
+- [~] **T029 · Test · P1: Fix coverage in internal/service/auth package**
     - **Context:** Coverage below threshold (37.0% vs required 90%)
     - **Action:**
         1. Identify untested code paths in auth service
@@ -166,7 +166,7 @@
     - **Verification:** Coverage check passes in CI
     - **Depends‑on:** none
 
-- [ ] **T030 · Test · P1: Fix coverage in internal/domain/srs package**
+- [x] **T030 · Test · P1: Fix coverage in internal/domain/srs package**
     - **Context:** Coverage slightly below threshold (94.1% vs required 95%)
     - **Action:**
         1. Identify remaining untested code paths in SRS algorithm package

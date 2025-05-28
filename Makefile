@@ -79,6 +79,21 @@ test-coverage-html: ## Generate HTML coverage report
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+.PHONY: test-coverage-all
+test-coverage-all: ## Run all tests (unit + integration) with coverage
+	go test -coverprofile=coverage-unit.out -covermode=atomic ./...
+	go test -tags=integration -coverprofile=coverage-integration.out -covermode=atomic ./...
+	go run scripts/merge-coverage.go coverage-unit.out coverage-integration.out > coverage.out
+	go tool cover -func=coverage.out
+
+.PHONY: test-coverage-postgres
+test-coverage-postgres: ## Run postgres package tests with coverage
+	go test -coverprofile=coverage-postgres-unit.out -covermode=atomic ./internal/platform/postgres/...
+	go test -tags=integration -coverprofile=coverage-postgres-integration.out -covermode=atomic -coverpkg=./internal/platform/postgres ./internal/platform/postgres/...
+	go run scripts/merge-coverage.go coverage-postgres-unit.out coverage-postgres-integration.out > coverage-postgres.out
+	go tool cover -func=coverage-postgres.out
+	go tool cover -html=coverage-postgres.out -o coverage-postgres.html
+
 # Code quality
 .PHONY: lint
 lint: ## Run golangci-lint

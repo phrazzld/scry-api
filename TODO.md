@@ -175,7 +175,7 @@
     - **Verification:** Coverage check passes in CI
     - **Depends‑on:** none
 
-- [ ] **T031 · Bugfix · P1: Fix failing tests in internal/config package**
+- [x] **T031 · Bugfix · P1: Fix failing tests in internal/config package**
     - **Context:** CI reports "Found 2 test failures in package internal/config"
     - **Action:**
         1. Identify which specific tests are failing in the config package

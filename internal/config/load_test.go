@@ -3,6 +3,7 @@ package config
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -181,11 +182,7 @@ func TestLoadConfigFromYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer func() {
-		if err := os.Remove(tempFile.Name()); err != nil {
-			t.Logf("Failed to remove temp file %s: %v", tempFile.Name(), err)
-		}
-	}()
+	// Note: The temp file will be renamed and cleaned up later
 
 	// Write sample configuration to the file
 	configContent := `
@@ -226,13 +223,13 @@ task:
 	}
 
 	// Move to the directory containing the config file
-	tempDir := strings.TrimSuffix(tempFile.Name(), strings.TrimPrefix(tempFile.Name(), os.TempDir()))
+	tempDir := filepath.Dir(tempFile.Name())
 	if err := os.Chdir(tempDir); err != nil {
 		t.Fatalf("Failed to change directory: %v", err)
 	}
 
 	// Rename the temp file to config.yaml
-	configPath := tempDir + "/config.yaml"
+	configPath := filepath.Join(tempDir, "config.yaml")
 	if err := os.Rename(tempFile.Name(), configPath); err != nil {
 		t.Fatalf("Failed to rename config file: %v", err)
 	}

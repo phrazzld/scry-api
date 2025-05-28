@@ -149,3 +149,19 @@ ci-build: deps lint test build ## Run CI build steps
 
 .PHONY: ci-test
 ci-test: lint test-coverage ## Run CI test steps
+
+# Infrastructure testing (integration tests, no coverage expected)
+.PHONY: test-infrastructure
+test-infrastructure: ## Run infrastructure integration tests
+	@echo "Running infrastructure integration tests (no coverage expected)..."
+	go test -v ./infrastructure/...
+
+.PHONY: test-infrastructure-docker
+test-infrastructure-docker: ## Run Docker-based infrastructure tests
+	@echo "Running Docker-based infrastructure tests..."
+	DOCKER_TEST=1 go test -v ./infrastructure/local_dev/...
+
+.PHONY: test-infrastructure-terraform
+test-infrastructure-terraform: ## Run Terraform infrastructure tests
+	@echo "Running Terraform infrastructure tests..."
+	TERRATEST_ENABLED=1 go test -v ./infrastructure/terraform/test/...

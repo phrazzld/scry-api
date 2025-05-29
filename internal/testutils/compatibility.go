@@ -1,8 +1,12 @@
-//go:build integration_test_internal
+//go:build legacy_compat_disabled
+
+// Build Tag: This file uses 'legacy_compat_disabled' to ensure it's disabled
+// by default. The functions in this file would conflict with implementations
+// in other files. This is part of the migration strategy from old test patterns.
 
 // Package testutils provides compatibility utilities during the migration to the new testdb structure.
-// This file is disabled with the integration_test_internal build tag to prevent function redeclarations.
-// These functions are now implemented in db_forwarding.go with proper isolation via build tags.
+// This file is disabled with the legacy_compat_disabled build tag to prevent function redeclarations.
+// These functions are now implemented in other files with proper isolation via build tags.
 
 package testutils
 

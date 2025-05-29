@@ -1,4 +1,9 @@
-//go:build integration && !test_without_external_deps && !integration_test_internal
+//go:build integration && !test_without_external_deps && !legacy_compat_disabled
+
+// Build Tag: This file provides critical functions for postgres integration tests.
+// It's excluded when legacy_compat_disabled is set to prevent conflicts.
+// The complex build tag ensures these functions are available ONLY for true
+// integration tests while avoiding conflicts with other implementations.
 
 // Package testutils provides test utilities and helpers for the application.
 // This file provides critical functions needed for postgres integration tests

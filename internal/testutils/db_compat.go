@@ -1,8 +1,9 @@
-//go:build (integration || test_without_external_deps) && test_conflict
+//go:build (integration || test_without_external_deps) && db_compat_mode
 
 // This file is part of the compatibility layer for supporting older test code
-// while transitioning to the new structure. The build tag "integration" ensures
-// it's only included during integration tests, avoiding function redeclarations.
+// while transitioning to the new structure. The build tag "db_compat_mode" creates
+// mutual exclusion with helpers.go to prevent function redeclarations. This is an
+// intentional pattern to support gradual migration.
 
 package testutils
 

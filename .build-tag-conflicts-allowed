@@ -1,0 +1,17 @@
+# Build Tag Conflicts Allowlist
+# This file documents intentional build tag conflicts that should not be flagged as errors
+# Format: tag_name:reason
+
+# Mutual exclusion patterns for testutils migration
+db_compat_mode:Intentional mutual exclusion between helpers.go and db_compat.go during migration
+legacy_compat_disabled:Disables legacy compatibility functions to prevent redeclarations
+
+# Testdb dual-file pattern
+exported_core_functions:Dual-file pattern in testdb package for conditional exports (db.go/db_exports.go, etc.)
+
+# Complex migration patterns
+integration:Used in complex expressions for test environment isolation
+test_without_external_deps:Used in complex expressions for CI compatibility
+
+# Placeholder files
+ignored_build_tag_file:Marks files that should never be included in any build

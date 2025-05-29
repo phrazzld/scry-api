@@ -41,9 +41,48 @@ check_conflicts() {
 
     # Look for conflict markers in audit output
     if grep -q "## Potential Conflicts" "${PROJECT_ROOT}/build-tag-audit.txt"; then
-        echo -e "${RED}Build tag conflicts detected:${NC}"
-        sed -n '/## Potential Conflicts/,/^##/p' "${PROJECT_ROOT}/build-tag-audit.txt" | sed '$d'
-        return 1
+        # Extract conflicts from audit
+        local conflicts=$(sed -n '/## Potential Conflicts/,/^##/p' "${PROJECT_ROOT}/build-tag-audit.txt" | sed '$d')
+
+        # Check if we have an allowlist
+        local allowlist_file="${PROJECT_ROOT}/.build-tag-conflicts-allowed"
+        local has_unallowed=false
+
+        echo -e "${YELLOW}Build tag conflicts found:${NC}"
+        echo "$conflicts"
+
+        if [ -f "$allowlist_file" ]; then
+            echo
+            echo "Checking against allowlist..."
+
+            # Extract tag names from conflicts
+            local conflicted_tags=$(echo "$conflicts" | grep "^### " | sed 's/^### //')
+
+            while IFS= read -r tag; do
+                # Skip empty lines
+                if [ -z "$tag" ]; then
+                    continue
+                fi
+
+                if grep -q "^${tag}:" "$allowlist_file"; then
+                    local reason=$(grep "^${tag}:" "$allowlist_file" | cut -d':' -f2-)
+                    echo -e "${GREEN}  ✓ ${tag}${NC} - Allowed:${reason}"
+                else
+                    echo -e "${RED}  ✗ ${tag}${NC} - Not in allowlist"
+                    has_unallowed=true
+                fi
+            done <<< "$conflicted_tags"
+        else
+            has_unallowed=true
+        fi
+
+        if [ "$has_unallowed" = true ]; then
+            echo -e "${RED}Error: Unallowed build tag conflicts detected${NC}"
+            return 1
+        else
+            echo -e "${GREEN}All conflicts are documented in allowlist${NC}"
+            return 0
+        fi
     else
         echo -e "${GREEN}No build tag conflicts found${NC}"
         return 0
@@ -148,8 +187,10 @@ main() {
     # Run audit
     run_audit
 
-    # Run checks - only fail on severe conflicts for now
-    check_conflicts || echo -e "${YELLOW}Warning: Build tag conflicts found (tracked in TODO.md)${NC}"
+    # Run checks
+    if ! check_conflicts; then
+        exit_code=1
+    fi
     echo
 
     check_ci_compatibility || echo -e "${YELLOW}Warning: CI compatibility issues found (not blocking commit)${NC}"

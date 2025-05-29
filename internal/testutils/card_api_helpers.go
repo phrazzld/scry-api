@@ -1,4 +1,8 @@
-//go:build (integration || test_without_external_deps) && integration_test_internal
+//go:build (integration || test_without_external_deps) && legacy_compat_disabled
+
+// Build Tag: This file requires legacy_compat_disabled to be set explicitly
+// to avoid conflicts with other implementations. This is part of the test
+// utilities migration strategy.
 
 package testutils
 

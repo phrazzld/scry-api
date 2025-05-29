@@ -1,4 +1,8 @@
-//go:build (integration || test_without_external_deps) && !test_conflict
+//go:build (integration || test_without_external_deps) && !db_compat_mode
+
+// Build Tag: This file is excluded when db_compat_mode is set to prevent
+// function redeclarations with db_compat.go. This is an intentional mutual
+// exclusion pattern during the migration from old to new test patterns.
 
 // Package testutils provides a set of standardized helper functions for testing
 // across the codebase. These helpers ensure consistent test patterns, particularly

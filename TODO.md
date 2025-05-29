@@ -4,7 +4,7 @@
 
 ## Build Tag Cleanup Tasks
 
-- [ ] **T033 · Cleanup · P2: Fix mixed build tag styles in codebase**
+- [x] **T033 · Cleanup · P2: Fix mixed build tag styles in codebase**
     - **Context:** Pre-commit validation found files using both old-style and new-style build tags
     - **Action:** Convert all old-style `// +build` tags to new-style `//go:build` format
     - **Files Affected:** 9 files in internal/platform/gemini/ package

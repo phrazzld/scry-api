@@ -1,166 +1,259 @@
-# Go Build Tags Usage Policy
+# Build Tags Documentation
 
-This document establishes guidelines for using Go build tags in the Scry API project. Build tags are a powerful feature but must be used judiciously to avoid compilation issues and maintain code clarity.
+This document defines the standard build tags used in the Scry API project and provides guidelines for their usage.
 
-## What are Build Tags?
+## Table of Contents
 
-Build tags are special comments in Go that control which files are included during compilation. They can be specified in two formats:
+- [Overview](#overview)
+- [Standard Build Tags](#standard-build-tags)
+- [Tag Combination Rules](#tag-combination-rules)
+- [Package-Specific Guidelines](#package-specific-guidelines)
+- [Best Practices](#best-practices)
+- [Common Patterns](#common-patterns)
+- [Validation](#validation)
+
+## Overview
+
+Build tags in Go control which files are included during compilation. This project uses build tags to:
+- Separate integration tests from unit tests
+- Control function visibility across packages
+- Manage test utilities and mocks
+- Enable CI-specific configurations
+
+## Standard Build Tags
+
+### Core Tags
+
+| Tag | Purpose | Usage |
+|-----|---------|-------|
+| `integration` | Tests requiring external services (DB, APIs) | Integration test files |
+| `test_without_external_deps` | Mock external dependencies for CI | CI environments, local testing without services |
+| `exported_core_functions` | Functions needed in production code | Utilities that cross test/production boundary |
+| `integration_test_internal` | Internal control for test utilities | Preventing function redeclarations |
+
+### Usage Examples
 
 ```go
-//go:build tag_name
+// Integration tests requiring real database
+//go:build integration
 
-// or the legacy format:
-// +build tag_name
+// CI-compatible tests
+//go:build integration || test_without_external_deps
+
+// Production-compatible utilities
+//go:build exported_core_functions
+
+// Complex combinations
+//go:build (integration || test_without_external_deps) && exported_core_functions
 ```
 
-## When to Use Build Tags
+## Tag Combination Rules
 
-### ✅ Approved Use Cases
+### 1. OR Logic (`||`)
+Use OR when providing alternatives:
+```go
+//go:build integration || test_without_external_deps
+```
+This allows the file to be included in either integration tests OR CI environments.
 
-1. **Test Isolation**
-   - Use `test_without_external_deps` for test files that should run without external dependencies
-   - Example: Mock implementations for CI environments
+### 2. AND Logic (`&&`)
+Use AND when multiple conditions must be met:
+```go
+//go:build integration && exported_core_functions
+```
+This requires BOTH tags to be present.
+
+### 3. Negation (`!`)
+Use negation to exclude files in certain builds:
+```go
+//go:build !integration_test_internal
+```
+This excludes the file when the tag is present.
+
+### 4. Grouping
+Use parentheses for complex expressions:
+```go
+//go:build (integration || test_without_external_deps) && !integration_test_internal
+```
+
+## Package-Specific Guidelines
+
+### testutils Package
+
+The `testutils` package requires careful tag management due to function forwarding:
+
+1. **compatibility.go**:
    ```go
-   //go:build test_without_external_deps
-
-   package gemini
-
-   // Mock implementation for testing without Gemini API
+   //go:build integration_test_internal
    ```
+   Original implementations, excluded by default.
 
-2. **Platform-Specific Code**
-   - Use OS/architecture tags for platform-specific implementations
-   - Example: `//go:build linux` or `//go:build windows`
+2. **db_forwarding.go**:
    ```go
-   //go:build linux
-
-   package system
-
-   // Linux-specific implementation
+   //go:build !integration_test_internal && !ignored_build_tag_file
    ```
+   Forwards to testdb package, included by default.
 
-3. **Integration vs Unit Tests**
-   - Use `integration` tag for tests requiring external services
-   - Keep unit tests without special tags
+3. **integration_exports.go**:
    ```go
-   //go:build integration
-
-   package api_test
-
-   // Tests requiring database connection
+   //go:build integration && !test_without_external_deps && !integration_test_internal
    ```
+   Critical functions for postgres integration tests.
 
-## When NOT to Use Build Tags
+### Mock Packages
 
-### ❌ Prohibited Use Cases
+Mock implementations should use consistent tags:
+```go
+//go:build test_without_external_deps || integration
+```
 
-1. **Core Application Logic**
-   - NEVER use restrictive build tags on core application files
-   - All main package files should be accessible in normal builds
-   - Bad example:
-   ```go
-   //go:build exported_core_functions  // DON'T DO THIS!
+### Command Package Tests
 
-   package main
-
-   func loadAppConfig() { /* ... */ }
-   ```
-
-2. **Essential Business Logic**
-   - Domain models, services, and repositories should not have build tags
-   - These components must be available in all builds
-
-3. **API Endpoints and Handlers**
-   - HTTP handlers and API routes must be accessible without special tags
-   - Build tags would prevent normal API functionality
-
-## Common Pitfalls
-
-### Issue: Undefined Functions in main.go
-
-**Problem**: Using restrictive build tags like `//go:build exported_core_functions` on files containing functions needed by main.go causes compilation errors.
-
-**Solution**: Remove build tags from all files in the main package that contain essential application functions.
-
-### Issue: Test Dependencies in Production
-
-**Problem**: Accidentally including test utilities in production builds.
-
-**Solution**: Use `_test.go` suffix for test files or appropriate build tags for test-only utilities.
+Server tests often need both integration and export tags:
+```go
+//go:build (integration || test_without_external_deps) && exported_core_functions
+```
 
 ## Best Practices
 
-1. **Document Tag Usage**
-   - Always add a comment explaining why a build tag is necessary
-   - Example:
-   ```go
-   //go:build test_without_external_deps
-
-   // This file provides mock implementations for testing without external API calls.
-   // Used primarily in CI environments where API keys may not be available.
-   ```
-
-2. **Prefer File Naming Over Tags**
-   - Use `_test.go` suffix for test files instead of build tags when possible
-   - Use clear file names like `mock_client.go` or `integration_test.go`
-
-3. **Keep Tags Simple**
-   - Avoid complex tag expressions unless absolutely necessary
-   - If you need complex conditions, document them thoroughly
-
-4. **CI/CD Considerations**
-   - Document which tags are used in CI pipeline
-   - Ensure CI configuration matches local development patterns
-   - Current CI uses: `--build-tags=test_without_external_deps`
-
-## Project-Specific Tags
-
-| Tag | Purpose | Usage |
-|-----|---------|--------|
-| `test_without_external_deps` | Exclude external API calls in tests | CI environments, local testing without API keys |
-| `integration` | Mark tests requiring external services | Database tests, API integration tests |
-
-## Code Review Checklist
-
-When reviewing code with build tags:
-
-1. ✓ Is the build tag necessary?
-2. ✓ Could the same goal be achieved without tags?
-3. ✓ Is the tag documented?
-4. ✓ Does it affect core application functionality?
-5. ✓ Will it work in all required environments (local, CI, production)?
-
-## Examples from This Project
-
-### Good: Test Mock Implementation
+### 1. Prefer New Syntax
+Always use `//go:build` instead of `// +build`:
 ```go
-//go:build test_without_external_deps
+// Good
+//go:build integration
 
-package gemini
-
-// MockGenerator provides a test implementation that doesn't call external APIs
-type MockGenerator struct{}
+// Avoid
+// +build integration
 ```
 
-### Bad: Core Application Function with Restrictive Tag
+### 2. Keep Expressions Simple
+Avoid overly complex expressions. If you need more than 2 operators, consider refactoring:
 ```go
-//go:build exported_core_functions  // WRONG!
+// Too complex
+//go:build (a || b) && (c || d) && !e && !f
 
-package main
-
-func setupAppDatabase() (*sql.DB, error) {
-    // This function is needed by main() and shouldn't have build tags
-}
+// Better - split into multiple files or simplify logic
+//go:build (integration || test_without_external_deps) && production_ready
 ```
 
-## References
+### 3. Document Non-Obvious Tags
+Add comments explaining why specific tags are used:
+```go
+//go:build !integration_test_internal && !test_without_external_deps
+// This file provides forwarding functions for standard builds
+// while avoiding conflicts with the integration test environment
+```
 
-- [Go Build Constraints Documentation](https://pkg.go.dev/go/build#hdr-Build_Constraints)
-- [Go 1.17+ Build Tag Format](https://go.dev/doc/go1.17#gofmt)
-- Project's [Development Philosophy](./DEVELOPMENT_PHILOSOPHY.md)
+### 4. Ensure CI Compatibility
+Always provide a fallback for CI environments:
+```go
+// Good - works in CI
+//go:build integration || test_without_external_deps
 
-## Enforcement
+// Bad - might not work in CI
+//go:build integration
+```
 
-- Pre-commit hooks check for proper build tag usage
-- CI pipeline validates build with various tag combinations
-- Code reviews must verify compliance with these guidelines
+### 5. Avoid Tag Conflicts
+Never use both positive and negative forms of the same tag in the same package without careful consideration.
+
+## Common Patterns
+
+### Integration Test Pattern
+```go
+//go:build integration || test_without_external_deps
+
+package mypackage_test
+
+// Test file that works with real or mocked dependencies
+```
+
+### Shared Test Utilities
+```go
+//go:build (integration || test_without_external_deps) && exported_core_functions
+
+package testutils
+
+// Utilities available in both test and production contexts
+```
+
+### CI-Only Code
+```go
+//go:build test_without_external_deps && !integration
+
+package mocks
+
+// Mock implementations only for CI
+```
+
+### Production-Compatible Test Helpers
+```go
+//go:build exported_core_functions
+
+package helpers
+
+// Helpers that can be imported by production code
+```
+
+## Validation
+
+### Running Validation
+
+Use the build tag validation script:
+```bash
+# Full validation
+./scripts/validate-build-tags.sh
+
+# Keep audit report for debugging
+KEEP_AUDIT=true ./scripts/validate-build-tags.sh
+```
+
+### What Validation Checks
+
+1. **Conflict Detection**: Identifies tags that are both included and excluded
+2. **CI Compatibility**: Ensures critical functions are available in CI
+3. **Complexity**: Warns about overly complex tag expressions
+4. **Build Testing**: Verifies common tag combinations compile
+
+### Pre-commit Hook
+
+Add validation to your pre-commit hooks:
+```yaml
+- repo: local
+  hooks:
+    - id: validate-build-tags
+      name: Validate Go build tags
+      entry: scripts/validate-build-tags.sh
+      language: script
+      files: '\.go$'
+      pass_filenames: false
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"undefined function" in CI**
+   - Check if the function's file has `test_without_external_deps` in its build tags
+   - Verify the function is in `integration_exports.go` if needed
+
+2. **"function redeclared" errors**
+   - Look for overlapping build tags
+   - Check negation patterns
+
+3. **Tests not running**
+   - Verify build tags match test command
+   - Check for typos in tag names
+
+### Debug Commands
+
+```bash
+# See which files are included with specific tags
+go list -f '{{.GoFiles}}' -tags=integration ./internal/testutils
+
+# Check active build tags
+go list -f '{{.BuildTags}}' ./...
+
+# Test specific tag combination
+go test -tags="integration,exported_core_functions" ./...
+```

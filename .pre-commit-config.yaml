@@ -128,6 +128,16 @@ repos:
         pass_filenames: true  # Pass each file to the script
         verbose: true  # Ensure errors are visible
 
+      # Validate Go build tags for conflicts and CI compatibility
+      - id: validate-build-tags
+        name: Validate Go build tags
+        description: Checks for build tag conflicts and ensures CI compatibility
+        language: script
+        entry: scripts/validate-build-tags.sh
+        types: [go]  # Run when Go files change
+        pass_filenames: false  # Run once per commit, not per file
+        verbose: true  # Show validation output
+
       # Pre-push hook to run tests before pushing to remote
       - id: pre-push-tests
         name: Run tests before push

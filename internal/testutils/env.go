@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build !integration || test_without_external_deps
 
 // Package testutils provides common utilities for testing across the application.
 // It centralizes repeated test setup and teardown logic to avoid duplication

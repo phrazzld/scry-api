@@ -1,4 +1,4 @@
-//go:build integration && integration_test_internal
+//go:build (integration || test_without_external_deps) && integration_test_internal
 
 package testutils
 

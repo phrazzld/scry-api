@@ -1,4 +1,4 @@
-//go:build integration && test_conflict
+//go:build (integration || test_without_external_deps) && test_conflict
 
 // This file is part of the compatibility layer for supporting older test code
 // while transitioning to the new structure. The build tag "integration" ensures

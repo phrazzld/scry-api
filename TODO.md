@@ -11,7 +11,7 @@
     - **Done-when:** All files use consistent `//go:build` syntax
     - **Verification:** Build tag validation passes without style warnings
 
-- [ ] **T034 · Cleanup · P2: Add CI-compatible tags to test helper functions**
+- [x] **T034 · Cleanup · P2: Add CI-compatible tags to test helper functions**
     - **Context:** Test helper files lack CI-compatible build tags
     - **Action:** Add appropriate `|| test_without_external_deps` tags to test helpers
     - **Files Affected:** 19 files including test_helpers.go, service mocks, and testutils

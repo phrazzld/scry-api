@@ -250,6 +250,82 @@
     - **Note:** Existing conflicts identified; separate ticket needed for cleanup
     - **Depends‑on:** none
 
+## Card Management API Coverage Failures (2025-01-30)
+
+- [x] **T036 · Test · P0: Add tests for cmd/server package (0% → 70%)**
+    - **Context:** Zero test coverage in cmd/server package blocking PR
+    - **Action:**
+        1. Create comprehensive integration tests for all card management API endpoints
+        2. Test authentication and authorization flows for card endpoints
+        3. Add tests for error handling and validation edge cases
+        4. Use table-driven tests for comprehensive coverage
+    - **Done-when:** cmd/server package reaches at least 70% test coverage
+    - **Verification:** Run `make test-coverage PACKAGE=cmd/server` shows 70%+ coverage
+    - **Depends-on:** none
+
+- [ ] **T037 · Test · P0: Add tests for internal/service package (42.8% → 85%)**
+    - **Context:** Low coverage in service layer blocking PR
+    - **Action:**
+        1. Add unit tests for all card management service methods
+        2. Test transaction handling for card operations
+        3. Add tests for error scenarios and edge cases
+        4. Test service-level business logic validation
+    - **Done-when:** internal/service package reaches at least 85% test coverage
+    - **Verification:** Run `make test-coverage PACKAGE=internal/service` shows 85%+ coverage
+    - **Depends-on:** none
+
+- [ ] **T038 · Test · P0: Add tests for internal/api package (75.1% → 85%)**
+    - **Context:** API package slightly below required coverage threshold
+    - **Action:**
+        1. Add tests for newly added card API handlers
+        2. Test request/response validation
+        3. Cover remaining error paths
+    - **Done-when:** internal/api package reaches at least 85% test coverage
+    - **Verification:** Run `make test-coverage PACKAGE=internal/api` shows 85%+ coverage
+    - **Depends-on:** none
+
+- [ ] **T039 · Test · P1: Fix coverage for remaining packages**
+    - **Context:** Multiple packages below 85% threshold
+    - **Action:**
+        1. Run coverage reports for all failing packages
+        2. Identify and test uncovered code paths
+        3. Focus on: internal/platform/postgres, internal/platform/gemini, internal/ciutil,
+           internal/generation, internal/platform/logger, internal/service/auth,
+           internal/service/card_review, internal/store, infrastructure
+    - **Done-when:** All packages meet their required coverage thresholds
+    - **Verification:** CI coverage checks pass for all packages
+    - **Depends-on:** [T036, T037, T038]
+
+- [ ] **T040 · Bugfix · P1: Fix CI artifact upload conflicts**
+    - **Context:** Multiple test jobs trying to upload artifacts with same name
+    - **Action:**
+        1. Update .github/workflows test jobs to use unique artifact names
+        2. Include package name in artifact name (e.g., "test-results-{package}-{os}-{run_id}")
+        3. Ensure coverage artifacts also have unique names
+    - **Done-when:** No artifact upload conflicts in CI logs
+    - **Verification:** CI runs complete without 409 Conflict errors
+    - **Depends-on:** none
+
+- [ ] **T041 · Bugfix · P2: Fix IsIntegrationTestEnvironment undefined error**
+    - **Context:** cmd/server tests failing with undefined environment function
+    - **Action:**
+        1. Investigate why IsIntegrationTestEnvironment is undefined in cmd/server
+        2. Check build tags and imports
+        3. Fix function visibility or provide alternative approach
+    - **Done-when:** cmd/server tests compile without undefined errors
+    - **Verification:** Tests run successfully in CI environment
+    - **Depends-on:** none
+
+- [ ] **T042 · Bugfix · P2: Fix database test setup issues**
+    - **Context:** testutils.GetTestDB failures in internal/service
+    - **Action:**
+        1. Debug database connection issues in test environment
+        2. Ensure test database is properly configured
+        3. Fix any transaction isolation issues
+    - **Done-when:** Database-dependent tests run reliably
+    - **Verification:** No GetTestDB errors in CI logs
+    - **Depends-on:** [T041]
+
 ## Prevention Best Practices
 
 1. Run CI-specific tests early in the pipeline

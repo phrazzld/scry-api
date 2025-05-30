@@ -1,3 +1,5 @@
+//go:build test || integration || test_without_external_deps
+
 package api
 
 import (

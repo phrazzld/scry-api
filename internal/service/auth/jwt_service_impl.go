@@ -63,6 +63,7 @@ func (s *hmacJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (s
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now), // Token is valid from issuance time
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.tokenLifetime)),
 			ID:        uuid.New().String(), // Unique token ID
 		},
@@ -193,6 +194,7 @@ func (s *hmacJWTService) GenerateRefreshToken(
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now), // Token is valid from issuance time
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.refreshTokenLifetime)),
 			ID:        uuid.New().String(), // Unique token ID
 		},
@@ -328,6 +330,7 @@ func (s *hmacJWTService) GenerateRefreshTokenWithExpiry(
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now), // Token is valid from issuance time
 			ExpiresAt: jwt.NewNumericDate(expiryTime),
 			ID:        uuid.New().String(), // Unique token ID
 		},

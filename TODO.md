@@ -263,7 +263,7 @@
     - **Verification:** Run `make test-coverage PACKAGE=cmd/server` shows 70%+ coverage
     - **Depends-on:** none
 
-- [ ] **T037 · Test · P0: Add tests for internal/service package (42.8% → 85%)**
+- [x] **T037 · Test · P0: Add tests for internal/service package (42.8% → 85%)**
     - **Context:** Low coverage in service layer blocking PR
     - **Action:**
         1. Add unit tests for all card management service methods

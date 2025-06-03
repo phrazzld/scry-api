@@ -19,7 +19,7 @@ import (
 // TestMigrationFlow tests the entire migration flow if there's a database URL available.
 // This is an integration test and will be skipped if DATABASE_URL isn't set.
 func TestMigrationFlow(t *testing.T) {
-	if !IsIntegrationTestEnvironment() {
+	if !testutils.IsIntegrationTestEnvironment() {
 		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
 	}
 

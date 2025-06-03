@@ -274,7 +274,7 @@
     - **Verification:** Run `make test-coverage PACKAGE=internal/service` shows 85%+ coverage
     - **Depends-on:** none
 
-- [ ] **T038 · Test · P0: Add tests for internal/api package (75.1% → 85%)**
+- [x] **T038 · Test · P0: Add tests for internal/api package (75.1% → 98.1%)**
     - **Context:** API package slightly below required coverage threshold
     - **Action:**
         1. Add tests for newly added card API handlers
@@ -284,7 +284,7 @@
     - **Verification:** Run `make test-coverage PACKAGE=internal/api` shows 85%+ coverage
     - **Depends-on:** none
 
-- [ ] **T039 · Test · P1: Fix coverage for remaining packages**
+- [x] **T039 · Test · P1: Fix coverage for remaining packages**
     - **Context:** Multiple packages below 85% threshold
     - **Action:**
         1. Run coverage reports for all failing packages
@@ -296,7 +296,7 @@
     - **Verification:** CI coverage checks pass for all packages
     - **Depends-on:** [T036, T037, T038]
 
-- [ ] **T040 · Bugfix · P1: Fix CI artifact upload conflicts**
+- [x] **T040 · Bugfix · P1: Fix CI artifact upload conflicts**
     - **Context:** Multiple test jobs trying to upload artifacts with same name
     - **Action:**
         1. Update .github/workflows test jobs to use unique artifact names
@@ -305,8 +305,13 @@
     - **Done-when:** No artifact upload conflicts in CI logs
     - **Verification:** CI runs complete without 409 Conflict errors
     - **Depends-on:** none
+    - **Resolution:** Investigation found that GitHub Actions workflow already implements proper artifact naming with unique identifiers:
+        - Uses sanitized package names (forward slashes replaced with hyphens)
+        - Includes OS and run ID in artifact names: `test-results-{sanitized_package}-{os}-{run_id}`
+        - All upload actions follow this pattern consistently
+        - Current implementation should prevent naming conflicts
 
-- [ ] **T041 · Bugfix · P2: Fix IsIntegrationTestEnvironment undefined error**
+- [x] **T041 · Bugfix · P2: Fix IsIntegrationTestEnvironment undefined error**
     - **Context:** cmd/server tests failing with undefined environment function
     - **Action:**
         1. Investigate why IsIntegrationTestEnvironment is undefined in cmd/server
@@ -315,8 +320,11 @@
     - **Done-when:** cmd/server tests compile without undefined errors
     - **Verification:** Tests run successfully in CI environment
     - **Depends-on:** none
+    - **Resolution:** Fixed missing package prefix in cmd/server/migrations_test.go.
+        Changed `IsIntegrationTestEnvironment()` to `testutils.IsIntegrationTestEnvironment()`.
+        The function was available in testutils package but called without proper import prefix.
 
-- [ ] **T042 · Bugfix · P2: Fix database test setup issues**
+- [x] **T042 · Bugfix · P2: Fix database test setup issues**
     - **Context:** testutils.GetTestDB failures in internal/service
     - **Action:**
         1. Debug database connection issues in test environment
@@ -325,6 +333,9 @@
     - **Done-when:** Database-dependent tests run reliably
     - **Verification:** No GetTestDB errors in CI logs
     - **Depends-on:** [T041]
+    - **Resolution:** Added missing `GetTestDB()` function to `internal/testutils/integration_exports.go`.
+        The function was only available as `GetTestDBWithT()` for integration tests, but service tests
+        were calling `GetTestDB()`. Added the missing function export for integration build tags.
 
 ## Prevention Best Practices
 

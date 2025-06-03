@@ -58,6 +58,12 @@ func SetupTestDatabaseSchema(dbConn *sql.DB) error {
 	return testdb.ApplyMigrations(dbConn, "./internal/platform/postgres/migrations")
 }
 
+// GetTestDB returns a database connection for integration tests.
+// This implementation is specifically for postgres integration tests.
+func GetTestDB() (*sql.DB, error) {
+	return testdb.GetTestDB()
+}
+
 // GetTestDBWithT returns a database connection for testing.
 // This implementation is specifically for postgres integration tests.
 func GetTestDBWithT(t *testing.T) *sql.DB {

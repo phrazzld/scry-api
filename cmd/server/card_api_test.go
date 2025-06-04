@@ -83,6 +83,11 @@ func TestCardEditIntegration(t *testing.T) {
 	// Get a test database connection
 	db := testdb.GetTestDBWithT(t)
 
+	// Test database connectivity before proceeding
+	if err := db.Ping(); err != nil {
+		t.Skipf("Database ping failed: %v", err)
+	}
+
 	// Run the test within a transaction for isolation
 	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create context with timeout
@@ -210,6 +215,11 @@ func TestCardDeleteIntegration(t *testing.T) {
 	// Get a test database connection
 	db := testdb.GetTestDBWithT(t)
 
+	// Test database connectivity before proceeding
+	if err := db.Ping(); err != nil {
+		t.Skipf("Database ping failed: %v", err)
+	}
+
 	// Run the test within a transaction for isolation
 	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create context with timeout
@@ -306,6 +316,11 @@ func TestCardPostponeIntegration(t *testing.T) {
 
 	// Get a test database connection
 	db := testdb.GetTestDBWithT(t)
+
+	// Test database connectivity before proceeding
+	if err := db.Ping(); err != nil {
+		t.Skipf("Database ping failed: %v", err)
+	}
 
 	// Run the test within a transaction for isolation
 	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {

@@ -22,9 +22,10 @@ func TestBasicApplicationComponents(t *testing.T) {
 			name: "loadAppConfig with environment",
 			test: func(t *testing.T) {
 				// Set minimal required environment
-				t.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/test")
-				t.Setenv("SCRY_JWT_SECRET", "test-secret-key-for-testing-only-32")
-				t.Setenv("SCRY_GEMINI_API_KEY", "test-api-key")
+				t.Setenv("SCRY_DATABASE_URL", "postgres://test:test@localhost:5432/test")
+				t.Setenv("SCRY_AUTH_JWT_SECRET", "test-secret-key-for-testing-only-32-chars-long")
+				t.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-api-key")
+				t.Setenv("SCRY_LLM_PROMPT_TEMPLATE_PATH", "../../prompts/flashcard_template.txt")
 
 				cfg, err := loadAppConfig()
 				if err != nil {
@@ -38,28 +39,59 @@ func TestBasicApplicationComponents(t *testing.T) {
 				if cfg.Database.URL == "" {
 					t.Error("Config missing database URL")
 				}
+
+				// Use test helper to validate configuration
+				AssertConfigurationValid(t, cfg)
 			},
 		},
 		{
 			name: "setupAppLogger",
 			test: func(t *testing.T) {
-				cfg := &config.Config{
-					Server: config.ServerConfig{
-						LogLevel: "info",
-					},
-				}
+				cfg := CreateMinimalTestConfig(t)
 
 				logger, err := setupAppLogger(cfg)
 				if err != nil {
 					t.Fatalf("setupAppLogger() error = %v", err)
 				}
 
-				if logger == nil {
-					t.Fatal("setupAppLogger() returned nil logger")
-				}
+				// Use test helper to validate logger
+				AssertLoggerValid(t, logger)
 
 				// Test logging works
 				logger.Info("Test log message")
+			},
+		},
+		{
+			name: "setupAppDatabase with mock",
+			test: func(t *testing.T) {
+				cfg := CreateMinimalTestConfig(t)
+				testLogger, _ := CreateTestLogger(t)
+
+				// Note: This test currently will fail because setupAppDatabase
+				// doesn't accept a mock DB interface. This is where we'd need
+				// to refactor setupAppDatabase to use dependency injection.
+				// For now, we'll skip this test but leave the infrastructure.
+				t.Skip("setupAppDatabase doesn't yet support mocking - needs refactor for DI")
+
+				_, err := setupAppDatabase(cfg, testLogger)
+				if err == nil {
+					t.Error("Expected setupAppDatabase to fail with test:// URL")
+				}
+			},
+		},
+		{
+			name: "config creation helpers",
+			test: func(t *testing.T) {
+				// Test our config creation helpers
+				fullConfig := CreateTestConfig(t)
+				AssertConfigurationValid(t, fullConfig)
+
+				minimalConfig := CreateMinimalTestConfig(t)
+				AssertConfigurationValid(t, minimalConfig)
+
+				if fullConfig.Auth.JWTSecret == minimalConfig.Auth.JWTSecret {
+					t.Error("Expected different JWT secrets between full and minimal configs")
+				}
 			},
 		},
 	}

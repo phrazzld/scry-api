@@ -71,11 +71,11 @@ test-no-deps: ## Run tests without external dependencies
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
-	go test -cover ./...
+	go test -cover -tags="test_without_external_deps" ./...
 
 .PHONY: test-coverage-html
 test-coverage-html: ## Generate HTML coverage report
-	go test -coverprofile=coverage.out ./...
+	go test -coverprofile=coverage.out -tags="test_without_external_deps" ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 

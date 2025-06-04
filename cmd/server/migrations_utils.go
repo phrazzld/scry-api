@@ -66,7 +66,7 @@ func detectDatabaseURLSource(dbURL string) string {
 	envVars := []string{"DATABASE_URL", "SCRY_TEST_DB_URL", "SCRY_DATABASE_URL"}
 
 	for _, envVar := range envVars {
-		if value := os.Getenv(envVar); value == dbURL {
+		if value := os.Getenv(envVar); value != "" && value == dbURL {
 			return fmt.Sprintf("environment variable %s", envVar)
 		}
 	}

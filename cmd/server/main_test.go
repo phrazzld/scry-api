@@ -83,9 +83,32 @@ func TestMain_Flags(t *testing.T) {
 // TestMainComponents tests the individual components that main() uses
 func TestMainComponents(t *testing.T) {
 	t.Run("loadAppConfig", func(t *testing.T) {
-		// Set required environment variables
-		os.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/test")
-		defer os.Unsetenv("DATABASE_URL")
+		// Set all required environment variables for valid config
+		originalEnvs := map[string]string{
+			"SCRY_DATABASE_URL":             os.Getenv("SCRY_DATABASE_URL"),
+			"SCRY_AUTH_JWT_SECRET":          os.Getenv("SCRY_AUTH_JWT_SECRET"),
+			"SCRY_LLM_GEMINI_API_KEY":       os.Getenv("SCRY_LLM_GEMINI_API_KEY"),
+			"SCRY_LLM_PROMPT_TEMPLATE_PATH": os.Getenv("SCRY_LLM_PROMPT_TEMPLATE_PATH"),
+		}
+		defer func() {
+			for key, value := range originalEnvs {
+				if value == "" {
+					os.Unsetenv(key)
+				} else {
+					os.Setenv(key, value)
+				}
+			}
+		}()
+
+		os.Setenv("SCRY_DATABASE_URL", "postgres://test:test@localhost:5432/test")
+		os.Setenv("SCRY_AUTH_JWT_SECRET", "test-secret-key-for-testing-only-32-chars-long")
+		os.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-api-key")
+		os.Setenv("SCRY_LLM_PROMPT_TEMPLATE_PATH", "../../prompts/flashcard_template.txt")
+		// Set additional config values to satisfy validation
+		os.Setenv("SCRY_SERVER_PORT", "8080")
+		os.Setenv("SCRY_SERVER_LOG_LEVEL", "info")
+		os.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60")
+		os.Setenv("SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES", "1440")
 
 		cfg, err := loadAppConfig()
 		if err != nil {

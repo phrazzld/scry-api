@@ -337,6 +337,218 @@
         The function was only available as `GetTestDBWithT()` for integration tests, but service tests
         were calling `GetTestDB()`. Added the missing function export for integration build tags.
 
+## CI Coverage Resolution Tasks (2025-06-03)
+
+### Phase 1: Critical Zero-Coverage Packages
+
+- [ ] **T043 · Test · P0: Analyze cmd/server Package Structure**
+    - **Context:** cmd/server has 0% coverage (requires 70%)
+    - **Action:**
+        1. Examine cmd/server directory and identify testable components
+        2. Review main.go, app.go, config.go, and other core server files
+        3. Identify functions, methods, and initialization logic that need testing
+        4. Document test strategy for server package (unit vs integration approach)
+    - **Done-when:** Test strategy documented and components identified
+    - **Verification:** Clear understanding of what needs testing in cmd/server
+    - **Depends-on:** none
+
+- [ ] **T044 · Test · P0: Create cmd/server Test Infrastructure**
+    - **Context:** Need test framework setup for server package
+    - **Action:**
+        1. Create cmd/server/main_test.go file
+        2. Set up test utilities for server testing (test helpers, mock configurations)
+        3. Create basic test structure following project's testing patterns
+        4. Add table-driven test framework setup
+    - **Done-when:** Test infrastructure ready for server tests
+    - **Verification:** Test files compile and basic framework is in place
+    - **Depends-on:** [T043]
+
+- [ ] **T045 · Test · P0: Implement cmd/server Core Tests**
+    - **Context:** Add comprehensive tests to reach 70% coverage
+    - **Action:**
+        1. Add tests for server initialization and configuration loading
+        2. Test server startup and shutdown procedures
+        3. Add tests for router setup and middleware registration
+        4. Test error handling for invalid configurations
+    - **Done-when:** cmd/server package reaches 70%+ coverage
+    - **Verification:** `make test-coverage` shows cmd/server at 70%+
+    - **Depends-on:** [T044]
+
+- [ ] **T046 · Test · P0: Analyze internal/platform/gemini Package**
+    - **Context:** internal/platform/gemini has 0% coverage (requires 70%)
+    - **Action:**
+        1. Examine internal/platform/gemini directory structure
+        2. Identify why package currently has 0% coverage (missing tests vs no code)
+        3. Review gemini_generator.go and related files for testable functionality
+        4. Check if gemini_tests subdirectory should be in main package
+    - **Done-when:** Understanding of gemini package structure and test needs
+    - **Verification:** Clear plan for gemini package testing
+    - **Depends-on:** none
+
+- [ ] **T047 · Test · P0: Create internal/platform/gemini Tests**
+    - **Context:** Add tests to reach 70% coverage threshold
+    - **Action:**
+        1. Create internal/platform/gemini package tests (if code exists)
+        2. Add unit tests for Gemini API integration functions
+        3. Mock external Gemini API calls using project's mocking patterns
+        4. Test error handling and edge cases for Gemini interactions
+    - **Done-when:** internal/platform/gemini reaches 70%+ coverage
+    - **Verification:** Coverage check shows gemini package at 70%+
+    - **Depends-on:** [T046]
+
+### Phase 2: High-Gap Service Packages
+
+- [ ] **T048 · Test · P0: Enhance internal/platform/postgres Coverage (14.9% → 85%)**
+    - **Context:** Large coverage gap of 70.1% in critical database layer
+    - **Action:**
+        1. Analyze existing postgres tests and identify coverage gaps
+        2. Add comprehensive tests for card_store.go operations
+        3. Add tests for user_store.go, memo_store.go, stats_store.go, task_store.go
+        4. Test database error handling and transaction management
+        5. Add integration tests for complex queries and data operations
+        6. Test connection handling and database migration functionality
+    - **Done-when:** internal/platform/postgres reaches 85%+ coverage
+    - **Verification:** Coverage meets 85% threshold requirement
+    - **Depends-on:** none
+
+- [ ] **T049 · Test · P0: Enhance internal/service/card_review Coverage (37.3% → 90%)**
+    - **Context:** Service layer coverage 52.7% below required threshold
+    - **Action:**
+        1. Review existing card_review service tests
+        2. Add comprehensive unit tests for review algorithm logic
+        3. Test card scheduling and SRS algorithm integration
+        4. Add tests for review validation and error scenarios
+        5. Test service layer interactions with repository adapters
+        6. Add edge case tests for boundary conditions
+    - **Done-when:** internal/service/card_review reaches 90%+ coverage
+    - **Verification:** Coverage check shows 90%+ for card_review service
+    - **Depends-on:** none
+
+- [ ] **T050 · Test · P0: Enhance internal/store Coverage (17.6% → 70%)**
+    - **Context:** Store layer coverage 52.4% below threshold
+    - **Action:**
+        1. Analyze existing store layer tests
+        2. Add comprehensive tests for transaction handling
+        3. Test database abstraction layer functionality
+        4. Add tests for error handling and recovery scenarios
+        5. Test concurrent access patterns and data consistency
+        6. Add integration tests for store layer operations
+    - **Done-when:** internal/store reaches 70%+ coverage
+    - **Verification:** Coverage meets 70% threshold
+    - **Depends-on:** none
+
+### Phase 3: Service Layer Completion
+
+- [ ] **T051 · Test · P1: Enhance internal/service Coverage (40.1% → 85%)**
+    - **Context:** Service layer coverage 44.9% below threshold
+    - **Action:**
+        1. Review existing service layer tests
+        2. Add comprehensive tests for card_service.go operations
+        3. Add tests for memo_service.go and user_service.go
+        4. Test business logic validation and error handling
+        5. Add integration tests for service layer workflows
+        6. Test transaction boundaries and rollback scenarios
+    - **Done-when:** internal/service reaches 85%+ coverage
+    - **Verification:** Coverage check shows service package at 85%+
+    - **Depends-on:** none
+
+- [ ] **T052 · Test · P1: Enhance internal/platform/logger Coverage (37.4% → 70%)**
+    - **Context:** Logger package coverage 32.6% below threshold
+    - **Action:**
+        1. Analyze existing logger tests and identify gaps
+        2. Add tests for structured logging functionality
+        3. Test correlation ID propagation and context handling
+        4. Add tests for different log levels and output formatting
+        5. Test error logging and redaction functionality
+        6. Add tests for CI vs development logging behavior
+    - **Done-when:** internal/platform/logger reaches 70%+ coverage
+    - **Verification:** Coverage meets 70% threshold
+    - **Depends-on:** none
+
+### Phase 4: Infrastructure and Utilities
+
+- [ ] **T053 · Test · P2: Enhance internal/ciutil Coverage (55.3% → 70%)**
+    - **Context:** CI utilities coverage 14.7% below threshold
+    - **Action:**
+        1. Review existing ciutil tests
+        2. Add tests for CI environment detection
+        3. Test database utility functions for CI
+        4. Add tests for project root detection and path utilities
+        5. Test environment variable handling and validation
+    - **Done-when:** internal/ciutil reaches 70%+ coverage
+    - **Verification:** Coverage check shows ciutil at 70%+
+    - **Depends-on:** none
+
+- [ ] **T054 · Test · P2: Enhance internal/service/auth Coverage (83.7% → 90%)**
+    - **Context:** Auth service coverage 6.3% below threshold
+    - **Action:**
+        1. Identify missing test coverage in auth service
+        2. Add tests for JWT token edge cases and expiration
+        3. Test password validation and hashing edge cases
+        4. Add tests for authentication flow error scenarios
+        5. Test security-related boundary conditions
+    - **Done-when:** internal/service/auth reaches 90%+ coverage
+    - **Verification:** Coverage meets 90% threshold
+    - **Depends-on:** none
+
+- [ ] **T055 · Test · P2: Address internal/generation Package**
+    - **Context:** Generation package has no statements to test
+    - **Action:**
+        1. Investigate internal/generation package structure
+        2. Determine if package contains testable code or is placeholder
+        3. Add appropriate tests or refactor package structure
+    - **Done-when:** Package either has 70%+ coverage or is properly excluded
+    - **Verification:** Coverage requirement met or exemption documented
+    - **Depends-on:** none
+
+- [ ] **T056 · Test · P2: Address infrastructure Package**
+    - **Context:** Infrastructure package failing CI coverage checks
+    - **Action:**
+        1. Investigate infrastructure test failures in CI
+        2. Review infrastructure testing requirements
+        3. Add or enhance infrastructure integration tests
+        4. Ensure infrastructure tests pass in CI environment
+    - **Done-when:** Infrastructure tests pass CI coverage requirements
+    - **Verification:** CI shows infrastructure tests passing
+    - **Depends-on:** none
+
+### Phase 5: Secondary Issues and Verification
+
+- [ ] **T057 · Bugfix · P1: Resolve CodeQL Security Scan**
+    - **Context:** CodeQL scan failing in CI pipeline
+    - **Action:**
+        1. Review CodeQL findings from CI failure
+        2. Address any security vulnerabilities or code quality issues
+        3. Verify CodeQL scan passes with code changes
+        4. Document any security improvements made
+    - **Done-when:** CodeQL scan passes in CI
+    - **Verification:** CI shows CodeQL check as passed
+    - **Depends-on:** none
+
+- [ ] **T058 · Verification · P0: Final CI Verification**
+    - **Context:** Ensure all changes result in passing CI
+    - **Action:**
+        1. Run complete test suite locally: `make test`
+        2. Run coverage report: `make test-coverage`
+        3. Verify all packages meet coverage thresholds
+        4. Run linting: `make lint`
+        5. Run pre-commit checks: `make pre-commit`
+    - **Done-when:** All local checks pass before pushing
+    - **Verification:** Local CI simulation succeeds
+    - **Depends-on:** [T045, T047, T048, T049, T050, T051, T052, T053, T054, T055, T056, T057]
+
+- [ ] **T059 · Verification · P0: Push and Verify CI**
+    - **Context:** Validate CI resolution with actual pipeline
+    - **Action:**
+        1. Commit all final changes with comprehensive commit message
+        2. Push to feature/card-management-api branch
+        3. Monitor CI pipeline execution
+        4. Verify all 31 checks pass in GitHub Actions
+        5. Confirm CodeQL scan passes
+    - **Done-when:** CI shows 31/31 checks passing
+    - **Verification:** Green CI status on PR #26
+    - **Depends-on:** [T058]
+
 ## Prevention Best Practices
 
 1. Run CI-specific tests early in the pipeline
@@ -346,3 +558,6 @@
 5. Run build and test checks before pushing code
 6. Maintain consistent build tags across related files
 7. Regularly audit test coverage in all packages
+8. Follow TDD approach for new feature development
+9. Include test coverage review in PR process
+10. Monitor coverage thresholds and adjust as needed

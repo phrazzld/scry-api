@@ -1,20 +1,13 @@
 {
-  "default_threshold": 10,
+  "default_threshold": 70,
   "package_thresholds": {
     "internal/domain": 90,
     "internal/domain/srs": 95,
     "internal/api": 85,
-    "internal/service": 35,
-    "internal/service/auth": 75,
-    "internal/service/card_review": 30,
-    "internal/platform/postgres": 5,
-    "internal/ciutil": 50,
-    "internal/platform/logger": 30,
-    "internal/store": 15,
-    "cmd/server": 0,
-    "internal/platform/gemini": 0,
-    "internal/generation": 0,
-    "infrastructure": 0
+    "internal/service": 85,
+    "internal/service/auth": 90,
+    "internal/service/card_review": 90,
+    "internal/platform/postgres": 85
   },
   "excluded_packages": [
     "internal/testutils",

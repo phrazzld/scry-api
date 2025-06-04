@@ -70,6 +70,10 @@ func (m *MockDB) QueryRow(query string, args ...interface{}) *sql.Row {
 	return nil
 }
 
+func (m *MockDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return nil
+}
+
 // NewMockDB creates a mock database for testing
 func NewMockDB() *MockDB {
 	return &MockDB{}

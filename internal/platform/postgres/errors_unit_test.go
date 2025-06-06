@@ -30,7 +30,7 @@ func (m mockResult) RowsAffected() (int64, error) {
 	return m.rowsAffected, nil
 }
 
-func TestMapError(t *testing.T) {
+func TestMapErrorUnit(t *testing.T) {
 	tests := []struct {
 		name          string
 		err           error
@@ -118,7 +118,7 @@ func TestMapError(t *testing.T) {
 	}
 }
 
-func TestIsUniqueViolation(t *testing.T) {
+func TestIsUniqueViolationUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -165,7 +165,7 @@ func TestIsUniqueViolation(t *testing.T) {
 	}
 }
 
-func TestIsForeignKeyViolation(t *testing.T) {
+func TestIsForeignKeyViolationUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -212,7 +212,7 @@ func TestIsForeignKeyViolation(t *testing.T) {
 	}
 }
 
-func TestIsCheckConstraintViolation(t *testing.T) {
+func TestIsCheckConstraintViolationUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -259,7 +259,7 @@ func TestIsCheckConstraintViolation(t *testing.T) {
 	}
 }
 
-func TestIsNotNullViolation(t *testing.T) {
+func TestIsNotNullViolationUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -306,7 +306,7 @@ func TestIsNotNullViolation(t *testing.T) {
 	}
 }
 
-func TestIsNotFoundError(t *testing.T) {
+func TestIsNotFoundErrorUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -352,7 +352,7 @@ func TestIsNotFoundError(t *testing.T) {
 	}
 }
 
-func TestCheckRowsAffected(t *testing.T) {
+func TestCheckRowsAffectedUnit(t *testing.T) {
 	tests := []struct {
 		name        string
 		result      sql.Result
@@ -434,7 +434,7 @@ func TestCheckRowsAffected(t *testing.T) {
 	}
 }
 
-func TestMapUniqueViolation(t *testing.T) {
+func TestMapUniqueViolationUnit(t *testing.T) {
 	tests := []struct {
 		name           string
 		err            error

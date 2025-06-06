@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestNewPostgresUserStore(t *testing.T) {
+func TestNewPostgresUserStoreUnit(t *testing.T) {
 	tests := []struct {
 		name       string
 		db         store.DBTX

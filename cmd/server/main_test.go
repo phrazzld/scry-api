@@ -140,6 +140,19 @@ func TestMainComponents(t *testing.T) {
 			t.Fatal("setupAppLogger() returned nil logger")
 		}
 	})
+
+	t.Run("setupAppLogger with invalid log level", func(t *testing.T) {
+		cfg := &config.Config{
+			Server: config.ServerConfig{
+				LogLevel: "invalid-level",
+			},
+		}
+
+		_, err := setupAppLogger(cfg)
+		if err == nil {
+			t.Fatal("setupAppLogger() should have failed with invalid log level")
+		}
+	})
 }
 
 // TestParseFlags verifies command-line flag parsing behavior

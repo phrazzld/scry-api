@@ -1,5 +1,3 @@
-//go:build test_without_external_deps
-
 package card_review_test
 
 import (

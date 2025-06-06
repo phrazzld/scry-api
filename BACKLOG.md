@@ -81,6 +81,23 @@ This backlog outlines the major work items required to build the Minimum Viable 
 
     * **Deleted Test Files Coverage**: Review the deleted tests' scenarios and confirm they are covered by the new integration tests in `cmd/server/`. Add any missing scenarios to the integration tests.
 
+## Deferred Coverage Tasks (Low Priority)
+
+* **Generation Package Coverage Investigation:**
+    * Investigate internal/generation package structure to determine if it contains testable code or is a placeholder
+    * Add appropriate tests or refactor package structure if needed
+    * Target: 70%+ coverage or proper exclusion documentation
+
+* **Infrastructure Test Coverage Enhancement:**
+    * Enhance infrastructure integration test coverage for CI/CD reliability
+    * Review infrastructure testing requirements and add comprehensive tests
+    * Ensure infrastructure tests pass in CI environment
+
+* **Security Scan Resolution:**
+    * Address CodeQL security scan findings from CI pipeline
+    * Review and resolve any security vulnerabilities or code quality issues
+    * Document security improvements and verify CodeQL scan passes
+
 ## Completed Items
 
 * **Memo & Card Generation Implementation (Completed):**

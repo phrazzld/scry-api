@@ -1,5 +1,3 @@
-//go:build test_without_external_deps
-
 package store
 
 import (

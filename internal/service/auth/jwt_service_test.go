@@ -953,3 +953,117 @@ func TestJWTService_CompleteCodeCoverage(t *testing.T) {
 		require.Equal(t, userID, refreshClaims.UserID)
 	})
 }
+
+func TestJWTService_CoverageGaps(t *testing.T) {
+	t.Parallel()
+
+	fixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	secret := "test-secret-that-is-at-least-32-characters-long"
+
+	t.Run("invalid signing method in access token", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		})
+
+		// Create a token with RSA signing method instead of HMAC
+		// This token has the correct structure but wrong signing method
+		rsaToken := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIxMjM0NTY3OC05YWJjLWRlZjAtMTIzNC01Njc4OWFiY2RlZjAiLCJ0eXBlIjoiYWNjZXNzIiwic3ViIjoiMTIzNDU2NzgtOWFiYy1kZWYwLTEyMzQtNTY3ODlhYmNkZWYwIiwiaWF0IjoxNjQxMDMwNDAwLCJuYmYiOjE2NDEwMzA0MDAsImV4cCI6OTk5OTk5OTk5OSwianRpIjoiYWJjZGVmZ2gtaWprbC1tbm9wLXFyc3QtdXZ3eHl6MTIzNCJ9.signature"
+
+		claims, err := svc.ValidateToken(context.Background(), rsaToken)
+		assert.ErrorIs(t, err, ErrInvalidToken)
+		assert.Nil(t, claims)
+	})
+
+	t.Run("invalid signing method in refresh token", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		}, 24*time.Hour)
+
+		// Create a refresh token with RSA signing method instead of HMAC
+		rsaRefreshToken := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIxMjM0NTY3OC05YWJjLWRlZjAtMTIzNC01Njc4OWFiY2RlZjAiLCJ0eXBlIjoicmVmcmVzaCIsInN1YiI6IjEyMzQ1Njc4LTlhYmMtZGVmMC0xMjM0LTU2Nzg5YWJjZGVmMCIsImlhdCI6MTY0MTAzMDQwMCwibmJmIjoxNjQxMDMwNDAwLCJleHAiOjk5OTk5OTk5OTksImp0aSI6ImFiY2RlZmdoLWlqa2wtbW5vcC1xcnN0LXV2d3h5ejEyMzQifQ.signature"
+
+		claims, err := svc.ValidateRefreshToken(context.Background(), rsaRefreshToken)
+		assert.ErrorIs(t, err, ErrInvalidRefreshToken)
+		assert.Nil(t, claims)
+	})
+
+	t.Run("token with invalid JSON in claims", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		})
+
+		// Create a token with malformed JSON claims (missing closing brace)
+		// This should trigger the "other validation error" path
+		invalidClaimsToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIxMjM0NTY3OC05YWJjLWRlZjAtMTIzNC01Njc4OWFiY2RlZjAiLCJ0eXBlIjoiYWNjZXNzIiwic3ViIjoiMTIzNDU2NzgtOWFiYy1kZWYwLTEyMzQtNTY3ODlhYmNkZWYwIiwiaWF0IjoxNjQxMDMwNDAwLCJuYmYiOjE2NDEwMzA0MDAsImV4cCI6OTk5OTk5OTk5OSwianRpIjoiYWJjZGVmZ2gtaWprbC1tbm9wLXFyc3QtdXZ3eHl6MTIzNA.WrongSignatureToTriggerValidationError"
+
+		claims, err := svc.ValidateToken(context.Background(), invalidClaimsToken)
+		assert.ErrorIs(t, err, ErrInvalidToken)
+		assert.Nil(t, claims)
+	})
+
+	t.Run("refresh token with invalid JSON in claims", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		}, 24*time.Hour)
+
+		// Create a refresh token with malformed JSON claims
+		invalidRefreshClaimsToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIxMjM0NTY3OC05YWJjLWRlZjAtMTIzNC01Njc4OWFiY2RlZjAiLCJ0eXBlIjoicmVmcmVzaCIsInN1YiI6IjEyMzQ1Njc4LTlhYmMtZGVmMC0xMjM0LTU2Nzg5YWJjZGVmMCIsImlhdCI6MTY0MTAzMDQwMCwibmJmIjoxNjQxMDMwNDAwLCJleHAiOjk5OTk5OTk5OTksImp0aSI6ImFiY2RlZmdoLWlqa2wtbW5vcC1xcnN0LXV2d3h5ejEyMzQK.WrongSignatureToTriggerValidationError"
+
+		claims, err := svc.ValidateRefreshToken(context.Background(), invalidRefreshClaimsToken)
+		assert.ErrorIs(t, err, ErrInvalidRefreshToken)
+		assert.Nil(t, claims)
+	})
+
+	t.Run("token with invalid base64 encoding", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		})
+
+		// Token with invalid base64 that should trigger parsing error
+		invalidBase64Token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid_base64_that_cannot_be_decoded!!!.signature"
+
+		claims, err := svc.ValidateToken(context.Background(), invalidBase64Token)
+		assert.ErrorIs(t, err, ErrInvalidToken)
+		assert.Nil(t, claims)
+	})
+
+	t.Run("token with invalid claims structure", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		})
+
+		// Create a token with empty claims object that would fail type assertion
+		emptyClaimsToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.secret"
+
+		claims, err := svc.ValidateToken(context.Background(), emptyClaimsToken)
+		assert.Error(t, err)
+		assert.Nil(t, claims)
+	})
+
+	t.Run("refresh token with invalid claims structure", func(t *testing.T) {
+		t.Parallel()
+
+		svc := createTestJWTService(secret, time.Hour, func() time.Time {
+			return fixedTime
+		}, 24*time.Hour)
+
+		// Create a refresh token with empty claims object
+		emptyClaimsRefreshToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.secret"
+
+		claims, err := svc.ValidateRefreshToken(context.Background(), emptyClaimsRefreshToken)
+		assert.Error(t, err)
+		assert.Nil(t, claims)
+	})
+}

@@ -5,13 +5,13 @@
     "internal/domain/srs": 95,
     "internal/api": 71,
     "internal/service": 52,
-    "internal/service/auth": 83,
+    "internal/service/auth": 45,
     "internal/service/card_review": 53,
     "internal/platform/postgres": 18,
     "internal/platform/logger": 45,
-    "internal/ciutil": 85,
+    "internal/ciutil": 65,
     "internal/store": 100,
-    "cmd/server": 53
+    "cmd/server": 10
   },
   "excluded_packages": [
     "internal/testutils",

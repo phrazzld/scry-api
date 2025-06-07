@@ -22,9 +22,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Define test timeout constant for memo tests
-const testMemoTimeout = 5 * time.Second
-
 // TestPostgresMemoStore_Create tests the Create method
 func TestPostgresMemoStore_Create(t *testing.T) {
 	t.Parallel() // Enable parallel testing

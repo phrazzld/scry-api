@@ -165,3 +165,17 @@ test-infrastructure-docker: ## Run Docker-based infrastructure tests
 test-infrastructure-terraform: ## Run Terraform infrastructure tests
 	@echo "Running Terraform infrastructure tests..."
 	TERRATEST_ENABLED=1 go test -v ./infrastructure/terraform/test/...
+
+# CI-matching commands
+.PHONY: test-ci-local
+test-ci-local: ## Run tests matching CI environment
+	go test -v -race -cover -tags=integration,test_without_external_deps ./...
+
+.PHONY: test-ci-package
+test-ci-package: ## Run tests for specific package matching CI (use PKG=package/path)
+	@if [ -z "$(PKG)" ]; then echo "Usage: make test-ci-package PKG=internal/service/card_review"; exit 1; fi
+	go test -v -json -race -coverprofile=coverage.out -tags=integration,test_without_external_deps ./$(PKG)/...
+
+.PHONY: lint-ci
+lint-ci: ## Run linting with CI build tags
+	golangci-lint run --build-tags=integration,test_without_external_deps

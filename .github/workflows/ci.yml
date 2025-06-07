@@ -45,7 +45,7 @@ on:
 
 # Centralized Go version - update this single value to change version across all jobs
 env:
-  GO_VERSION: '1.22'
+  GO_VERSION: '1.24'
 
 permissions:
   contents: read # Default permission
@@ -146,7 +146,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.1 # Match pre-commit hook version
-          args: --verbose --build-tags=test_without_external_deps
+          args: --verbose --build-tags=integration,test_without_external_deps
         # Note: This includes gofmt and goimports checks, making a separate format job unnecessary
 
   test:
@@ -337,10 +337,10 @@ jobs:
 
           # Run tests with enhanced logging
           echo "Running tests with enhanced verbosity and logging:"
-          echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
+          echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration,test_without_external_deps ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
 
           # Set GOTEST_DEBUG for additional debug output for failed tests
-          GOTEST_DEBUG=1 GODEBUG=gctrace=0 go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
+          GOTEST_DEBUG=1 GODEBUG=gctrace=0 go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration,test_without_external_deps ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
 
           TEST_EXIT_CODE=${PIPESTATUS[0]}
           echo "Test exit code: $TEST_EXIT_CODE"

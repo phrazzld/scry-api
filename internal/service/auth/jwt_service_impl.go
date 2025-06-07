@@ -63,6 +63,7 @@ func (s *hmacJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (s
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now), // Token is valid from issuance time
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.tokenLifetime)),
 			ID:        uuid.New().String(), // Unique token ID
 		},
@@ -193,6 +194,7 @@ func (s *hmacJWTService) GenerateRefreshToken(
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now), // Token is valid from issuance time
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.refreshTokenLifetime)),
 			ID:        uuid.New().String(), // Unique token ID
 		},
@@ -311,25 +313,42 @@ func (s *hmacJWTService) ValidateRefreshToken(
 	return nil, ErrInvalidRefreshToken
 }
 
-// NewTestJWTService creates a JWT service with adjustable time and token lifetimes for testing.
-// If refreshLifetime is 0, it defaults to 7x the access token lifetime.
-func NewTestJWTService(
-	secret string,
-	lifetime time.Duration,
-	timeFunc func() time.Time,
-	refreshLifetime ...time.Duration,
-) JWTService {
-	// Set default refresh token lifetime if not provided
-	refreshTokenLifetime := lifetime * 7 // Default is 7x access token lifetime
-	if len(refreshLifetime) > 0 && refreshLifetime[0] > 0 {
-		refreshTokenLifetime = refreshLifetime[0]
+// GenerateRefreshTokenWithExpiry is a testing helper function that generates a refresh token
+// with a custom expiration time. This is used primarily for testing expiration scenarios.
+func (s *hmacJWTService) GenerateRefreshTokenWithExpiry(
+	ctx context.Context,
+	userID uuid.UUID,
+	expiryTime time.Time,
+) (string, error) {
+	log := logger.FromContext(ctx)
+	now := s.timeFunc()
+
+	// Create the claims with user ID and custom expiry
+	claims := jwtCustomClaims{
+		UserID:    userID,
+		TokenType: "refresh", // Specify this is a refresh token
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID.String(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now), // Token is valid from issuance time
+			ExpiresAt: jwt.NewNumericDate(expiryTime),
+			ID:        uuid.New().String(), // Unique token ID
+		},
 	}
 
-	return &hmacJWTService{
-		signingKey:           []byte(secret),
-		tokenLifetime:        lifetime,
-		refreshTokenLifetime: refreshTokenLifetime,
-		timeFunc:             timeFunc,
-		clockSkew:            0, // No clock skew for tests to make them deterministic
+	// Create the token with the claims and sign it with HMAC-SHA256
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString(s.signingKey)
+	if err != nil {
+		log.Error("failed to sign JWT refresh token with custom expiry",
+			"error", err,
+			"user_id", userID,
+			"token_type", "refresh",
+			"custom_expiry", expiryTime)
+		return "", fmt.Errorf("failed to sign refresh token with HMAC-SHA256: %w", err)
 	}
+
+	return signedToken, nil
 }
+
+// For testing utilities, see test_helpers.go

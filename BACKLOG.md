@@ -26,6 +26,7 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * Implement basic request body validation.
 
 * Implement semantic versioning (ideally automatically managed somehow ... conventional commits?)
+- create better code coverage visibility ie implement codecov
 
 * **Testing:**
     * Adhere strictly to `DEVELOPMENT_PHILOSOPHY.md`.
@@ -53,6 +54,49 @@ This backlog outlines the major work items required to build the Minimum Viable 
     * **Over-Aggressive Redaction Patterns**: Fine-tune regex patterns in redaction utilities to balance security with debuggability. Add more comprehensive tests for edge cases and potential false positives/negatives.
     * **Mixed Responsibilities in Test Utilities**: Refactor test helpers for better separation of concerns by breaking them into focused packages (e.g., HTTP helpers, entity creation, DB helpers).
     * **Documentation and Test Parallelization**: Add consistent godoc comments to all public functions, mark deprecated test helpers clearly, and add t.Parallel() to compatible table-driven subtests.
+
+    * **Misleading Build Tag on Mock-Based Test**: Remove the `//go:build integration` tag from `cmd/server/card_api_test.go`. Decide if these mock-based tests provide value as *unit* tests for the handler logic; if so, keep them untagged or tag appropriately. Ensure the *actual* integration tests cover these API endpoints thoroughly.
+
+    * **Overly Broad Logging Level for Client Errors**: Adjust the default log level in `HandleAPIError` for 4xx errors. Log 400/404 at `DEBUG` or `INFO`. Log 401/403/409 at `WARN` by default, as these often indicate potential security issues, configuration problems, or operational concerns.
+
+    * **Incomplete Error Path Testing in CardService**: Add integration test cases that simulate or trigger various database/store-level errors during `CardService` operations. Verify that these errors are correctly wrapped by `NewCardServiceError` and handled appropriately by the service layer.
+
+    * **Inconsistent Mock Naming**: Standardize mock naming (e.g., `Mock[InterfaceName]`). Consolidate mock definitions into `internal/mocks` or a dedicated test utility package. Remove duplicated or slightly varied mocks from individual test files.
+
+    * **Test Cleanup Helpers Mask Failures**: Change `t.Logf` to `t.Errorf` in cleanup helpers to ensure that cleanup failures correctly mark the test as failed while allowing other cleanup steps to proceed.
+
+    * **Unjustified Node.js Dependency**: Add a comment in `.tool-versions` explaining *why* Node.js is needed (e.g., "Required for OpenAPI linting/generation tool"). If not essential, remove it.
+
+    * **Hardcoded Test JWT Secret**: Define the test secret as a constant (e.g., `const TestJWTSecret = "..."`) in `internal/testutils/auth_helpers.go` and use it consistently. Add a comment emphasizing it's for testing only.
+
+    * **Duplicate MockJWTService Definition**: Consolidate `MockJWTService` into `internal/testutils/mock_jwt_service.go` (already created) or a shared test file within `cmd/server` and remove duplicates.
+
+    * **Redundant JSON Validation**: Remove the explicit `json.Valid` check in `PostgresCardStore.UpdateContent`. Ensure validation happens at the appropriate layer (service or domain persistence).
+
+    * **Missing WithTx Test Coverage**: Add simple unit tests for each store's `WithTx` method verifying it returns a new instance associated with the passed transaction.
+
+    * **Hardcoded Task Config in main.go**: Pass `deps.Config.Task` to `task.NewTaskRunner`.
+
+    * **Refactor API Request Helpers Usage**: Audit all API handlers (`Register`, `Login`, `RefreshToken`, `CreateMemo`, `SubmitAnswer`, `EditCard`, `DeleteCard`, `PostponeCard`) and refactor them to use `parseAndValidateRequest`, `handleUserIDFromContext`, and `handleUserIDAndPathUUID` where applicable.
+
+    * **Deleted Test Files Coverage**: Review the deleted tests' scenarios and confirm they are covered by the new integration tests in `cmd/server/`. Add any missing scenarios to the integration tests.
+
+## Deferred Coverage Tasks (Low Priority)
+
+* **Generation Package Coverage Investigation:**
+    * Investigate internal/generation package structure to determine if it contains testable code or is a placeholder
+    * Add appropriate tests or refactor package structure if needed
+    * Target: 70%+ coverage or proper exclusion documentation
+
+* **Infrastructure Test Coverage Enhancement:**
+    * Enhance infrastructure integration test coverage for CI/CD reliability
+    * Review infrastructure testing requirements and add comprehensive tests
+    * Ensure infrastructure tests pass in CI environment
+
+* **Security Scan Resolution:**
+    * Address CodeQL security scan findings from CI pipeline
+    * Review and resolve any security vulnerabilities or code quality issues
+    * Document security improvements and verify CodeQL scan passes
 
 ## Completed Items
 

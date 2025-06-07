@@ -1,6 +1,12 @@
+//go:build (!compatibility && ignore_redeclarations) || test_without_external_deps
+
+// This file provides test utilities for APIs.
+// It should be used in preference to the compatibility.go file where possible.
+
 package testutils
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -11,12 +17,14 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api"
-	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+	"github.com/phrazzld/scry-api/internal/api/middleware"
 	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
+	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/stretchr/testify/require"
 )
@@ -79,13 +87,13 @@ func CreateAPIHandlers(
 	passwordVerifier auth.PasswordVerifier,
 	authConfig config.AuthConfig,
 	memoService service.MemoService,
-) (*api.AuthHandler, *api.MemoHandler, *authmiddleware.AuthMiddleware) {
+) (*api.AuthHandler, *api.MemoHandler, *middleware.AuthMiddleware) {
 	t.Helper()
 	// Use default logger for tests
 	logger := slog.Default()
 	authHandler := api.NewAuthHandler(userStore, jwtService, passwordVerifier, &authConfig, logger)
 	memoHandler := api.NewMemoHandler(memoService, logger)
-	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
+	authMiddleware := middleware.NewAuthMiddleware(jwtService)
 	return authHandler, memoHandler, authMiddleware
 }
 
@@ -137,7 +145,7 @@ func SetupAuthRoutes(
 	r chi.Router,
 	authHandler *api.AuthHandler,
 	memoHandler *api.MemoHandler,
-	authMiddleware *authmiddleware.AuthMiddleware,
+	authMiddleware *middleware.AuthMiddleware,
 ) {
 	t.Helper()
 	r.Route("/api", func(r chi.Router) {
@@ -162,7 +170,7 @@ func SetupAuthRoutes(
 //
 // Example:
 //
-//	db := testutils.GetTestDB(t)
+//	db := testutils.GetTestDBWithT(t)
 //	userStore := testutils.CreatePostgresUserStore(db)
 //	// Use userStore in tests
 func CreatePostgresUserStore(db store.DBTX) *postgres.PostgresUserStore {
@@ -470,3 +478,107 @@ func MustCreateMemoForTest(t *testing.T, opts ...MemoOption) *domain.Memo {
 	memo := CreateMemoForTest(t, opts...)
 	return memo
 }
+
+// Create additional test utility functions for card management API tests
+
+// CreatePostgresCardStore creates a PostgresCardStore with a logger for testing
+func CreatePostgresCardStore(db store.DBTX) *postgres.PostgresCardStore {
+	return postgres.NewPostgresCardStore(db, slog.Default())
+}
+
+// CreatePostgresUserCardStatsStore creates a PostgresUserCardStatsStore with a logger for testing
+func CreatePostgresUserCardStatsStore(db store.DBTX) *postgres.PostgresUserCardStatsStore {
+	return postgres.NewPostgresUserCardStatsStore(db, slog.Default())
+}
+
+// CreateSRSService creates an SRS service with default parameters for testing
+func CreateSRSService() (srs.Service, error) {
+	return srs.NewDefaultService()
+}
+
+// CreateCardRepositoryAdapter creates a card repository adapter for testing
+func CreateCardRepositoryAdapter(cardStore store.CardStore, db store.DBTX) service.CardRepository {
+	sqlDB, ok := db.(*sql.DB)
+	if !ok {
+		// If it's not a *sql.DB, it must be our TxDB wrapper with a transaction
+		// For testing, just pass nil as the DB since we're using transactions
+		return service.NewCardRepositoryAdapter(cardStore, nil)
+	}
+	return service.NewCardRepositoryAdapter(cardStore, sqlDB)
+}
+
+// CreateStatsRepositoryAdapter creates a stats repository adapter for testing
+func CreateStatsRepositoryAdapter(statsStore store.UserCardStatsStore) service.StatsRepository {
+	return service.NewStatsRepositoryAdapter(statsStore)
+}
+
+// CreateCardService creates a card service for testing
+func CreateCardService(
+	cardRepo service.CardRepository,
+	statsRepo service.StatsRepository,
+	srsService srs.Service,
+) (service.CardService, error) {
+	return service.NewCardService(cardRepo, statsRepo, srsService, slog.Default())
+}
+
+// CreateCardReviewService creates a card review service for testing
+func CreateCardReviewService(
+	cardStore store.CardStore,
+	statsStore store.UserCardStatsStore,
+	srsService srs.Service,
+) (card_review.CardReviewService, error) {
+	return card_review.NewCardReviewService(
+		cardStore,
+		statsStore,
+		srsService,
+		slog.Default(),
+	)
+}
+
+// CreateAuthHandler creates an auth handler for testing
+func CreateAuthHandler(
+	userStore store.UserStore,
+	jwtService auth.JWTService,
+	passwordVerifier auth.PasswordVerifier,
+	authConfig config.AuthConfig,
+) *api.AuthHandler {
+	return api.NewAuthHandler(
+		userStore,
+		jwtService,
+		passwordVerifier,
+		&authConfig,
+		slog.Default(),
+	)
+}
+
+// CreateCardHandler creates a card handler for testing
+func CreateCardHandler(
+	cardReviewService card_review.CardReviewService,
+	cardService service.CardService,
+) *api.CardHandler {
+	return api.NewCardHandler(
+		cardReviewService,
+		cardService,
+		slog.Default(),
+	)
+}
+
+// CreateAuthMiddleware creates an auth middleware for testing
+func CreateAuthMiddleware(jwtService auth.JWTService) *middleware.AuthMiddleware {
+	return middleware.NewAuthMiddleware(jwtService)
+}
+
+// This function is already declared in helpers.go
+// // AssertRollbackNoError is a utility function to cleanly roll back transactions.
+// // This is a helper for WithTx and other transaction-related functions.
+// func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
+// 	t.Helper()
+//
+// 	if tx == nil {
+// 		return
+// 	}
+//
+// 	if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+// 		t.Logf("Warning: failed to roll back transaction: %v", err)
+// 	}
+// }

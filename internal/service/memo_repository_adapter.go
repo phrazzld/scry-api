@@ -13,7 +13,7 @@ type MemoRepositoryAdapter struct {
 	db *sql.DB
 }
 
-// NewMemoRepositoryAdapter creates a new adapter that implements task.MemoRepository
+// NewMemoRepositoryAdapter creates a new adapter that implements task.MockMemoRepository
 // by delegating to a store.MemoStore implementation
 func NewMemoRepositoryAdapter(
 	memoStore store.MemoStore,

@@ -1,13 +1,18 @@
 -- +goose Up
 -- +goose StatementBegin
--- Create memo status enum type
-CREATE TYPE memo_status AS ENUM (
-    'pending',
-    'processing',
-    'completed',
-    'completed_with_errors',
-    'failed'
-);
+-- Create memo status enum type with defensive check
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'memo_status') THEN
+        CREATE TYPE memo_status AS ENUM (
+            'pending',
+            'processing',
+            'completed',
+            'completed_with_errors',
+            'failed'
+        );
+    END IF;
+END $$;
 
 -- Create memos table
 CREATE TABLE memos (

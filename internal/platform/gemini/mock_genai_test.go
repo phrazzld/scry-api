@@ -1,5 +1,4 @@
 //go:build test_without_external_deps
-// +build test_without_external_deps
 
 // Package gemini_test provides a testing environment for the gemini package.
 package gemini_test

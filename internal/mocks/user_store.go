@@ -136,8 +136,8 @@ func (m *MockUserStore) WithTx(tx *sql.Tx) store.UserStore {
 	return m
 }
 
-// LoginMockUserStore is a specialized mock for login tests
-type LoginMockUserStore struct {
+// MockLoginUserStore is a specialized mock for login tests
+type MockLoginUserStore struct {
 	GetByEmailFn    func(ctx context.Context, email string) (*domain.User, error)
 	GetByEmailError error
 	UserID          uuid.UUID
@@ -146,8 +146,8 @@ type LoginMockUserStore struct {
 }
 
 // NewLoginMockUserStore creates a specialized mock for login testing
-func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *LoginMockUserStore {
-	return &LoginMockUserStore{
+func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *MockLoginUserStore {
+	return &MockLoginUserStore{
 		UserID:         userID,
 		UserEmail:      email,
 		HashedPassword: hashedPassword,
@@ -155,12 +155,12 @@ func NewLoginMockUserStore(userID uuid.UUID, email, hashedPassword string) *Logi
 }
 
 // Create - placeholder implementation for UserStore interface
-func (m *LoginMockUserStore) Create(ctx context.Context, user *domain.User) error {
+func (m *MockLoginUserStore) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
 // GetByEmail implements the UserStore interface with login-specific behavior
-func (m *LoginMockUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (m *MockLoginUserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	if m.GetByEmailFn != nil {
 		return m.GetByEmailFn(ctx, email)
 	}
@@ -181,22 +181,22 @@ func (m *LoginMockUserStore) GetByEmail(ctx context.Context, email string) (*dom
 }
 
 // GetByID - placeholder implementation for UserStore interface
-func (m *LoginMockUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (m *MockLoginUserStore) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	return nil, nil
 }
 
 // Update - placeholder implementation for UserStore interface
-func (m *LoginMockUserStore) Update(ctx context.Context, user *domain.User) error {
+func (m *MockLoginUserStore) Update(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
 // Delete - placeholder implementation for UserStore interface
-func (m *LoginMockUserStore) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockLoginUserStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
 // WithTx implements the UserStore interface for transaction support
-func (m *LoginMockUserStore) WithTx(tx *sql.Tx) store.UserStore {
+func (m *MockLoginUserStore) WithTx(tx *sql.Tx) store.UserStore {
 	// For mock purposes, just return the same mock
 	return m
 }

@@ -1,3 +1,5 @@
+//go:build integration
+
 package postgres_test
 
 import (
@@ -6,61 +8,29 @@ import (
 	"testing"
 	"time"
 
+	"database/sql"
+
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/store"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Add comment to explain we're using the same timeout as defined in user_store_test.go
-// We don't define testTimeout here to avoid redeclaration
-
-// createTestMemo uses the centralized testutils.CreateTestMemo function
-func createTestMemo(t *testing.T, userID uuid.UUID) *domain.Memo {
-	return testutils.CreateTestMemo(t, userID)
-}
-
-// insertTestMemo uses the centralized testutils.MustInsertMemo function
-func insertTestMemo(
-	ctx context.Context,
-	t *testing.T,
-	tx store.DBTX,
-	userID uuid.UUID,
-) *domain.Memo {
-	return testutils.MustInsertMemo(ctx, t, tx, userID)
-}
-
-// countMemos uses the centralized testutils.CountMemos function
-func countMemos(
-	ctx context.Context,
-	t *testing.T,
-	tx store.DBTX,
-	whereClause string,
-	args ...interface{},
-) int {
-	return testutils.CountMemos(ctx, t, tx, whereClause, args...)
-}
-
 // TestPostgresMemoStore_Create tests the Create method
 func TestPostgresMemoStore_Create(t *testing.T) {
-	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := testutils.GetTestDB()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	db := testdb.GetTestDBWithT(t)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -82,7 +52,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 			)
 
 			// Create a test memo
-			memo := createTestMemo(t, userID)
+			memo := testutils.CreateTestMemo(t, userID)
 
 			// Call the Create method
 			err := memoStore.Create(ctx, memo)
@@ -153,7 +123,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 			assert.Equal(t, domain.ErrMemoTextEmpty, err, "Error should be ErrMemoTextEmpty")
 
 			// Verify no memo was created
-			count := countMemos(ctx, t, tx, "id = $1", memo.ID)
+			count := testutils.CountMemos(ctx, t, tx, "id = $1", memo.ID)
 			assert.Equal(t, 0, count, "No memo should be created with invalid data")
 		})
 
@@ -167,7 +137,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 
 			// Create a memo with a non-existent user ID
 			nonExistentUserID := uuid.New() // Random UUID that doesn't exist
-			memo := createTestMemo(t, nonExistentUserID)
+			memo := testutils.CreateTestMemo(t, nonExistentUserID)
 
 			// Call the Create method
 			err := memoStore.Create(ctx, memo)
@@ -178,7 +148,7 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 				"Error should wrap ErrInvalidEntity")
 
 			// Verify no memo was created
-			count := countMemos(ctx, t, tx, "id = $1", memo.ID)
+			count := testutils.CountMemos(ctx, t, tx, "id = $1", memo.ID)
 			assert.Equal(t, 0, count, "No memo should be created with non-existent user ID")
 		})
 	})
@@ -186,19 +156,13 @@ func TestPostgresMemoStore_Create(t *testing.T) {
 
 // TestPostgresMemoStore_GetByID tests the GetByID method
 func TestPostgresMemoStore_GetByID(t *testing.T) {
-	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := testutils.GetTestDB()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	db := testdb.GetTestDBWithT(t)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -220,7 +184,7 @@ func TestPostgresMemoStore_GetByID(t *testing.T) {
 			)
 
 			// Insert a test memo
-			memo := insertTestMemo(ctx, t, tx, userID)
+			memo := testutils.MustInsertMemo(ctx, t, tx, userID)
 
 			// Call the GetByID method
 			retrievedMemo, err := memoStore.GetByID(ctx, memo.ID)
@@ -260,19 +224,13 @@ func TestPostgresMemoStore_GetByID(t *testing.T) {
 
 // TestPostgresMemoStore_UpdateStatus tests the UpdateStatus method
 func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
-	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := testutils.GetTestDB()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	db := testdb.GetTestDBWithT(t)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -294,7 +252,7 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 			)
 
 			// Insert a test memo
-			memo := insertTestMemo(ctx, t, tx, userID)
+			memo := testutils.MustInsertMemo(ctx, t, tx, userID)
 
 			// Verify initial status
 			assert.Equal(
@@ -336,7 +294,7 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 			)
 
 			// Insert a test memo
-			memo := insertTestMemo(ctx, t, tx, userID)
+			memo := testutils.MustInsertMemo(ctx, t, tx, userID)
 
 			// Try to update with invalid status
 			invalidStatus := domain.MemoStatus("invalid_status")
@@ -384,19 +342,13 @@ func TestPostgresMemoStore_UpdateStatus(t *testing.T) {
 
 // TestPostgresMemoStore_FindMemosByStatus tests the FindMemosByStatus method
 func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
-	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := testutils.GetTestDB()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	db := testdb.GetTestDBWithT(t)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -418,14 +370,14 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			)
 
 			// Insert multiple memos with different statuses
-			memo1 := insertTestMemo(ctx, t, tx, userID)
+			memo1 := testutils.MustInsertMemo(ctx, t, tx, userID)
 			require.Equal(t, domain.MemoStatusPending, memo1.Status)
 
-			memo2 := insertTestMemo(ctx, t, tx, userID)
+			memo2 := testutils.MustInsertMemo(ctx, t, tx, userID)
 			err := memoStore.UpdateStatus(ctx, memo2.ID, domain.MemoStatusProcessing)
 			require.NoError(t, err)
 
-			memo3 := insertTestMemo(ctx, t, tx, userID)
+			memo3 := testutils.MustInsertMemo(ctx, t, tx, userID)
 			require.Equal(t, domain.MemoStatusPending, memo3.Status)
 
 			// Call FindMemosByStatus for 'pending' status
@@ -473,7 +425,7 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 
 			// Insert multiple memos with the same status
 			for i := 0; i < 5; i++ {
-				insertTestMemo(ctx, t, tx, userID)
+				testutils.MustInsertMemo(ctx, t, tx, userID)
 			}
 
 			// Test with limit 2, offset 0
@@ -537,7 +489,7 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 			)
 
 			// Insert a test memo
-			insertTestMemo(ctx, t, tx, userID)
+			testutils.MustInsertMemo(ctx, t, tx, userID)
 
 			// Test with negative limit
 			memos1, err := memoStore.FindMemosByStatus(ctx, domain.MemoStatusPending, -5, 0)
@@ -559,19 +511,13 @@ func TestPostgresMemoStore_FindMemosByStatus(t *testing.T) {
 
 // TestPostgresMemoStore_Update tests the Update method
 func TestPostgresMemoStore_Update(t *testing.T) {
-	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - requires DATABASE_URL environment variable")
-	}
-
 	t.Parallel() // Enable parallel testing
 
 	// Get a database connection
-	db, err := testutils.GetTestDB()
-	require.NoError(t, err, "Failed to connect to test database")
-	defer testutils.AssertCloseNoError(t, db)
+	db := testdb.GetTestDBWithT(t)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	// Run the test within a transaction for isolation
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new memo store
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
 
@@ -593,7 +539,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 			)
 
 			// Insert a test memo
-			memo := insertTestMemo(ctx, t, tx, userID)
+			memo := testutils.MustInsertMemo(ctx, t, tx, userID)
 
 			// Update memo
 			newText := "Updated memo text " + uuid.New().String()
@@ -655,7 +601,7 @@ func TestPostgresMemoStore_Update(t *testing.T) {
 			)
 
 			// Insert a test memo
-			memo := insertTestMemo(ctx, t, tx, userID)
+			memo := testutils.MustInsertMemo(ctx, t, tx, userID)
 
 			// Try to update with invalid data
 			originalText := memo.Text

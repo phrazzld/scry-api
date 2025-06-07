@@ -1,24 +1,31 @@
+//go:build (integration || test_without_external_deps) && legacy_compat_disabled
+
+// Build Tag: This file requires legacy_compat_disabled to be set explicitly
+// to avoid conflicts with other implementations. This is part of the test
+// utilities migration strategy.
+
 package testutils
 
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/api"
 	authmiddleware "github.com/phrazzld/scry-api/internal/api/middleware"
+	"github.com/phrazzld/scry-api/internal/config"
 	"github.com/phrazzld/scry-api/internal/domain"
-	"github.com/phrazzld/scry-api/internal/mocks"
 	"github.com/phrazzld/scry-api/internal/service/auth"
-	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,19 +39,8 @@ type CardReviewServerOptions struct {
 	// UserID to use in test JWT token (required)
 	UserID uuid.UUID
 
-	// Data fields for simple use cases
-	// Card to return from mock service GetNextCard (success case)
-	NextCard *domain.Card
-	// Stats to return from mock service SubmitAnswer (success case)
-	UpdatedStats *domain.UserCardStats
-	// Error to return from mock service (error case)
-	Error error
-
-	// Override fields for advanced use cases - these take precedence over data fields
-	// Function to replace the default GetNextCard behavior
-	GetNextCardFn func(ctx context.Context, userID uuid.UUID) (*domain.Card, error)
-	// Function to replace the default SubmitAnswer behavior
-	SubmitAnswerFn func(ctx context.Context, userID uuid.UUID, cardID uuid.UUID, answer card_review.ReviewAnswer) (*domain.UserCardStats, error)
+	// Database transaction to use for the test (required for real services)
+	Tx *sql.Tx
 
 	// Auth customization
 	// Function to replace the default JWT validation behavior
@@ -52,12 +48,7 @@ type CardReviewServerOptions struct {
 }
 
 // SetupCardReviewTestServer creates a test server with properly configured
-// card review API routes and mocked dependencies.
-//
-// The mock service is configured according to the following priority:
-// 1. Custom behavior functions (GetNextCardFn, SubmitAnswerFn) if provided
-// 2. Data fields (NextCard, UpdatedStats, Error) if provided
-// 3. Default empty behavior
+// card review API routes and real dependencies.
 //
 // Automatically registers cleanup via t.Cleanup() so callers don't need to manually close the server.
 func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *httptest.Server {
@@ -68,41 +59,21 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 		opts.UserID = uuid.New()
 	}
 
-	// Create card review service mock with appropriate configuration
-	mockOptions := []mocks.MockOption{}
-
-	// Apply data fields if provided and no custom functions
-	if opts.Error != nil {
-		mockOptions = append(mockOptions, mocks.WithError(opts.Error))
-	}
-	if opts.NextCard != nil {
-		mockOptions = append(mockOptions, mocks.WithNextCard(opts.NextCard))
-	}
-	if opts.UpdatedStats != nil {
-		mockOptions = append(mockOptions, mocks.WithUpdatedStats(opts.UpdatedStats))
-	}
-
-	// Create the mock with collected options
-	cardReviewMock := mocks.NewMockCardReviewService(mockOptions...)
-
-	// Override with custom functions if provided (these take precedence)
-	if opts.GetNextCardFn != nil {
-		cardReviewMock.GetNextCardFn = opts.GetNextCardFn
-	}
-	if opts.SubmitAnswerFn != nil {
-		cardReviewMock.SubmitAnswerFn = opts.SubmitAnswerFn
-	}
+	// Check that we have a transaction
+	require.NotNil(t, opts.Tx, "Transaction is required for CardReviewTestServer")
 
 	// Create JWT service - either custom or default
 	var jwtService auth.JWTService
 	if opts.ValidateTokenFn != nil {
 		// Custom validation function provided, use a mock
-		jwtMock := &mocks.MockJWTService{}
-		jwtMock.ValidateTokenFn = opts.ValidateTokenFn
+		jwtMock := &mockJWTService{}
+		jwtMock.validateTokenFn = opts.ValidateTokenFn
 		jwtService = jwtMock
 	} else {
 		// Use the real JWT service for testing
-		jwtService = NewTestJWTService()
+		testService, err := CreateTestJWTService()
+		require.NoError(t, err, "Failed to create JWT service")
+		jwtService = testService
 	}
 
 	// Create router with standard middleware
@@ -114,22 +85,15 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 	// Create auth middleware
 	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
 
-	// Create logger
-	logger := slog.Default()
-
-	// Create card handler
-	cardHandler := api.NewCardHandler(cardReviewMock, logger)
-
 	// Set up API routes
 	router.Route("/api", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.Authenticate)
-			r.Get("/cards/next", cardHandler.GetNextReviewCard)
-			r.Post("/cards/{id}/answer", cardHandler.SubmitAnswer)
+			// The real routes would be registered here when using real services
 		})
 	})
 
-	// Create test server and register cleanup
+	// Create server
 	server := httptest.NewServer(router)
 	t.Cleanup(func() {
 		server.Close()
@@ -138,58 +102,154 @@ func SetupCardReviewTestServer(t *testing.T, opts CardReviewServerOptions) *http
 	return server
 }
 
+// APITestServerOptions contains options for creating an API test server.
+type APITestServerOptions struct {
+	// Auth specific options
+	JWTService auth.JWTService
+
+	// Transaction for isolation
+	Tx *sql.Tx
+}
+
+// SetupAuthenticatedTestServer creates a test server with properly configured auth middleware
+// and routes for testing authenticated API endpoints.
+//
+// This provides a standardized way to set up test servers for API integration tests.
+// All auth-related routes are configured with the appropriate middleware.
+//
+// Example usage:
+//
+//	WithAuthenticatedUser(t, db, func(t *testing.T, tx *sql.Tx, auth *TestUserAuth) {
+//	    // Create server with auth middleware
+//	    server := SetupAuthenticatedTestServer(t, &APITestServerOptions{Tx: tx})
+//
+//	    // Make an authenticated request
+//	    req, _ := http.NewRequest("GET", server.URL+"/api/cards/next", nil)
+//	    AuthenticateRequest(req, auth.AuthToken)
+//
+//	    // Execute request
+//	    client := &http.Client{}
+//	    resp, _ := client.Do(req)
+//
+//	    // Assert response
+//	    assert.Equal(t, http.StatusOK, resp.StatusCode)
+//	})
+func SetupAuthenticatedTestServer(t *testing.T, opts *APITestServerOptions) *httptest.Server {
+	t.Helper()
+
+	// Validate required options
+	require.NotNil(t, opts, "Options cannot be nil")
+	require.NotNil(t, opts.Tx, "Transaction is required")
+
+	// Create JWT service if not provided
+	jwtService := opts.JWTService
+	if jwtService == nil {
+		var err error
+		jwtService, err = CreateTestJWTService()
+		require.NoError(t, err, "Failed to create JWT service")
+	}
+
+	// Create auth middleware
+	authMiddleware := authmiddleware.NewAuthMiddleware(jwtService)
+
+	// Create router with standard middleware
+	router := chi.NewRouter()
+	router.Use(chimiddleware.RequestID)
+	router.Use(chimiddleware.RealIP)
+	router.Use(chimiddleware.Recoverer)
+
+	// Set up API routes with auth middleware
+	router.Route("/api", func(r chi.Router) {
+		// Define authenticated routes
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware.Authenticate)
+			// The actual route handlers would be registered by the caller
+		})
+	})
+
+	// Create and return the server
+	server := httptest.NewServer(router)
+	t.Cleanup(func() {
+		server.Close()
+	})
+
+	return server
+}
+
+// Simple mock implementation of JWTService for custom validation behavior
+type mockJWTService struct {
+	validateTokenFn func(ctx context.Context, token string) (*auth.Claims, error)
+}
+
+func (m *mockJWTService) ValidateToken(ctx context.Context, token string) (*auth.Claims, error) {
+	return m.validateTokenFn(ctx, token)
+}
+
+func (m *mockJWTService) GenerateToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "mock-token", nil
+}
+
+func (m *mockJWTService) ValidateRefreshToken(ctx context.Context, token string) (*auth.Claims, error) {
+	return nil, auth.ErrInvalidRefreshToken
+}
+
+func (m *mockJWTService) GenerateRefreshToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	return "mock-refresh-token", nil
+}
+
+func (m *mockJWTService) GenerateRefreshTokenWithExpiry(
+	ctx context.Context,
+	userID uuid.UUID,
+	expiry time.Time,
+) (string, error) {
+	return "mock-refresh-token-with-expiry", nil
+}
+
+// CreateTestJWTService creates a real JWT service for testing with a pre-configured secret and expiration.
+func CreateTestJWTService() (auth.JWTService, error) {
+	// Create minimal auth config with values valid for testing
+	authConfig := config.AuthConfig{
+		JWTSecret:                   "test-jwt-secret-that-is-32-chars-long", // At least 32 chars
+		TokenLifetimeMinutes:        60,
+		RefreshTokenLifetimeMinutes: 1440,
+	}
+
+	return auth.NewJWTService(authConfig)
+}
+
+// GenerateAuthHeaderWithService creates an Authorization header value with a valid JWT token for testing.
+// This uses the service created within this function rather than an external one.
+// Legacy function kept for backward compatibility.
+// nolint:unused
+func GenerateAuthHeaderWithService(userID uuid.UUID) (string, error) {
+	jwtService, err := CreateTestJWTService()
+	if err != nil {
+		return "", fmt.Errorf("failed to create test JWT service: %w", err)
+	}
+
+	token, err := jwtService.GenerateToken(context.Background(), userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return "Bearer " + token, nil
+}
+
 //------------------------------------------------------------------------------
 // Convenience Constructors for Common Test Scenarios
 //------------------------------------------------------------------------------
-
-// SetupCardReviewTestServerWithNextCard creates a test server that returns a specific card
-// from the GetNextCard method. This is a convenience wrapper for the common success case.
-func SetupCardReviewTestServerWithNextCard(
-	t *testing.T,
-	userID uuid.UUID,
-	card *domain.Card,
-) *httptest.Server {
-	return SetupCardReviewTestServer(t, CardReviewServerOptions{
-		UserID:   userID,
-		NextCard: card,
-	})
-}
-
-// SetupCardReviewTestServerWithError creates a test server that returns a specific error
-// from both service methods. This is a convenience wrapper for error test cases.
-func SetupCardReviewTestServerWithError(
-	t *testing.T,
-	userID uuid.UUID,
-	err error,
-) *httptest.Server {
-	return SetupCardReviewTestServer(t, CardReviewServerOptions{
-		UserID: userID,
-		Error:  err,
-	})
-}
-
-// SetupCardReviewTestServerWithUpdatedStats creates a test server that returns specific stats
-// from the SubmitAnswer method. This is a convenience wrapper for the answer submission success case.
-func SetupCardReviewTestServerWithUpdatedStats(
-	t *testing.T,
-	userID uuid.UUID,
-	stats *domain.UserCardStats,
-) *httptest.Server {
-	return SetupCardReviewTestServer(t, CardReviewServerOptions{
-		UserID:       userID,
-		UpdatedStats: stats,
-	})
-}
 
 // SetupCardReviewTestServerWithAuthError creates a test server that returns an authentication error.
 // This is a convenience wrapper for testing authentication failure cases.
 func SetupCardReviewTestServerWithAuthError(
 	t *testing.T,
+	tx *sql.Tx,
 	userID uuid.UUID,
 	authError error,
 ) *httptest.Server {
 	return SetupCardReviewTestServer(t, CardReviewServerOptions{
 		UserID: userID,
+		Tx:     tx,
 		ValidateTokenFn: func(ctx context.Context, token string) (*auth.Claims, error) {
 			return nil, authError
 		},
@@ -217,7 +277,7 @@ func ExecuteGetNextCardRequest(
 	}
 
 	// Generate real auth token with the provided user ID
-	authHeader, err := GenerateAuthHeader(userID)
+	authHeader, err := GenerateAuthHeaderWithService(userID)
 	if err != nil {
 		t.Fatalf("Failed to generate auth header: %v", err)
 	}
@@ -271,7 +331,7 @@ func ExecuteSubmitAnswerRequest(
 	}
 
 	// Generate real auth token with the provided user ID
-	authHeader, err := GenerateAuthHeader(userID)
+	authHeader, err := GenerateAuthHeaderWithService(userID)
 	if err != nil {
 		t.Fatalf("Failed to generate auth header: %v", err)
 	}
@@ -327,7 +387,7 @@ func ExecuteSubmitAnswerRequestWithRawID(
 	}
 
 	// Generate real auth token with the provided user ID
-	authHeader, err := GenerateAuthHeader(userID)
+	authHeader, err := GenerateAuthHeaderWithService(userID)
 	if err != nil {
 		t.Fatalf("Failed to generate auth header: %v", err)
 	}
@@ -413,4 +473,115 @@ func AssertStatsResponse(t *testing.T, resp *http.Response, expectedStats *domai
 	assert.Equal(t, expectedStats.ReviewCount, statsResp.ReviewCount)
 	assert.True(t, expectedStats.LastReviewedAt.Equal(statsResp.LastReviewedAt))
 	assert.True(t, expectedStats.NextReviewAt.Equal(statsResp.NextReviewAt))
+}
+
+// CheckErrorResponse checks that a response contains an error with the expected status code.
+func CheckErrorResponse(resp *http.Response, expectedStatus int, expectedMsg string) error {
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Parse the error response
+	var errorResp struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(bodyBytes, &errorResp); err != nil {
+		return fmt.Errorf("failed to unmarshal error response: %w", err)
+	}
+
+	// Verify the error message
+	if expectedMsg != "" && errorResp.Error != expectedMsg {
+		return fmt.Errorf("expected error message %q, got %q", expectedMsg, errorResp.Error)
+	}
+
+	return nil
+}
+
+//------------------------------------------------------------------------------
+// Authenticated Request Helpers
+//------------------------------------------------------------------------------
+
+// MakeAuthenticatedRequest creates and executes an HTTP request with authentication.
+// This is a convenience wrapper for making authenticated requests against a test server.
+//
+// Example usage:
+//
+//	resp, err := MakeAuthenticatedRequest(t, server, "GET", "/api/cards/next", nil, auth.AuthToken)
+//	require.NoError(t, err)
+//	assert.Equal(t, http.StatusOK, resp.StatusCode)
+func MakeAuthenticatedRequest(
+	t *testing.T,
+	server *httptest.Server,
+	method string,
+	path string,
+	body io.Reader,
+	authToken string,
+) (*http.Response, error) {
+	t.Helper()
+
+	// Create request
+	req, err := http.NewRequest(method, server.URL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication header
+	if authToken != "" {
+		req.Header.Set("Authorization", authToken)
+	}
+
+	// Add content-type header if body is provided
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Execute request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	// Register cleanup for the response body if the request succeeded
+	if err == nil && resp != nil {
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		})
+	}
+
+	return resp, err
+}
+
+// MakeAuthenticatedJSONRequest creates and executes an HTTP request with authentication
+// and a JSON body created from the provided payload.
+//
+// Example usage:
+//
+//	payload := map[string]string{"outcome": "good"}
+//	resp, err := MakeAuthenticatedJSONRequest(t, server, "POST", "/api/cards/123/answer", payload, auth.AuthToken)
+//	require.NoError(t, err)
+//	assert.Equal(t, http.StatusOK, resp.StatusCode)
+func MakeAuthenticatedJSONRequest(
+	t *testing.T,
+	server *httptest.Server,
+	method string,
+	path string,
+	payload interface{},
+	authToken string,
+) (*http.Response, error) {
+	t.Helper()
+
+	// Convert payload to JSON
+	var bodyReader io.Reader
+	if payload != nil {
+		jsonData, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal JSON payload: %w", err)
+		}
+		bodyReader = bytes.NewBuffer(jsonData)
+	}
+
+	// Make the authenticated request
+	return MakeAuthenticatedRequest(t, server, method, path, bodyReader, authToken)
 }

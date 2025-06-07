@@ -1,3 +1,9 @@
+//go:build (integration || test_without_external_deps) && !db_compat_mode
+
+// Build Tag: This file is excluded when db_compat_mode is set to prevent
+// function redeclarations with db_compat.go. This is an intentional mutual
+// exclusion pattern during the migration from old to new test patterns.
+
 // Package testutils provides a set of standardized helper functions for testing
 // across the codebase. These helpers ensure consistent test patterns, particularly
 // for database operations (using transaction-based isolation with WithTx),
@@ -7,19 +13,25 @@
 // - Create*: Create entities in memory
 // - MustInsert*: Insert entities into database with transaction isolation
 // - Get*: Retrieve entities from database
+
+package testutils
+
 // - Count*: Count entities matching criteria
 // - SetupEnv: Configure environment variables for testing
 // - CreateTempConfigFile: Create temporary configuration files
 // - Assert*: Verify conditions and handle errors in tests
-package testutils
+
+// This file provides general test utilities.
+// It should be used in preference to the compatibility.go file where possible.
 
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -37,7 +49,7 @@ import (
 func CreateTestUser(t *testing.T) *domain.User {
 	t.Helper()
 	email := fmt.Sprintf("test-%s@example.com", uuid.New().String()[:8])
-	user, err := domain.NewUser(email, "Password123!")
+	user, err := domain.NewUser(email, "TestPassword123456!")
 	require.NoError(t, err, "Failed to create test user")
 	return user
 }
@@ -65,8 +77,8 @@ func MustInsertUser(
 	userID := uuid.New()
 	now := time.Now().UTC()
 
-	// Set default test password
-	password := "TestPassword123!"
+	// Set default test password (must be at least 12 chars)
+	password := "TestPassword123456!"
 
 	// If bcryptCost is not specified or invalid, use bcrypt.MinCost for faster tests
 	if bcryptCost <= 0 {
@@ -155,19 +167,19 @@ func CountUsers(
 }
 
 // CreateTempConfigFile creates a temporary YAML config file with the given content.
-// Returns the directory path and a cleanup function.
+// Returns the full path to the config file and a cleanup function.
 // The cleanup function is automatically called by t.TempDir() when the test completes.
 func CreateTempConfigFile(t *testing.T, content string) (string, func()) {
 	t.Helper()
 
 	tempDir := t.TempDir()
-	configPath := tempDir + "/config.yaml"
+	configPath := filepath.Join(tempDir, "config.yaml")
 
 	err := os.WriteFile(configPath, []byte(content), 0600)
 	require.NoError(t, err, "Failed to create temporary config file")
 
-	// Return the directory path and a cleanup function
-	return tempDir, func() {
+	// Return the full path to the config file and a cleanup function
+	return configPath, func() {
 		// t.TempDir() handles cleanup automatically
 	}
 }
@@ -191,29 +203,8 @@ func AssertCloseNoError(t *testing.T, closer io.Closer) {
 	assert.NoError(t, err, "Deferred Close() failed for %T", closer)
 }
 
-// AssertRollbackNoError ensures that the Rollback() method on the provided tx
-// executes without error, unless the error is sql.ErrTxDone which indicates
-// the transaction was already committed or rolled back.
-//
-// This is specifically designed for use with SQL transactions, as it includes
-// special handling for the common case where a transaction might already be
-// committed or rolled back.
-//
-// Usage:
-//
-//	tx, err := db.BeginTx(ctx, nil)
-//	require.NoError(t, err)
-//	defer testutils.AssertRollbackNoError(t, tx)
-func AssertRollbackNoError(t *testing.T, tx *sql.Tx) {
-	t.Helper()
-	if tx == nil {
-		return
-	}
-	err := tx.Rollback()
-	if err != nil && !errors.Is(err, sql.ErrTxDone) {
-		assert.NoError(t, err, "Failed to rollback transaction")
-	}
-}
+// AssertRollbackNoError has been moved to db.go to avoid duplication
+// and function redeclaration errors in build combinations.
 
 // CreateTestUserStore creates a new PostgresUserStore for testing.
 // It uses the given transaction to ensure test isolation.
@@ -247,7 +238,7 @@ type Stores struct {
 //
 // Usage:
 //
-//	testutils.WithTx(t, db, func(tx store.DBTX) {
+//	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 //	    stores := testutils.CreateTestStores(tx, bcrypt.MinCost)
 //
 //	    // Use any of the stores
@@ -272,4 +263,11 @@ func CreateTestStores(tx store.DBTX, bcryptCost int) Stores {
 		CardStore:          postgres.NewPostgresCardStore(tx, nil),
 		UserCardStatsStore: postgres.NewPostgresUserCardStatsStore(tx, nil),
 	}
+}
+
+// CreateMemoStore creates a new PostgresMemoStore for testing.
+// It uses the given transaction to ensure test isolation.
+func CreateMemoStore(tx store.DBTX) store.MemoStore {
+	logger := slog.Default()
+	return postgres.NewPostgresMemoStore(tx, logger)
 }

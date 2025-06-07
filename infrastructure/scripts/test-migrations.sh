@@ -16,10 +16,10 @@ cd "$(dirname "$0")/../.."
 
 # Run migrations
 echo "Running migrations up..."
-go run cmd/server/main.go -migrate=up
+go run ./cmd/server -migrate=up
 
 # Check migration status
 echo "Checking migration status..."
-go run cmd/server/main.go -migrate=status
+go run ./cmd/server -migrate=status
 
 echo "Migration test completed successfully!"

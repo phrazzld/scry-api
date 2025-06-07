@@ -23,7 +23,23 @@ type Service interface {
 		now time.Time,
 	) (*domain.UserCardStats, error)
 
-	// PostponeReview pushes the next review time forward by a specified number of days
+	// PostponeReview pushes the next review time forward by a specified number of days.
+	// It creates a new UserCardStats object with an updated NextReviewAt field
+	// based on the current value plus the specified number of days.
+	//
+	// Parameters:
+	//   - stats: The current user card statistics to modify
+	//   - days: Number of days to postpone the review (must be >= 1)
+	//   - now: Current time, used to set the UpdatedAt field
+	//
+	// Returns:
+	//   - (*domain.UserCardStats, nil): New stats object with postponed NextReviewAt
+	//   - (nil, ErrNilStats): If stats parameter is nil
+	//   - (nil, ErrInvalidDays): If days parameter is less than 1
+	//
+	// The returned UserCardStats is a new object, not a modification of the input.
+	// The original stats object remains unchanged. To persist the changes,
+	// the caller must save the returned object to the database.
 	PostponeReview(
 		stats *domain.UserCardStats,
 		days int,

@@ -1,36 +1,13 @@
 name: CI Checks
 
-# This workflow handles the complete CI pipeline for the Scry API including:
-# - Linting (via golangci-lint)
-# - Standard Testing (with test_without_external_deps tag to avoid external API calls)
-# - Building
-# - Optional Gemini API Integration Testing (without the test_without_external_deps tag)
-#
-# ARTIFACT NAMING REQUIREMENTS:
-# - GitHub Actions artifact names must NOT contain forward slashes (/)
-# - Package paths in matrix.package (like "internal/api") must be sanitized by replacing
-#   slashes with hyphens (like "internal-api") before using in artifact names
-# - The sanitization is handled by using steps like "Create sanitized package name"
-#
-# IMPORTANT NOTES ABOUT GEMINI API INTEGRATION TESTS:
-# 1. These tests require a valid Gemini API key stored as a GitHub Secret named GEMINI_API_KEY
-# 2. The tests connect to the real Gemini API and may incur costs
-# 3. Tests can be affected by API rate limits, service outages, or API changes
-# 4. They are configured to run:
-#    - When manually triggered via the GitHub Actions UI (workflow_dispatch)
-#    - On a weekly schedule (Monday at 2:00 AM UTC)
-# 5. Consider reviewing test results after API version updates or when investigating potential
-#    API integration issues
-#
-# For local testing with the real Gemini API, see instructions in:
-# /internal/platform/gemini/TEST_README.md
+# CI pipeline for Scry API: linting, unit tests, integration tests, and building
+# Includes optional Gemini API integration testing via workflow dispatch or weekly schedule
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-  # Manual trigger for the Gemini integration tests
   workflow_dispatch:
     inputs:
       run-gemini-tests:
@@ -38,12 +15,8 @@ on:
         type: boolean
         default: true
         required: true
-  # Weekly schedule for Gemini integration tests
   schedule:
-    # Run at 2:00 AM UTC every Monday
-    - cron: '0 2 * * 1'
-
-# Centralized Go version - update this single value to change version across all jobs
+    - cron: '0 2 * * 1' # Weekly on Monday at 2:00 AM UTC
 env:
   GO_VERSION: '1.24'
 
@@ -78,37 +51,20 @@ jobs:
           cache: true
       - name: Install required tools and libraries for CGo
         run: |
-          echo "Installing PostgreSQL client tools, C compiler, and development libraries for CGo..."
           sudo apt-get update
           sudo apt-get install -y postgresql-client gcc libpq-dev
 
-          # Verify installations
-          echo "Verifying installed tools and libraries:"
-          echo "PostgreSQL client version:"
-          psql --version
-          echo "GCC version:"
-          gcc --version
-          echo "libpq availability:"
-          pkg-config --libs libpq || echo "libpq available (pkg-config not showing details)"
-          echo "Listing PostgreSQL dev files:"
-          ls -la /usr/include/postgresql/ || echo "PostgreSQL headers not found in default location"
-
       - name: Build main application
-        run: |
-          echo "Running early build verification for main application..."
-          echo "Running: go build ./cmd/server"
-          go build ./cmd/server
-          echo "Build verification completed successfully"
+        run: go build ./cmd/server
 
       - name: Run CI pre-flight checks
         run: |
           chmod +x ./scripts/ci-pre-flight.sh
-          echo "CGO is enabled: CGO_ENABLED=$CGO_ENABLED"
           ./scripts/ci-pre-flight.sh
         env:
-          # Enable CGo for PostgreSQL driver
+          # Enable CGo
           CGO_ENABLED: 1
-          # Database connection variables
+          # Database environment
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
@@ -145,12 +101,155 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.1.1 # Match pre-commit hook version
-          args: --verbose --build-tags=integration,test_without_external_deps
-        # Note: This includes gofmt and goimports checks, making a separate format job unnecessary
+          version: v2.1.1
+          args: --verbose --build-tags=test_without_external_deps
 
-  test:
-    name: Test - ${{ matrix.package }}
+  test-unit:
+    name: Unit Test - ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    needs: pre-flight
+    strategy:
+      fail-fast: false # Allow other jobs to continue if one fails
+      matrix:
+        package:
+          - cmd/server
+          - internal/api
+          - internal/api/middleware
+          - internal/api/shared
+          - internal/ciutil
+          - internal/config
+          - internal/domain
+          - internal/domain/srs
+          - internal/events
+          - internal/generation
+          - internal/platform/gemini
+          - internal/platform/logger
+          - internal/platform/postgres
+          - internal/redact
+          - internal/service
+          - internal/service/auth
+          - internal/service/card_review
+          - internal/store
+          - internal/task
+          - internal/testutils
+          - infrastructure
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install required tools and libraries for CGo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gcc libpq-dev
+
+      - name: Build main application
+        run: go build ./cmd/server
+
+      - name: Run unit tests
+        run: |
+          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          GOTEST_DEBUG=1 go test -v -json -race -coverprofile=coverage-unit-${PACKAGE_NAME}.out -tags=test_without_external_deps ./${{ matrix.package }}/... | tee test-results-unit-${PACKAGE_NAME}.json
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          # Concise error reporting for test failures
+          if [ -f test-results-unit-${PACKAGE_NAME}.json ]; then
+            FAILURE_COUNT=$(grep -c '"Action":"fail"' test-results-unit-${PACKAGE_NAME}.json || echo "0")
+            if [ "$FAILURE_COUNT" -gt "0" ]; then
+              echo "::error::Found $FAILURE_COUNT unit test failures in package ${{ matrix.package }}"
+              echo "=== Failed Tests ==="
+              grep '"Action":"fail"' test-results-unit-${PACKAGE_NAME}.json | \
+                jq -r '"- " + (.Package // "unknown") + ": " + (.Test // "package failure")' 2>/dev/null || \
+                grep '"Action":"fail"' test-results-unit-${PACKAGE_NAME}.json | head -5
+            fi
+            echo "$TEST_EXIT_CODE" > "test-exit-code-unit-${PACKAGE_NAME}.txt"
+          fi
+        env:
+          # Enable CGo
+          CGO_ENABLED: 1
+          # Project root variable
+          SCRY_PROJECT_ROOT: ${{ github.workspace }}
+          # Unit test environment
+          SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
+          SCRY_AUTH_BCRYPT_COST: "10"
+          SCRY_LLM_GEMINI_API_KEY: ci-test-gemini-key
+          SCRY_LLM_MODEL_NAME: gemini-2.0-flash
+          SCRY_LLM_PROMPT_TEMPLATE_PATH: prompts/flashcard_template.txt
+          SCRY_SERVER_LOG_LEVEL: info
+
+      - name: Check unit test coverage
+        run: |
+          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          if [ -f "coverage-unit-${PACKAGE_NAME}.out" ]; then
+            echo "Running: go tool cover -func=coverage-unit-${PACKAGE_NAME}.out"
+            go tool cover -func=coverage-unit-${PACKAGE_NAME}.out
+
+            # Extract coverage percentage for this package
+            total_coverage=$(go tool cover -func=coverage-unit-${PACKAGE_NAME}.out | grep total: | awk '{print $3}' | sed 's/%//')
+            echo "Unit test coverage for ${{ matrix.package }}: $total_coverage"
+
+            # Check if this package has a specific threshold in the config with error handling
+            if [[ -f "coverage-thresholds.json" ]]; then
+              # Check if this package should be excluded with error handling
+              if command -v jq >/dev/null 2>&1; then
+                is_excluded=$(jq -r --arg pkg "${{ matrix.package }}" '.excluded_packages[] | select(. == $pkg) | length > 0' coverage-thresholds.json 2>/dev/null)
+                if [[ "$is_excluded" == "true" ]]; then
+                  echo "Package ${{ matrix.package }} is excluded from coverage requirements"
+                  exit 0
+                fi
+
+                # Get package-specific threshold or use default
+                threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json 2>/dev/null)
+                if [[ -z "$threshold" || "$threshold" == "null" ]]; then
+                  echo "::warning::Could not read threshold from coverage-thresholds.json, using default of 70%"
+                  threshold=70
+                fi
+                echo "Required coverage threshold for ${{ matrix.package }}: $threshold%"
+              else
+                echo "::warning::jq not available, using default coverage threshold of 70%"
+                threshold=70
+              fi
+
+              # Convert to integer (remove decimal part) for comparison
+              coverage_int=$(echo $total_coverage | cut -d. -f1)
+              if [[ $coverage_int -lt $threshold ]]; then
+                echo "::error::Package ${{ matrix.package }} has unit test coverage $total_coverage% which is below the required threshold of $threshold%"
+                exit 1
+              else
+                echo "::notice::Package ${{ matrix.package }} meets unit test coverage requirement: $total_coverage% (threshold: $threshold%)"
+              fi
+            else
+              echo "::warning::coverage-thresholds.json not found, skipping package-specific threshold check"
+            fi
+          else
+            echo "::warning::No unit test coverage file found for ${{ matrix.package }}"
+          fi
+
+      # Upload unit test artifacts
+      - name: Create sanitized package name
+        id: sanitize
+        run: |
+          # Replace forward slashes with hyphens in package name
+          SANITIZED_PACKAGE=$(echo "${{ matrix.package }}" | tr '/' '-')
+          echo "sanitized_package=$SANITIZED_PACKAGE" >> $GITHUB_OUTPUT
+          echo "Sanitized package name: $SANITIZED_PACKAGE"
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@v4
+        if: always() # Upload even if tests fail
+        with:
+          name: unit-test-results-${{ steps.sanitize.outputs.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
+          path: |
+            test-results-unit-*.json
+            coverage-unit-*.out
+            test-exit-code-unit-*.txt
+          retention-days: 30
+
+  test-integration:
+    name: Integration Test - ${{ matrix.package }}
     runs-on: ubuntu-latest
     needs: pre-flight
     strategy:
@@ -203,55 +302,30 @@ jobs:
           cache: true
       - name: Install required tools and libraries for CGo
         run: |
-          echo "Installing PostgreSQL client tools, C compiler, and development libraries for CGo..."
           sudo apt-get update
           sudo apt-get install -y postgresql-client jq gcc libpq-dev
 
-          # Verify installations
-          echo "Verifying installed tools and libraries:"
-          echo "PostgreSQL client version:"
-          psql --version
-          echo "GCC version:"
-          gcc --version
-          echo "libpq availability:"
-          pkg-config --libs libpq || echo "libpq available (pkg-config not showing details)"
-          echo "Listing PostgreSQL dev files:"
-          ls -la /usr/include/postgresql/ || echo "PostgreSQL headers not found in default location"
-
       - name: Build main application
-        run: |
-          echo "Building main application..."
-          echo "Running: go build ./cmd/server"
-          go build ./cmd/server
-          echo "Build completed successfully"
+        run: go build ./cmd/server
 
       - name: Migration Smoke Test
-        run: |
-          echo "Running migration smoke test to verify database driver..."
-          echo "Running: go run ./cmd/server -migrate=status"
-          if go run ./cmd/server -migrate=status; then
-            echo "Migration smoke test passed successfully"
-          else
-            echo "Migration smoke test failed - likely database driver issue"
-            exit 1
-          fi
+        run: go run ./cmd/server -migrate=status
         env:
-          # Enable CGo for PostgreSQL driver
+          # Enable CGo
           CGO_ENABLED: 1
-          # Database connection variables
+          # Database environment
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           # Project root variable
           SCRY_PROJECT_ROOT: ${{ github.workspace }}
-          # Required environment variables
+          # Environment variables
           SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
           SCRY_LLM_GEMINI_API_KEY: ci-test-gemini-key
           SCRY_LLM_PROMPT_TEMPLATE_PATH: prompts/flashcard_template.txt
 
       - name: Verify database connectivity
         run: |
-          echo "Verifying database connectivity with enhanced checks..."
           chmod +x ./scripts/wait-for-db.sh
           ./scripts/wait-for-db.sh --attempts 20 --sleep 3 --timeout 90
         env:
@@ -261,38 +335,21 @@ jobs:
 
       - name: Reset and prepare database
         run: |
-          # Make the reset script executable
           chmod +x ./scripts/reset-test-db.sh
-
-          # Reset the database to ensure clean state
-          echo "Resetting database to ensure clean state..."
           ./scripts/reset-test-db.sh
-
-          # Apply migrations to the clean database
-          echo "Applying database migrations..."
-          echo "Running: go run ./cmd/server -migrate=up"
           go run ./cmd/server -migrate=up
-
-          # Execute detailed migration validation
-          echo "Validating migrations were applied correctly..."
-          echo "Running: go run ./cmd/server -validate-migrations -verbose"
-          # This uses our enhanced validation logic that will fail CI if migrations aren't properly applied
           go run ./cmd/server -validate-migrations -verbose
-
-          # Log migration table content for diagnostics
-          echo "Migration table contents (diagnostic info):"
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version_id, is_applied FROM schema_migrations ORDER BY version_id;"
         env:
-          # Enable CGo for PostgreSQL driver
+          # Enable CGo
           CGO_ENABLED: 1
-          # Database connection variables
+          # Database environment
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
-          # Project root variable (leveraging T036 fix)
+          # Project root
           SCRY_PROJECT_ROOT: ${{ github.workspace }}
 
-          # Required environment variables for configuration validation
+          # Configuration environment
           SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
           SCRY_AUTH_BCRYPT_COST: "10"
           SCRY_AUTH_TOKEN_LIFETIME_MINUTES: "60"
@@ -307,92 +364,69 @@ jobs:
           SCRY_TASK_WORKER_COUNT: "2"
           SCRY_TASK_QUEUE_SIZE: "100"
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
-      - name: Run tests
+
+      - name: Validate database connection for tests
         run: |
-          # Reset database again right before tests to ensure clean state
-          echo "Resetting database before tests..."
-          ./scripts/reset-test-db.sh
-
-          # Apply migrations again to ensure proper schema
-          echo "Re-applying migrations for tests..."
-          echo "Running: go run ./cmd/server -migrate=up"
-          go run ./cmd/server -migrate=up
-
-          # Validate migrations before running tests
-          echo "Validating migrations before tests..."
-          echo "Running: go run ./cmd/server -validate-migrations"
-          go run ./cmd/server -validate-migrations
-
-          echo "::group::Running tests for package: ${{ matrix.package }}"
-          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
-
-          # Log environment info for better diagnostics
-          echo "=== Test Environment Information ==="
-          echo "Go version: $(go version)"
-          echo "CGO enabled: CGO_ENABLED=$CGO_ENABLED"
-          echo "Test directory: $(pwd)"
-          echo "Package path: ${{ matrix.package }}"
-          echo "Database URL: $DATABASE_URL"
-          echo "=================================="
-
-          # Run tests with enhanced logging
-          echo "Running tests with enhanced verbosity and logging:"
-          echo "Running: go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration,test_without_external_deps ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json"
-
-          # Set GOTEST_DEBUG for additional debug output for failed tests
-          GOTEST_DEBUG=1 GODEBUG=gctrace=0 go test -v -json -race -coverprofile=coverage-${PACKAGE_NAME}.out -tags=integration,test_without_external_deps ./${{ matrix.package }}/... | tee test-results-${PACKAGE_NAME}.json
-
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
-          echo "Test exit code: $TEST_EXIT_CODE"
-          echo "::endgroup::"
-
-          # Extract and format test failures with enhanced details if any exist
-          if [ -f test-results-${PACKAGE_NAME}.json ]; then
-            # Count failed tests
-            FAILURE_COUNT=$(grep -c '"Action":"fail"' test-results-${PACKAGE_NAME}.json || echo "0")
-
-            if [ "$FAILURE_COUNT" -gt "0" ]; then
-              echo "::error::Found $FAILURE_COUNT test failures in package ${{ matrix.package }}"
-              echo "::group::Test Failure Details for ${{ matrix.package }}"
-              echo "=== TEST FAILURE SUMMARY ==="
-
-              # Get basic failure information
-              echo "Failed tests:"
-              grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
-
-              # Extract more detailed failure information including output and error messages
-              echo -e "\nDetailed failure information:"
-              grep -A 1 '"Action":"fail"' test-results-${PACKAGE_NAME}.json |
-                grep -v '"Action":"fail"' |
-                jq -r 'select(.Output != null) | "Test: \(.Test)\nOutput: \(.Output)\n---"' || true
-
-              echo -e "\nError messages:"
-              grep '"Action":"fail"' test-results-${PACKAGE_NAME}.json |
-                jq -r 'select(.Output != null) | .Output' |
-                grep -E "Error:|Failed|Failure|Panic:" || echo "No specific error messages found"
-
-              echo "==========================="
-              echo "::endgroup::"
-            else
-              echo "::notice::All tests passed in package ${{ matrix.package }}"
-            fi
-
-            # Store exit code for later check
-            echo "$TEST_EXIT_CODE" > "test-exit-code-${PACKAGE_NAME}.txt"
-          else
-            echo "::warning::No test results file found for ${{ matrix.package }}"
-          fi
+          echo "Validating database connection..."
+          echo 'package main; import ("database/sql"; _ "github.com/jackc/pgx/v5/stdlib"; "os"); func main() { db, err := sql.Open("pgx", os.Getenv("DATABASE_URL")); if err != nil { panic(err) }; defer db.Close(); if err := db.Ping(); err != nil { panic(err) }; println("✓ Database connection validated") }' > dbval.go
+          go run dbval.go && rm dbval.go
         env:
-          # Enable CGo for PostgreSQL driver
+          # Enable CGo
           CGO_ENABLED: 1
-          # Database connection variables
+          # Database environment
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
           SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
-          # Project root variable (leveraging T036 fix)
+          # Project root variable
+          SCRY_PROJECT_ROOT: ${{ github.workspace }}
+          # Configuration environment
+          SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
+          SCRY_AUTH_BCRYPT_COST: "10"
+          SCRY_AUTH_TOKEN_LIFETIME_MINUTES: "60"
+          SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES: "10080"
+          SCRY_LLM_GEMINI_API_KEY: ci-test-gemini-key
+          SCRY_LLM_MODEL_NAME: gemini-2.0-flash
+          SCRY_LLM_PROMPT_TEMPLATE_PATH: prompts/flashcard_template.txt
+          SCRY_LLM_MAX_RETRIES: "3"
+          SCRY_LLM_RETRY_DELAY_SECONDS: "2"
+          SCRY_SERVER_PORT: "8080"
+          SCRY_SERVER_LOG_LEVEL: debug
+          SCRY_TASK_WORKER_COUNT: "2"
+          SCRY_TASK_QUEUE_SIZE: "100"
+          SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
+
+      - name: Run tests
+        run: |
+          ./scripts/reset-test-db.sh
+          go run ./cmd/server -migrate=up
+          go run ./cmd/server -validate-migrations
+          PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
+          GOTEST_DEBUG=1 go test -v -json -race -coverprofile=coverage-integration-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-integration-${PACKAGE_NAME}.json
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          # Concise error reporting for integration test failures
+          if [ -f test-results-integration-${PACKAGE_NAME}.json ]; then
+            FAILURE_COUNT=$(grep -c '"Action":"fail"' test-results-integration-${PACKAGE_NAME}.json || echo "0")
+            if [ "$FAILURE_COUNT" -gt "0" ]; then
+              echo "::error::Found $FAILURE_COUNT integration test failures in package ${{ matrix.package }}"
+              echo "=== Failed Tests ==="
+              grep '"Action":"fail"' test-results-integration-${PACKAGE_NAME}.json | \
+                jq -r '"- " + (.Package // "unknown") + ": " + (.Test // "package failure")' 2>/dev/null || \
+                grep '"Action":"fail"' test-results-integration-${PACKAGE_NAME}.json | head -5
+            fi
+            echo "$TEST_EXIT_CODE" > "test-exit-code-integration-${PACKAGE_NAME}.txt"
+          fi
+        env:
+          # Enable CGo
+          CGO_ENABLED: 1
+          # Database environment
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_TEST_DB_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          SCRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scry_test?sslmode=disable
+          # Project root
           SCRY_PROJECT_ROOT: ${{ github.workspace }}
 
-          # Required environment variables for configuration validation
+          # Configuration environment
           SCRY_AUTH_JWT_SECRET: ci-test-jwt-secret-32-characters-long
           SCRY_AUTH_BCRYPT_COST: "10"
           SCRY_AUTH_TOKEN_LIFETIME_MINUTES: "60"
@@ -410,39 +444,52 @@ jobs:
           SCRY_TASK_WORKER_COUNT: "2"
           SCRY_TASK_QUEUE_SIZE: "100"
           SCRY_TASK_STUCK_TASK_AGE_MINUTES: "30"
-      - name: Check package coverage
+      - name: Check integration test coverage
         run: |
           PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
-          echo "Running: go tool cover -func=coverage-${PACKAGE_NAME}.out"
-          go tool cover -func=coverage-${PACKAGE_NAME}.out
+          if [ -f "coverage-integration-${PACKAGE_NAME}.out" ]; then
+            echo "Running: go tool cover -func=coverage-integration-${PACKAGE_NAME}.out"
+            go tool cover -func=coverage-integration-${PACKAGE_NAME}.out
 
-          # Extract coverage percentage for this package
-          total_coverage=$(go tool cover -func=coverage-${PACKAGE_NAME}.out | grep total: | awk '{print $3}' | sed 's/%//')
-          echo "Coverage for ${{ matrix.package }}: $total_coverage"
+            # Extract coverage percentage for this package
+            total_coverage=$(go tool cover -func=coverage-integration-${PACKAGE_NAME}.out | grep total: | awk '{print $3}' | sed 's/%//')
+            echo "Integration test coverage for ${{ matrix.package }}: $total_coverage"
 
-          # Check if this package has a specific threshold in the config
-          if [[ -f "coverage-thresholds.json" ]]; then
-            # Check if this package should be excluded
-            is_excluded=$(jq -r --arg pkg "${{ matrix.package }}" '.excluded_packages[] | select(. == $pkg) | length > 0' coverage-thresholds.json)
-            if [[ "$is_excluded" == "true" ]]; then
-              echo "Package ${{ matrix.package }} is excluded from coverage requirements"
-              exit 0
-            fi
+            # Check if this package has a specific threshold in the config with error handling
+            if [[ -f "coverage-thresholds.json" ]]; then
+              # Check if this package should be excluded with error handling
+              if command -v jq >/dev/null 2>&1; then
+                is_excluded=$(jq -r --arg pkg "${{ matrix.package }}" '.excluded_packages[] | select(. == $pkg) | length > 0' coverage-thresholds.json 2>/dev/null)
+                if [[ "$is_excluded" == "true" ]]; then
+                  echo "Package ${{ matrix.package }} is excluded from coverage requirements"
+                  exit 0
+                fi
 
-            # Get package-specific threshold or use default
-            threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json)
-            echo "Required coverage threshold for ${{ matrix.package }}: $threshold%"
+                # Get package-specific threshold or use default
+                threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json 2>/dev/null)
+                if [[ -z "$threshold" || "$threshold" == "null" ]]; then
+                  echo "::warning::Could not read threshold from coverage-thresholds.json, using default of 70%"
+                  threshold=70
+                fi
+                echo "Required coverage threshold for ${{ matrix.package }}: $threshold%"
+              else
+                echo "::warning::jq not available, using default coverage threshold of 70%"
+                threshold=70
+              fi
 
-            # Convert to integer (remove decimal part) for comparison
-            coverage_int=$(echo $total_coverage | cut -d. -f1)
-            if [[ $coverage_int -lt $threshold ]]; then
-              echo "::error::Package ${{ matrix.package }} has coverage $total_coverage% which is below the required threshold of $threshold%"
-              exit 1
+              # Convert to integer (remove decimal part) for comparison
+              coverage_int=$(echo $total_coverage | cut -d. -f1)
+              if [[ $coverage_int -lt $threshold ]]; then
+                echo "::error::Package ${{ matrix.package }} has integration test coverage $total_coverage% which is below the required threshold of $threshold%"
+                exit 1
+              else
+                echo "::notice::Package ${{ matrix.package }} meets integration test coverage requirement: $total_coverage% (threshold: $threshold%)"
+              fi
             else
-              echo "::notice::Package ${{ matrix.package }} meets coverage requirement: $total_coverage% (threshold: $threshold%)"
+              echo "::warning::coverage-thresholds.json not found, skipping package-specific threshold check"
             fi
           else
-            echo "::warning::coverage-thresholds.json not found, skipping package-specific threshold check"
+            echo "::warning::No integration test coverage file found for ${{ matrix.package }}"
           fi
       # Upload test artifacts with extended diagnostics
       # Create sanitized package name for artifact naming (replace / with -)
@@ -454,100 +501,25 @@ jobs:
           echo "sanitized_package=$SANITIZED_PACKAGE" >> $GITHUB_OUTPUT
           echo "Sanitized package name: $SANITIZED_PACKAGE"
 
-      - name: Upload test results and diagnostics
+      - name: Upload integration test results and diagnostics
         uses: actions/upload-artifact@v4
         if: always() # Upload even if tests fail
         with:
           # Use sanitized package name to avoid GitHub Actions artifact naming restrictions
-          name: test-results-${{ steps.sanitize.outputs.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
+          name: integration-test-results-${{ steps.sanitize.outputs.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
           path: |
-            test-results-*.json
-            coverage-*.out
-            test-exit-code-*.txt
+            test-results-integration-*.json
+            coverage-integration-*.out
+            test-exit-code-integration-*.txt
           retention-days: 30
 
-      # For failed tests, gather and upload additional diagnostics
-      - name: Gather diagnostics for failed tests
-        if: failure() # Only run this when tests fail
-        run: |
-          echo "::group::Additional Diagnostics for ${{ matrix.package }}"
-
-          # Get sanitized package name (same as in previous step)
-          SANITIZED_PACKAGE=$(echo "${{ matrix.package }}" | tr '/' '-')
-
-          # Create diagnostics directory with sanitized name
-          mkdir -p "test-diagnostics-${SANITIZED_PACKAGE}"
-
-          # Directory path with sanitized name for use in all commands below
-          DIAG_DIR="test-diagnostics-${SANITIZED_PACKAGE}"
-
-          # System information
-          echo "System information:" > "${DIAG_DIR}/system-info.txt"
-          uname -a >> "${DIAG_DIR}/system-info.txt"
-          free -h >> "${DIAG_DIR}/system-info.txt" 2>/dev/null || echo "free command not available" >> "${DIAG_DIR}/system-info.txt"
-          df -h >> "${DIAG_DIR}/system-info.txt" 2>/dev/null || echo "df command not available" >> "${DIAG_DIR}/system-info.txt"
-
-          # Go environment
-          echo "Go environment:" > "${DIAG_DIR}/go-env.txt"
-          go env >> "${DIAG_DIR}/go-env.txt"
-          go version >> "${DIAG_DIR}/go-env.txt"
-
-          # Save test results JSON as parsed output for easier analysis
-          PACKAGE_NAME=${SANITIZED_PACKAGE}
-          if [ -f "test-results-${PACKAGE_NAME}.json" ]; then
-            echo "Test failure details:" > "${DIAG_DIR}/test-failures.txt"
-            # Extract and format test failures
-            grep '"Action":"fail"' "test-results-${PACKAGE_NAME}.json" |
-              jq -r 'select(.Test != null) | "- Test: \(.Test)\n  Package: \(.Package)\n  Output: \(.Output)\n---"' >> "${DIAG_DIR}/test-failures.txt" ||
-              echo "No failure details available" >> "${DIAG_DIR}/test-failures.txt"
-
-            # Save full test output for reference
-            echo "Full test results JSON (for debugging):" > "${DIAG_DIR}/full-test-results.txt"
-            cat "test-results-${PACKAGE_NAME}.json" >> "${DIAG_DIR}/full-test-results.txt"
-
-            # Test statistics
-            echo "Test statistics:" > "${DIAG_DIR}/test-stats.txt"
-            PASSED_COUNT=$(grep -c '"Action":"pass"' "test-results-${PACKAGE_NAME}.json" || echo "0")
-            FAILED_COUNT=$(grep -c '"Action":"fail"' "test-results-${PACKAGE_NAME}.json" || echo "0")
-            SKIP_COUNT=$(grep -c '"Action":"skip"' "test-results-${PACKAGE_NAME}.json" || echo "0")
-            echo "- Tests passed: $PASSED_COUNT" >> "${DIAG_DIR}/test-stats.txt"
-            echo "- Tests failed: $FAILED_COUNT" >> "${DIAG_DIR}/test-stats.txt"
-            echo "- Tests skipped: $SKIP_COUNT" >> "${DIAG_DIR}/test-stats.txt"
-          else
-            echo "No test results JSON file found" > "${DIAG_DIR}/test-info.txt"
-          fi
-
-          # Database information
-          echo "Database information:" > "${DIAG_DIR}/db-info.txt"
-          echo "Database URL: $DATABASE_URL" | sed 's/postgres:\/\/[^:]*:[^@]*@/postgres:\/\/user:pass@/' >> "${DIAG_DIR}/db-info.txt"
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "\\d" >> "${DIAG_DIR}/db-info.txt" 2>/dev/null || echo "Could not connect to database" >> "${DIAG_DIR}/db-info.txt"
-          # Get PostgreSQL server info
-          echo "PostgreSQL server information:" >> "${DIAG_DIR}/db-info.txt"
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d scry_test -c "SELECT version();" >> "${DIAG_DIR}/db-info.txt" 2>/dev/null || echo "Could not get PostgreSQL version" >> "${DIAG_DIR}/db-info.txt"
-
-          # Environment variables (redacted)
-          echo "Environment variables (redacted):" > "${DIAG_DIR}/env-vars.txt"
-          env | grep -v -E "SECRET|KEY|TOKEN|PASSWORD" | sort >> "${DIAG_DIR}/env-vars.txt"
-
-          # Save package info
-          echo "Package information:" > "${DIAG_DIR}/package-info.txt"
-          echo "Package: ${{ matrix.package }}" >> "${DIAG_DIR}/package-info.txt"
-          echo "Original package name: ${{ matrix.package }}" >> "${DIAG_DIR}/package-info.txt"
-          echo "Sanitized package name: ${SANITIZED_PACKAGE}" >> "${DIAG_DIR}/package-info.txt"
-
-          echo "::endgroup::"
-
-          # Save sanitized package name for upload step
-          echo "sanitized_package=${SANITIZED_PACKAGE}" >> $GITHUB_ENV
-
-      # Upload diagnostics for failed tests
+      # Simplified diagnostics for failed tests
       - name: Upload failure diagnostics
         uses: actions/upload-artifact@v4
-        if: failure() # Only upload when tests fail
+        if: failure()
         with:
-          # Use sanitized package name from environment variable
-          name: test-diagnostics-${{ env.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
-          path: test-diagnostics-${{ env.sanitized_package }}
+          name: integration-test-diagnostics-${{ steps.sanitize.outputs.sanitized_package }}-${{ runner.os }}-${{ github.run_id }}
+          path: test-results-integration-*.json
           retention-days: 30
 
       # Add job summary with artifact information
@@ -584,7 +556,7 @@ jobs:
   coverage-check:
     name: Overall Coverage Check
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test-unit, test-integration]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -602,8 +574,8 @@ jobs:
       - name: Download all coverage reports
         uses: actions/download-artifact@v4
         with:
-          # This pattern will match all test result artifacts with sanitized names
-          pattern: test-results-*
+          # This pattern will match all test result artifacts (both unit and integration) with sanitized names
+          pattern: "*-test-results-*"
           path: coverage-reports/
 
       - name: Merge coverage reports
@@ -631,10 +603,19 @@ jobs:
           total_coverage=$(go tool cover -func=merged-coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
           echo "Total project coverage: $total_coverage"
 
-          # Get overall threshold from configuration
+          # Get overall threshold from configuration with error handling
           if [[ -f "coverage-thresholds.json" ]]; then
-            overall_threshold=$(jq -r '.default_threshold' coverage-thresholds.json)
-            echo "Required overall coverage threshold: $overall_threshold%"
+            if command -v jq >/dev/null 2>&1; then
+              overall_threshold=$(jq -r '.default_threshold' coverage-thresholds.json 2>/dev/null)
+              if [[ -z "$overall_threshold" || "$overall_threshold" == "null" ]]; then
+                echo "::warning::Could not read default_threshold from coverage-thresholds.json, using default of 70%"
+                overall_threshold=70
+              fi
+              echo "Required overall coverage threshold: $overall_threshold%"
+            else
+              echo "::warning::jq not available, using default threshold of 70%"
+              overall_threshold=70
+            fi
           else
             echo "::warning::coverage-thresholds.json not found, using default threshold of 70%"
             overall_threshold=70
@@ -661,7 +642,7 @@ jobs:
     name: Artifact Availability Summary
     runs-on: ubuntu-latest
     if: always() # Always run this job
-    needs: [test, coverage-check, build]
+    needs: [test-unit, test-integration, coverage-check, build]
     steps:
       - name: Summarize artifact availability
         run: |
@@ -797,42 +778,20 @@ jobs:
           echo "Test timeout: $GO_TEST_TIMEOUT"
           echo "=================================="
 
-          echo "Running: go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json"
 
-          # Use enhanced logging variables
           GOTEST_DEBUG=1 GODEBUG=gctrace=0 go test -v -json -timeout 5m ./internal/platform/gemini/... | tee gemini-test-results.json
 
           TEST_EXIT_CODE=${PIPESTATUS[0]}
-          echo "Test exit code: $TEST_EXIT_CODE"
-          echo "::endgroup::"
 
-          # Provide detailed error reporting
+          # Concise error reporting for Gemini test failures
           if [ -f gemini-test-results.json ]; then
-            # Count failed tests
             FAILURE_COUNT=$(grep -c '"Action":"fail"' gemini-test-results.json || echo "0")
-
             if [ "$FAILURE_COUNT" -gt "0" ]; then
               echo "::error::Found $FAILURE_COUNT test failures in Gemini API tests"
-              echo "::group::Gemini API Test Failure Details"
-              echo "=== TEST FAILURE SUMMARY ==="
-
-              # Get basic failure information
-              echo "Failed tests:"
-              grep '"Action":"fail"' gemini-test-results.json | jq -r '"- \(.Package): \(.Test ?? "package failure")"' || true
-
-              # Extract more detailed failure information including output and error messages
-              echo -e "\nDetailed failure information:"
-              grep -A 1 '"Action":"fail"' gemini-test-results.json |
-                grep -v '"Action":"fail"' |
-                jq -r 'select(.Output != null) | "Test: \(.Test)\nOutput: \(.Output)\n---"' || true
-
-              echo -e "\nAPI Error messages:"
-              grep '"Action":"fail"' gemini-test-results.json |
-                jq -r 'select(.Output != null) | .Output' |
-                grep -E "Error:|Failed|Failure|Panic:|API|Status Code:" || echo "No specific API error messages found"
-
-              echo "==========================="
-              echo "::endgroup::"
+              echo "=== Failed Tests ==="
+              grep '"Action":"fail"' gemini-test-results.json | \
+                jq -r '"- " + (.Package // "unknown") + ": " + (.Test // "package failure")' 2>/dev/null || \
+                grep '"Action":"fail"' gemini-test-results.json | head -5
             else
               echo "::notice::All Gemini API tests passed successfully"
             fi
@@ -840,9 +799,8 @@ jobs:
             echo "::warning::No Gemini API test results file found"
           fi
         env:
-          # Enable CGo for PostgreSQL driver
+          # Enable CGo
           CGO_ENABLED: 1
-          # Enhanced logging for tests
           GO_TEST_VERBOSE: "1"
           GOTEST_DEBUG: "1"
           SCRY_SERVER_LOG_LEVEL: debug
@@ -884,12 +842,20 @@ jobs:
 
           # Save detailed test information
           if [ -f gemini-test-results.json ]; then
-            # Test failure details
+            # Test failure details with robust error handling
             echo "Test failure details:" > gemini-test-diagnostics/test-failures.txt
-            # Extract and format test failures
-            grep '"Action":"fail"' gemini-test-results.json |
-              jq -r 'select(.Test != null) | "- Test: \(.Test)\n  Package: \(.Package)\n  Output: \(.Output)\n---"' >> gemini-test-diagnostics/test-failures.txt ||
-              echo "No failure details available" >> gemini-test-diagnostics/test-failures.txt
+            # Extract and format test failures with proper escaping
+            if command -v jq >/dev/null 2>&1; then
+              grep '"Action":"fail"' gemini-test-results.json | \
+                jq -r 'select(.Test != null) | "- Test: " + (.Test // "unknown") + "\n  Package: " + (.Package // "unknown") + "\n  Output: " + (.Output // "no output") + "\n---"' \
+                >> gemini-test-diagnostics/test-failures.txt 2>/dev/null || {
+                echo "jq parsing failed for failure details, using fallback method" >> gemini-test-diagnostics/test-failures.txt
+                grep '"Action":"fail"' gemini-test-results.json | head -10 >> gemini-test-diagnostics/test-failures.txt
+              }
+            else
+              echo "jq not available for detailed parsing" >> gemini-test-diagnostics/test-failures.txt
+              grep '"Action":"fail"' gemini-test-results.json | head -10 >> gemini-test-diagnostics/test-failures.txt
+            fi
 
             # Save full test output for reference
             echo "Full test results JSON (for debugging):" > gemini-test-diagnostics/full-test-results.txt
@@ -904,12 +870,18 @@ jobs:
             echo "- Tests failed: $FAILED_COUNT" >> gemini-test-diagnostics/test-stats.txt
             echo "- Tests skipped: $SKIP_COUNT" >> gemini-test-diagnostics/test-stats.txt
 
-            # Extract API errors to a separate file
+            # Extract API errors to a separate file with robust error handling
             echo "API Errors:" > gemini-test-diagnostics/api-errors.txt
-            grep '"Action":"fail"' gemini-test-results.json |
-              jq -r 'select(.Output != null) | .Output' |
-              grep -E "Error:|Failed|API|Status Code:|response body:" >> gemini-test-diagnostics/api-errors.txt ||
-              echo "No specific API errors found" >> gemini-test-diagnostics/api-errors.txt
+            if command -v jq >/dev/null 2>&1; then
+              grep '"Action":"fail"' gemini-test-results.json | \
+                jq -r 'select(.Output != null) | .Output' 2>/dev/null | \
+                grep -E "Error:|Failed|API|Status Code:|response body:" >> gemini-test-diagnostics/api-errors.txt || \
+                echo "No specific API errors found" >> gemini-test-diagnostics/api-errors.txt
+            else
+              grep '"Action":"fail"' gemini-test-results.json | \
+                grep -E "Error:|Failed|API|Status Code:|response body:" >> gemini-test-diagnostics/api-errors.txt || \
+                echo "No specific API errors found (jq not available)" >> gemini-test-diagnostics/api-errors.txt
+            fi
 
             # Copy test results file
             cp gemini-test-results.json gemini-test-diagnostics/
@@ -925,7 +897,6 @@ jobs:
           echo "Internet connectivity check:" > gemini-test-diagnostics/connectivity.txt
           curl -s --head https://generativelanguage.googleapis.com/ | head -n 1 >> gemini-test-diagnostics/connectivity.txt 2>/dev/null || echo "Could not connect to Gemini API" >> gemini-test-diagnostics/connectivity.txt
 
-          echo "::endgroup::"
 
       # Upload diagnostics for failed tests
       - name: Upload Gemini failure diagnostics
@@ -984,16 +955,27 @@ jobs:
               echo "" >> $SUMMARY_FILE
 
               echo "Failed test details:" >> $SUMMARY_FILE
-              grep '"Action":"fail"' gemini-test-results.json |
-                jq -r '"- \(.Package): \(.Test ?? "package failure")"' >> $SUMMARY_FILE ||
-                echo "Could not extract detailed failure information" >> $SUMMARY_FILE
+              if command -v jq >/dev/null 2>&1; then
+                grep '"Action":"fail"' gemini-test-results.json | \
+                  jq -r '"- Package: " + (.Package // "unknown") + ", Test: " + (.Test // "package failure")' \
+                  >> $SUMMARY_FILE 2>/dev/null || \
+                  echo "Could not extract detailed failure information" >> $SUMMARY_FILE
+              else
+                echo "Could not extract detailed failure information (jq not available)" >> $SUMMARY_FILE
+              fi
 
               echo "" >> $SUMMARY_FILE
               echo "Error summary:" >> $SUMMARY_FILE
-              grep '"Action":"fail"' gemini-test-results.json |
-                jq -r 'select(.Output != null) | .Output' |
-                grep -E "Error:|API error:|Status Code:|response body:" >> $SUMMARY_FILE ||
-                echo "No specific API error details found" >> $SUMMARY_FILE
+              if command -v jq >/dev/null 2>&1; then
+                grep '"Action":"fail"' gemini-test-results.json | \
+                  jq -r 'select(.Output != null) | .Output' 2>/dev/null | \
+                  grep -E "Error:|API error:|Status Code:|response body:" >> $SUMMARY_FILE || \
+                  echo "No specific API error details found" >> $SUMMARY_FILE
+              else
+                grep '"Action":"fail"' gemini-test-results.json | \
+                  grep -E "Error:|API error:|Status Code:|response body:" >> $SUMMARY_FILE || \
+                  echo "No specific API error details found (jq not available)" >> $SUMMARY_FILE
+              fi
             fi
           fi
 
@@ -1003,20 +985,14 @@ jobs:
           echo "- Consider checking the Gemini API status if tests fail unexpectedly" >> $SUMMARY_FILE
           echo "- The failure diagnostics artifact contains additional information" >> $SUMMARY_FILE
           echo "====================================================" >> $SUMMARY_FILE
-
           # Output the summary to the log
           cat $SUMMARY_FILE
-
           # Save the summary file for artifacts
           mkdir -p gemini-test-diagnostics
           cp $SUMMARY_FILE gemini-test-diagnostics/
-
-          echo "::endgroup::"
-
           # Always output these notices outside the group
           echo "::notice::These tests run with the actual Gemini API and may be affected by external factors."
           echo "::notice::Consider checking the Gemini API status if tests fail unexpectedly."
-
           # Add a prominent notice about diagnostics artifacts
           if [ "${{ steps.tests.outcome }}" != "success" ]; then
             echo "::notice::📊 Detailed diagnostics are available in the workflow artifacts."

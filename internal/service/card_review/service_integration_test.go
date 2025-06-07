@@ -13,11 +13,48 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain/srs"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
+	"github.com/phrazzld/scry-api/internal/store"
 	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// mockCardRepository wraps a real CardStore but implements the repository interface
+// needed for transaction management in service tests
+type mockCardRepository struct {
+	store.CardStore
+	dbConn *sql.DB
+}
+
+func (m *mockCardRepository) WithTx(tx *sql.Tx) store.CardStore {
+	return &mockCardRepository{
+		CardStore: m.CardStore.WithTx(tx),
+		dbConn:    m.dbConn,
+	}
+}
+
+func (m *mockCardRepository) DB() *sql.DB {
+	return m.dbConn
+}
+
+// mockStatsRepository wraps a real UserCardStatsStore but implements the repository interface
+// needed for transaction management in service tests
+type mockStatsRepository struct {
+	store.UserCardStatsStore
+	dbConn *sql.DB
+}
+
+func (m *mockStatsRepository) WithTx(tx *sql.Tx) store.UserCardStatsStore {
+	return &mockStatsRepository{
+		UserCardStatsStore: m.UserCardStatsStore.WithTx(tx),
+		dbConn:             m.dbConn,
+	}
+}
+
+func (m *mockStatsRepository) DB() *sql.DB {
+	return m.dbConn
+}
 
 // TestSubmitAnswer_IntegrationFlow tests the complete SubmitAnswer workflow with real transactions
 func TestSubmitAnswer_IntegrationFlow(t *testing.T) {
@@ -26,16 +63,27 @@ func TestSubmitAnswer_IntegrationFlow(t *testing.T) {
 
 	// Run tests in transaction for isolation
 	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
-		// Set up stores
+		// Set up stores with transaction for test isolation
 		cardStore := postgres.NewPostgresCardStore(tx, nil)
 		statsStore := postgres.NewPostgresUserCardStatsStore(tx, nil)
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
+
+		// Create mock repositories that provide DB() access for transaction management
+		mockCardRepo := &mockCardRepository{
+			CardStore: cardStore,
+			dbConn:    db,
+		}
+		mockStatsRepo := &mockStatsRepository{
+			UserCardStatsStore: statsStore,
+			dbConn:             db,
+		}
+
 		srsService, err := srs.NewDefaultService()
 		require.NoError(t, err)
 
-		// Create service
-		service, err := card_review.NewCardReviewService(cardStore, statsStore, srsService, nil)
+		// Create service with mock repositories that support transaction management
+		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, srsService, nil)
 		require.NoError(t, err)
 
 		// Create test user
@@ -168,16 +216,27 @@ func TestGetNextCard_Integration(t *testing.T) {
 
 	// Run tests in transaction for isolation
 	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
-		// Set up stores
+		// Set up stores with transaction for test isolation
 		cardStore := postgres.NewPostgresCardStore(tx, nil)
 		statsStore := postgres.NewPostgresUserCardStatsStore(tx, nil)
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 		memoStore := postgres.NewPostgresMemoStore(tx, nil)
+
+		// Create mock repositories that provide DB() access for transaction management
+		mockCardRepo := &mockCardRepository{
+			CardStore: cardStore,
+			dbConn:    db,
+		}
+		mockStatsRepo := &mockStatsRepository{
+			UserCardStatsStore: statsStore,
+			dbConn:             db,
+		}
+
 		srsService, err := srs.NewDefaultService()
 		require.NoError(t, err)
 
-		// Create service
-		service, err := card_review.NewCardReviewService(cardStore, statsStore, srsService, nil)
+		// Create service with mock repositories that support transaction management
+		service, err := card_review.NewCardReviewService(mockCardRepo, mockStatsRepo, srsService, nil)
 		require.NoError(t, err)
 
 		// Create test user

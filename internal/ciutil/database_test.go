@@ -1,3 +1,5 @@
+//go:build integration || test_without_external_deps
+
 package ciutil
 
 import (

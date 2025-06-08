@@ -9,6 +9,7 @@
     "internal/service/card_review": 53,
     "internal/platform/postgres": 18,
     "internal/platform/logger": 45,
+    "internal/platform/gemini": 0,
     "internal/ciutil": 65,
     "internal/store": 100,
     "cmd/server": 10

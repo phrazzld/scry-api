@@ -74,10 +74,15 @@ func TestGetTestDatabaseURL(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Save current environment
+			// Save current environment for ALL database-related variables
+			allDbEnvVars := []string{EnvDatabaseURL, EnvScryTestDBURL, EnvScryDatabaseURL, EnvCI}
 			savedEnv := map[string]string{}
-			for k := range tc.envVars {
+			for _, k := range allDbEnvVars {
 				savedEnv[k] = os.Getenv(k)
+				// Clear all database environment variables first
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("Failed to unset environment variable %s: %v", k, err)
+				}
 			}
 
 			// Set up test environment

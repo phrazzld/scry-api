@@ -152,7 +152,7 @@ jobs:
       - name: Run unit tests
         run: |
           PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
-          GOTEST_DEBUG=1 go test -v -json -race -coverprofile=coverage-unit-${PACKAGE_NAME}.out -tags=test_without_external_deps ./${{ matrix.package }}/... | tee test-results-unit-${PACKAGE_NAME}.json
+          GOTEST_DEBUG=1 go test -v -json -race -coverprofile=coverage-unit-${PACKAGE_NAME}.out -tags=test_without_external_deps,exported_core_functions ./${{ matrix.package }}/... | tee test-results-unit-${PACKAGE_NAME}.json
           TEST_EXIT_CODE=${PIPESTATUS[0]}
 
           # Concise error reporting for test failures
@@ -401,7 +401,7 @@ jobs:
           go run ./cmd/server -migrate=up
           go run ./cmd/server -validate-migrations
           PACKAGE_NAME=$(echo "${{ matrix.package }}" | tr '/' '-')
-          GOTEST_DEBUG=1 go test -v -json -race -coverprofile=coverage-integration-${PACKAGE_NAME}.out -tags=integration ./${{ matrix.package }}/... | tee test-results-integration-${PACKAGE_NAME}.json
+          GOTEST_DEBUG=1 go test -v -json -race -coverprofile=coverage-integration-${PACKAGE_NAME}.out -tags=integration,exported_core_functions ./${{ matrix.package }}/... | tee test-results-integration-${PACKAGE_NAME}.json
           TEST_EXIT_CODE=${PIPESTATUS[0]}
 
           # Concise error reporting for integration test failures

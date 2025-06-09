@@ -1,4 +1,4 @@
-//go:build test_without_external_deps
+//go:build integration
 
 package card_review_test
 

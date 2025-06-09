@@ -1,3 +1,5 @@
+//go:build integration
+
 package service_test
 
 import (
@@ -145,7 +147,7 @@ func TestMemoService_CreateMemoAndEnqueueTask_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -266,7 +268,7 @@ func TestMemoService_UpdateMemoStatus_Atomicity(t *testing.T) {
 	require.NoError(t, err, "Failed to connect to test database")
 	defer testutils.AssertCloseNoError(t, db)
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		logger := slog.Default()
 
@@ -465,7 +467,7 @@ func TestComplexTransactionWithMultipleStores(t *testing.T) {
 		})
 	}
 
-	testutils.WithTx(t, db, func(tx store.DBTX) {
+	testutils.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		ctx := context.Background()
 		memoID := uuid.New()
 

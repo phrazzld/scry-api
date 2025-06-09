@@ -7,7 +7,12 @@ This directory contains database migration files for the Scry API.
 The application supports the following migration commands:
 
 ```
-go run cmd/server/main.go -migrate=<command> [-name=<migration_name>]
+make migrate-<command> [NAME=<migration_name>]
+```
+
+Or using the underlying Go command:
+```
+go run ./cmd/server -migrate=<command> [-name=<migration_name>]
 ```
 
 ### Available Commands
@@ -22,19 +27,19 @@ go run cmd/server/main.go -migrate=<command> [-name=<migration_name>]
 
 ```sh
 # Run all pending migrations
-go run cmd/server/main.go -migrate=up
+make migrate-up
 
 # Rollback the last migration
-go run cmd/server/main.go -migrate=down
+make migrate-down
 
 # Show migration status
-go run cmd/server/main.go -migrate=status
+make migrate-status
 
 # Show current version
-go run cmd/server/main.go -migrate=version
+make migrate-version
 
 # Create a new migration
-go run cmd/server/main.go -migrate=create -name=create_users_table
+make migrate-create NAME=create_users_table
 ```
 
 ## Migration File Format

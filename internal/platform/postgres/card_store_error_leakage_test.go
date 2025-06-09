@@ -1,3 +1,5 @@
+//go:build integration
+
 package postgres_test
 
 import (
@@ -9,7 +11,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/store"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,16 +19,15 @@ import (
 // TestCardStoreErrorLeakage tests that CardStore operations do not leak internal
 // database error details in their returned errors.
 func TestCardStoreErrorLeakage(t *testing.T) {
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test")
-	}
+	// Get a test database connection
+	db := testdb.GetTestDBWithT(t)
 
 	// We need to run real database tests to trigger actual PostgreSQL errors
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
 	// Create a transaction for isolation
-	tx, err := testDB.BeginTx(ctx, nil)
+	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	defer func() {
 		_ = tx.Rollback() // Intentionally ignoring error as it's cleanup code

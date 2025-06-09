@@ -1,3 +1,5 @@
+//go:build (integration || test_without_external_deps) && exported_core_functions
+
 // Package main contains integration tests for the server application
 // These tests require a real database connection to run.
 //
@@ -17,12 +19,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"testing"
 
 	"github.com/phrazzld/scry-api/internal/config"
-	"github.com/phrazzld/scry-api/internal/store"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testutils/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,12 +41,12 @@ func TestSuccessfulInitialization(t *testing.T) {
 	// t.Parallel()
 
 	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - DATABASE_URL environment variable required")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
 
 	// Get a real database URL from the test environment
-	dbURL := testutils.GetTestDatabaseURL(t)
+	dbURL := db.GetTestDatabaseURL()
 
 	// First save any existing environment variables we'll need to restore
 	oldEnv := make(map[string]string)
@@ -97,9 +99,9 @@ func TestSuccessfulInitialization(t *testing.T) {
 	require.NoError(t, err, "Failed to set SCRY_LLM_GEMINI_API_KEY environment variable")
 
 	// Use the shared database connection with transaction isolation
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Load configuration directly
-		cfg, err := loadConfig()
+		cfg, err := loadAppConfig()
 
 		// Verify configuration loading succeeded
 		require.NoError(t, err, "Configuration loading should succeed with valid env vars")
@@ -226,8 +228,8 @@ func TestDatabaseConnection(t *testing.T) {
 	// t.Parallel()
 
 	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		t.Skip("Skipping integration test - DATABASE_URL environment variable required")
+	if db.ShouldSkipDatabaseTest() {
+		t.Skip("DATABASE_URL or SCRY_TEST_DB_URL not set - skipping integration test")
 	}
 
 	// Skip if database is not available
@@ -236,7 +238,7 @@ func TestDatabaseConnection(t *testing.T) {
 	}
 
 	// Get a real database URL from the test environment
-	dbURL := testutils.GetTestDatabaseURL(t)
+	dbURL := db.GetTestDatabaseURL()
 
 	// First save any existing environment variables we'll need to restore
 	oldEnv := make(map[string]string)
@@ -287,7 +289,7 @@ func TestDatabaseConnection(t *testing.T) {
 	}
 
 	// Use transaction isolation for the test
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	db.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
 		// Test that we can query the database
 		var result int
 		err := tx.QueryRowContext(context.Background(), "SELECT 1").Scan(&result)

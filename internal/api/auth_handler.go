@@ -125,15 +125,11 @@ func (h *AuthHandler) WithTimeFunc(timeFunc func() time.Time) *AuthHandler {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 
-	// Parse request
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
-	}
+	// Get logger from context or use default
+	log := h.logger
 
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	// Parse and validate request
+	if !parseAndValidateRequest(w, r, &req, log) {
 		return
 	}
 
@@ -171,15 +167,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshTokenRequest
 
-	// Parse request
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
-	}
+	// Get logger from context or use default
+	log := h.logger
 
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	// Parse and validate request
+	if !parseAndValidateRequest(w, r, &req, log) {
 		return
 	}
 
@@ -194,7 +186,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	userID := claims.UserID
 
 	// Log successful refresh token validation
-	h.logger.Debug("refresh token validated successfully",
+	log.Debug("refresh token validated successfully",
 		slog.String("user_id", userID.String()),
 		slog.String("token_id", claims.ID))
 
@@ -217,25 +209,28 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
-	// Parse request
-	if err := shared.DecodeJSON(r, &req); err != nil {
-		HandleValidationError(w, r, err)
-		return
-	}
+	// Get logger from context or use default
+	log := h.logger
 
-	// Validate request
-	if err := shared.Validate.Struct(req); err != nil {
-		HandleValidationError(w, r, err)
+	// Parse and validate request
+	if !parseAndValidateRequest(w, r, &req, log) {
 		return
 	}
 
 	// Get user by email
 	user, err := h.userStore.GetByEmail(r.Context(), req.Email)
 	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
+		if errors.Is(err, store.ErrUserNotFound) { // This returns a 404 via MapErrorToStatusCode
 			// Use generic error message for security (don't reveal if email exists)
 			// Elevate to WARN level as repeated auth failures are operationally important
-			HandleAPIError(w, r, err, "Invalid credentials", shared.WithElevatedLogLevel())
+			shared.RespondWithErrorAndLog(
+				w,
+				r,
+				http.StatusNotFound,
+				"Invalid credentials",
+				err,
+				shared.WithElevatedLogLevel(),
+			)
 			return
 		}
 		HandleAPIError(w, r, err, "Failed to authenticate user")
@@ -246,7 +241,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := h.passwordVerifier.Compare(user.HashedPassword, req.Password); err != nil {
 		// Use same generic error message as above for security
 		// Elevate to WARN level as repeated auth failures are operationally important
-		HandleAPIError(w, r, err, "Invalid credentials", shared.WithElevatedLogLevel())
+		// Use 401 Unauthorized for incorrect password (user exists but credentials are invalid)
+		shared.RespondWithErrorAndLog(
+			w,
+			r,
+			http.StatusUnauthorized,
+			"Invalid credentials",
+			err,
+			shared.WithElevatedLogLevel(),
+		)
 		return
 	}
 

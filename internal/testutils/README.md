@@ -1,4 +1,21 @@
-# Transaction Isolation Pattern for Database Testing
+# Test Utilities Package
+
+## Testing Strategy
+
+The `testutils` package provides test utilities for the application. Due to the nature of test utilities, not all functions require their own unit tests:
+
+1. **Utilities with Logic**: Functions containing conditional logic, loops, or complex operations are tested.
+2. **Simple Pass-throughs**: Functions that merely wrap other functions or return constants are not tested.
+3. **Integration-Dependent**: Database utilities are tested as part of integration tests when a test database is available.
+
+## Current Test Coverage
+
+- Environment setup utilities (`SetupEnv`): Tested
+- Basic user creation (`CreateTestUser`): Tested  
+- Authentication helpers (`GenerateAuthHeader`): Tested
+- Database utilities: Require integration test environment
+
+## Transaction Isolation Pattern for Database Testing
 
 This package implements a robust approach to database integration testing using transaction isolation. This pattern allows for:
 

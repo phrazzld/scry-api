@@ -1,3 +1,5 @@
+//go:build (integration || test_without_external_deps) && exported_core_functions
+
 package main
 
 import (
@@ -15,7 +17,7 @@ func TestRunMigrationsInvalidCommand(t *testing.T) {
 	}
 
 	// Test that an invalid migration command returns an error
-	err := runMigrations(cfg, "invalid_command")
+	err := runMigrations(cfg, "invalid_command", false)
 	if err == nil {
 		t.Fatal("Expected error for invalid migration command, got nil")
 	}
@@ -30,7 +32,7 @@ func TestRunMigrationsInvalidConfigURL(t *testing.T) {
 	}
 
 	// Test that an empty database URL returns an error
-	err := runMigrations(cfg, "up")
+	err := runMigrations(cfg, "up", false)
 	if err == nil {
 		t.Fatal("Expected error for empty database URL, got nil")
 	}
@@ -45,7 +47,7 @@ func TestRunMigrationsCreateMissingName(t *testing.T) {
 	}
 
 	// Test that a "create" command without a name returns an error
-	err := runMigrations(cfg, "create", "")
+	err := runMigrations(cfg, "create", false, "")
 	if err == nil {
 		t.Fatal("Expected error for missing migration name, got nil")
 	}
@@ -62,7 +64,7 @@ func TestRunMigrationsConnectionError(t *testing.T) {
 	}
 
 	// Test that attempting to connect to a non-existent database returns an error
-	err := runMigrations(cfg, "status")
+	err := runMigrations(cfg, "status", false)
 	if err == nil {
 		t.Fatal("Expected error for invalid database connection, got nil")
 	}

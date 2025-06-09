@@ -1,3 +1,5 @@
+//go:build integration
+
 package postgres_test
 
 import (
@@ -362,7 +364,7 @@ func TestMapError(t *testing.T) {
 			name:   "check constraint violation",
 			err:    newPgError("23514"),
 			errIs:  store.ErrInvalidEntity,
-			errMsg: "check constraint violation",
+			errMsg: "validation rule violation",
 		},
 		{
 			name:   "not null violation",
@@ -459,7 +461,7 @@ func TestMapUniqueViolation(t *testing.T) {
 			constraintName: "users_email_key",
 			specificError:  nil,
 			errIs:          store.ErrDuplicate,
-			errContains:    "duplicate value for constraint: users_email_key",
+			errContains:    "duplicate value for: users_email_key",
 		},
 		{
 			name:           "unique violation with specific error",

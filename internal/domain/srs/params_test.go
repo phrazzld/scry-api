@@ -76,6 +76,7 @@ func TestNewParams(t *testing.T) {
 		FirstReviewHardInterval:   2,
 		FirstReviewGoodInterval:   3,
 		FirstReviewEasyInterval:   4,
+		AgainReviewMinutes:        20,
 	})
 
 	// Check custom values were applied
@@ -106,5 +107,78 @@ func TestNewParams(t *testing.T) {
 	if customParams.FirstReviewIntervals[domain.ReviewOutcomeHard] != 2 {
 		t.Errorf("First review Hard interval not set correctly, got %d, expected 2",
 			customParams.FirstReviewIntervals[domain.ReviewOutcomeHard])
+	}
+
+	if customParams.AgainReviewMinutes != 20 {
+		t.Errorf("AgainReviewMinutes not set correctly, got %d, expected 20",
+			customParams.AgainReviewMinutes)
+	}
+}
+
+func TestNewParamsPartialConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		config ParamsConfig
+		check  func(t *testing.T, params *Params)
+	}{
+		{
+			name: "only_again_review_minutes",
+			config: ParamsConfig{
+				AgainReviewMinutes: 15,
+			},
+			check: func(t *testing.T, params *Params) {
+				if params.AgainReviewMinutes != 15 {
+					t.Errorf("AgainReviewMinutes not set correctly, got %d, expected 15",
+						params.AgainReviewMinutes)
+				}
+				// Check defaults are preserved
+				defaultParams := NewDefaultParams()
+				if params.MinEaseFactor != defaultParams.MinEaseFactor {
+					t.Errorf("MinEaseFactor should use default value")
+				}
+			},
+		},
+		{
+			name: "zero_values_not_applied",
+			config: ParamsConfig{
+				MinEaseFactor:      0, // Should not override default
+				AgainReviewMinutes: 0, // Should not override default
+			},
+			check: func(t *testing.T, params *Params) {
+				defaultParams := NewDefaultParams()
+				if params.MinEaseFactor != defaultParams.MinEaseFactor {
+					t.Errorf("MinEaseFactor should use default when config value is 0")
+				}
+				if params.AgainReviewMinutes != defaultParams.AgainReviewMinutes {
+					t.Errorf("AgainReviewMinutes should use default when config value is 0")
+				}
+			},
+		},
+		{
+			name: "partial_ease_factor_adjustments",
+			config: ParamsConfig{
+				AgainEaseFactorAdjustment: -0.5,
+				// Other ease factor adjustments not set
+			},
+			check: func(t *testing.T, params *Params) {
+				if params.EaseFactorAdjustment[domain.ReviewOutcomeAgain] != -0.5 {
+					t.Errorf("Again ease factor adjustment not set correctly")
+				}
+				// Check other adjustments use defaults
+				defaultParams := NewDefaultParams()
+				if params.EaseFactorAdjustment[domain.ReviewOutcomeHard] != defaultParams.EaseFactorAdjustment[domain.ReviewOutcomeHard] {
+					t.Errorf("Hard ease factor adjustment should use default")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := NewParams(tt.config)
+			tt.check(t, params)
+		})
 	}
 }

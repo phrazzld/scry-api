@@ -36,6 +36,69 @@ type UserService interface {
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
 }
 
+// Common sentinel errors for UserService
+var (
+	// ErrUserNotFound indicates that the user does not exist
+	ErrUserNotFound = errors.New("user not found")
+
+	// ErrEmailExists indicates that the email is already in use
+	ErrEmailExists = errors.New("email already exists")
+)
+
+// UserServiceError wraps errors from the user service with context.
+type UserServiceError struct {
+	// Operation is the operation that failed (e.g., "create_user", "update_email")
+	Operation string
+	// Message is a human-readable description of the error
+	Message string
+	// Err is the underlying error that caused the failure
+	Err error
+}
+
+// Error implements the error interface for UserServiceError.
+func (e *UserServiceError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("user service %s failed: %s: %v", e.Operation, e.Message, e.Err)
+	}
+	return fmt.Sprintf("user service %s failed: %s", e.Operation, e.Message)
+}
+
+// Unwrap returns the wrapped error to support errors.Is/errors.As.
+func (e *UserServiceError) Unwrap() error {
+	return e.Err
+}
+
+// NewUserServiceError creates a new UserServiceError.
+// It returns known sentinel errors directly without wrapping.
+func NewUserServiceError(operation, message string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Check for service-defined sentinel errors
+	if errors.Is(err, ErrUserNotFound) {
+		return ErrUserNotFound
+	}
+	if errors.Is(err, ErrEmailExists) {
+		return ErrEmailExists
+	}
+
+	// Check for store-level sentinel errors that should be mapped to service-level ones
+	if errors.Is(err, store.ErrUserNotFound) {
+		return ErrUserNotFound
+	}
+	if errors.Is(err, store.ErrEmailExists) {
+		return ErrEmailExists
+	}
+
+	// If not a sentinel to be returned directly, wrap it
+	return &UserServiceError{
+		Operation: operation,
+		Message:   message,
+		Err:       err,
+	}
+}
+
 // UserServiceImpl implements the UserService interface
 type UserServiceImpl struct {
 	userStore store.UserStore
@@ -44,12 +107,34 @@ type UserServiceImpl struct {
 }
 
 // NewUserService creates a new UserService
-func NewUserService(userStore store.UserStore, db *sql.DB, logger *slog.Logger) UserService {
+// It returns an error if any of the required dependencies are nil.
+func NewUserService(userStore store.UserStore, db *sql.DB, logger *slog.Logger) (UserService, error) {
+	// Validate dependencies
+	if userStore == nil {
+		return nil, &UserServiceError{
+			Operation: "create_service",
+			Message:   "userStore cannot be nil",
+			Err:       nil,
+		}
+	}
+	if db == nil {
+		return nil, &UserServiceError{
+			Operation: "create_service",
+			Message:   "db cannot be nil",
+			Err:       nil,
+		}
+	}
+
+	// Use provided logger or create default
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &UserServiceImpl{
 		userStore: userStore,
 		db:        db,
 		logger:    logger.With("component", "user_service"),
-	}
+	}, nil
 }
 
 // GetUser retrieves a user by their ID
@@ -59,7 +144,11 @@ func (s *UserServiceImpl) GetUser(ctx context.Context, userID uuid.UUID) (*domai
 		s.logger.Error("failed to retrieve user",
 			"error", err,
 			"user_id", userID)
-		return nil, fmt.Errorf("failed to retrieve user: %w", err)
+
+		if errors.Is(err, store.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, NewUserServiceError("get_user", "failed to retrieve user", err)
 	}
 
 	s.logger.Debug("retrieved user successfully",
@@ -76,12 +165,13 @@ func (s *UserServiceImpl) GetUserByEmail(ctx context.Context, email string) (*do
 		if errors.Is(err, store.ErrUserNotFound) {
 			s.logger.Debug("user not found by email",
 				"email", email)
+			return nil, ErrUserNotFound
 		} else {
 			s.logger.Error("failed to retrieve user by email",
 				"error", err,
 				"email", email)
 		}
-		return nil, fmt.Errorf("failed to retrieve user by email: %w", err)
+		return nil, NewUserServiceError("get_user_by_email", "failed to retrieve user by email", err)
 	}
 
 	s.logger.Debug("retrieved user by email successfully",
@@ -102,7 +192,7 @@ func (s *UserServiceImpl) CreateUser(
 		s.logger.Error("failed to create user object",
 			"error", err,
 			"email", email)
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return nil, NewUserServiceError("create_user", "failed to create user object", err)
 	}
 
 	// Use a transaction for the user creation
@@ -111,19 +201,25 @@ func (s *UserServiceImpl) CreateUser(
 		txStore := s.userStore.WithTx(tx)
 
 		// Create the user within the transaction
-		return txStore.Create(ctx, user)
-	})
+		err := txStore.Create(ctx, user)
+		if err != nil {
+			if errors.Is(err, store.ErrEmailExists) {
+				s.logger.Debug("attempted to create user with existing email",
+					"email", email)
+				return ErrEmailExists
+			}
 
-	if err != nil {
-		if errors.Is(err, store.ErrEmailExists) {
-			s.logger.Debug("attempted to create user with existing email",
-				"email", email)
-		} else {
 			s.logger.Error("failed to save user to database",
 				"error", err,
 				"email", email)
+			return NewUserServiceError("create_user", "failed to save user to database", err)
 		}
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return nil
+	})
+
+	if err != nil {
+		// Error is already wrapped in the transaction
+		return nil, err
 	}
 
 	s.logger.Info("user created successfully in transaction",
@@ -151,7 +247,11 @@ func (s *UserServiceImpl) UpdateUserEmail(
 			s.logger.Error("failed to retrieve user for email update",
 				"error", err,
 				"user_id", userID)
-			return fmt.Errorf("failed to retrieve user for update: %w", err)
+
+			if errors.Is(err, store.ErrUserNotFound) {
+				return ErrUserNotFound
+			}
+			return NewUserServiceError("update_email", "failed to retrieve user for update", err)
 		}
 
 		// Update only the email field
@@ -165,13 +265,14 @@ func (s *UserServiceImpl) UpdateUserEmail(
 				s.logger.Debug("attempted to update to an existing email",
 					"user_id", userID,
 					"new_email", newEmail)
+				return ErrEmailExists
 			} else {
 				s.logger.Error("failed to update user email",
 					"error", err,
 					"user_id", userID,
 					"new_email", newEmail)
 			}
-			return fmt.Errorf("failed to update user email: %w", err)
+			return NewUserServiceError("update_email", "failed to update user email", err)
 		}
 
 		s.logger.Info("user email updated successfully in transaction",
@@ -200,7 +301,11 @@ func (s *UserServiceImpl) UpdateUserPassword(
 			s.logger.Error("failed to retrieve user for password update",
 				"error", err,
 				"user_id", userID)
-			return fmt.Errorf("failed to retrieve user for password update: %w", err)
+
+			if errors.Is(err, store.ErrUserNotFound) {
+				return ErrUserNotFound
+			}
+			return NewUserServiceError("update_password", "failed to retrieve user for password update", err)
 		}
 
 		// Set the new password (UserStore.Update will handle the hashing)
@@ -213,7 +318,7 @@ func (s *UserServiceImpl) UpdateUserPassword(
 			s.logger.Error("failed to update user password",
 				"error", err,
 				"user_id", userID)
-			return fmt.Errorf("failed to update user password: %w", err)
+			return NewUserServiceError("update_password", "failed to update user password", err)
 		}
 
 		s.logger.Info("user password updated successfully in transaction",
@@ -236,12 +341,13 @@ func (s *UserServiceImpl) DeleteUser(ctx context.Context, userID uuid.UUID) erro
 			if errors.Is(err, store.ErrUserNotFound) {
 				s.logger.Debug("attempted to delete non-existent user",
 					"user_id", userID)
+				return ErrUserNotFound
 			} else {
 				s.logger.Error("failed to delete user",
 					"error", err,
 					"user_id", userID)
 			}
-			return fmt.Errorf("failed to delete user: %w", err)
+			return NewUserServiceError("delete_user", "failed to delete user", err)
 		}
 
 		s.logger.Info("user deleted successfully in transaction",

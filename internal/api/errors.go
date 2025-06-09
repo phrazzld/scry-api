@@ -8,6 +8,7 @@ import (
 
 	"github.com/phrazzld/scry-api/internal/api/shared"
 	"github.com/phrazzld/scry-api/internal/domain"
+	"github.com/phrazzld/scry-api/internal/service"
 	"github.com/phrazzld/scry-api/internal/service/auth"
 	"github.com/phrazzld/scry-api/internal/service/card_review"
 	"github.com/phrazzld/scry-api/internal/store"
@@ -28,7 +29,8 @@ func MapErrorToStatusCode(err error) int {
 		return http.StatusUnauthorized
 
 	// Authorization errors
-	case errors.Is(err, card_review.ErrCardNotOwned):
+	case errors.Is(err, card_review.ErrCardNotOwned),
+		errors.Is(err, service.ErrNotOwned):
 		return http.StatusForbidden
 
 	// Not found errors
@@ -37,7 +39,8 @@ func MapErrorToStatusCode(err error) int {
 		errors.Is(err, store.ErrMemoNotFound),
 		errors.Is(err, store.ErrNotFound),
 		errors.Is(err, card_review.ErrCardNotFound),
-		errors.Is(err, card_review.ErrCardStatsNotFound):
+		errors.Is(err, card_review.ErrCardStatsNotFound),
+		errors.Is(err, service.ErrStatsNotFound):
 		return http.StatusNotFound
 
 	// Conflict errors
@@ -137,7 +140,8 @@ func GetSafeErrorMessage(err error) string {
 		return "Unauthorized operation"
 
 	// Authorization errors
-	case errors.Is(err, card_review.ErrCardNotOwned):
+	case errors.Is(err, card_review.ErrCardNotOwned),
+		errors.Is(err, service.ErrNotOwned):
 		return "You do not own this card"
 
 	// Not found errors
@@ -151,7 +155,8 @@ func GetSafeErrorMessage(err error) string {
 	case errors.Is(err, store.ErrMemoNotFound):
 		return "Memo not found"
 
-	case errors.Is(err, card_review.ErrCardStatsNotFound):
+	case errors.Is(err, card_review.ErrCardStatsNotFound),
+		errors.Is(err, service.ErrStatsNotFound):
 		return "Card statistics not found"
 
 	case errors.Is(err, store.ErrNotFound):

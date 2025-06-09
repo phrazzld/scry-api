@@ -1,3 +1,5 @@
+//go:build integration || test_without_external_deps
+
 package card_review_test
 
 import (
@@ -83,6 +85,9 @@ func (m *MockCardStore) WithTxCardStore(tx *sql.Tx) store.CardStore {
 
 func (m *MockCardStore) DB() *sql.DB {
 	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
 	return args.Get(0).(*sql.DB)
 }
 

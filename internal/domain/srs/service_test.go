@@ -28,6 +28,57 @@ func TestNewDefaultService(t *testing.T) {
 	}
 }
 
+func TestNewServiceWithParams(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		params      *Params
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid_params",
+			params:      NewDefaultParams(),
+			expectError: false,
+		},
+		{
+			name:        "nil_params",
+			params:      nil,
+			expectError: true,
+			errorMsg:    "params cannot be nil",
+		},
+		{
+			name: "custom_params",
+			params: NewParams(ParamsConfig{
+				MinEaseFactor: 1.5,
+				MaxEaseFactor: 3.0,
+			}),
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, err := NewServiceWithParams(tt.params)
+
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+				require.Nil(t, service)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, service)
+
+				// Verify params were set correctly
+				defaultService, ok := service.(*defaultService)
+				require.True(t, ok, "Expected *defaultService type")
+				require.Equal(t, tt.params, defaultService.params)
+			}
+		})
+	}
+}
+
 func TestCalculateNextReview(t *testing.T) {
 	t.Parallel() // Enable parallel execution
 	service, err := NewDefaultService()
@@ -179,44 +230,158 @@ func TestPostponeReview(t *testing.T) {
 	// Set a specific NextReviewAt time for predictable testing
 	initialStats.NextReviewAt = now
 
-	// Test valid postponement
-	updatedStats, err := service.PostponeReview(initialStats, 7, now)
-	if err != nil {
-		t.Fatalf("PostponeReview returned error: %v", err)
-	}
+	t.Run("valid 7-day postponement", func(t *testing.T) {
+		t.Parallel()
+		updatedStats, err := service.PostponeReview(initialStats, 7, now)
+		if err != nil {
+			t.Fatalf("PostponeReview returned error: %v", err)
+		}
 
-	expectedNextReview := now.AddDate(0, 0, 7)
-	if !updatedStats.NextReviewAt.Equal(expectedNextReview) {
-		t.Errorf(
-			"Expected NextReviewAt to be %v, got %v",
-			expectedNextReview,
-			updatedStats.NextReviewAt,
-		)
-	}
+		expectedNextReview := now.AddDate(0, 0, 7)
+		if !updatedStats.NextReviewAt.Equal(expectedNextReview) {
+			t.Errorf(
+				"Expected NextReviewAt to be %v, got %v",
+				expectedNextReview,
+				updatedStats.NextReviewAt,
+			)
+		}
 
-	if !updatedStats.UpdatedAt.Equal(now) {
-		t.Errorf("Expected UpdatedAt to be %v, got %v", now, updatedStats.UpdatedAt)
-	}
+		if !updatedStats.UpdatedAt.Equal(now) {
+			t.Errorf("Expected UpdatedAt to be %v, got %v", now, updatedStats.UpdatedAt)
+		}
 
-	// Test that original stats weren't modified
-	if !initialStats.NextReviewAt.Equal(now) {
-		t.Error("Original stats object was modified")
-	}
+		// Test that original stats weren't modified
+		if !initialStats.NextReviewAt.Equal(now) {
+			t.Error("Original stats object was modified")
+		}
+	})
 
-	// Test invalid days
-	_, err = service.PostponeReview(initialStats, 0, now)
-	if err == nil {
-		t.Error("Expected error for 0 days, got nil")
-	}
+	t.Run("large number of days", func(t *testing.T) {
+		t.Parallel()
+		// Create a new copy of stats for this test to avoid shared state
+		localStats, err := domain.NewUserCardStats(userID, cardID)
+		if err != nil {
+			t.Fatalf("Failed to create stats: %v", err)
+		}
+		localStats.NextReviewAt = now
 
-	_, err = service.PostponeReview(initialStats, -1, now)
-	if err == nil {
-		t.Error("Expected error for negative days, got nil")
-	}
+		// Test with a very large number of days (over a year)
+		days := 500
+		updatedStats, err := service.PostponeReview(localStats, days, now)
+		if err != nil {
+			t.Fatalf("PostponeReview returned error for %d days: %v", days, err)
+		}
 
-	// Test nil stats
-	_, err = service.PostponeReview(nil, 7, now)
-	if err == nil {
-		t.Error("Expected error for nil stats, got nil")
-	}
+		expectedNextReview := now.AddDate(0, 0, days)
+		if !updatedStats.NextReviewAt.Equal(expectedNextReview) {
+			t.Errorf(
+				"Expected NextReviewAt to be %v, got %v",
+				expectedNextReview,
+				updatedStats.NextReviewAt,
+			)
+		}
+	})
+
+	t.Run("DST transition", func(t *testing.T) {
+		t.Parallel()
+		// Create a new copy of stats for this test
+		localStats, err := domain.NewUserCardStats(userID, cardID)
+		if err != nil {
+			t.Fatalf("Failed to create stats: %v", err)
+		}
+
+		// Create a date in February
+		feb := time.Date(2025, time.February, 15, 12, 0, 0, 0, time.UTC)
+		localStats.NextReviewAt = feb
+
+		// Postpone past a DST transition (30 days should cross into March/April when many regions change DST)
+		updatedStats, err := service.PostponeReview(localStats, 30, feb)
+		if err != nil {
+			t.Fatalf("PostponeReview returned error: %v", err)
+		}
+
+		expectedNextReview := feb.AddDate(0, 0, 30)
+		if !updatedStats.NextReviewAt.Equal(expectedNextReview) {
+			t.Errorf(
+				"Expected NextReviewAt to be %v, got %v",
+				expectedNextReview,
+				updatedStats.NextReviewAt,
+			)
+		}
+
+		// The hour should remain the same in UTC regardless of DST
+		if updatedStats.NextReviewAt.Hour() != feb.Hour() {
+			t.Errorf(
+				"Hour changed after DST transition: expected %d, got %d",
+				feb.Hour(),
+				updatedStats.NextReviewAt.Hour(),
+			)
+		}
+	})
+
+	t.Run("leap year", func(t *testing.T) {
+		t.Parallel()
+		// Create a new copy of stats for this test
+		localStats, err := domain.NewUserCardStats(userID, cardID)
+		if err != nil {
+			t.Fatalf("Failed to create stats: %v", err)
+		}
+
+		// Create a date before Feb 29 in a leap year
+		leapYearDate := time.Date(2024, time.February, 15, 12, 0, 0, 0, time.UTC) // 2024 is a leap year
+		localStats.NextReviewAt = leapYearDate
+
+		// Postpone past Feb 29
+		updatedStats, err := service.PostponeReview(localStats, 20, leapYearDate)
+		if err != nil {
+			t.Fatalf("PostponeReview returned error: %v", err)
+		}
+
+		expectedNextReview := leapYearDate.AddDate(0, 0, 20)
+		if !updatedStats.NextReviewAt.Equal(expectedNextReview) {
+			t.Errorf(
+				"Expected NextReviewAt to be %v, got %v",
+				expectedNextReview,
+				updatedStats.NextReviewAt,
+			)
+		}
+
+		// March 6, 2024 (after Feb 29)
+		if updatedStats.NextReviewAt.Day() != 6 || updatedStats.NextReviewAt.Month() != time.March {
+			t.Errorf(
+				"Incorrect date after leap year: expected Mar 6, got %s %d",
+				updatedStats.NextReviewAt.Month(),
+				updatedStats.NextReviewAt.Day(),
+			)
+		}
+	})
+
+	t.Run("invalid days", func(t *testing.T) {
+		t.Parallel()
+		// Create a new copy of stats for this test
+		localStats, err := domain.NewUserCardStats(userID, cardID)
+		if err != nil {
+			t.Fatalf("Failed to create stats: %v", err)
+		}
+
+		// Test invalid days
+		_, err = service.PostponeReview(localStats, 0, now)
+		if err == nil {
+			t.Error("Expected error for 0 days, got nil")
+		}
+
+		_, err = service.PostponeReview(localStats, -1, now)
+		if err == nil {
+			t.Error("Expected error for negative days, got nil")
+		}
+	})
+
+	t.Run("nil stats", func(t *testing.T) {
+		t.Parallel()
+		// Test nil stats
+		_, err = service.PostponeReview(nil, 7, now)
+		if err == nil {
+			t.Error("Expected error for nil stats, got nil")
+		}
+	})
 }

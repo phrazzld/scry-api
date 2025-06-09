@@ -39,12 +39,12 @@ This document provides instructions for setting up a local PostgreSQL database f
 
 5. Run migrations against your local database:
    ```bash
-   go run cmd/server/main.go -migrate=up
+   make migrate-up
    ```
 
 6. Verify migration status:
    ```bash
-   go run cmd/server/main.go -migrate=status
+   make migrate-status
    ```
 
 ## Option 2: Native PostgreSQL Installation
@@ -90,7 +90,8 @@ To reset your local database to a clean state:
 cd infrastructure/local_dev
 docker-compose down -v
 docker-compose up -d
-go run cmd/server/main.go -migrate=up
+cd ../.. # Return to project root
+make migrate-up
 ```
 
 ### Native installation:
@@ -99,5 +100,5 @@ sudo -u postgres psql -c "DROP DATABASE scry;"
 sudo -u postgres psql -c "CREATE DATABASE scry;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE scry TO scryapiuser;"
 sudo -u postgres psql -d scry -c "CREATE EXTENSION IF NOT EXISTS vector;"
-go run cmd/server/main.go -migrate=up
+make migrate-up
 ```

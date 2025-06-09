@@ -8,9 +8,9 @@ on:
   schedule:
     - cron: '33 5 * * 2' # Run weekly on Tuesday morning
 
-# Centralized Go version - update this single value to change version across all jobs
+# Centralized Go version - synchronized with main CI workflow
 env:
-  GO_VERSION: '1.22'
+  GO_VERSION: '1.24'
 
 permissions:
   contents: read
@@ -21,26 +21,89 @@ jobs:
   codeql:
     name: CodeQL SAST Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # Prevent hanging scans
     permissions:
       security-events: write
       actions: read
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install required dependencies for CGO
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libpq-dev
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: go
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+          # Add debugging to understand initialization issues
+          debug: true
+
+      - name: Verify Go setup
+        run: |
+          echo "=== Go Environment Information ==="
+          go version
+          go env GOVERSION
+          go env GOOS
+          go env GOARCH
+          go env CGO_ENABLED
+          echo "=== System Dependencies ==="
+          gcc --version
+          pkg-config --version
+          echo "=== CodeQL Analysis Prerequisites Met ==="
+
+      - name: Build application for CodeQL analysis
+        run: |
+          echo "Building application with CGO support for CodeQL analysis..."
+          echo "Running: CGO_ENABLED=1 go build -v ./cmd/server"
+
+          # Build main server application (the primary target for security analysis)
+          if CGO_ENABLED=1 go build -v ./cmd/server; then
+            echo "✅ Build completed successfully"
+            echo "Binary created: $(ls -la ./server 2>/dev/null || echo 'Binary location may vary')"
+          else
+            echo "❌ Build failed - this may cause CodeQL analysis to fail"
+            echo "Attempting to provide diagnostic information..."
+            go env
+            exit 1
+          fi
+        env:
+          CGO_ENABLED: 1
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        with:
+          # Add debugging to capture any analysis issues
+          upload: true
+
+      - name: Upload CodeQL results summary
+        if: always()
+        run: |
+          echo "=== CodeQL Analysis Summary ==="
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ CodeQL analysis completed successfully"
+            echo "Security scan results have been uploaded to GitHub Security tab"
+          else
+            echo "❌ CodeQL analysis encountered issues"
+            echo "Check the logs above for detailed error information"
+          fi
+          echo "=== End Summary ==="
 
   dependency-review:
     name: Dependency Review
     # Run only on PRs
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Prevent hanging dependency reviews
     permissions:
       contents: read
       pull-requests: write
@@ -53,15 +116,35 @@ jobs:
   govulncheck:
     name: Vulnerability Scanner
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Prevent hanging vulnerability scans
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Install required dependencies for CGO
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libpq-dev
+
       - name: Run vulnerability scan
         run: |
+          echo "Installing govulncheck..."
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./... || true  # Temporarily ignore failures during Go 1.23+ upgrade
+
+          echo "Running vulnerability scan..."
+          if govulncheck ./...; then
+            echo "✅ No vulnerabilities found"
+          else
+            echo "⚠️ Vulnerabilities detected or scan failed"
+            echo "Note: This may be expected during Go version upgrades"
+            # For now, don't fail the build, but log the issue
+            exit 0
+          fi
+        env:
+          CGO_ENABLED: 1

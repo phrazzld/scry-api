@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/domain"
@@ -32,6 +33,16 @@ func (a *cardRepositoryAdapter) CreateMultiple(ctx context.Context, cards []*dom
 // GetByID implements CardRepository.GetByID
 func (a *cardRepositoryAdapter) GetByID(ctx context.Context, id uuid.UUID) (*domain.Card, error) {
 	return a.cardStore.GetByID(ctx, id)
+}
+
+// UpdateContent implements CardRepository.UpdateContent
+func (a *cardRepositoryAdapter) UpdateContent(ctx context.Context, id uuid.UUID, content json.RawMessage) error {
+	return a.cardStore.UpdateContent(ctx, id, content)
+}
+
+// Delete implements CardRepository.Delete
+func (a *cardRepositoryAdapter) Delete(ctx context.Context, id uuid.UUID) error {
+	return a.cardStore.Delete(ctx, id)
 }
 
 // WithTx implements CardRepository.WithTx

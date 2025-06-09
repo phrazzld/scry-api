@@ -36,6 +36,11 @@ var (
 	// to commit or when an operation within a transaction fails.
 	ErrTransactionFailed = errors.New("transaction failed")
 
+	// ErrInternal is returned when an internal error occurs that is not related to
+	// the specific operation or entity. This is used to wrap low-level errors
+	// while providing a sanitized error message to the caller.
+	ErrInternal = errors.New("internal error")
+
 	// Entity-specific "not found" errors
 
 	// ErrUserNotFound indicates that the requested user does not exist in the store.
@@ -72,6 +77,12 @@ func IsNotFoundError(err error) bool {
 func IsDuplicateError(err error) bool {
 	return errors.Is(err, ErrDuplicate) ||
 		errors.Is(err, ErrEmailExists)
+}
+
+// IsInternalError checks if the error is an internal error.
+// This includes the generic ErrInternal and any error that wraps it.
+func IsInternalError(err error) bool {
+	return errors.Is(err, ErrInternal)
 }
 
 // StoreError is a custom error type for store-specific errors with additional context.

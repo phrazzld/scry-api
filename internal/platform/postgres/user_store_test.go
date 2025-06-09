@@ -1,10 +1,11 @@
+//go:build integration
+
 package postgres_test
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/phrazzld/scry-api/internal/domain"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/store"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/phrazzld/scry-api/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,59 +24,6 @@ import (
 
 // testTimeout is the maximum time allowed for a test to run
 const testTimeout = 5 * time.Second
-
-// testDB is a package-level variable that holds a shared database connection
-// for all tests in this package.
-var testDB *sql.DB
-
-// TestMain sets up the database and runs all tests once, rather than for each test.
-// This improves performance by running migrations only once for all tests.
-func TestMain(m *testing.M) {
-	// Skip if not in integration test environment
-	if !testutils.IsIntegrationTestEnvironment() {
-		os.Exit(0)
-	}
-
-	// Connect to database once for all tests
-	dbURL := testutils.MustGetTestDatabaseURL()
-	var err error
-	testDB, err = sql.Open("pgx", dbURL)
-	if err != nil {
-		fmt.Printf("Failed to open database connection: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Set connection parameters
-	testDB.SetMaxOpenConns(5)
-	testDB.SetMaxIdleConns(5)
-	testDB.SetConnMaxLifetime(5 * time.Minute)
-
-	// Verify connection with ping
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := testDB.PingContext(ctx); err != nil {
-		fmt.Printf("Failed to ping database: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Setup database schema using migrations
-	if err := testutils.SetupTestDatabaseSchema(testDB); err != nil {
-		fmt.Printf("Failed to setup test database schema: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Run all tests
-	exitCode := m.Run()
-
-	// Clean up
-	if err := testDB.Close(); err != nil {
-		fmt.Printf("CRITICAL: Failed to close database connection in TestMain: %v\n", err)
-		// Note: We could use log.Panicf here if we consider this critical enough
-		// to abort the entire test run, but for TestMain cleanup it might be too aggressive.
-	}
-
-	os.Exit(exitCode)
-}
 
 // For backwards compatibility in this file
 // In new tests, use the standardized helper functions from testutils package directly
@@ -107,7 +56,8 @@ func countUsers(
 func TestNewPostgresUserStore(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	db := testdb.GetTestDBWithT(t)
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Initialize the store with the transaction
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 
@@ -124,7 +74,8 @@ func TestNewPostgresUserStore(t *testing.T) {
 func TestBasicDatabaseConnectivity(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	db := testdb.GetTestDBWithT(t)
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a context with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
@@ -154,7 +105,8 @@ func TestBasicDatabaseConnectivity(t *testing.T) {
 func TestPostgresUserStore_Create(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(tx store.DBTX) {
+	db := testdb.GetTestDBWithT(t)
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 

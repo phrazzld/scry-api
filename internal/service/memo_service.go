@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -61,6 +62,60 @@ type MemoService interface {
 	GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error)
 }
 
+// Common sentinel errors for MemoService
+var (
+	// ErrMemoNotFound indicates that the memo does not exist
+	ErrMemoNotFound = errors.New("memo not found")
+)
+
+// MemoServiceError wraps errors from the memo service with context.
+type MemoServiceError struct {
+	// Operation is the operation that failed (e.g., "create_memo", "update_memo_status")
+	Operation string
+	// Message is a human-readable description of the error
+	Message string
+	// Err is the underlying error that caused the failure
+	Err error
+}
+
+// Error implements the error interface for MemoServiceError.
+func (e *MemoServiceError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("memo service %s failed: %s: %v", e.Operation, e.Message, e.Err)
+	}
+	return fmt.Sprintf("memo service %s failed: %s", e.Operation, e.Message)
+}
+
+// Unwrap returns the wrapped error to support errors.Is/errors.As.
+func (e *MemoServiceError) Unwrap() error {
+	return e.Err
+}
+
+// NewMemoServiceError creates a new MemoServiceError.
+// It returns known sentinel errors directly without wrapping.
+func NewMemoServiceError(operation, message string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Check for service-defined sentinel errors
+	if errors.Is(err, ErrMemoNotFound) {
+		return ErrMemoNotFound
+	}
+
+	// Check for store-level sentinel errors that should be mapped to service-level ones
+	if errors.Is(err, store.ErrMemoNotFound) {
+		return ErrMemoNotFound
+	}
+
+	// If not a sentinel to be returned directly, wrap it
+	return &MemoServiceError{
+		Operation: operation,
+		Message:   message,
+		Err:       err,
+	}
+}
+
 // memoServiceImpl implements the MemoService interface
 type memoServiceImpl struct {
 	memoRepo     MemoRepository
@@ -79,13 +134,25 @@ func NewMemoService(
 ) (MemoService, error) {
 	// Validate dependencies
 	if memoRepo == nil {
-		return nil, fmt.Errorf("memoRepo cannot be nil")
+		return nil, &MemoServiceError{
+			Operation: "create_service",
+			Message:   "memoRepo cannot be nil",
+			Err:       nil,
+		}
 	}
 	if taskRunner == nil {
-		return nil, fmt.Errorf("taskRunner cannot be nil")
+		return nil, &MemoServiceError{
+			Operation: "create_service",
+			Message:   "taskRunner cannot be nil",
+			Err:       nil,
+		}
 	}
 	if eventEmitter == nil {
-		return nil, fmt.Errorf("eventEmitter cannot be nil")
+		return nil, &MemoServiceError{
+			Operation: "create_service",
+			Message:   "eventEmitter cannot be nil",
+			Err:       nil,
+		}
 	}
 
 	// Use provided logger or create default
@@ -108,13 +175,20 @@ func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
 	userID uuid.UUID,
 	text string,
 ) (*domain.Memo, error) {
+	// Make sure we have a valid logger
+	log := s.logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	// 1. Create a new memo with pending status
 	memo, err := domain.NewMemo(userID, text)
 	if err != nil {
-		s.logger.Error("failed to create memo object",
+		log.Error("failed to create memo object",
 			"error", err,
 			"user_id", userID)
-		return nil, fmt.Errorf("failed to create memo: %w", err)
+		return nil, NewMemoServiceError("create_memo", "failed to create memo object", err)
 	}
 
 	// 2. Save the memo to the database using a transaction
@@ -123,18 +197,23 @@ func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
 		txRepo := s.memoRepo.WithTx(tx)
 
 		// Create the memo within the transaction
-		return txRepo.Create(ctx, memo)
+		err := txRepo.Create(ctx, memo)
+		if err != nil {
+			log.Error("failed to create memo in transaction",
+				"error", err,
+				"user_id", userID,
+				"memo_id", memo.ID)
+			return NewMemoServiceError("create_memo", "failed to save memo to database", err)
+		}
+		return nil
 	})
 
 	if err != nil {
-		s.logger.Error("failed to save memo to database",
-			"error", err,
-			"user_id", userID,
-			"memo_id", memo.ID)
-		return nil, fmt.Errorf("failed to create memo: %w", err)
+		// Error is already wrapped in the transaction
+		return nil, err
 	}
 
-	s.logger.Info("memo created successfully with pending status",
+	log.Info("memo created successfully with pending status",
 		"memo_id", memo.ID,
 		"user_id", userID)
 
@@ -148,25 +227,25 @@ func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
 	// 4. Create and emit a TaskRequestEvent
 	event, err := events.NewTaskRequestEvent(task.TaskTypeMemoGeneration, payload)
 	if err != nil {
-		s.logger.Error("failed to create memo generation event",
+		log.Error("failed to create memo generation event",
 			"error", err,
 			"memo_id", memo.ID,
 			"user_id", userID)
-		return nil, fmt.Errorf("failed to create event: %w", err)
+		return nil, NewMemoServiceError("create_memo", "failed to create event", err)
 	}
 
 	// 5. Emit the event
 	err = s.eventEmitter.EmitEvent(ctx, event)
 	if err != nil {
-		s.logger.Error("failed to emit memo generation event",
+		log.Error("failed to emit memo generation event",
 			"error", err,
 			"memo_id", memo.ID,
 			"user_id", userID,
 			"event_id", event.ID)
-		return nil, fmt.Errorf("failed to emit event: %w", err)
+		return nil, NewMemoServiceError("create_memo", "failed to emit event", err)
 	}
 
-	s.logger.Info("memo generation event emitted successfully",
+	log.Info("memo generation event emitted successfully",
 		"memo_id", memo.ID,
 		"user_id", userID,
 		"event_id", event.ID)
@@ -176,15 +255,26 @@ func (s *memoServiceImpl) CreateMemoAndEnqueueTask(
 
 // GetMemo retrieves a memo by its ID
 func (s *memoServiceImpl) GetMemo(ctx context.Context, memoID uuid.UUID) (*domain.Memo, error) {
-	memo, err := s.memoRepo.GetByID(ctx, memoID)
-	if err != nil {
-		s.logger.Error("failed to retrieve memo",
-			"error", err,
-			"memo_id", memoID)
-		return nil, fmt.Errorf("failed to retrieve memo: %w", err)
+	// Make sure we have a valid logger
+	log := s.logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
 	}
 
-	s.logger.Debug("retrieved memo successfully",
+	memo, err := s.memoRepo.GetByID(ctx, memoID)
+	if err != nil {
+		log.Error("failed to retrieve memo",
+			"error", err,
+			"memo_id", memoID)
+
+		if errors.Is(err, store.ErrMemoNotFound) {
+			return nil, ErrMemoNotFound
+		}
+		return nil, NewMemoServiceError("get_memo", "failed to retrieve memo", err)
+	}
+
+	log.Debug("retrieved memo successfully",
 		"memo_id", memoID,
 		"user_id", memo.UserID,
 		"status", memo.Status)
@@ -200,6 +290,13 @@ func (s *memoServiceImpl) UpdateMemoStatus(
 	memoID uuid.UUID,
 	status domain.MemoStatus,
 ) error {
+	// Make sure we have a valid logger
+	log := s.logger
+	if log == nil {
+		// Use a default logger if needed
+		log = slog.Default()
+	}
+
 	// Use a transaction to ensure atomicity
 	return store.RunInTransaction(
 		ctx,
@@ -211,35 +308,47 @@ func (s *memoServiceImpl) UpdateMemoStatus(
 			// Retrieve the memo first
 			memo, err := txRepo.GetByID(ctx, memoID)
 			if err != nil {
-				s.logger.Error("failed to retrieve memo for status update",
+				log.Error("failed to retrieve memo for status update",
 					"error", err,
 					"memo_id", memoID,
 					"target_status", status)
-				return fmt.Errorf("failed to retrieve memo for status update: %w", err)
+
+				if errors.Is(err, store.ErrMemoNotFound) {
+					return ErrMemoNotFound
+				}
+				return NewMemoServiceError("update_memo_status", "failed to retrieve memo", err)
 			}
 
 			// Update the memo's status
 			err = memo.UpdateStatus(status)
 			if err != nil {
-				s.logger.Error("failed to update memo status",
+				log.Error("failed to update memo status",
 					"error", err,
 					"memo_id", memoID,
 					"current_status", memo.Status,
 					"target_status", status)
-				return fmt.Errorf("failed to update memo status to %s: %w", status, err)
+				return NewMemoServiceError(
+					"update_memo_status",
+					fmt.Sprintf("failed to update memo status to %s", status),
+					err,
+				)
 			}
 
 			// Save the updated memo using the transactional repo
 			err = txRepo.Update(ctx, memo)
 			if err != nil {
-				s.logger.Error("failed to save updated memo status",
+				log.Error("failed to save updated memo status",
 					"error", err,
 					"memo_id", memoID,
 					"status", status)
-				return fmt.Errorf("failed to save memo status %s: %w", status, err)
+				return NewMemoServiceError(
+					"update_memo_status",
+					fmt.Sprintf("failed to save memo with status %s", status),
+					err,
+				)
 			}
 
-			s.logger.Info("memo status updated successfully in transaction",
+			log.Info("memo status updated successfully in transaction",
 				"memo_id", memoID,
 				"status", status)
 			return nil

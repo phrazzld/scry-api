@@ -7,6 +7,7 @@
 bin/
 # Ignore the server binary, not the directory
 /server
+cmd/server/server
 
 # Test binary, built with `go test -c`
 *.test
@@ -43,6 +44,7 @@ Thumbs.db
 # Log files
 *.log
 logs/
+.ward-warnings.log
 
 # Build outputs
 build/
@@ -50,7 +52,7 @@ dist/
 
 # Architecture planning outputs
 architect_output/
-thinktank_output/
+thinktank_*/
 
 # Planning and task tracking files
 CONSULT-REQUEST.md
@@ -59,3 +61,25 @@ CONSULTANT-PLAN.md
 **/glance.md
 docs/prompts
 CODE_REVIEW.md
+/backup/
+*-task.md
+*-completion.md
+*-log-analysis.md
+TODO.md
+REMEDIATION_PLAN.md
+ADDRESS-PROMPT.md
+
+# Config files for local testing
+config-debug.yaml
+
+# Backup files
+*.backup
+
+# Patch files (unless specifically tracked)
+*.patch
+
+# Temporary documentation/tracking files
+test-*.md
+T[0-9][0-9][0-9]-*.md
+
+**/.claude/settings.local.json

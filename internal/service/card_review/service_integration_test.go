@@ -206,6 +206,121 @@ func TestSubmitAnswer_IntegrationFlow(t *testing.T) {
 			_, err := service.SubmitAnswer(context.Background(), user.ID, card.ID, answer)
 			assert.ErrorIs(t, err, card_review.ErrInvalidAnswer)
 		})
+
+		t.Run("review_existing_card_with_stats", func(t *testing.T) {
+			// Create a new card for testing existing stats flow
+			existingMemo, err := domain.NewMemo(user.ID, "Existing card memo")
+			require.NoError(t, err)
+			require.NoError(t, memoStore.Create(context.Background(), existingMemo))
+
+			existingCard, err := domain.NewCard(
+				user.ID,
+				existingMemo.ID,
+				[]byte(`{"front": "Existing?", "back": "Yes"}`),
+			)
+			require.NoError(t, err)
+			require.NoError(t, cardStore.CreateMultiple(context.Background(), []*domain.Card{existingCard}))
+
+			// Create initial stats
+			initialStats, err := domain.NewUserCardStats(user.ID, existingCard.ID)
+			require.NoError(t, err)
+			initialStats.ReviewCount = 5
+			initialStats.Interval = 3
+			initialStats.EaseFactor = 2.5
+			initialStats.LastReviewedAt = time.Now().Add(-24 * time.Hour)
+			initialStats.NextReviewAt = time.Now().Add(-1 * time.Hour) // Past due
+			require.NoError(t, statsStore.Create(context.Background(), initialStats))
+
+			// Review the card - this should trigger the "update existing stats" path
+			answer := card_review.ReviewAnswer{Outcome: domain.ReviewOutcomeHard}
+			updatedStats, err := service.SubmitAnswer(context.Background(), user.ID, existingCard.ID, answer)
+			assert.NoError(t, err)
+			assert.NotNil(t, updatedStats)
+
+			// Verify stats were updated, not created
+			assert.Equal(t, 6, updatedStats.ReviewCount) // Should be incremented
+			assert.True(t, updatedStats.LastReviewedAt.After(initialStats.LastReviewedAt))
+		})
+
+		t.Run("cancel_context_during_review", func(t *testing.T) {
+			// Test context cancellation during review processing
+			cancelCard, err := domain.NewCard(user.ID, memo.ID, []byte(`{"front": "Cancel?", "back": "Cancelled"}`))
+			require.NoError(t, err)
+			require.NoError(t, cardStore.CreateMultiple(context.Background(), []*domain.Card{cancelCard}))
+
+			// Create a context that's already cancelled
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel() // Cancel immediately
+
+			answer := card_review.ReviewAnswer{Outcome: domain.ReviewOutcomeGood}
+			_, err = service.SubmitAnswer(ctx, user.ID, cancelCard.ID, answer)
+			// Should fail due to cancelled context
+			assert.Error(t, err)
+		})
+
+		t.Run("concurrent_reviews_same_card", func(t *testing.T) {
+			// Test concurrent access to the same card (tests row-level locking)
+			concurrentCard, err := domain.NewCard(
+				user.ID,
+				memo.ID,
+				[]byte(`{"front": "Concurrent?", "back": "Locked"}`),
+			)
+			require.NoError(t, err)
+			require.NoError(t, cardStore.CreateMultiple(context.Background(), []*domain.Card{concurrentCard}))
+
+			// This test exercises the GetForUpdate row-level lock functionality
+			// In a real concurrent scenario, one would wait for the other
+			answer1 := card_review.ReviewAnswer{Outcome: domain.ReviewOutcomeGood}
+			answer2 := card_review.ReviewAnswer{Outcome: domain.ReviewOutcomeEasy}
+
+			// First review should succeed
+			stats1, err := service.SubmitAnswer(context.Background(), user.ID, concurrentCard.ID, answer1)
+			assert.NoError(t, err)
+			assert.NotNil(t, stats1)
+			assert.Equal(t, 1, stats1.ReviewCount)
+
+			// Second review should also succeed (sequential in this test)
+			stats2, err := service.SubmitAnswer(context.Background(), user.ID, concurrentCard.ID, answer2)
+			assert.NoError(t, err)
+			assert.NotNil(t, stats2)
+			assert.Equal(t, 2, stats2.ReviewCount) // Should be incremented
+		})
+
+		t.Run("review_with_database_constraint_scenarios", func(t *testing.T) {
+			// Test various database-related edge cases
+			constraintCard, err := domain.NewCard(
+				user.ID,
+				memo.ID,
+				[]byte(`{"front": "Constraints?", "back": "Tested"}`),
+			)
+			require.NoError(t, err)
+			require.NoError(t, cardStore.CreateMultiple(context.Background(), []*domain.Card{constraintCard}))
+
+			// Review the card multiple times to test update path
+			outcomes := []domain.ReviewOutcome{
+				domain.ReviewOutcomeAgain,
+				domain.ReviewOutcomeHard,
+				domain.ReviewOutcomeGood,
+				domain.ReviewOutcomeEasy,
+				domain.ReviewOutcomeAgain, // Test going back to "again"
+			}
+
+			for i, outcome := range outcomes {
+				answer := card_review.ReviewAnswer{Outcome: outcome}
+				stats, err := service.SubmitAnswer(context.Background(), user.ID, constraintCard.ID, answer)
+				assert.NoError(t, err, "Failed for outcome %v (iteration %d)", outcome, i+1)
+				assert.NotNil(t, stats)
+				assert.Equal(t, i+1, stats.ReviewCount, "Incorrect review count for iteration %d", i+1)
+
+				// Verify that each review affects the stats correctly
+				switch outcome {
+				case domain.ReviewOutcomeAgain:
+					assert.Equal(t, 1, stats.Interval, "Again should reset interval to 1")
+				case domain.ReviewOutcomeEasy:
+					assert.True(t, stats.EaseFactor >= 2.5, "Easy should maintain or increase ease factor")
+				}
+			}
+		})
 	})
 }
 

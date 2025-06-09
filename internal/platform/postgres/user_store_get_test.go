@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/phrazzld/scry-api/internal/platform/postgres"
 	"github.com/phrazzld/scry-api/internal/store"
-	"github.com/phrazzld/scry-api/internal/testutils"
+	"github.com/phrazzld/scry-api/internal/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -24,7 +24,8 @@ import (
 func TestPostgresUserStore_GetByID(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
+	db := testdb.GetTestDBWithT(t)
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 
@@ -79,7 +80,8 @@ func TestPostgresUserStore_GetByID(t *testing.T) {
 func TestPostgresUserStore_GetByEmail(t *testing.T) {
 	t.Parallel() // Enable parallel testing
 
-	testutils.WithTx(t, testDB, func(t *testing.T, tx *sql.Tx) {
+	db := testdb.GetTestDBWithT(t)
+	testdb.WithTx(t, db, func(t *testing.T, tx *sql.Tx) {
 		// Create a new user store
 		userStore := postgres.NewPostgresUserStore(tx, bcrypt.DefaultCost)
 

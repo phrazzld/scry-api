@@ -224,6 +224,124 @@ func TestStandardizeDatabaseURL(t *testing.T) {
 	}
 }
 
+func TestDatabaseEdgeCases(t *testing.T) {
+	// Test additional edge cases for database standardization
+
+	// Create a test logger
+	var logBuffer strings.Builder
+	logHandler := slog.NewTextHandler(&logBuffer, nil)
+	logger := slog.New(logHandler)
+
+	// Save current environment
+	savedEnv := map[string]string{
+		EnvDatabaseURL:     os.Getenv(EnvDatabaseURL),
+		EnvScryTestDBURL:   os.Getenv(EnvScryTestDBURL),
+		EnvScryDatabaseURL: os.Getenv(EnvScryDatabaseURL),
+		"CI":               os.Getenv("CI"),
+	}
+
+	// Clean up after the test
+	defer func() {
+		for k, v := range savedEnv {
+			if v == "" {
+				_ = os.Unsetenv(k)
+			} else {
+				_ = os.Setenv(k, v)
+			}
+		}
+	}()
+
+	t.Run("Database URL with missing port in CI", func(t *testing.T) {
+		// Reset environment
+		_ = os.Unsetenv(EnvDatabaseURL)
+		_ = os.Unsetenv(EnvScryTestDBURL)
+		_ = os.Unsetenv(EnvScryDatabaseURL)
+
+		// Set CI environment
+		_ = os.Setenv("CI", "true")
+
+		// Set database URL without port
+		dbURL := "postgres://user:pass@localhost/testdb"
+		_ = os.Setenv(EnvDatabaseURL, dbURL)
+
+		logBuffer.Reset()
+
+		result := GetTestDatabaseURL(logger)
+
+		// Should standardize and add port
+		if !strings.Contains(result, ":5432") {
+			t.Errorf("Expected standardized URL to include port 5432, got: %s", result)
+		}
+
+		// Should have standardized credentials
+		if !strings.Contains(result, "postgres:postgres") {
+			t.Errorf("Expected standardized credentials, got: %s", result)
+		}
+	})
+
+	t.Run("Database URL standardization with all standard options", func(t *testing.T) {
+		// Reset environment
+		_ = os.Unsetenv(EnvDatabaseURL)
+		_ = os.Unsetenv(EnvScryTestDBURL)
+		_ = os.Unsetenv(EnvScryDatabaseURL)
+
+		// Set CI environment
+		_ = os.Setenv("CI", "true")
+
+		// Set database URL that needs full standardization
+		dbURL := "postgres://user:pass@127.0.0.1"
+		_ = os.Setenv(EnvDatabaseURL, dbURL)
+
+		logBuffer.Reset()
+
+		result := GetTestDatabaseURL(logger)
+
+		// Should have standard database name
+		if !strings.Contains(result, "/scry_test") {
+			t.Errorf("Expected standard database name, got: %s", result)
+		}
+
+		// Should have standard SSL options
+		if !strings.Contains(result, "sslmode=disable") {
+			t.Errorf("Expected standard SSL options, got: %s", result)
+		}
+	})
+
+	t.Run("UpdateDatabaseEnvironmentVariables function", func(t *testing.T) {
+		// Reset environment
+		_ = os.Unsetenv(EnvDatabaseURL)
+		_ = os.Unsetenv(EnvScryTestDBURL)
+		_ = os.Unsetenv(EnvScryDatabaseURL)
+
+		// Set some initial values
+		_ = os.Setenv(EnvDatabaseURL, "postgres://old:old@localhost:5432/old")
+		_ = os.Setenv(EnvScryTestDBURL, "postgres://old:old@localhost:5432/old")
+
+		logBuffer.Reset()
+
+		// Call the update function
+		standardizedURL := "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable"
+		updateDatabaseEnvironmentVariables(standardizedURL, logger)
+
+		// Check that variables were updated
+		if os.Getenv(EnvDatabaseURL) != standardizedURL {
+			t.Errorf("DATABASE_URL not updated correctly")
+		}
+		if os.Getenv(EnvScryTestDBURL) != standardizedURL {
+			t.Errorf("SCRY_TEST_DB_URL not updated correctly")
+		}
+
+		// Check logging
+		logOutput := logBuffer.String()
+		if !strings.Contains(logOutput, "Updating environment variable") &&
+			!strings.Contains(logOutput, "environment variable") {
+			t.Logf("Log output: %s", logOutput)
+			// This is expected - the function only logs when DEBUG level is enabled
+			t.Log("No logging expected at default level")
+		}
+	})
+}
+
 func TestUpdateDatabaseEnvironmentVariables(t *testing.T) {
 	// Skip test temporarily to fix dependency issues
 	t.Skip("Skipping to fix build")

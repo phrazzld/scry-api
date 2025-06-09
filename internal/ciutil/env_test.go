@@ -262,6 +262,80 @@ func TestGetEnvWithFallbacks(t *testing.T) {
 	}
 }
 
+func TestIsGitLabCI(t *testing.T) {
+	// Save current environment
+	savedGitLabCI := os.Getenv(EnvGitLabCI)
+	savedGitLabProjectDir := os.Getenv(EnvGitLabProjectDir)
+
+	// Clean up after the test
+	defer func() {
+		if savedGitLabCI == "" {
+			_ = os.Unsetenv(EnvGitLabCI)
+		} else {
+			_ = os.Setenv(EnvGitLabCI, savedGitLabCI)
+		}
+		if savedGitLabProjectDir == "" {
+			_ = os.Unsetenv(EnvGitLabProjectDir)
+		} else {
+			_ = os.Setenv(EnvGitLabProjectDir, savedGitLabProjectDir)
+		}
+	}()
+
+	tests := []struct {
+		name             string
+		gitlabCI         string
+		gitlabProjectDir string
+		expected         bool
+	}{
+		{
+			name:             "No GitLab CI env vars",
+			gitlabCI:         "",
+			gitlabProjectDir: "",
+			expected:         false,
+		},
+		{
+			name:             "GitLab CI flag only",
+			gitlabCI:         "true",
+			gitlabProjectDir: "",
+			expected:         false,
+		},
+		{
+			name:             "GitLab project dir only",
+			gitlabCI:         "",
+			gitlabProjectDir: "/project",
+			expected:         false,
+		},
+		{
+			name:             "Both GitLab CI and project dir",
+			gitlabCI:         "true",
+			gitlabProjectDir: "/project",
+			expected:         true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up environment for this test
+			if tc.gitlabCI == "" {
+				_ = os.Unsetenv(EnvGitLabCI)
+			} else {
+				_ = os.Setenv(EnvGitLabCI, tc.gitlabCI)
+			}
+
+			if tc.gitlabProjectDir == "" {
+				_ = os.Unsetenv(EnvGitLabProjectDir)
+			} else {
+				_ = os.Setenv(EnvGitLabProjectDir, tc.gitlabProjectDir)
+			}
+
+			result := IsGitLabCI()
+			if result != tc.expected {
+				t.Errorf("IsGitLabCI() = %v, want %v", result, tc.expected)
+			}
+		})
+	}
+}
+
 func TestMaskSensitiveValue(t *testing.T) {
 	tests := []struct {
 		name     string

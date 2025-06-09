@@ -143,27 +143,11 @@ func TestMainFunctionLogic(t *testing.T) {
 // TestMainMigrationFlags tests the migration-related logic from main
 func TestMainMigrationFlags(t *testing.T) {
 	t.Run("migration flag handling logic", func(t *testing.T) {
-		// Set up environment for config loading
-		originalEnv := make(map[string]string)
-		envVars := map[string]string{
-			"SCRY_DATABASE_URL":    "postgres://test:test@localhost:5432/test",
-			"SCRY_AUTH_JWT_SECRET": "test-jwt-secret-key-32-chars-123",
-		}
+		// Set up complete test environment with all required variables
+		SetupTestEnvironment(t)
 
-		for key, value := range envVars {
-			originalEnv[key] = os.Getenv(key)
-			os.Setenv(key, value)
-		}
-
-		defer func() {
-			for key := range envVars {
-				if originalVal, existed := originalEnv[key]; existed {
-					os.Setenv(key, originalVal)
-				} else {
-					os.Unsetenv(key)
-				}
-			}
-		}()
+		// Override the database URL for this test
+		t.Setenv("SCRY_DATABASE_URL", "postgres://test:test@localhost:5432/test")
 
 		// Test the sequence when migration flags are provided
 		// In main(), if migration flags are set, it calls handleMigrations and exits
@@ -196,28 +180,11 @@ func TestMainApplicationFlowExtensive(t *testing.T) {
 	t.Run("application initialization without server start", func(t *testing.T) {
 		// This tests the flow of main() up to the point where it would start the server
 
-		// Set up minimal environment
-		originalEnv := make(map[string]string)
-		envVars := map[string]string{
-			"SCRY_DATABASE_URL":    "mock://test",
-			"SCRY_AUTH_JWT_SECRET": "test-jwt-secret-key-32-chars-123",
-			"SCRY_SERVER_PORT":     "8080",
-		}
+		// Set up complete test environment with all required variables
+		SetupTestEnvironment(t)
 
-		for key, value := range envVars {
-			originalEnv[key] = os.Getenv(key)
-			os.Setenv(key, value)
-		}
-
-		defer func() {
-			for key := range envVars {
-				if originalVal, existed := originalEnv[key]; existed {
-					os.Setenv(key, originalVal)
-				} else {
-					os.Unsetenv(key)
-				}
-			}
-		}()
+		// Override the database URL to use a mock URL for this test
+		t.Setenv("SCRY_DATABASE_URL", "mock://test")
 
 		// Follow main() logic up to the point of starting the server
 

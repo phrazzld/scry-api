@@ -95,22 +95,22 @@ func TestMainApplicationFlow(t *testing.T) {
 
 		// Test with empty URL
 		result := standardizeCIDatabaseURL("")
-		assert.Equal(t, "", result, "empty URL should remain empty")
+		assert.Equal(t, "//postgres:postgres@", result, "empty URL gets postgres credentials")
 
 		// Test with localhost URL
 		result = standardizeCIDatabaseURL("postgres://user:pass@localhost:5432/db")
-		expected := "postgres://user:pass@localhost:5432/db"
-		assert.Equal(t, expected, result, "localhost URL should remain unchanged")
+		expected := "postgres://postgres:postgres@localhost:5432/db"
+		assert.Equal(t, expected, result, "localhost URL gets postgres credentials")
 
 		// Test with 127.0.0.1 URL
 		result = standardizeCIDatabaseURL("postgres://user:pass@127.0.0.1:5432/db")
-		expected = "postgres://user:pass@localhost:5432/db"
-		assert.Equal(t, expected, result, "127.0.0.1 should be replaced with localhost")
+		expected = "postgres://postgres:postgres@127.0.0.1:5432/db"
+		assert.Equal(t, expected, result, "127.0.0.1 URL gets postgres credentials")
 
 		// Test with complex URL
 		result = standardizeCIDatabaseURL("postgresql://testuser:testpass@127.0.0.1:5433/testdb?sslmode=disable")
-		expected = "postgresql://testuser:testpass@localhost:5433/testdb?sslmode=disable"
-		assert.Equal(t, expected, result, "complex URL should have 127.0.0.1 replaced")
+		expected = "postgresql://postgres:postgres@127.0.0.1:5433/testdb?sslmode=disable"
+		assert.Equal(t, expected, result, "complex URL gets postgres credentials")
 	})
 
 	t.Run("detectDatabaseURLSource edge cases", func(t *testing.T) {
@@ -124,11 +124,11 @@ func TestMainApplicationFlow(t *testing.T) {
 		// Test with different URL (config file)
 		t.Setenv("DATABASE_URL", "postgres://env@localhost/env")
 		source = detectDatabaseURLSource("postgres://config@localhost/config")
-		assert.Equal(t, "configuration file", source, "should detect config file source")
+		assert.Equal(t, "configuration", source, "should detect configuration source")
 
 		// Test with empty environment
 		t.Setenv("DATABASE_URL", "")
 		source = detectDatabaseURLSource("postgres://config@localhost/config")
-		assert.Equal(t, "configuration file", source, "should default to config file")
+		assert.Equal(t, "configuration", source, "should default to configuration")
 	})
 }

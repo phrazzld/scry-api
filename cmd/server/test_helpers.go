@@ -235,3 +235,22 @@ func WaitForCondition(t *testing.T, condition func() bool, timeout time.Duration
 
 	t.Fatalf("Condition not met within timeout: %s", message)
 }
+
+// SetupTestEnvironment sets up the required environment variables for configuration loading
+func SetupTestEnvironment(t *testing.T) {
+	t.Helper()
+
+	// Set up all required environment variables for configuration validation
+	t.Setenv("SCRY_SERVER_PORT", "8080")
+	t.Setenv("SCRY_SERVER_LOG_LEVEL", "info")
+	t.Setenv("SCRY_DATABASE_URL", "postgres://testuser:testpass@localhost:5432/testdb")
+	t.Setenv("SCRY_AUTH_JWT_SECRET", "test-jwt-secret-key-32-chars-123")
+	t.Setenv("SCRY_AUTH_TOKEN_LIFETIME_MINUTES", "60")
+	t.Setenv("SCRY_AUTH_REFRESH_TOKEN_LIFETIME_MINUTES", "1440")
+	t.Setenv("SCRY_LLM_GEMINI_API_KEY", "test-gemini-api-key")
+	t.Setenv("SCRY_LLM_MODEL_NAME", "gemini-1.5-flash")
+	t.Setenv("SCRY_LLM_PROMPT_TEMPLATE_PATH", "../../prompts/flashcard_template.txt")
+	t.Setenv("SCRY_TASK_WORKER_COUNT", "1")
+	t.Setenv("SCRY_TASK_QUEUE_SIZE", "10")
+	t.Setenv("SCRY_TASK_STUCK_TASK_AGE_MINUTES", "5")
+}

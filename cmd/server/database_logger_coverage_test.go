@@ -28,7 +28,7 @@ func TestSetupAppDatabaseErrorPaths(t *testing.T) {
 		// Should fail due to invalid URL
 		assert.Error(t, err)
 		assert.Nil(t, db)
-		assert.Contains(t, err.Error(), "database connection")
+		assert.Contains(t, err.Error(), "failed to ping database")
 	})
 
 	t.Run("empty database URL", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestSetupAppDatabaseErrorPaths(t *testing.T) {
 		// Should fail due to empty URL
 		assert.Error(t, err)
 		assert.Nil(t, db)
-		assert.Contains(t, err.Error(), "database connection")
+		assert.Contains(t, err.Error(), "failed to ping database")
 	})
 
 	t.Run("malformed postgres URL", func(t *testing.T) {

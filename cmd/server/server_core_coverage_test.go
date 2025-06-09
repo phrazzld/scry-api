@@ -46,8 +46,10 @@ func TestLoadAppConfigExtensive(t *testing.T) {
 		{
 			name: "minimal environment variables",
 			envVars: map[string]string{
-				"SCRY_DATABASE_URL":    "postgres://test:test@localhost:5432/test",
-				"SCRY_AUTH_JWT_SECRET": "test-jwt-secret-key-32-chars-123",
+				"SCRY_DATABASE_URL":             "postgres://test:test@localhost:5432/test",
+				"SCRY_AUTH_JWT_SECRET":          "test-jwt-secret-key-32-chars-123",
+				"SCRY_LLM_GEMINI_API_KEY":       "test-minimal-gemini-key",
+				"SCRY_LLM_PROMPT_TEMPLATE_PATH": "../../prompts/flashcard_template.txt",
 			},
 			expectError: false,
 		},

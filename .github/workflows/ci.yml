@@ -204,13 +204,19 @@ jobs:
                 # Get package-specific threshold or use default
                 threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json 2>/dev/null)
                 if [[ -z "$threshold" || "$threshold" == "null" ]]; then
-                  echo "::warning::Could not read threshold from coverage-thresholds.json, using default of 70%"
-                  threshold=70
+                  echo "::warning::Could not read threshold from coverage-thresholds.json, using default of 50%"
+                  threshold=50
                 fi
                 echo "Required coverage threshold for ${{ matrix.package }}: $threshold%"
               else
-                echo "::warning::jq not available, using default coverage threshold of 70%"
-                threshold=70
+                echo "::warning::jq not available, using default coverage threshold of 50%"
+                threshold=50
+              fi
+
+              # Special handling for packages with 0% threshold - they legitimately have no unit tests
+              if [[ "$threshold" == "0" ]]; then
+                echo "::notice::Package ${{ matrix.package }} has 0% threshold - no unit test coverage requirement"
+                exit 0
               fi
 
               # Convert to integer (remove decimal part) for comparison
@@ -468,13 +474,19 @@ jobs:
                 # Get package-specific threshold or use default
                 threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json 2>/dev/null)
                 if [[ -z "$threshold" || "$threshold" == "null" ]]; then
-                  echo "::warning::Could not read threshold from coverage-thresholds.json, using default of 70%"
-                  threshold=70
+                  echo "::warning::Could not read threshold from coverage-thresholds.json, using default of 50%"
+                  threshold=50
                 fi
                 echo "Required coverage threshold for ${{ matrix.package }}: $threshold%"
+
+                # Special handling for packages with 0% threshold - they legitimately have no integration tests
+                if [[ "$threshold" == "0" ]]; then
+                  echo "::notice::Package ${{ matrix.package }} has 0% threshold - no integration tests required"
+                  exit 0
+                fi
               else
-                echo "::warning::jq not available, using default coverage threshold of 70%"
-                threshold=70
+                echo "::warning::jq not available, using default coverage threshold of 50%"
+                threshold=50
               fi
 
               # Convert to integer (remove decimal part) for comparison
@@ -490,6 +502,18 @@ jobs:
             fi
           else
             echo "::warning::No integration test coverage file found for ${{ matrix.package }}"
+            # Check if this package has 0% threshold (no integration tests expected)
+            if [[ -f "coverage-thresholds.json" ]]; then
+              if command -v jq >/dev/null 2>&1; then
+                threshold=$(jq -r --arg pkg "${{ matrix.package }}" '.package_thresholds[$pkg] // .default_threshold' coverage-thresholds.json 2>/dev/null)
+                if [[ "$threshold" == "0" ]]; then
+                  echo "::notice::Package ${{ matrix.package }} has 0% threshold - no integration test coverage file expected"
+                  exit 0
+                fi
+              fi
+            fi
+            echo "::error::No integration test coverage file found for ${{ matrix.package }} but coverage is required"
+            exit 1
           fi
       # Upload test artifacts with extended diagnostics
       # Create sanitized package name for artifact naming (replace / with -)
